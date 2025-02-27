@@ -1,38 +1,42 @@
 import { StyleSheet, Text, View, TouchableOpacity, TextInput } from 'react-native';
 
 // Theme Definition
-const theme = {
+export const theme = {
   colors: {
     primary: {
-      base: '#2E7D32', // Main actions (e.g., Diagnose, Accept)
-      light: '#4CAF50', // Hover/active
-      dark: '#1B5E20',  // Pressed/shadows
-      disabled: '#A5D6A7', // Inactive
+      base: '#2F5E1E',    // Natural forest green
+      light: '#4B7B2C',   // Fresh leaf green
+      dark: '#1B3912',    // Deep forest green
+      disabled: '#A5C49B', // Muted green
     },
     secondary: {
-      base: '#5D4037', // Secondary actions (e.g., Cancel)
-      light: '#8D6E63', // Hover/active
-      dark: '#3E2723',  // Pressed
-      disabled: '#BCAAA4', // Inactive
+      base: '#8B5E3C',    // Earth brown
+      light: '#A67C52',   // Light soil
+      dark: '#5C3C22',    // Deep soil
+      disabled: '#CCAD91', // Muted brown
     },
     accent: {
-      base: '#FBC02D', // Highlights (e.g., Subscribe, Alerts)
-      light: '#FFD54F', // Hover/active
-      dark: '#F9A825',  // Pressed
-      disabled: '#FFF59D', // Inactive
+      base: '#D4AF37',    // Wheat gold
+      light: '#E6C65C',   // Light wheat
+      dark: '#B39125',    // Rich harvest
+      disabled: '#F2E3AA', // Pale wheat
     },
     neutral: {
-      background: '#F5F5F5', // App background
-      surface: '#FFFFFF',    // Cards, modals
-      textPrimary: '#212121', // Main text
-      textSecondary: '#757575', // Subtext
+      background: '#F8F6F1', // Light parchment
+      surface: '#FFFFFF',    // Clean white
+      textPrimary: '#2C1810', // Deep bark
+      textSecondary: '#6B5750', // Aged wood
+      border: '#E6DFD5',      // Natural fiber
       gray: {
-        base: '#B0BEC5', // Borders, icons
-        light: '#ECEFF1', // Light backgrounds
-        dark: '#78909C',  // Darker emphasis
+        base: '#B0A69A',     // Stone
+        light: '#ECE9E4',    // Light sand
+        dark: '#786F67',     // Dark stone
       },
     },
-    error: '#D32F2F', // Error states
+    error: '#C23616',     // Terracotta red
+    success: '#3C8C2C',   // Natural green
+    warning: '#CD950C',   // Amber honey
+    info: '#4B6584',      // Rain cloud
   },
   fonts: {
     regular: 'Roboto-Regular',
@@ -61,7 +65,7 @@ const theme = {
 };
 
 // Styles for UI Elements
-const styles = StyleSheet.create({
+export const styles = StyleSheet.create({
   // Container
   container: {
     flex: 1,
