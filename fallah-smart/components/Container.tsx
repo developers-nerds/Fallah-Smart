@@ -1,7 +1,17 @@
 import { StyleSheet, SafeAreaView } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 
 export const Container = ({ children }: { children: React.ReactNode }) => {
-  return <SafeAreaView style={styles.container}>{children}</SafeAreaView>;
+  const theme = useTheme();
+  
+  return (
+    <SafeAreaView style={[
+      styles.container,
+      { backgroundColor: theme.colors.neutral.background }
+    ]}>
+      {children}
+    </SafeAreaView>
+  );
 };
 
 const styles = StyleSheet.create({
