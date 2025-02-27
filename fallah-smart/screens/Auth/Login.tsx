@@ -30,7 +30,7 @@ const Login = () => {
       setIsLoading(true);
       setError('');
 
-      const response = await axios.post('http:192.168.104.12:5000/api/users/login', {
+      const response = await axios.post('http://192.168.156.83:5000/api/users/login', {
         email,
         password,
       });

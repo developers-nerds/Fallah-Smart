@@ -16,9 +16,15 @@ import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { theme } from '../../theme/theme';
 import { storage } from '../../utils/storage';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+type RootStackParamList = {
+  Login: undefined; // Define the Login route
+  // Add other routes here if needed
+};
 
 const Register = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [formData, setFormData] = useState({
     username: '',
     firstName: '',
@@ -27,12 +33,15 @@ const Register = () => {
     password: '',
     confirmPassword: '',
     phoneNumber: '',
+    gender: '',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleRegister = async () => {
+    const API_URL = process.env.EXPO_PUBLIC_API_URL;
+
     try {
       if (formData.password !== formData.confirmPassword) {
         Alert.alert('Error', 'Passwords do not match');
@@ -42,7 +51,7 @@ const Register = () => {
       setIsLoading(true);
       setError('');
 
-      const response = await axios.post('http:192.168.104.12:5000/api/users/register', {
+      const response = await axios.post('http://192.168.156.83:5000/api/users/register', {
         ...formData,
         role: 'user',
       });
@@ -66,8 +75,9 @@ const Register = () => {
       ]);
 
     } catch (err) {
-      setError(err.response?.data?.message || 'An error occurred during registration');
-      Alert.alert('Registration Error', error);
+      const errorMessage = (err as any).response?.data?.message || 'An error occurred during registration';
+      setError(errorMessage);
+      Alert.alert('Registration Error', errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -172,6 +182,7 @@ const Register = () => {
               keyboardType="phone-pad"
             />
           </View>
+          
 
           <View style={[styles.inputContainer, { backgroundColor: theme.colors.neutral.surface }]}>
             <Ionicons 
