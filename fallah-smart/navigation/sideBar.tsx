@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable, Text, TouchableOpacity, Alert } from 'react-native';
 import { DrawerContentScrollView, DrawerItem } from '@react-navigation/drawer';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
 import Animated, {
@@ -13,6 +13,8 @@ import Animated, {
   useSharedValue,
   Easing,
 } from 'react-native-reanimated';
+import { useNavigation, CommonActions } from '@react-navigation/native';
+import { storage } from '../utils/storage';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -83,14 +85,14 @@ const MenuItem: React.FC<MenuItemProps> = ({ icon, label, onPress, active }) => 
         <MaterialCommunityIcons
           name={icon}
           size={24}
-          color={active ? theme.colors.primary.base : theme.colors.neutral.textSecondary}
+          color={active ? styles.activeMenuItem.backgroundColor : styles.menuItem.backgroundColor}
         />
         <DrawerItem
           label={label}
           onPress={handlePress}
           labelStyle={[
             styles.menuItemLabel,
-            { color: active ? theme.colors.primary.base : theme.colors.neutral.textSecondary }
+            { color: active ? styles.activeMenuItem.backgroundColor : styles.menuItem.backgroundColor }
           ]}
           style={styles.drawerItem}
         />
@@ -102,6 +104,31 @@ const MenuItem: React.FC<MenuItemProps> = ({ icon, label, onPress, active }) => 
 const SideBar = ({ navigation, state }: SideBarProps) => {
   const theme = useTheme();
   const currentRoute = state.routeNames[state.index];
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Logout',
+          onPress: async () => {
+            await storage.clearAuth();
+            navigation.getParent()?.reset({
+              index: 0,
+              routes: [{ name: 'Login' }],
+            });
+          },
+          style: 'destructive'
+        },
+      ],
+      { cancelable: true }
+    );
+  };
 
   return (
     <DrawerContentScrollView style={styles.container}>
@@ -154,6 +181,22 @@ const SideBar = ({ navigation, state }: SideBarProps) => {
           navigation.closeDrawer();
         }}
       />
+
+      <View style={styles.logoutContainer}>
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={handleLogout}
+        >
+          <Ionicons
+            name="log-out-outline"
+            size={24}
+            color={theme.colors.error}
+          />
+          <Text style={[styles.logoutText, { color: theme.colors.error }]}>
+            Logout
+          </Text>
+        </TouchableOpacity>
+      </View>
     </DrawerContentScrollView>
   );
 };
@@ -188,6 +231,23 @@ const styles = StyleSheet.create({
   },
   drawerItem: {
     flex: 1,
+  },
+  logoutContainer: {
+    borderTopWidth: 1,
+    borderTopColor: '#E6DFD5',
+    marginTop: 'auto',
+    paddingVertical: 16,
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  logoutText: {
+    marginLeft: 8,
+    fontSize: 16,
+    fontFamily: 'Roboto-Medium',
   },
 });
 
