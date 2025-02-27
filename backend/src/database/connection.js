@@ -1,21 +1,24 @@
 const { Sequelize } = require("sequelize");
-const dotenv = require("dotenv");
-dotenv.config(); // Add this line to load environment variables
+require('dotenv').config();
+const config = require("../config/db");
 
-// Create Sequelize instance
-const sequelize = new Sequelize(process.env.DB_NAME, process.env.DB_USER, process.env.DB_PASS, {
-  host: process.env.DB_HOST,
-  dialect: "postgres",
-  port: process.env.DB_PORT || 5432,  // Use environment variable for port or default to 5432
-  // logging: false, // Optional: Disable query logging
-
-  pool: {
-    max: 5,
-    min: 0,
-    acquire: 30000,
-    idle: 10000,
-  },
-});
+// Create Sequelize instance using the config
+const sequelize = new Sequelize(
+  config.development.database,
+  config.development.username,
+  config.development.password,
+  {
+    host: config.development.host,
+    dialect: config.development.dialect,
+    port: config.development.port,
+    pool: {
+      max: 5,
+      min: 0,
+      acquire: 30000,
+      idle: 10000,
+    },
+  }
+);
 
 // Test the connection
 (async () => {
