@@ -1,13 +1,19 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import RootNavigator from './RootNavigator';
+import { ThemeProvider } from '../context/ThemeContext';
+import { StockProvider } from '../context/StockContext';
+import { StockNavigator } from './StockNavigator';
 
-const AppNavigator = () => {
+const Navigation = () => {
   return (
     <NavigationContainer>
-      <RootNavigator />
+      <ThemeProvider>
+        <StockProvider>
+          <StockNavigator />
+        </StockProvider>
+      </ThemeProvider>
     </NavigationContainer>
   );
 };
 
-export default AppNavigator;
+export default Navigation;
