@@ -362,11 +362,24 @@ BackupSync.belongsTo(Users, {
   as: "user",
 });
 
+// User and Stock associations
+Users.hasMany(Stock, {
+  foreignKey: "userId",
+  as: "stocks",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+
+Stock.belongsTo(Users, {
+  foreignKey: "userId",
+  as: "user",
+});
+
 // Sync all models with the database
 async function syncModels() {
   try {
-    // Use { alter: true } for production to safely update schema
-    await sequelize.sync({ force: process.env.NODE_ENV === "development" });
+    // Use { force: true } for production to safely update schema
+    await sequelize.sync({ alter: true });
     console.log("Database models synchronized successfully");
   } catch (error) {
     console.error("Error synchronizing database models:", error);

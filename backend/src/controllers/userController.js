@@ -6,8 +6,8 @@ const { Op } = require('sequelize');
 // JWT Configuration
 const JWT_SECRET = process.env.JWT_SECRET || '1234';
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || '12345';
-const JWT_EXPIRES_IN = '1h';
-const JWT_REFRESH_EXPIRES_IN = '7d';
+const JWT_EXPIRES_IN = '30d';
+const JWT_REFRESH_EXPIRES_IN = '30d';
 
 const userController = {
   // Register new user

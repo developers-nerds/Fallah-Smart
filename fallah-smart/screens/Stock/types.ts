@@ -25,18 +25,16 @@ export interface StockHistory {
 export interface StockItem {
   id: string;
   name: string;
-  quantity: number;
-  unit: StockUnit;
   category: StockCategory;
+  quantity: number;
+  unit: string;
   lowStockThreshold: number;
-  history: StockHistory[];
-  isNatural?: boolean;
   location?: string;
-  notes?: string;
-  expiryDate?: Date;        // Date d'expiration
-  supplier?: string;        // Fournisseur
-  price?: number;          // Prix unitaire
-  lastCheckDate?: Date;    // Dernière date de vérification
-  qualityStatus?: 'good' | 'medium' | 'poor';  // État du stock
-  batchNumber?: string;    // Numéro de lot
+  supplier?: string;
+  price?: number;
+  batchNumber?: string;
+  expiryDate?: string;
+  isNatural?: boolean;
+  qualityStatus?: 'good' | 'medium' | 'poor';
+  stockHistory?: StockHistory[];
 } 

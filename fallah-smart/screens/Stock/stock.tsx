@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, FlatList, StyleSheet, TextInput, TouchableOpacity, Text, ScrollView } from 'react-native';
+import { View, FlatList, StyleSheet, TextInput, TouchableOpacity, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { StockStackParamList } from '../../navigation/StockNavigator';
@@ -10,6 +10,7 @@ import { useStock } from '../../context/StockContext';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StockCategory, StockItem } from './types';
 import { createThemedStyles } from '../../utils/createThemedStyles';
+import type { FeatherNames, MaterialNames } from '../../types/icons';
 
 type StockScreenNavigationProp = StackNavigationProp<StockStackParamList, 'StockList'>;
 
@@ -27,7 +28,7 @@ const categories: { value: StockCategory; label: string; iconType: 'feather' | '
 const StockScreen = () => {
   const theme = useTheme();
   const navigation = useNavigation<StockScreenNavigationProp>();
-  const { stocks } = useStock();
+  const { stocks, loading, error, refreshStocks } = useStock();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<StockCategory>('all');
 
@@ -59,6 +60,27 @@ const StockScreen = () => {
   const handleAddAnimal = () => {
     navigation.navigate('Animals');
   };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centerContent, { backgroundColor: theme.colors.neutral.background }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary.base} />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={[styles.container, styles.centerContent, { backgroundColor: theme.colors.neutral.background }]}>
+        <Text style={[styles.errorText, { color: theme.colors.error }]}>{error}</Text>
+        <Button 
+          title="Réessayer" 
+          onPress={refreshStocks}
+          style={{ marginTop: 16 }}
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
@@ -396,6 +418,16 @@ const styles = createThemedStyles((theme) => ({
   viewAnimalsButton: {
     marginTop: 16,
     marginHorizontal: 16,
+  },
+  centerContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 16,
   },
 }));
 

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput, ActivityIndicator, Button } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { StockItem, StockHistory, StockCategory } from './types';
 import { useStock } from '../../context/StockContext';
@@ -9,6 +9,8 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { StockStackParamList } from '../../navigation/StockNavigator';
 import { createThemedStyles } from '../../utils/createThemedStyles';
 import { FeatherNames } from '../../types/icons';
+import { Button as CustomButton } from '../../components/Button';
+import { StockHistoryComponent } from './components/StockHistory';
 
 interface StockDetailProps {
   route: RouteProp<StockStackParamList, 'StockDetail'>;
@@ -23,17 +25,34 @@ const QuantityModal = ({
   onConfirm, 
   type,
   currentQuantity,
-  unit
+  unit,
+  loading
 }: { 
   visible: boolean; 
   onClose: () => void; 
-  onConfirm: (quantity: number) => void;
+  onConfirm: (quantity: number, notes?: string) => Promise<void>;
   type: 'add' | 'remove';
   currentQuantity: number;
   unit: string;
+  loading: boolean;
 }) => {
   const [quantity, setQuantity] = useState('');
+  const [notes, setNotes] = useState('');
   const theme = useTheme();
+
+  const handleConfirm = async () => {
+    const num = Number(quantity);
+    if (num > 0) {
+      try {
+        await onConfirm(num, notes);
+        onClose();
+        setQuantity('');
+        setNotes('');
+      } catch (error) {
+        // Error is handled by the parent component
+      }
+    }
+  };
 
   return (
     <Modal visible={visible} transparent animationType="fade">
@@ -52,26 +71,44 @@ const QuantityModal = ({
             keyboardType="numeric"
             placeholder="Entrer la quantité"
             placeholderTextColor={theme.colors.neutral.textSecondary}
+            editable={!loading}
+          />
+          <TextInput
+            style={[styles.modalInput, { 
+              backgroundColor: theme.colors.neutral.background,
+              color: theme.colors.neutral.textPrimary,
+              marginTop: 8 
+            }]}
+            value={notes}
+            onChangeText={setNotes}
+            placeholder="Notes (optionnel)"
+            placeholderTextColor={theme.colors.neutral.textSecondary}
+            multiline
+            numberOfLines={3}
+            editable={!loading}
           />
           <View style={styles.modalButtons}>
             <TouchableOpacity 
               style={[styles.modalButton, styles.cancelButton]} 
               onPress={onClose}
+              disabled={loading}
             >
               <Text style={styles.buttonText}>Annuler</Text>
             </TouchableOpacity>
             <TouchableOpacity 
-              style={[styles.modalButton, styles.confirmButton]} 
-              onPress={() => {
-                const num = Number(quantity);
-                if (num > 0) {
-                  onConfirm(num);
-                  onClose();
-                  setQuantity('');
-                }
-              }}
+              style={[
+                styles.modalButton, 
+                styles.confirmButton,
+                loading && { opacity: 0.7 }
+              ]} 
+              onPress={handleConfirm}
+              disabled={loading}
             >
-              <Text style={[styles.buttonText, { color: '#fff' }]}>Confirmer</Text>
+              {loading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={[styles.buttonText, { color: '#fff' }]}>Confirmer</Text>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -163,16 +200,73 @@ const getQualityLabel = (quality: 'good' | 'medium' | 'poor' | undefined): strin
 export const StockDetail = ({ route, navigation }: StockDetailProps) => {
   const theme = useTheme();
   const { stockId } = route.params;
-  const { stocks, addStockQuantity, removeStockQuantity } = useStock();
+  const { stocks, addStockQuantity, removeStockQuantity, loading, error, refreshStocks, fetchStockHistory } = useStock();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showRemoveModal, setShowRemoveModal] = useState(false);
+  const [history, setHistory] = useState<StockHistory[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
 
   const stock = stocks.find(s => s.id === stockId);
-  if (!stock) return <Text>Stock not found</Text>;
+
+  useEffect(() => {
+    const loadHistory = async () => {
+      if (stock) {
+        try {
+          const historyData = await fetchStockHistory(stock.id);
+          setHistory(historyData);
+        } catch (error) {
+          console.error('Error loading history:', error);
+        } finally {
+          setHistoryLoading(false);
+        }
+      }
+    };
+
+    loadHistory();
+  }, [stock]);
+
+  if (loading && !stock) {
+    return (
+      <View style={[styles.container, styles.centerContent, { backgroundColor: theme.colors.neutral.background }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary.base} />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={[styles.container, styles.centerContent, { backgroundColor: theme.colors.neutral.background }]}>
+        <Text style={[styles.errorText, { color: theme.colors.error }]}>{error}</Text>
+        <CustomButton 
+          title="Réessayer" 
+          onPress={refreshStocks}
+        />
+      </View>
+    );
+  }
+
+  if (!stock) {
+    return (
+      <View style={[styles.container, styles.centerContent, { backgroundColor: theme.colors.neutral.background }]}>
+        <Text style={[styles.errorText, { color: theme.colors.error }]}>Stock non trouvé</Text>
+      </View>
+    );
+  }
 
   const isLowStock = stock.quantity <= stock.lowStockThreshold;
+  const leafIcon: FeatherNames = 'check-circle';
 
-  const leafIcon: FeatherNames = 'leaf';
+  const handleQuantityChange = async (type: 'add' | 'remove', quantity: number, notes?: string) => {
+    try {
+      if (type === 'add') {
+        await addStockQuantity(stock.id, quantity, notes);
+      } else {
+        await removeStockQuantity(stock.id, quantity, notes);
+      }
+    } catch (error) {
+      // Error is handled by the context and displayed through the error state
+    }
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
@@ -304,32 +398,34 @@ export const StockDetail = ({ route, navigation }: StockDetailProps) => {
           <Text style={[styles.sectionTitle, { color: theme.colors.neutral.textPrimary }]}>
             Historique
           </Text>
-          {stock.history.map((historyItem) => (
-            <HistoryItem 
-              key={historyItem.id} 
-              history={historyItem}
-              unit={stock.unit}
+          <View style={styles.section}>
+            <StockHistoryComponent 
+              history={history} 
+              unit={stock.unit} 
+              loading={historyLoading}
             />
-          ))}
+          </View>
         </View>
       </ScrollView>
 
       <QuantityModal
         visible={showAddModal}
         onClose={() => setShowAddModal(false)}
-        onConfirm={(quantity) => addStockQuantity(stock.id, quantity)}
+        onConfirm={(quantity, notes) => handleQuantityChange('add', quantity, notes)}
         type="add"
         currentQuantity={stock.quantity}
         unit={stock.unit}
+        loading={loading}
       />
 
       <QuantityModal
         visible={showRemoveModal}
         onClose={() => setShowRemoveModal(false)}
-        onConfirm={(quantity) => removeStockQuantity(stock.id, quantity)}
+        onConfirm={(quantity, notes) => handleQuantityChange('remove', quantity, notes)}
         type="remove"
         currentQuantity={stock.quantity}
         unit={stock.unit}
+        loading={loading}
       />
     </View>
   );
@@ -506,5 +602,27 @@ const styles = createThemedStyles((theme) => ({
   historyQuantity: {
     fontSize: 16,
     fontWeight: '500',
+  },
+  centerContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  section: {
+    padding: 16,
   },
 })); 

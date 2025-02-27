@@ -21,6 +21,7 @@ async function seedStocks() {
       for (let i = 0; i < stockCount; i++) {
         stocksToCreate.push({
           stockHistoryId: history.id,
+          userId: history.userId,
           name: faker.commerce.productName(),
           quantity: faker.number.float({ min: 1, max: 1000, precision: 0.1 }),
           unit: faker.helpers.arrayElement(['kg', 'L', 'unités', 'bottes', 'sacs']),

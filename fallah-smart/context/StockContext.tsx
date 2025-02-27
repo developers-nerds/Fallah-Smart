@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { StockItem, StockHistory } from '../screens/Stock/types';
-import { stockStorage } from '../services/stockStorage';
+import { stockApi } from '../services/api';
+import { api } from '../services/api';
 
 interface Animal {
   id: string;
@@ -14,102 +15,139 @@ interface Animal {
 
 interface StockContextType {
   stocks: StockItem[];
-  addStock: (stock: Omit<StockItem, 'id' | 'history'>) => void;
-  updateStock: (id: string, stock: Partial<StockItem>) => void;
-  deleteStock: (id: string) => void;
-  addStockQuantity: (id: string, quantity: number) => void;
-  removeStockQuantity: (id: string, quantity: number) => void;
+  loading: boolean;
+  error: string | null;
+  addStock: (stock: Omit<StockItem, 'id' | 'stockHistory'>) => Promise<void>;
+  updateStock: (id: string, stock: Partial<StockItem>) => Promise<void>;
+  deleteStock: (id: string) => Promise<void>;
+  addStockQuantity: (id: string, quantity: number, notes?: string) => Promise<void>;
+  removeStockQuantity: (id: string, quantity: number, notes?: string) => Promise<void>;
   animals: Animal[];
   addAnimal: (animal: Omit<Animal, 'id'>) => void;
   deleteAnimal: (id: string) => void;
   addAnimalQuantity: (id: string, quantity: number) => void;
   removeAnimalQuantity: (id: string, quantity: number) => void;
+  refreshStocks: () => Promise<void>;
+  fetchStockHistory: (stockId: string) => Promise<StockHistory[]>;
 }
 
 const StockContext = createContext<StockContextType | undefined>(undefined);
 
 export const useStock = () => {
   const context = useContext(StockContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useStock must be used within a StockProvider');
   }
   return context;
 };
 
-export const StockProvider = ({ children }: { children: React.ReactNode }) => {
+export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [stocks, setStocks] = useState<StockItem[]>([]);
   const [animals, setAnimals] = useState<Animal[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const loadInitialStocks = async () => {
-      const savedStocks = await stockStorage.loadStocks();
-      setStocks(savedStocks);
-    };
-    loadInitialStocks();
-  }, []);
+  const refreshStocks = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await stockApi.getAllStocks();
+      setStocks(data);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch stocks';
+      setError(errorMessage);
+      console.error('Error refreshing stocks:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  useEffect(() => {
-    stockStorage.saveStocks(stocks);
-  }, [stocks]);
+  const addStock = async (stock: Omit<StockItem, 'id' | 'stockHistory'>) => {
+    try {
+      setLoading(true);
+      setError(null);
+      await stockApi.createStock(stock);
+      await refreshStocks();
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to add stock';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const addStock = useCallback((stockData: Omit<StockItem, 'id' | 'history'>) => {
-    const newStock: StockItem = {
-      ...stockData,
-      id: Date.now().toString(),
-      history: [{
-        id: Date.now().toString(),
-        date: new Date(),
-        quantity: stockData.quantity,
+  const updateStock = async (id: string, stock: Partial<StockItem>) => {
+    try {
+      setLoading(true);
+      setError(null);
+      await stockApi.updateStock(id, stock);
+      await refreshStocks();
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update stock';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteStock = async (id: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      await stockApi.deleteStock(id);
+      await refreshStocks();
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete stock';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addStockQuantity = useCallback(async (id: string, quantity: number, notes?: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const updatedStock = await stockApi.updateStockQuantity(id, {
+        quantity,
         type: 'add',
-        notes: 'Stock initial'
-      }]
-    };
-    
-    setStocks(prev => [...prev, newStock]);
+        notes
+      });
+      setStocks(prev => prev.map(stock => 
+        stock.id === id ? updatedStock : stock
+      ));
+    } catch (err) {
+      setError('Failed to add stock quantity');
+      console.error('Error adding stock quantity:', err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const updateStock = useCallback((id: string, stockData: Partial<StockItem>) => {
-    setStocks(prev => prev.map(stock => 
-      stock.id === id ? { ...stock, ...stockData } : stock
-    ));
+  const removeStockQuantity = useCallback(async (id: string, quantity: number, notes?: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const updatedStock = await stockApi.updateStockQuantity(id, {
+        quantity,
+        type: 'remove',
+        notes
+      });
+      setStocks(prev => prev.map(stock => 
+        stock.id === id ? updatedStock : stock
+      ));
+    } catch (err) {
+      setError('Failed to remove stock quantity');
+      console.error('Error removing stock quantity:', err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
   }, []);
-
-  const deleteStock = useCallback((id: string) => {
-    setStocks(prev => prev.filter(stock => stock.id !== id));
-  }, []);
-
-  const addStockHistory = useCallback((id: string, quantity: number, type: 'add' | 'remove') => {
-    const historyEntry: StockHistory = {
-      id: Date.now().toString(),
-      date: new Date(),
-      quantity,
-      type,
-    };
-
-    setStocks(prev => prev.map(stock => 
-      stock.id === id 
-        ? { ...stock, history: [historyEntry, ...stock.history] }
-        : stock
-    ));
-  }, []);
-
-  const addStockQuantity = useCallback((id: string, quantity: number) => {
-    setStocks(prev => prev.map(stock => 
-      stock.id === id 
-        ? { ...stock, quantity: stock.quantity + quantity }
-        : stock
-    ));
-    addStockHistory(id, quantity, 'add');
-  }, [addStockHistory]);
-
-  const removeStockQuantity = useCallback((id: string, quantity: number) => {
-    setStocks(prev => prev.map(stock => 
-      stock.id === id 
-        ? { ...stock, quantity: Math.max(0, stock.quantity - quantity) }
-        : stock
-    ));
-    addStockHistory(id, quantity, 'remove');
-  }, [addStockHistory]);
 
   const addAnimal = (animal: Omit<Animal, 'id'>) => {
     const newAnimal = {
@@ -139,20 +177,40 @@ export const StockProvider = ({ children }: { children: React.ReactNode }) => {
     ));
   };
 
+  const fetchStockHistory = async (stockId: string) => {
+    try {
+      const history = await stockApi.getStockHistory(stockId);
+      return history;
+    } catch (error) {
+      console.error('Error fetching stock history:', error);
+      throw error;
+    }
+  };
+
+  useEffect(() => {
+    refreshStocks();
+  }, []);
+
   return (
-    <StockContext.Provider value={{
-      stocks,
-      addStock,
-      updateStock,
-      deleteStock,
-      addStockQuantity,
-      removeStockQuantity,
-      animals,
-      addAnimal,
-      deleteAnimal,
-      addAnimalQuantity,
-      removeAnimalQuantity,
-    }}>
+    <StockContext.Provider
+      value={{
+        stocks,
+        loading,
+        error,
+        addStock,
+        updateStock,
+        deleteStock,
+        addStockQuantity,
+        removeStockQuantity,
+        animals,
+        addAnimal,
+        deleteAnimal,
+        addAnimalQuantity,
+        removeAnimalQuantity,
+        refreshStocks,
+        fetchStockHistory,
+      }}
+    >
       {children}
     </StockContext.Provider>
   );
