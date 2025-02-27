@@ -9,7 +9,7 @@ import DictionaryScreen from '../dictionary/dictionary';
 
 const Drawer = createDrawerNavigator();
 
-const HomeContent = () => {
+export const HomeContent = () => {
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
       <Text>Welcome to Home!</Text>
@@ -22,9 +22,12 @@ const HomeScreen = () => {
     <Drawer.Navigator
       drawerContent={(props) => <SideBar {...props} />}
       screenOptions={{ headerShown: true }}
-      initialRouteName="HomeContent"
     >
-      <Drawer.Screen name="HomeContent" component={HomeContent} />
+      <Drawer.Screen 
+        name="HomeContent" 
+        component={HomeContent}
+        options={{ title: 'Home' }}
+      />
       <Drawer.Screen name="Scan" component={ScanScreen} />
       <Drawer.Screen name="Stock" component={StockScreen} />
       <Drawer.Screen name="Wallet" component={WalletScreen} />
