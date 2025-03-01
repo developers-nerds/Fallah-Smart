@@ -6,6 +6,7 @@ import ScanScreen from '../scan/scan';
 import StockScreen from '../Stock/stock';
 import WalletScreen from '../Wallet/Wallet';
 import DictionaryScreen from '../dictionary/dictionary';
+import ChatScreen from '../Chat/Chat';
 
 const Drawer = createDrawerNavigator();
 
@@ -28,6 +29,7 @@ const HomeScreen = () => {
         component={HomeContent}
         options={{ title: 'Home' }}
       />
+      <Drawer.Screen name="Chat" component={ChatScreen} />
       <Drawer.Screen name="Scan" component={ScanScreen} />
       <Drawer.Screen name="Stock" component={StockScreen} />
       <Drawer.Screen name="Wallet" component={WalletScreen} />

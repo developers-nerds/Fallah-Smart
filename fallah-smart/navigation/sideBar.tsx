@@ -27,6 +27,7 @@ type MenuItemProps = {
 
 type DrawerParamList = {
   HomeContent: undefined;
+  Chat: undefined;
   Stock: undefined;
   Scan: undefined;
   Wallet: undefined;
@@ -51,20 +52,17 @@ const MenuItem: React.FC<MenuItemProps> = ({ icon, label, onPress, active }) => 
     transform: [
       { scale: scale.value },
       { translateX: translateX.value },
-      { rotate: `${rotation.value}deg` }
-    ]
+      { rotate: `${rotation.value}deg` },
+    ],
   }));
 
   const handlePress = () => {
     if (icon === 'home-variant') {
-      scale.value = withSequence(
-        withSpring(1.2),
-        withSpring(1)
-      );
+      scale.value = withSequence(withSpring(1.2), withSpring(1));
       rotation.value = withSequence(
-        withTiming(360, { 
-          duration: 800, 
-          easing: Easing.bezier(0.25, 0.1, 0.25, 1) 
+        withTiming(360, {
+          duration: 800,
+          easing: Easing.bezier(0.25, 0.1, 0.25, 1),
         }),
         withTiming(0, { duration: 0 })
       );
@@ -75,12 +73,7 @@ const MenuItem: React.FC<MenuItemProps> = ({ icon, label, onPress, active }) => 
   return (
     <AnimatedPressable
       onPress={handlePress}
-      style={[
-        styles.menuItem,
-        active && styles.activeMenuItem,
-        animatedStyle
-      ]}
-    >
+      style={[styles.menuItem, active && styles.activeMenuItem, animatedStyle]}>
       <View style={styles.menuItemContent}>
         <MaterialCommunityIcons
           name={icon}
@@ -92,7 +85,11 @@ const MenuItem: React.FC<MenuItemProps> = ({ icon, label, onPress, active }) => 
           onPress={handlePress}
           labelStyle={[
             styles.menuItemLabel,
-            { color: active ? styles.activeMenuItem.backgroundColor : styles.menuItem.backgroundColor }
+            {
+              color: active
+                ? styles.activeMenuItem.backgroundColor
+                : styles.menuItem.backgroundColor,
+            },
           ]}
           style={styles.drawerItem}
         />
@@ -112,7 +109,7 @@ const SideBar = ({ navigation, state }: SideBarProps) => {
       [
         {
           text: 'Cancel',
-          style: 'cancel'
+          style: 'cancel',
         },
         {
           text: 'Logout',
@@ -123,7 +120,7 @@ const SideBar = ({ navigation, state }: SideBarProps) => {
               routes: [{ name: 'Login' }],
             });
           },
-          style: 'destructive'
+          style: 'destructive',
         },
       ],
       { cancelable: true }
@@ -135,13 +132,22 @@ const SideBar = ({ navigation, state }: SideBarProps) => {
       <View style={styles.header}>
         <MaterialCommunityIcons name="menu" size={24} color={theme.colors.neutral.textPrimary} />
       </View>
-      
+
       <MenuItem
         icon="home-variant"
         label="Home"
         active={currentRoute === 'HomeContent'}
         onPress={() => {
           navigation.navigate('HomeContent');
+          navigation.closeDrawer();
+        }}
+      />
+      <MenuItem
+        icon="chat"
+        label="Chat"
+        active={currentRoute === 'Chat'}
+        onPress={() => {
+          navigation.navigate('Chat');
           navigation.closeDrawer();
         }}
       />
@@ -183,18 +189,9 @@ const SideBar = ({ navigation, state }: SideBarProps) => {
       />
 
       <View style={styles.logoutContainer}>
-        <TouchableOpacity
-          style={styles.logoutButton}
-          onPress={handleLogout}
-        >
-          <Ionicons
-            name="log-out-outline"
-            size={24}
-            color={theme.colors.error}
-          />
-          <Text style={[styles.logoutText, { color: theme.colors.error }]}>
-            Logout
-          </Text>
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Ionicons name="log-out-outline" size={24} color={theme.colors.error} />
+          <Text style={[styles.logoutText, { color: theme.colors.error }]}>Logout</Text>
         </TouchableOpacity>
       </View>
     </DrawerContentScrollView>
@@ -251,4 +248,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default SideBar; 
+export default SideBar;
