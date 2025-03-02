@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context"
 import { useNavigation } from "@react-navigation/native"
 import Icon from "react-native-vector-icons/MaterialIcons"
 import FontAwesome5 from "react-native-vector-icons/FontAwesome5"
+import { theme } from "../../../theme/theme"
 
 export default function AddExpense() {
   const [amount, setAmount] = useState("1000")
@@ -42,38 +43,37 @@ export default function AddExpense() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={goBack} style={styles.backButton}>
-          <Icon name="arrow-back" color="white" size={24} />
+          <Icon name="arrow-back" color={theme.colors.neutral.surface} size={24} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>New expense</Text>
         <TouchableOpacity style={styles.refreshButton}>
-          <Icon name="refresh" color="white" size={24} />
+          <Icon name="refresh" color={theme.colors.neutral.surface} size={24} />
         </TouchableOpacity>
       </View>
 
       <View style={styles.dateContainer}>
-        <Icon name="calendar-today" size={20} color="#555" style={styles.calendarIcon} />
+        <Icon name="calendar-today" size={20} color={theme.colors.neutral.textSecondary} style={styles.calendarIcon} />
         <Text style={styles.dateText}>{currentDate}</Text>
       </View>
 
-      <View style={[styles.amountContainer, { backgroundColor: '#F48FB1' }]}>
+      <View style={styles.amountContainer}>
         <View style={styles.currencyContainer}>
-          <FontAwesome5 name="money-bill" size={24} color="#555" style={styles.moneyIcon} />
+          <FontAwesome5 name="money-bill" size={24} color={theme.colors.neutral.textSecondary} style={styles.moneyIcon} />
           <Text style={styles.currencyText}>USD</Text>
         </View>
         <Text style={styles.amountText}>{amount}</Text>
         <TouchableOpacity style={styles.clearButton} onPress={handleClear}>
-          <Icon name="clear" size={24} color="#555" />
+          <Icon name="clear" size={24} color={theme.colors.neutral.textSecondary} />
         </TouchableOpacity>
       </View>
 
       <View style={styles.noteContainer}>
         <Text style={styles.noteLabel}>Note</Text>
-        <View style={[styles.noteInputContainer, { borderBottomColor: '#F48FB1' }]}>
-          <Icon name="edit" size={20} color="#F48FB1" style={styles.editIcon} />
+        <View style={styles.noteInputContainer}>
+          <Icon name="edit" size={20} color={theme.colors.success} style={styles.editIcon} />
           <TextInput style={styles.noteInput} value={note} onChangeText={setNote} placeholder="Add note" />
         </View>
       </View>
-
       <View style={styles.keypadContainer}>
         {/* Same keypad layout as AddIncome */}
         <View style={styles.keypadRow}>
@@ -144,46 +144,61 @@ export default function AddExpense() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F5F5F5",
+    backgroundColor: theme.colors.neutral.background,
   },
   header: {
     height: 60,
-    backgroundColor: "#F48FB1",
+    backgroundColor: theme.colors.success,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 15,
+    paddingHorizontal: theme.spacing.md,
+  },
+  amountContainer: {
+    flexDirection: "row",
+    backgroundColor: theme.colors.success,
+    margin: theme.spacing.md,
+    borderRadius: theme.borderRadius.medium,
+    padding: theme.spacing.md,
+    alignItems: "center",
+  },
+  noteInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.success,
+    paddingBottom: theme.spacing.xs,
   },
   backButton: {
-    padding: 5,
+    padding: theme.spacing.xs,
   },
   headerTitle: {
-    color: "white",
-    fontSize: 22,
+    color: theme.colors.neutral.surface,
+    fontSize: theme.fontSizes.h2,
     fontWeight: "500",
   },
   refreshButton: {
-    padding: 5,
+    padding: theme.spacing.xs,
   },
   dateContainer: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 20,
+    paddingVertical: theme.spacing.lg,
   },
   calendarIcon: {
-    marginRight: 8,
+    marginRight: theme.spacing.sm,
   },
   dateText: {
-    fontSize: 18,
-    color: "#333",
+    fontSize: theme.fontSizes.h2,
+    color: theme.colors.neutral.textPrimary,
   },
   amountContainer: {
     flexDirection: "row",
-    backgroundColor: "#F48FB1",
-    margin: 15,
-    borderRadius: 8,
-    padding: 15,
+    backgroundColor:theme.colors.success,
+    margin: theme.spacing.md,
+    borderRadius: theme.borderRadius.medium,
+    padding: theme.spacing.md,
     alignItems: "center",
   },
   currencyContainer: {
@@ -192,21 +207,21 @@ const styles = StyleSheet.create({
     width: 80,
   },
   moneyIcon: {
-    marginRight: 5,
+    marginRight: theme.spacing.xs,
   },
   currencyText: {
-    fontSize: 18,
-    color: "#333",
+    fontSize: theme.fontSizes.h2,
+    color: theme.colors.neutral.textPrimary,
   },
   amountText: {
     flex: 1,
     fontSize: 40,
-    color: "white",
+    color: theme.colors.neutral.surface,
     textAlign: "center",
   },
   clearButton: {
-    padding: 5,
-    backgroundColor: "white",
+    padding: theme.spacing.xs,
+    backgroundColor: theme.colors.neutral.surface,
     borderRadius: 20,
     width: 40,
     height: 40,
@@ -214,67 +229,67 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   noteContainer: {
-    paddingHorizontal: 20,
-    marginTop: 10,
+    paddingHorizontal: theme.spacing.lg,
+    marginTop: theme.spacing.sm,
   },
   noteLabel: {
-    fontSize: 16,
-    color: "#666",
-    marginBottom: 5,
+    fontSize: theme.fontSizes.button,
+    color: theme.colors.neutral.textSecondary,
+    marginBottom: theme.spacing.xs,
   },
   noteInputContainer: {
     flexDirection: "row",
     alignItems: "center",
     borderBottomWidth: 1,
-    borderBottomColor: "#F48FB1",
-    paddingBottom: 5,
+    borderBottomColor: theme.colors.error,
+    paddingBottom: theme.spacing.xs,
   },
   editIcon: {
-    marginRight: 10,
+    marginRight: theme.spacing.sm,
   },
   noteInput: {
     flex: 1,
-    fontSize: 16,
-    color: "#333",
+    fontSize: theme.fontSizes.button,
+    color: theme.colors.neutral.textPrimary,
   },
   keypadContainer: {
     flex: 1,
-    marginTop: 20,
-    paddingHorizontal: 10,
+    marginTop: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.sm,
   },
   keypadRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 10,
+    marginBottom: theme.spacing.sm,
   },
   keypadButton: {
     flex: 1,
     height: 60,
-    backgroundColor: "white",
-    borderRadius: 5,
+    backgroundColor: theme.colors.neutral.surface,
+    borderRadius: theme.borderRadius.small,
     justifyContent: "center",
     alignItems: "center",
-    marginHorizontal: 5,
+    marginHorizontal: theme.spacing.xs,
     borderWidth: 1,
-    borderColor: "#E0E0E0",
+    borderColor: theme.colors.neutral.border,
   },
   keypadText: {
-    fontSize: 24,
-    color: "#333",
+    fontSize: theme.fontSizes.h1,
+    color: theme.colors.neutral.textPrimary,
   },
   categoryButton: {
-    backgroundColor: "white",
-    margin: 15,
-    padding: 15,
-    borderRadius: 5,
+    backgroundColor: theme.colors.neutral.surface,
+    margin: theme.spacing.md,
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.small,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "#E0E0E0",
+    borderColor: theme.colors.neutral.border,
   },
   categoryButtonText: {
-    fontSize: 16,
-    color: "#666",
+    fontSize: theme.fontSizes.button,
+    color: theme.colors.neutral.textSecondary,
     fontWeight: "500",
   },
 })

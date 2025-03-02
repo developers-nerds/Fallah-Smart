@@ -8,6 +8,8 @@ import Icon from "react-native-vector-icons/MaterialIcons"
 import { ChartView } from "./components/ChartView"
 import { CategoryList } from "./components/CategoryList"
 
+import { theme } from "../../theme/theme"
+
 
 // Category data with amounts
 const categories = [
@@ -128,7 +130,7 @@ const HomeScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar backgroundColor="#7BC29A" barStyle="light-content" />
+      <StatusBar backgroundColor={theme.colors.primary.base} barStyle="light-content" />
       {/* Header */}
       <View style={styles.header}>
         {/* Left Menu Button - Static */}
@@ -202,22 +204,22 @@ const HomeScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F8F8F8",
+    backgroundColor: theme.colors.neutral.background,
   },
   header: {
     height: 60,
-    backgroundColor: "#7BC29A",
+    backgroundColor: theme.colors.primary.base,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 15,
+    paddingHorizontal: theme.spacing.md,
   },
   menuButton: {
-    padding: 5,
+    padding: theme.spacing.xs,
   },
   headerTitle: {
-    color: "white",
-    fontSize: 24,
+    color: theme.colors.neutral.surface,
+    fontSize: theme.fontSizes.h1,
     fontWeight: "bold",
     fontStyle: "italic",
   },
@@ -225,44 +227,44 @@ const styles = StyleSheet.create({
     flexDirection: "row",
   },
   iconButton: {
-    padding: 5,
-    marginLeft: 10,
+    padding: theme.spacing.xs,
+    marginLeft: theme.spacing.sm,
   },
   scrollView: {
     flex: 1,
   },
   monthContainer: {
     alignItems: "center",
-    paddingVertical: 15,
+    paddingVertical: theme.spacing.md,
   },
   monthText: {
-    fontSize: 20,
-    color: "#7BC29A",
+    fontSize: theme.fontSizes.h2,
+    color: theme.colors.primary.base,
   },
   contentContainer: {
     flex: 1,
-    marginVertical: 20,
+    marginVertical: theme.spacing.lg,
   },
   balanceBox: {
-    backgroundColor: "#7BC29A",
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 5,
+    backgroundColor: theme.colors.primary.base,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.small,
     alignItems: "center",
     justifyContent: "center",
-    marginHorizontal: 10,
+    marginHorizontal: theme.spacing.sm,
   },
   balanceText: {
-    color: "white",
-    fontSize: 16,
+    color: theme.colors.neutral.surface,
+    fontSize: theme.fontSizes.button,
     fontWeight: "bold",
   },
   actionButtons: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginVertical: 20,
-    paddingHorizontal: 20,
+    marginVertical: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.lg,
   },
   actionButton: {
     width: 80,
@@ -272,23 +274,23 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   expenseButton: {
-    backgroundColor: "#F48FB1",
+    backgroundColor: theme.colors.error,
     borderWidth: 5,
-    borderColor: "#FFCDD2",
+    borderColor: theme.colors.neutral.surface,
   },
   incomeButton: {
-    backgroundColor: "#7BC29A",
+    backgroundColor: theme.colors.success,
     borderWidth: 5,
-    borderColor: "#C8E6C9",
+    borderColor: theme.colors.neutral.surface,
   },
   actionButtonText: {
     fontSize: 36,
     fontWeight: "bold",
-    color: "white",
+    color: theme.colors.neutral.surface,
   },
   balanceBoxList: {
-    marginHorizontal: 20,
-    marginBottom: 15,
+    marginHorizontal: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
   },
 })
 
