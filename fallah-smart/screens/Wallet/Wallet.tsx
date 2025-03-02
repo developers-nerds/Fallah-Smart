@@ -8,6 +8,7 @@ import Icon from "react-native-vector-icons/MaterialIcons"
 import { ChartView } from "./components/ChartView"
 import { CategoryList } from "./components/CategoryList"
 
+
 // Category data with amounts
 const categories = [
   {
@@ -109,6 +110,17 @@ const HomeScreen = () => {
     navigation.navigate("AddIncome")
   }
 
+  // Inside the HomeScreen component, add:
+  const navigateToAddExpense = () => {
+    navigation.navigate("AddExpense")
+  }
+  // Update the expense button in the actionButtons View:
+  <TouchableOpacity 
+    style={[styles.actionButton, styles.expenseButton]} 
+    onPress={navigateToAddExpense}
+  >
+    <Text style={styles.actionButtonText}>−</Text>
+  </TouchableOpacity>
   // Calculate total balance
   const totalBalance = categories.reduce((sum, category) => {
     return sum + (category.isIncome ? category.amount : -category.amount)
@@ -159,7 +171,10 @@ const HomeScreen = () => {
 
         {/* Action Buttons */}
         <View style={styles.actionButtons}>
-          <TouchableOpacity style={[styles.actionButton, styles.expenseButton]}>
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.expenseButton]} 
+            onPress={navigateToAddExpense}
+          >
             <Text style={styles.actionButtonText}>−</Text>
           </TouchableOpacity>
 
@@ -172,7 +187,10 @@ const HomeScreen = () => {
             </TouchableOpacity>
           )}
 
-          <TouchableOpacity style={[styles.actionButton, styles.incomeButton]} onPress={navigateToAddIncome}>
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.incomeButton]} 
+            onPress={navigateToAddIncome}
+          >
             <Text style={styles.actionButtonText}>+</Text>
           </TouchableOpacity>
         </View>
