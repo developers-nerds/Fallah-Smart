@@ -1,5 +1,6 @@
 import { View, StyleSheet } from "react-native"
 import { Svg, Circle, Path, Text as SvgText } from "react-native-svg"
+import { theme } from "../../../theme/theme"
 
 interface ChartViewProps {
   categories: Array<{
@@ -55,19 +56,19 @@ export const ChartView = ({ categories }: ChartViewProps) => {
   return (
     <View style={styles.container}>
       <Svg height="350" width="350" viewBox="0 0 100 100">
-        {/* Chart segments */}
+        {/* Chart segments remain unchanged */}
         {segments.map((segment, index) => (
           <Path key={index} d={createArc(50, 50, 40, segment.startAngle, segment.endAngle)} fill={segment.color} />
         ))}
 
         {/* Inner white circle */}
-        <Circle cx="50" cy="50" r="25" fill="white" />
+        <Circle cx="50" cy="50" r="25" fill={theme.colors.neutral.surface} />
 
         {/* Text in center */}
-        <SvgText x="50" y="45" fontSize="5" fontWeight="bold" fill="#4CAF50" textAnchor="middle">
+        <SvgText x="50" y="45" fontSize="5" fontWeight="bold" fill={theme.colors.success} textAnchor="middle">
           ${totalIncome.toFixed(2)}
         </SvgText>
-        <SvgText x="50" y="55" fontSize="5" fontWeight="bold" fill="#E57373" textAnchor="middle">
+        <SvgText x="50" y="55" fontSize="5" fontWeight="bold" fill={theme.colors.error} textAnchor="middle">
           ${totalExpenses.toFixed(2)}
         </SvgText>
       </Svg>
@@ -79,6 +80,7 @@ const styles = StyleSheet.create({
   container: {
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: theme.colors.neutral.background,
   },
 })
 
