@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context"
 import { useNavigation } from "@react-navigation/native"
 import Icon from "react-native-vector-icons/MaterialIcons"
 import FontAwesome5 from "react-native-vector-icons/FontAwesome5"
+import DateTimePicker from "@react-native-community/datetimepicker"
 import { theme } from "../../../theme/theme"
 
 export default function AddIncome() {
@@ -13,13 +14,17 @@ export default function AddIncome() {
   const [note, setNote] = useState("Add moneys")
   const [currentDate, setCurrentDate] = useState(() => {
     const date = new Date()
-    const options = { weekday: "long", day: "numeric", month: "long" }
+    const options = { weekday: "long", day: "numeric", month: "long", year: "numeric" }
     return date.toLocaleDateString("en-US", options)
   })
+  const [date, setDate] = useState(new Date()) // State for the DateTimePicker
+  const [showDatePicker, setShowDatePicker] = useState(false)
+  const [isManualDateInput, setIsManualDateInput] = useState(false)
+  const [manualDate, setManualDate] = useState("")
 
   const navigation = useNavigation()
 
-  const handleNumberPress = (num) => {
+  const handleNumberPress = (num:Number) => {
     if (amount === "0") {
       setAmount(num.toString())
     } else {
@@ -28,7 +33,6 @@ export default function AddIncome() {
   }
 
   const handleOperatorPress = (operator) => {
-    // In a real app, you would implement calculator logic here
     console.log("Operator pressed:", operator)
   }
 
@@ -38,6 +42,31 @@ export default function AddIncome() {
 
   const goBack = () => {
     navigation.goBack()
+  }
+
+  // Handle date selection from the picker
+  const onDateChange = (event, selectedDate) => {
+    const currentDate = selectedDate || date
+    setShowDatePicker(false) // Hide picker after selection
+    setDate(currentDate)
+    const options = { weekday: "long", day: "numeric", month: "long", year: "numeric" }
+    setCurrentDate(currentDate.toLocaleDateString("en-US", options))
+    setManualDate(currentDate.toLocaleDateString("en-US", options)) // Sync manual input if needed
+  }
+
+  // Handle manual date input
+  const handleManualDateChange = (text) => {
+    setManualDate(text)
+    // Basic date parsing (you can enhance this with a library like date-fns or moment.js)
+    setCurrentDate(text) // Update displayed date
+  }
+
+  // Toggle manual date input
+  const toggleManualDateInput = () => {
+    setIsManualDateInput(!isManualDateInput)
+    if (!isManualDateInput) {
+      setManualDate(currentDate) // Pre-fill with current date
+    }
   }
 
   return (
@@ -52,11 +81,30 @@ export default function AddIncome() {
         </TouchableOpacity>
       </View>
 
-      {/* Date Display */}
-      <View style={styles.dateContainer}>
-        <Icon name="calendar-today" size={20} color="#555" style={styles.calendarIcon} />
+      {/* Date Display with Calendar and Pen Icon */}
+      <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.dateContainer}>
+        <Icon name="calendar-today" size={20} color={theme.colors.success} style={styles.calendarIcon} />
         <Text style={styles.dateText}>{currentDate}</Text>
-      </View>
+        <TouchableOpacity onPress={toggleManualDateInput} style={styles.penButton}>
+          <Icon name="edit" size={20} color="#7BC29A" />
+        </TouchableOpacity>
+      </TouchableOpacity>
+
+      {/* Manual Date Input (Shown when pen is clicked) */}
+      {isManualDateInput && (
+        <View style={styles.manualDateContainer}>
+          <TextInput
+            style={styles.manualDateInput}
+            value={manualDate}
+            onChangeText={handleManualDateChange}
+            placeholder="Enter date (e.g., March 2, 2025)"
+            keyboardType="default"
+          />
+          <TouchableOpacity onPress={toggleManualDateInput} style={styles.doneButton}>
+            <Text style={styles.doneButtonText}>Done</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Amount Input */}
       <View style={styles.amountContainer}>
@@ -143,6 +191,18 @@ export default function AddIncome() {
       <TouchableOpacity style={styles.categoryButton}>
         <Text style={styles.categoryButtonText}>CHOOSE CATEGORY</Text>
       </TouchableOpacity>
+
+      {/* Date Picker (Native) */}
+      {showDatePicker && (
+        <DateTimePicker
+          value={date}
+          mode="date"
+          display="calendar" // Use 'calendar' for a grid calendar view
+          onChange={onDateChange}
+          maximumDate={new Date(2030, 12, 31)} // Optional: Limit future dates
+          minimumDate={new Date(2020, 1, 1)} // Optional: Limit past dates
+        />
+      )}
     </SafeAreaView>
   )
 }
@@ -183,6 +243,33 @@ const styles = StyleSheet.create({
   dateText: {
     fontSize: theme.fontSizes.h2,
     color: theme.colors.neutral.textPrimary,
+  },
+  penButton: {
+    marginLeft: theme.spacing.md,
+    padding: theme.spacing.xs,
+  },
+  manualDateContainer: {
+    paddingHorizontal: theme.spacing.lg,
+    marginTop: theme.spacing.sm,
+  },
+  manualDateInput: {
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.success,
+    fontSize: theme.fontSizes.button,
+    color: theme.colors.neutral.textPrimary,
+    paddingVertical: theme.spacing.xs,
+  },
+  doneButton: {
+    marginTop: theme.spacing.sm,
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.success,
+    borderRadius: theme.borderRadius.small,
+    alignItems: "center",
+  },
+  doneButtonText: {
+    color: theme.colors.neutral.surface,
+    fontSize: theme.fontSizes.button,
+    fontWeight: "500",
   },
   amountContainer: {
     flexDirection: "row",
@@ -284,4 +371,3 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
 })
-
