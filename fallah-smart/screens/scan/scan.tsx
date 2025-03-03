@@ -20,7 +20,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'; // Import 
 import { storage } from '../../utils/storage'; // Import the storage utility
 
 // Define the API base URL
-const API_BASE_URL = 'http://192.168.1.15:5000'; // Replace with your actual backend IP/domain
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL; // Replace with your actual backend IP/domain
 
 const ScanScreen = () => {
   const [facing, setFacing] = useState<CameraType>('back');
@@ -299,10 +299,8 @@ const ScanScreen = () => {
       formData.append('image', imageFile as any);
       formData.append('ai_response', aiResponse);
 
-      console.log('Sending scan to backend...');
-
       // Send to backend with timeout and proper error handling
-      const apiResponse = await axios.post(`${API_BASE_URL}/api/scans`, formData, {
+      const apiResponse = await axios.post(`${API_BASE_URL}/scans`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           Authorization: `Bearer ${accessToken}`,
