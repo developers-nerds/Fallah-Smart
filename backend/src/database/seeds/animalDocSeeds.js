@@ -3,220 +3,41 @@ const { Animal_doc } = require("../assossiation");
 async function seedAnimalDocs() {
   const animalsData = [
     {
-      name: "Cow",
+      name: "الأبقار",
       icon: "🐄",
-      category: "Livestock",
+      category: "ماشية",
     },
     {
-      name: "Pig",
-      icon: "🐖",
-      category: "Livestock",
-    },
-    {
-      name: "Sheep",
+      name: "الأغنام",
       icon: "🐑",
-      category: "Livestock",
+      category: "ماشية",
     },
     {
-      name: "Goat",
+      name: "الماعز",
       icon: "🐐",
-      category: "Livestock",
+      category: "ماشية",
     },
     {
-      name: "Horse",
-      icon: "🐎",
-      category: "Livestock",
-    },
-    {
-      name: "Donkey",
-      icon: "🐴",
-      category: "Livestock",
-    },
-    {
-      name: "Chicken",
-      icon: "🐔",
-      category: "Poultry",
-    },
-    {
-      name: "Duck",
-      icon: "🦆",
-      category: "Poultry",
-    },
-    {
-      name: "Turkey",
+      name: "الديك الرومي",
       icon: "🦃",
-      category: "Poultry",
+      category: "دواجن",
     },
     {
-      name: "Goose",
-      icon: "🦢",
-      category: "Poultry",
+      name: "الدجاج",
+      icon: "🐔",
+      category: "دواجن",
     },
     {
-      name: "Quail",
-      icon: "🐦",
-      category: "Poultry",
+      name: "الأرانب",
+      icon: "🐰",
+      category: "حيوانات صغيرة",
     },
     {
-      name: "Rabbit",
-      icon: "🐇",
-      category: "Small Animals",
+      name: "الحمام",
+      icon: "🕊️",
+      category: "طيور",
     },
-    {
-      name: "Guinea Pig",
-      icon: "🐹",
-      category: "Small Animals",
-    },
-    {
-      name: "Alpaca",
-      icon: "🦙",
-      category: "Livestock",
-    },
-    {
-      name: "Llama",
-      icon: "🦙",
-      category: "Livestock",
-    },
-    {
-      name: "Buffalo",
-      icon: "🐃",
-      category: "Livestock",
-    },
-    {
-      name: "Yak",
-      icon: "🐂",
-      category: "Livestock",
-    },
-    {
-      name: "Reindeer",
-      icon: "🦌",
-      category: "Livestock",
-    },
-    {
-      name: "Emu",
-      icon: "🐦",
-      category: "Poultry",
-    },
-    {
-      name: "Ostrich",
-      icon: "🦘",
-      category: "Poultry",
-    },
-    {
-      name: "Peacock",
-      icon: "🦚",
-      category: "Poultry",
-    },
-    {
-      name: "Pigeon",
-      icon: "🐦",
-      category: "Poultry",
-    },
-    {
-      name: "Bee",
-      icon: "🐝",
-      category: "Insects",
-    },
-    {
-      name: "Silkworm",
-      icon: "🐛",
-      category: "Insects",
-    },
-    {
-      name: "Fish (Tilapia)",
-      icon: "🐟",
-      category: "Aquaculture",
-    },
-    {
-      name: "Fish (Catfish)",
-      icon: "🐟",
-      category: "Aquaculture",
-    },
-    {
-      name: "Fish (Salmon)",
-      icon: "🐟",
-      category: "Aquaculture",
-    },
-    {
-      name: "Shrimp",
-      icon: "🦐",
-      category: "Aquaculture",
-    },
-    {
-      name: "Crab",
-      icon: "🦀",
-      category: "Aquaculture",
-    },
-    {
-      name: "Snail",
-      icon: "🐌",
-      category: "Small Animals",
-    },
-    {
-      name: "Frog",
-      icon: "🐸",
-      category: "Small Animals",
-    },
-    {
-      name: "Deer",
-      icon: "🦌",
-      category: "Livestock",
-    },
-    {
-      name: "Mule",
-      icon: "🐴",
-      category: "Livestock",
-    },
-    {
-      name: "Ox",
-      icon: "🐂",
-      category: "Livestock",
-    },
-    {
-      name: "Zebu",
-      icon: "🐂",
-      category: "Livestock",
-    },
-    {
-      name: "Banteng",
-      icon: "🐂",
-      category: "Livestock",
-    },
-    {
-      name: "Water Buffalo",
-      icon: "🐃",
-      category: "Livestock",
-    },
-    {
-      name: "Pheasant",
-      icon: "🐦",
-      category: "Poultry",
-    },
-    {
-      name: "Partridge",
-      icon: "🐦",
-      category: "Poultry",
-    },
-    {
-      name: "Guinea Fowl",
-      icon: "🐦",
-      category: "Poultry",
-    },
-    {
-      name: "Swan",
-      icon: "🦢",
-      category: "Poultry",
-    },
-    {
-      name: "Camel",
-      icon: "🐪",
-      category: "Livestock",
-    },
-    {
-      name: "Bactrian Camel",
-      icon: "🐫",
-      category: "Livestock",
-    },
+    
   ];
   try {
     Animal_doc.bulkCreate(animalsData);

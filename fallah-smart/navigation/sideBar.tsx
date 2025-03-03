@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, Pressable, Text, TouchableOpacity, Alert } from 'react-native';
-import { DrawerContentScrollView, DrawerItem } from '@react-navigation/drawer';
+import { DrawerContentScrollView, DrawerItem, DrawerContentComponentProps } from '@react-navigation/drawer';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
@@ -15,6 +15,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useNavigation, CommonActions } from '@react-navigation/native';
 import { storage } from '../utils/storage';
+import { theme } from '../theme/theme';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -25,10 +26,10 @@ type MenuItemProps = {
   active?: boolean;
 };
 
-type DrawerParamList = {
+export type DrawerParamList = {
   HomeContent: undefined;
-  Stock: undefined;
   Scan: undefined;
+  Stock: undefined;
   Wallet: undefined;
   Dictionary: undefined;
 };
@@ -101,9 +102,9 @@ const MenuItem: React.FC<MenuItemProps> = ({ icon, label, onPress, active }) => 
   );
 };
 
-const SideBar = ({ navigation, state }: SideBarProps) => {
+const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
   const theme = useTheme();
-  const currentRoute = state.routeNames[state.index];
+  const currentRoute = props.state.routeNames[props.state.index];
 
   const handleLogout = () => {
     Alert.alert(
@@ -118,7 +119,7 @@ const SideBar = ({ navigation, state }: SideBarProps) => {
           text: 'Logout',
           onPress: async () => {
             await storage.clearAuth();
-            navigation.getParent()?.reset({
+            props.navigation.getParent()?.reset({
               index: 0,
               routes: [{ name: 'Login' }],
             });
@@ -131,7 +132,7 @@ const SideBar = ({ navigation, state }: SideBarProps) => {
   };
 
   return (
-    <DrawerContentScrollView style={styles.container}>
+    <View style={styles.container}>
       <View style={styles.header}>
         <MaterialCommunityIcons name="menu" size={24} color={theme.colors.neutral.textPrimary} />
       </View>
@@ -141,8 +142,8 @@ const SideBar = ({ navigation, state }: SideBarProps) => {
         label="Home"
         active={currentRoute === 'HomeContent'}
         onPress={() => {
-          navigation.navigate('HomeContent');
-          navigation.closeDrawer();
+          props.navigation.navigate('HomeContent');
+          props.navigation.closeDrawer();
         }}
       />
       <MenuItem
@@ -150,8 +151,8 @@ const SideBar = ({ navigation, state }: SideBarProps) => {
         label="Scan"
         active={currentRoute === 'Scan'}
         onPress={() => {
-          navigation.navigate('Scan');
-          navigation.closeDrawer();
+          props.navigation.navigate('Scan');
+          props.navigation.closeDrawer();
         }}
       />
       <MenuItem
@@ -159,8 +160,8 @@ const SideBar = ({ navigation, state }: SideBarProps) => {
         label="Stock"
         active={currentRoute === 'Stock'}
         onPress={() => {
-          navigation.navigate('Stock');
-          navigation.closeDrawer();
+          props.navigation.navigate('Stock');
+          props.navigation.closeDrawer();
         }}
       />
       <MenuItem
@@ -168,8 +169,8 @@ const SideBar = ({ navigation, state }: SideBarProps) => {
         label="Wallet"
         active={currentRoute === 'Wallet'}
         onPress={() => {
-          navigation.navigate('Wallet');
-          navigation.closeDrawer();
+          props.navigation.navigate('Wallet');
+          props.navigation.closeDrawer();
         }}
       />
       <MenuItem
@@ -177,8 +178,8 @@ const SideBar = ({ navigation, state }: SideBarProps) => {
         label="Dictionary"
         active={currentRoute === 'Dictionary'}
         onPress={() => {
-          navigation.navigate('Dictionary');
-          navigation.closeDrawer();
+          props.navigation.navigate('Dictionary');
+          props.navigation.closeDrawer();
         }}
       />
 
@@ -197,14 +198,15 @@ const SideBar = ({ navigation, state }: SideBarProps) => {
           </Text>
         </TouchableOpacity>
       </View>
-    </DrawerContentScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
+    backgroundColor: theme.colors.neutral.surface,
+    padding: theme.spacing.md,
   },
   header: {
     paddingVertical: 20,
