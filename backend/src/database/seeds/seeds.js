@@ -22,13 +22,17 @@ const seedNotifications = require('./notificationSeeds');
 const seedMedia = require('./mediaSeeds');
 const seedRecurringTransactions = require('./recurringTransactionSeeds');
 const seedTransactions = require('./transactionSeeds');
-// const seedScans = require('./scanSeeds');
+const seedScans = require('./scanSeeds');
+const initializeDatabase = require('../dbInit');
 
 async function seedAll() {
   try {
     console.log('🌱 Starting database seeding...');
-
-    // Update the seeding order
+    
+    // Initialize database first (create tables)
+    await initializeDatabase();
+    
+    // Then proceed with seeding
     await seedUsers();
     await seedCategories();
     await seedNotifications();
@@ -51,19 +55,26 @@ async function seedAll() {
     await seedRecurringTransactions();
     await seedBackupSync();
     await seedMessages();
-
-
-
-  
-
-    console.log('✅ Database seeding completed successfully!');
+    
+    console.log('✅ All data seeded successfully!');
+    return true;
   } catch (error) {
     console.error('❌ Error during database seeding:', error);
-    process.exit(1);
+    throw error;
   }
 }
 
-// Add this line to execute the function
-seedAll().catch(console.error);
+// Run seeding if this file is executed directly
+if (require.main === module) {
+  seedAll()
+    .then(() => {
+      console.log('Database seeding completed');
+      process.exit(0);
+    })
+    .catch((error) => {
+      console.error('Database seeding failed:', error);
+      process.exit(1);
+    });
+}
 
 module.exports = seedAll;

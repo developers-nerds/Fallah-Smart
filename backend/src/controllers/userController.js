@@ -2,10 +2,11 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { Users } = require('../database/assossiation');
 const { Op } = require('sequelize');
-
+require('dotenv').config();
+const config = require("../config/db");
 // JWT Configuration
-const JWT_SECRET = process.env.JWT_SECRET || '1234';
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || '12345';
+const JWT_SECRET = process.env.JWT_SECRET ;
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET ;
 const JWT_EXPIRES_IN = '30d';
 const JWT_REFRESH_EXPIRES_IN = '30d';
 
@@ -25,6 +26,49 @@ const userController = {
         profilePicture
       } = req.body;
 
+      // Basic validation
+      if (!firstName || !lastName || !username || !email || !password) {
+        return res.status(400).json({ message: 'All fields are required' });
+      }
+
+      // Password validation
+      const passwordRegex = {
+        minLength: /.{8,}/,
+        hasUppercase: /[A-Z]/,
+        hasLowercase: /[a-z]/,
+        hasNumber: /[0-9]/,
+        hasSpecial: /[!@#$%^&*(),.?":{}|<>]/
+      };
+
+      const passwordValidation = {
+        minLength: passwordRegex.minLength.test(password),
+        hasUppercase: passwordRegex.hasUppercase.test(password),
+        hasLowercase: passwordRegex.hasLowercase.test(password),
+        hasNumber: passwordRegex.hasNumber.test(password),
+        hasSpecial: passwordRegex.hasSpecial.test(password)
+      };
+
+      // Check if all password requirements are met
+      if (!Object.values(passwordValidation).every(value => value === true)) {
+        // Identify which requirements failed
+        const failedRequirements = Object.entries(passwordValidation)
+          .filter(([_, value]) => !value)
+          .map(([key, _]) => {
+            switch(key) {
+              case 'minLength': return 'at least 8 characters';
+              case 'hasUppercase': return 'an uppercase letter';
+              case 'hasLowercase': return 'a lowercase letter';
+              case 'hasNumber': return 'a number';
+              case 'hasSpecial': return 'a special character';
+              default: return key;
+            }
+          });
+
+        return res.status(400).json({ 
+          message: `Password requirements not met. Password must contain ${failedRequirements.join(', ')}.`
+        });
+      }
+
       // Check if user already exists
       const existingUser = await Users.findOne({
         where: {
@@ -33,9 +77,10 @@ const userController = {
       });
 
       if (existingUser) {
-        return res.status(400).json({
-          message: 'User with this email or username already exists'
-        });
+        if (existingUser.email === email) {
+          return res.status(400).json({ message: 'Email already in use' });
+        }
+        return res.status(400).json({ message: 'Username already taken' });
       }
 
       // Hash password
@@ -47,7 +92,7 @@ const userController = {
         username,
         firstName,
         lastName,
-        role,
+        role: role || 'USER',
         gender,
         email,
         phoneNumber,
@@ -98,7 +143,7 @@ const userController = {
       const { email, password } = req.body;
 
       // Find user with additional data
-      const user = await Users.findOne({ 
+      const user = await Users.findOne({
         where: { email },
         attributes: { exclude: ['password'] }
       });
@@ -180,47 +225,71 @@ const userController = {
       const user = await Users.findByPk(req.user.id, {
         attributes: { exclude: ['password', 'refreshToken'] }
       });
+
       if (!user) {
         return res.status(404).json({ message: 'User not found' });
       }
+      
+      console.log("Sending user profile with picture:", user.profilePicture);
       res.json(user);
     } catch (error) {
-      console.error('Profile fetch error:', error);
+      console.error('Get profile error:', error);
       res.status(500).json({ message: 'Error fetching profile' });
     }
   },
 
   updateProfile: async (req, res) => {
     try {
+      console.log('Profile update request received');
+      console.log('Request body:', req.body);
+      console.log('File received:', req.file ? 'Yes' : 'No');
+      
       const {
+        username,
         firstName,
         lastName,
         gender,
-        phoneNumber,
-        profilePicture
+        phoneNumber
       } = req.body;
 
+      // Validate the user exists
       const user = await Users.findByPk(req.user.id);
       if (!user) {
+        console.log('User not found:', req.user.id);
         return res.status(404).json({ message: 'User not found' });
       }
 
+      // Handle profile image upload
+      let profilePicture = user.profilePicture;
+      if (req.file) {
+        // Create URL for the uploaded file
+        profilePicture = `/uploads/${req.file.filename}`;
+        console.log("New profile picture path:", profilePicture);
+      }
+
+      // Update user data
       await user.update({
+        username: username || user.username,
         firstName: firstName || user.firstName,
         lastName: lastName || user.lastName,
         gender: gender || user.gender,
         phoneNumber: phoneNumber || user.phoneNumber,
-        profilePicture: profilePicture || user.profilePicture
+        profilePicture: profilePicture
       });
 
+      // Fetch updated user data
       const updatedUser = await Users.findByPk(req.user.id, {
         attributes: { exclude: ['password', 'refreshToken'] }
       });
 
+      console.log("Profile updated successfully for user:", updatedUser.id);
       res.json(updatedUser);
     } catch (error) {
       console.error('Profile update error:', error);
-      res.status(500).json({ message: 'Error updating profile' });
+      res.status(500).json({ 
+        message: 'Error updating profile',
+        error: error.message 
+      });
     }
   },
 
@@ -284,18 +353,15 @@ const userController = {
       console.error('Users fetch error:', error);
       res.status(500).json({ message: 'Error fetching users' });
     }
-  }
+  },
 };
 
-// Updated token generation functions
+// Helper functions
 function generateAccessToken(user) {
   const userData = {
     id: user.id,
     email: user.email,
-    role: user.role,
-    username: user.username,
-    firstName: user.firstName,
-    lastName: user.lastName
+    role: user.role
   };
 
   return jwt.sign(

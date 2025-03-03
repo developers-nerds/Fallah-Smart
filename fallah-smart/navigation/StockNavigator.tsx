@@ -16,6 +16,8 @@ import { View, ActivityIndicator, Text } from 'react-native';
 import { PesticideList } from '../screens/Stock/Pesticides/PesticideList';
 import { PesticideDetail } from '../screens/Stock/Pesticides/PesticideDetail';
 import { AddPesticide } from '../screens/Stock/Pesticides/AddPesticide';
+import Blogs from '../screens/blogs/blogs';
+import PostDetail from '../screens/blogs/PostDetail';
 
 export type StockStackParamList = {
   Login: undefined;
@@ -104,6 +106,17 @@ export const StockNavigator = () => {
         name="AddPesticide" 
         component={AddPesticide}
         options={{ title: 'Ajouter un Pesticide', headerShown: true }}
+          />
+        <Stack.Screen 
+
+        name="Blogs" 
+        component={Blogs}
+        options={{ title: 'Blog', headerShown: true }}
+      />
+      <Stack.Screen 
+        name="PostDetail" 
+        component={PostDetail}
+        options={{ title: 'Post Detail', headerShown: false }}
       />
     </Stack.Navigator>
   );
