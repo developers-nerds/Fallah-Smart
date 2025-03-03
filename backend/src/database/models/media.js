@@ -2,6 +2,27 @@ module.exports = (sequelize, DataTypes) => {
   const Media = sequelize.define(
     "Media",
     {
+      url: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      type: {
+        type: DataTypes.ENUM("image", "video", "other"),
+        allowNull: false,
+        defaultValue: "image",
+      },
+      originalName: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      mimeType: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      size: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      },
       title: {
         type: DataTypes.STRING,
         allowNull: true,
@@ -12,7 +33,7 @@ module.exports = (sequelize, DataTypes) => {
       },
       file_type: {
         type: DataTypes.STRING,
-        allowNull: false,
+        allowNull: true,
       },
       description: {
         type: DataTypes.STRING,
