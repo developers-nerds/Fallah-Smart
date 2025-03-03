@@ -10,15 +10,21 @@
     "db:init": "node src/database/assossiation.js",
     "db:seed": "node src/database/seeds/seeds.js",
     "db:drop": "node src/database/interaction/dropDataBase.js",
-    "db:reset": "npm run db:drop && npm run db:create && npm run db:init && npm run db:seed"
+    "db:reset": "npm run db:drop && npm run db:create && npm run db:init && npm run db:seed",
+    "dev": "nodemon src/server.js",
+    "db:test": "node src/database/testConnection.js",
+    "db:setup": "node src/database/dbInit.js && node src/database/seeds/userSeeds.js && node src/database/seeds/mediaSeeds.js"
   },
   "dependencies": {
+    "axios": "^1.8.1",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.18.2",
+    "google-auth-library": "^9.15.1",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^7.0.0",
+    "multer": "^1.4.5-lts.1",
     "mysql2": "^3.12.0",
     "nodemon": "^3.1.9",
     "pg": "^8.13.3",

@@ -17,6 +17,7 @@ import axios from 'axios';
 import { theme } from '../../theme/theme';
 import { storage } from '../../utils/storage';
 
+
 const Login = () => {
   const navigation = useNavigation();
   const [email, setEmail] = useState('');
@@ -30,7 +31,7 @@ const Login = () => {
       setIsLoading(true);
       setError('');
 
-      const response = await axios.post('http:192.168.104.12:5000/api/users/login', {
+      const response = await axios.post('http:192.168.104.24:5000/api/users/login', {
         email,
         password,
       });
