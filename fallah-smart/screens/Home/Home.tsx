@@ -20,7 +20,7 @@ import SideBar from '../../navigation/sideBar';
 import ScanScreen from '../scan/scan';
 import StockScreen from '../Stock/stock';
 import WalletScreen from '../Wallet/Wallet';
-import DictionaryScreen from '../dictionary/dictionary';
+import { DictionaryNavigator } from '../../navigation/DictionaryNavigator';
 
 
 const Drawer = createDrawerNavigator();
@@ -242,7 +242,11 @@ const HomeScreen = () => {
       <Drawer.Screen name="Scan" component={ScanScreen} />
       <Drawer.Screen name="Stock" component={StockScreen} />
       <Drawer.Screen name="Wallet" component={WalletScreen} />
-      <Drawer.Screen name="Dictionary" component={DictionaryScreen} />
+      <Drawer.Screen 
+        name="Dictionary" 
+        component={DictionaryNavigator}
+        options={{ title: 'القاموس الزراعي' }}
+      />
     </Drawer.Navigator>
   );
 };
