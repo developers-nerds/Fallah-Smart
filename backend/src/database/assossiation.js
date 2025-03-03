@@ -26,6 +26,7 @@ const StockHistory = require("./models/StockHistory")(sequelize, DataTypes);
 const Transactions = require("./models/Transactions")(sequelize, DataTypes);
 const UserAnimals = require("./models/userAnimals")(sequelize, DataTypes);
 const Users = require("./models/Users")(sequelize, DataTypes);
+
 // Define associations
 
 // For users
@@ -137,7 +138,6 @@ Posts.hasMany(Media, {
   foreignKey: "postId",
   as: "media",
   onDelete: "CASCADE",
-  onUpdate: "CASCADE",
 });
 
 Media.belongsTo(Posts, {
@@ -362,6 +362,32 @@ BackupSync.belongsTo(Users, {
   as: "user",
 });
 
+// Users and Comments associations
+Users.hasMany(Comments, {
+  foreignKey: "userId",
+  as: "comments",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+
+Comments.belongsTo(Users, {
+  foreignKey: "userId",
+  as: "user",
+});
+
+// Users and Likes associations
+Users.hasMany(Likes, {
+  foreignKey: "userId",
+  as: "likes",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+
+Likes.belongsTo(Users, {
+  foreignKey: "userId",
+  as: "user",
+});
+
 // Sync all models with the database
 async function syncModels() {
   try {
@@ -375,8 +401,11 @@ async function syncModels() {
 
 syncModels();
 
+// Export models AFTER defining associations
 module.exports = {
+  sequelize,
   Users,
+  Posts,
   Scans,
   Conversations,
   Messages,
@@ -390,7 +419,6 @@ module.exports = {
   StockHistory,
   Transactions,
   UserAnimals,
-  Posts,
   Likes,
   Comments,
   Accounts,

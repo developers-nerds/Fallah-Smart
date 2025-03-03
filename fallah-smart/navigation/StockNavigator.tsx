@@ -11,6 +11,8 @@ import { ThemeProvider } from '../context/ThemeContext';
 import TabBar from './TabBar';
 import Login from '../screens/Auth/Login';
 import Register from '../screens/Auth/Register';
+import Blogs from '../screens/blogs/blogs';
+import PostDetail from '../screens/blogs/PostDetail';
 
 const Stack = createStackNavigator();
 
@@ -49,6 +51,16 @@ export const StockNavigator = () => {
         name="AnimalList" 
         component={AnimalList}
         options={{ title: 'Mes Animaux', headerShown: true }}
+      />
+      <Stack.Screen 
+        name="Blogs" 
+        component={Blogs}
+        options={{ title: 'Blog', headerShown: true }}
+      />
+      <Stack.Screen 
+        name="PostDetail" 
+        component={PostDetail}
+        options={{ title: 'Post Detail', headerShown: false }}
       />
     </Stack.Navigator>
   );
