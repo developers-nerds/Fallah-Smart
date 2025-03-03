@@ -10,10 +10,10 @@
     "web": "expo start --web"
   },
   "dependencies": {
-    "@expo/vector-icons": "^14.0.2",
+    "@expo/vector-icons": "^14.0.0",
     "@react-native-async-storage/async-storage": "^1.23.1",
     "@react-native-community/datetimepicker": "8.2.0",
-    "@react-native-picker/picker": "2.4.10",
+    "@react-native-picker/picker": "2.9.0",
     "@react-navigation/bottom-tabs": "^7.2.0",
     "@react-navigation/drawer": "^7.1.1",
     "@react-navigation/native": "^7.0.14",
@@ -21,8 +21,9 @@
     "axios": "^1.8.1",
     "expo": "^52.0.37",
     "expo-camera": "~16.0.17",
-    "expo-file-system": "~18.0.11",
     "expo-image-picker": "~16.0.6",
+    "expo-location": "~16.5.0",
+    "expo-file-system": "~18.0.11",
     "expo-localization": "^16.0.1",
     "expo-notifications": "~0.29.13",
     "expo-speech": "^13.0.1",

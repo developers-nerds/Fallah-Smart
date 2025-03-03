@@ -1,5 +1,7 @@
 const { faker } = require('@faker-js/faker');
 const { Media, Posts, Users, Scans } = require('../assossiation');
+const path = require('path');
+const fs = require('fs');
 
 async function seedMedia() {
   try {
@@ -13,6 +15,12 @@ async function seedMedia() {
       throw new Error("No posts or users found. Please seed them first.");
     }
 
+    // Create uploads directory if it doesn't exist
+    const uploadsDir = path.join(__dirname, '../../../uploads');
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+
     const mediaToCreate = [];
     const mediaTypes = ['image', 'video', 'document'];
     const mimeTypes = {
@@ -21,28 +29,36 @@ async function seedMedia() {
       document: ['application/pdf', 'application/msword', 'text/plain']
     };
 
+    // Use stable, reliable image URLs
+    const sampleImageUrls = [
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/Harry_Potter_wordmark.svg/330px-Harry_Potter_wordmark.svg.png',
+      '/uploads/seed_image_2.jpg',
+      '/uploads/seed_image_3.jpg',
+      '/uploads/seed_image_4.jpg',
+      '/uploads/seed_image_5.jpg',
+    ];
+
     // Media for posts
     for (const post of posts) {
-      if (faker.datatype.boolean()) {
-        const type = faker.helpers.arrayElement(mediaTypes);
-        mediaToCreate.push({
-          postId: post.id,
-          type: type,
-          url: faker.image.url(),
-          filename: `${faker.string.alphanumeric(10)}.${type === 'image' ? 'jpg' : type === 'video' ? 'mp4' : 'pdf'}`,
-          mimeType: faker.helpers.arrayElement(mimeTypes[type]),
-
-          file_type: type, // Add this line
-          size: faker.number.int({ min: 100000, max: 5000000 }),
-          metadata: JSON.stringify({
-            width: type === 'image' ? faker.number.int({ min: 800, max: 2400 }) : null,
-            height: type === 'image' ? faker.number.int({ min: 600, max: 1600 }) : null,
-            duration: type === 'video' ? faker.number.int({ min: 10, max: 300 }) : null
-          }),
-          createdAt: new Date(),
-          updatedAt: new Date()
-        });
-      }
+      // Always create at least one image for each post
+      const type = 'image';
+      const imageUrl = faker.helpers.arrayElement(sampleImageUrls);
+      
+      mediaToCreate.push({
+        postId: post.id,
+        type: type,
+        url: imageUrl, // Use our predefined URLs
+        filename: `seed_image_${post.id}.jpg`,
+        mimeType: 'image/jpeg',
+        file_type: type,
+        size: faker.number.int({ min: 100000, max: 5000000 }),
+        metadata: JSON.stringify({
+          width: faker.number.int({ min: 800, max: 2400 }),
+          height: faker.number.int({ min: 600, max: 1600 }),
+        }),
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
     }
 
     // Media for scans
@@ -50,10 +66,10 @@ async function seedMedia() {
       mediaToCreate.push({
         scanId: scan.id,
         type: 'image',
-        url: faker.image.url(),
-        filename: `scan_${faker.string.alphanumeric(10)}.jpg`,
+        url: '/uploads/scan_image.jpg', // More reliable URL
+        filename: `scan_${scan.id}.jpg`,
         mimeType: 'image/jpeg',
-        file_type: 'image', // Add this line
+        file_type: 'image',
         size: faker.number.int({ min: 100000, max: 5000000 }),
         metadata: JSON.stringify({
           location: {
@@ -66,6 +82,27 @@ async function seedMedia() {
       });
     }
 
+    // Create empty image files in the uploads directory for our seeds
+    const createEmptyImageFiles = () => {
+      const dummyImageBuffer = Buffer.from(
+        'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64'
+      );
+      
+      sampleImageUrls.forEach(url => {
+        const filename = url.split('/').pop();
+        const filePath = path.join(uploadsDir, filename);
+        fs.writeFileSync(filePath, dummyImageBuffer);
+      });
+      
+      // Create scan image file
+      fs.writeFileSync(path.join(uploadsDir, 'scan_image.jpg'), dummyImageBuffer);
+      
+      console.log('Created empty image files for seeding');
+    };
+    
+    // Create dummy image files
+    createEmptyImageFiles();
+
     await Media.bulkCreate(mediaToCreate);
     console.log(`✅ Created ${mediaToCreate.length} media items`);
 
@@ -75,6 +112,5 @@ async function seedMedia() {
     throw error;
   }
 }
-
 
 module.exports = seedMedia;
