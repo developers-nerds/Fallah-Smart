@@ -16,6 +16,8 @@ import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { theme } from '../../theme/theme';
 import { storage } from '../../utils/storage';
+import { FontAwesome } from '@expo/vector-icons';
+
 
 const Register = () => {
   const navigation = useNavigation();
@@ -27,11 +29,19 @@ const Register = () => {
     password: '',
     confirmPassword: '',
     phoneNumber: '',
+    gender: 'male',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
+  const [passwordValidation, setPasswordValidation] = useState({
+    minLength: false,
+    hasUppercase: false,
+    hasLowercase: false,
+    hasNumber: false,
+    hasSpecial: false
+  });
+  const [showPasswordRequirements, setShowPasswordRequirements] = useState(false);
 
   const handleRegister = async () => {
     try {
@@ -43,7 +53,7 @@ const Register = () => {
       setIsLoading(true);
       setError('');
 
-      const response = await axios.post(`${API_BASE_URL}/users/register`, {
+      const response = await axios.post('http:192.168.104.24:5000/api/users/register', {
         ...formData,
         role: 'user',
       });
@@ -72,6 +82,16 @@ const Register = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const validatePassword = (password) => {
+    setPasswordValidation({
+      minLength: password.length >= 8,
+      hasUppercase: /[A-Z]/.test(password),
+      hasLowercase: /[a-z]/.test(password),
+      hasNumber: /[0-9]/.test(password),
+      hasSpecial: /[!@#$%^&*(),.?":{}|<>]/.test(password)
+    });
   };
 
   return (
@@ -174,6 +194,59 @@ const Register = () => {
             />
           </View>
 
+          <View style={styles.genderContainer}>
+            <Text style={[styles.genderLabel, { color: theme.colors.neutral.textPrimary }]}>
+              Gender
+            </Text>
+            <View style={styles.genderOptions}>
+              <TouchableOpacity 
+                style={[
+                  styles.genderOption, 
+                  formData.gender === 'male' && { 
+                    backgroundColor: theme.colors.primary.light,
+                    borderColor: theme.colors.primary.base
+                  }
+                ]}
+                onPress={() => setFormData({...formData, gender: 'male'})}
+              >
+                <Ionicons 
+                  name={formData.gender === 'male' ? 'radio-button-on' : 'radio-button-off'} 
+                  size={20} 
+                  color={formData.gender === 'male' ? theme.colors.primary.base : theme.colors.neutral.textSecondary} 
+                />
+                <Text style={[
+                  styles.genderText, 
+                  { color: formData.gender === 'male' ? theme.colors.primary.base : theme.colors.neutral.textPrimary }
+                ]}>
+                  Male
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[
+                  styles.genderOption, 
+                  formData.gender === 'female' && { 
+                    backgroundColor: theme.colors.primary.light,
+                    borderColor: theme.colors.primary.base
+                  }
+                ]}
+                onPress={() => setFormData({...formData, gender: 'female'})}
+              >
+                <Ionicons 
+                  name={formData.gender === 'female' ? 'radio-button-on' : 'radio-button-off'} 
+                  size={20} 
+                  color={formData.gender === 'female' ? theme.colors.primary.base : theme.colors.neutral.textSecondary} 
+                />
+                <Text style={[
+                  styles.genderText, 
+                  { color: formData.gender === 'female' ? theme.colors.primary.base : theme.colors.neutral.textPrimary }
+                ]}>
+                  Female
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
           <View style={[styles.inputContainer, { backgroundColor: theme.colors.neutral.surface }]}>
             <Ionicons 
               name="lock-closed-outline" 
@@ -186,7 +259,12 @@ const Register = () => {
               placeholder="Password"
               placeholderTextColor={theme.colors.neutral.textSecondary}
               value={formData.password}
-              onChangeText={(text) => setFormData({ ...formData, password: text })}
+              onChangeText={(text) => {
+                setFormData({ ...formData, password: text });
+                validatePassword(text);
+              }}
+              onFocus={() => setShowPasswordRequirements(true)}
+              onBlur={() => setShowPasswordRequirements(false)}
               secureTextEntry={!showPassword}
             />
             <TouchableOpacity
@@ -217,6 +295,52 @@ const Register = () => {
               secureTextEntry={!showPassword}
             />
           </View>
+
+          {showPasswordRequirements && (
+            <View style={styles.passwordRequirements}>
+              <Text style={styles.requirementsTitle}>Password must have:</Text>
+              <View style={styles.requirementRow}>
+                <FontAwesome 
+                  name={passwordValidation.minLength ? "check-circle" : "circle-o"} 
+                  size={14} 
+                  color={passwordValidation.minLength ? theme.colors.success : theme.colors.neutral.gray.medium} 
+                />
+                <Text style={styles.requirementText}>At least 8 characters</Text>
+              </View>
+              <View style={styles.requirementRow}>
+                <FontAwesome 
+                  name={passwordValidation.hasUppercase ? "check-circle" : "circle-o"} 
+                  size={14} 
+                  color={passwordValidation.hasUppercase ? theme.colors.success : theme.colors.neutral.gray.medium} 
+                />
+                <Text style={styles.requirementText}>At least one uppercase letter</Text>
+              </View>
+              <View style={styles.requirementRow}>
+                <FontAwesome 
+                  name={passwordValidation.hasLowercase ? "check-circle" : "circle-o"} 
+                  size={14} 
+                  color={passwordValidation.hasLowercase ? theme.colors.success : theme.colors.neutral.gray.medium} 
+                />
+                <Text style={styles.requirementText}>At least one lowercase letter</Text>
+              </View>
+              <View style={styles.requirementRow}>
+                <FontAwesome 
+                  name={passwordValidation.hasNumber ? "check-circle" : "circle-o"} 
+                  size={14} 
+                  color={passwordValidation.hasNumber ? theme.colors.success : theme.colors.neutral.gray.medium} 
+                />
+                <Text style={styles.requirementText}>At least one number</Text>
+              </View>
+              <View style={styles.requirementRow}>
+                <FontAwesome 
+                  name={passwordValidation.hasSpecial ? "check-circle" : "circle-o"} 
+                  size={14} 
+                  color={passwordValidation.hasSpecial ? theme.colors.success : theme.colors.neutral.gray.medium} 
+                />
+                <Text style={styles.requirementText}>At least one special character</Text>
+              </View>
+            </View>
+          )}
 
           <TouchableOpacity
             style={[
@@ -316,6 +440,58 @@ const styles = StyleSheet.create({
   loginLink: {
     fontSize: theme.fontSizes.body,
     fontFamily: theme.fonts.medium,
+  },
+  passwordRequirements: {
+    backgroundColor: theme.colors.neutral.background,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.neutral.border,
+  },
+  requirementsTitle: {
+    fontFamily: theme.fonts.medium,
+    fontSize: 14,
+    marginBottom: 8,
+    color: theme.colors.neutral.textPrimary,
+  },
+  requirementRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  requirementText: {
+    fontFamily: theme.fonts.regular,
+    fontSize: 13,
+    marginLeft: 8,
+    color: theme.colors.neutral.textSecondary,
+  },
+  genderContainer: {
+    marginBottom: theme.spacing.md,
+  },
+  genderLabel: {
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.medium,
+    marginBottom: theme.spacing.sm,
+  },
+  genderOptions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  genderOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderWidth: 1,
+    borderColor: theme.colors.neutral.border,
+    borderRadius: theme.borderRadius.medium,
+    width: '48%',
+  },
+  genderText: {
+    marginLeft: theme.spacing.sm,
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.regular,
   },
 });
 
