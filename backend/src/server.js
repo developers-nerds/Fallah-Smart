@@ -1,11 +1,14 @@
 require('dotenv').config();
 const express = require("express");
+require("dotenv").config();
 const app = express();
 const port = 5000;
 const cors = require("cors");
 const path = require('path');
-const userRoutes = require("./routes/userRoutes");
 const blogRoutes = require("./routes/blogRoutes");
+const userRoutes = require("./routes/userRoutes");
+const scanRoutes = require("./routes/scanRoutes");
+const conversationRoutes = require("./routes/conversationRoutes");
 
 app.use(cors());
 app.use(express.urlencoded({ extended: true }));
@@ -28,6 +31,8 @@ app.get('/test-image', (req, res) => {
   `);
 });
 
+app.use("/api/scans", scanRoutes);
+app.use("/api/conversations", conversationRoutes);
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });

@@ -17,7 +17,6 @@ import axios from 'axios';
 import { theme } from '../../theme/theme';
 import { storage } from '../../utils/storage';
 
-
 const Login = () => {
   const navigation = useNavigation();
   const [email, setEmail] = useState('');
@@ -25,36 +24,37 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-
+  const API_URL = process.env.EXPO_PUBLIC_API_URL;
+  console.log(API_URL,"gggg");
   const handleLogin = async () => {
     try {
       setIsLoading(true);
       setError('');
-
-      const response = await axios.post('http:192.168.104.24:5000/api/users/login', {
+  
+      const response = await axios.post(`${API_URL}/users/login`, {
         email,
         password,
       });
-
+  
       const { user, tokens } = response.data;
-
+  
       await Promise.all([
         storage.setUser(user),
         storage.setTokens(tokens.access.token, tokens.refresh.token)
       ]);
-
+  
       axios.defaults.headers.common['Authorization'] = `Bearer ${tokens.access.token}`;
-
-      // Changed from 'Home' to 'StockTab' to match your navigation structure
+  
       navigation.navigate('StockTab');
-
     } catch (err) {
-      setError(err.response?.data?.message || 'An error occurred during login');
-      Alert.alert('Login Error', error);
+      const errorMessage = err.response?.data?.message || 'An error occurred during login';
+      setError(errorMessage);
+      Alert.alert('Login Error', errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
+  
 
   return (
     <KeyboardAvoidingView

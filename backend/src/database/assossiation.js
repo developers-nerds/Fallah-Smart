@@ -391,7 +391,7 @@ Likes.belongsTo(Users, {
 // Sync all models with the database
 async function syncModels() {
   try {
-    // Uncomment to update the database schema with the new associations
+    // Use { alter: true } for production to safely update schema
     // await sequelize.sync({ force: true });
     console.log("Database models synchronized successfully");
   } catch (error) {
