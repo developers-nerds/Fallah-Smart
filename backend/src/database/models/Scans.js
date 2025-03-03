@@ -6,6 +6,14 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.TEXT,
         allowNull: false,
       },
+      picture: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+      },
+      picture_mime_type: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+      },
     },
     {
       timestamps: true,

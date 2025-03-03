@@ -31,6 +31,7 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
   const handleRegister = async () => {
     try {
@@ -42,7 +43,7 @@ const Register = () => {
       setIsLoading(true);
       setError('');
 
-      const response = await axios.post('http:192.168.104.18:5000/api/users/register', {
+      const response = await axios.post(`${API_BASE_URL}/users/register`, {
         ...formData,
         role: 'user',
       });
