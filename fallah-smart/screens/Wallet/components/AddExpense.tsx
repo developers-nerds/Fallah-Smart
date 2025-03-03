@@ -7,6 +7,7 @@ import { useNavigation } from "@react-navigation/native"
 import Icon from "react-native-vector-icons/MaterialIcons"
 import FontAwesome5 from "react-native-vector-icons/FontAwesome5"
 import { theme } from "../../../theme/theme"
+import DateTimePicker from "@react-native-community/datetimepicker"
 
 export default function AddExpense() {
   const [amount, setAmount] = useState("1000")
@@ -16,9 +17,11 @@ export default function AddExpense() {
     const options = { weekday: "long", day: "numeric", month: "long" }
     return date.toLocaleDateString("en-US", options)
   })
-
+  const [date, setDate] = useState(new Date())
+  const [showDatePicker, setShowDatePicker] = useState(false)
+  const [isManualDateInput, setIsManualDateInput] = useState(false)
+  const [manualDate, setManualDate] = useState("")
   const navigation = useNavigation()
-
   const handleNumberPress = (num) => {
     if (amount === "0") {
       setAmount(num.toString())
@@ -26,19 +29,35 @@ export default function AddExpense() {
       setAmount((prev) => prev + num.toString())
     }
   }
-
   const handleOperatorPress = (operator) => {
     console.log("Operator pressed:", operator)
   }
-
   const handleClear = () => {
     setAmount("0")
   }
-
   const goBack = () => {
     navigation.goBack()
   }
-
+  // Add these new functions before the return statement
+  const onDateChange = (event, selectedDate) => {
+    const currentDate = selectedDate || date
+    setShowDatePicker(false)
+    setDate(currentDate)
+    const options = { weekday: "long", day: "numeric", month: "long", year: "numeric" }
+    setCurrentDate(currentDate.toLocaleDateString("en-US", options))
+    setManualDate(currentDate.toLocaleDateString("en-US", options))
+  }
+  const handleManualDateChange = (text) => {
+    setManualDate(text)
+    setCurrentDate(text)
+  }
+  const toggleManualDateInput = () => {
+    setIsManualDateInput(!isManualDateInput)
+    if (!isManualDateInput) {
+      setManualDate(currentDate)
+    }
+  }
+  // Replace the existing dateContainer in the return statement with this
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -51,11 +70,28 @@ export default function AddExpense() {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.dateContainer}>
+      <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.dateContainer}>
         <Icon name="calendar-today" size={20} color={theme.colors.neutral.textSecondary} style={styles.calendarIcon} />
         <Text style={styles.dateText}>{currentDate}</Text>
-      </View>
+        <TouchableOpacity onPress={toggleManualDateInput} style={styles.penButton}>
+          <Icon name="edit" size={20} color={theme.colors.success} />
+        </TouchableOpacity>
+      </TouchableOpacity>
 
+      {isManualDateInput && (
+        <View style={styles.manualDateContainer}>
+          <TextInput
+            style={styles.manualDateInput}
+            value={manualDate}
+            onChangeText={handleManualDateChange}
+            placeholder="Enter date (e.g., March 2, 2025)"
+            keyboardType="default"
+          />
+          <TouchableOpacity onPress={toggleManualDateInput} style={styles.doneButton}>
+            <Text style={styles.doneButtonText}>Done</Text>
+          </TouchableOpacity>
+        </View>
+      )}
       <View style={styles.amountContainer}>
         <View style={styles.currencyContainer}>
           <FontAwesome5 name="money-bill" size={24} color={theme.colors.neutral.textSecondary} style={styles.moneyIcon} />
@@ -141,6 +177,7 @@ export default function AddExpense() {
   )
 }
 
+// Add these new styles to the StyleSheet
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -290,6 +327,33 @@ const styles = StyleSheet.create({
   categoryButtonText: {
     fontSize: theme.fontSizes.button,
     color: theme.colors.neutral.textSecondary,
+    fontWeight: "500",
+  },
+  penButton: {
+    marginLeft: theme.spacing.md,
+    padding: theme.spacing.xs,
+  },
+  manualDateContainer: {
+    paddingHorizontal: theme.spacing.lg,
+    marginTop: theme.spacing.sm,
+  },
+  manualDateInput: {
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.success,
+    fontSize: theme.fontSizes.button,
+    color: theme.colors.neutral.textPrimary,
+    paddingVertical: theme.spacing.xs,
+  },
+  doneButton: {
+    marginTop: theme.spacing.sm,
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.success,
+    borderRadius: theme.borderRadius.small,
+    alignItems: "center",
+  },
+  doneButtonText: {
+    color: theme.colors.neutral.surface,
+    fontSize: theme.fontSizes.button,
     fontWeight: "500",
   },
 })

@@ -42,7 +42,7 @@ const Register = () => {
       setIsLoading(true);
       setError('');
 
-      const response = await axios.post('http:192.168.1.14:5000/api/users/register', {
+      const response = await axios.post('http:192.168.104.18:5000/api/users/register', {
         ...formData,
         role: 'user',
       });
