@@ -24,13 +24,14 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
   const handleLogin = async () => {
     try {
       setIsLoading(true);
       setError('');
 
-      const response = await axios.post('http:192.168.11.155:5000/api/users/login', {
+      const response = await axios.post(`${API_BASE_URL}/users/login`, {
         email,
         password,
       });
