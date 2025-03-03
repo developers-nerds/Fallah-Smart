@@ -13,6 +13,9 @@ import Login from '../screens/Auth/Login';
 import Register from '../screens/Auth/Register';
 import { StockItem } from '../screens/Stock/types';
 import { View, ActivityIndicator, Text } from 'react-native';
+import { PesticideList } from '../screens/Stock/Pesticides/PesticideList';
+import { PesticideDetail } from '../screens/Stock/Pesticides/PesticideDetail';
+import { AddPesticide } from '../screens/Stock/Pesticides/AddPesticide';
 
 export type StockStackParamList = {
   Login: undefined;
@@ -23,6 +26,9 @@ export type StockStackParamList = {
   AddStock: undefined;
   Animals: undefined;
   AnimalList: undefined;
+  PesticideList: undefined;
+  PesticideDetail: { pesticideId: number };
+  AddPesticide: undefined;
 };
 
 const Stack = createStackNavigator<StockStackParamList>();
@@ -84,10 +90,24 @@ export const StockNavigator = () => {
         component={AnimalList}
         options={{ title: 'Mes Animaux', headerShown: true }}
       />
+      <Stack.Screen 
+        name="PesticideList" 
+        component={PesticideList}
+        options={{ title: 'Liste des Pesticides', headerShown: true }}
+      />
+      <Stack.Screen 
+        name="PesticideDetail" 
+        component={PesticideDetail}
+        options={{ title: 'Détails du Pesticide', headerShown: true }}
+      />
+      <Stack.Screen 
+        name="AddPesticide" 
+        component={AddPesticide}
+        options={{ title: 'Ajouter un Pesticide', headerShown: true }}
+      />
     </Stack.Navigator>
   );
 };
-
 const AddStockScreen = () => {
   const { addStock, loading, error, refreshStocks } = useStock();
   const navigation = useNavigation<NavigationProp<StockStackParamList>>();

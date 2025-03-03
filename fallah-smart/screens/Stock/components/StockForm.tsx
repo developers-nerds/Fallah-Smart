@@ -1,20 +1,37 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Text, TextInput, TouchableOpacity, Platform } from 'react-native';
+import { View, StyleSheet, ScrollView, Text, TextInput, Platform, Switch, TouchableOpacity } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
 import { StockItem, StockUnit, StockCategory } from '../types';
 import { Feather } from '@expo/vector-icons';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Button } from '../../../components/Button';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
-import { Picker } from '@react-native-picker/picker';
+import RNPickerSelect from 'react-native-picker-select';
+import CheckBox from '@react-native-community/checkbox';
 
 interface StockFormProps {
-  initialValues?: Partial<StockItem>;
-  onSubmit: (values: Omit<StockItem, 'id' | 'stockHistory'>) => void;
+  initialValues?: Partial<StockFormValues>;
+  onSubmit: (values: StockFormValues) => void;
   onCancel: () => void;
   error?: string | null;
   isSubmitting?: boolean;
+}
+
+interface StockFormValues {
+  name: string;
+  quantity: number;
+  unit: StockUnit;
+  category: StockCategory;
+  lowStockThreshold: number;
+  location: string;
+  supplier: string;
+  price?: number;
+  notes: string;
+  isNatural: boolean;
+  qualityStatus: 'good' | 'medium' | 'poor';
+  batchNumber?: string;
+  expiryDate?: Date;
 }
 
 const categories: { value: StockCategory; label: string }[] = [
@@ -53,75 +70,47 @@ const validationSchema = Yup.object().shape({
     .min(0, 'Le seuil doit être positif'),
   location: Yup.string(),
   supplier: Yup.string(),
-  price: Yup.number().min(0, 'Le prix doit être positif'),
+  price: Yup.number().nullable().min(0, 'Le prix doit être positif'),
   notes: Yup.string(),
+  isNatural: Yup.boolean(),
+  qualityStatus: Yup.string().oneOf(['good', 'medium', 'poor']).required('La qualité est requise'),
+  batchNumber: Yup.string(),
+  expiryDate: Yup.date().nullable()
 });
 
-const defaultValues = {
+const defaultValues: StockFormValues = {
   name: '',
-  quantity: '0',
-  unit: 'units' as StockUnit,
-  category: 'seeds' as StockCategory,
-  lowStockThreshold: '10',
+  quantity: 0,
+  unit: 'units',
+  category: 'seeds',
+  lowStockThreshold: 10,
   location: '',
   supplier: '',
-  price: '',
+  price: undefined,
   notes: '',
   isNatural: false,
-  qualityStatus: 'good' as 'good' | 'medium' | 'poor',
+  qualityStatus: 'good',
+  batchNumber: '',
+  expiryDate: undefined
 };
 
 export const StockForm = ({ 
   onSubmit, 
   onCancel, 
-  initialValues = defaultValues,
+  initialValues,
   error,
   isSubmitting = false
 }: StockFormProps) => {
   const theme = useTheme();
-  
-  const [values, setValues] = useState({
-    name: '',
-    quantity: '',
-    unit: 'units' as StockUnit,
-    category: 'seeds' as StockCategory,
-    lowStockThreshold: '',
-    isNatural: false,
-    location: '',
-    notes: '',
-    expiryDate: undefined as Date | undefined,
-    supplier: '',
-    price: '',
-    lastCheckDate: new Date(),
-    qualityStatus: 'good' as 'good' | 'medium' | 'poor',
-    batchNumber: '',
-  });
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
-  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
-  const [showUnitDropdown, setShowUnitDropdown] = useState(false);
-  const [showExpiryDatePicker, setShowExpiryDatePicker] = useState(false);
-
-  const handleSubmit = (values: typeof defaultValues) => {
-    // Convert string values to numbers where needed
-    const formattedValues = {
-      ...values,
-      quantity: parseFloat(values.quantity),
-      lowStockThreshold: parseFloat(values.lowStockThreshold),
-      price: values.price ? parseFloat(values.price) : undefined,
-    };
-
-    onSubmit(formattedValues);
+  const handleSubmit = (values: StockFormValues) => {
+    onSubmit(values);
   };
 
-  const handleCancel = () => {
-    onCancel();
-  };
-
-  const handleDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
-    setShowExpiryDatePicker(Platform.OS === 'ios');
-    if (selectedDate) {
-      setValues({ ...values, expiryDate: selectedDate });
-    }
+  const formInitialValues: StockFormValues = {
+    ...defaultValues,
+    ...initialValues
   };
 
   return (
@@ -130,7 +119,7 @@ export const StockForm = ({
       keyboardShouldPersistTaps="handled"
     >
       <Formik
-        initialValues={initialValues}
+        initialValues={formInitialValues}
         validationSchema={validationSchema}
         onSubmit={handleSubmit}
       >
@@ -183,7 +172,7 @@ export const StockForm = ({
                     },
                     touched.quantity && errors.quantity && styles.inputError
                   ]}
-                  onChangeText={handleChange('quantity')}
+                  onChangeText={(text) => setFieldValue('quantity', parseFloat(text) || 0)}
                   onBlur={handleBlur('quantity')}
                   value={values.quantity.toString()}
                   keyboardType="numeric"
@@ -206,18 +195,20 @@ export const StockForm = ({
                   styles.pickerContainer,
                   { backgroundColor: theme.colors.neutral.surface }
                 ]}>
-                  <Picker
-                    selectedValue={values.unit}
+                  <RNPickerSelect
+                    items={units}
                     onValueChange={(value) => setFieldValue('unit', value)}
-                    enabled={!isSubmitting}
-                    style={{ color: theme.colors.neutral.textPrimary }}
-                  >
-                    <Picker.Item label="Unités" value="units" />
-                    <Picker.Item label="Kilogrammes" value="kg" />
-                    <Picker.Item label="Grammes" value="g" />
-                    <Picker.Item label="Litres" value="l" />
-                    <Picker.Item label="Millilitres" value="ml" />
-                  </Picker>
+                    value={values.unit}
+                    disabled={isSubmitting}
+                    style={{
+                      inputIOS: {
+                        color: theme.colors.neutral.textPrimary,
+                      },
+                      inputAndroid: {
+                        color: theme.colors.neutral.textPrimary,
+                      },
+                    }}
+                  />
                 </View>
               </View>
             </View>
@@ -230,20 +221,20 @@ export const StockForm = ({
                 styles.pickerContainer,
                 { backgroundColor: theme.colors.neutral.surface }
               ]}>
-                <Picker
-                  selectedValue={values.category}
+                <RNPickerSelect
+                  items={categories}
                   onValueChange={(value) => setFieldValue('category', value)}
-                  enabled={!isSubmitting}
-                  style={{ color: theme.colors.neutral.textPrimary }}
-                >
-                  <Picker.Item label="Semences" value="seeds" />
-                  <Picker.Item label="Engrais" value="fertilizer" />
-                  <Picker.Item label="Récoltes" value="harvest" />
-                  <Picker.Item label="Aliments" value="feed" />
-                  <Picker.Item label="Pesticides" value="pesticide" />
-                  <Picker.Item label="Équipement" value="equipment" />
-                  <Picker.Item label="Outils" value="tools" />
-                </Picker>
+                  value={values.category}
+                  disabled={isSubmitting}
+                  style={{
+                    inputIOS: {
+                      color: theme.colors.neutral.textPrimary,
+                    },
+                    inputAndroid: {
+                      color: theme.colors.neutral.textPrimary,
+                    },
+                  }}
+                />
               </View>
             </View>
 
@@ -259,7 +250,7 @@ export const StockForm = ({
                     color: theme.colors.neutral.textPrimary 
                   }
                 ]}
-                onChangeText={handleChange('lowStockThreshold')}
+                onChangeText={(text) => setFieldValue('lowStockThreshold', parseFloat(text) || 0)}
                 onBlur={handleBlur('lowStockThreshold')}
                 value={values.lowStockThreshold.toString()}
                 keyboardType="numeric"
@@ -267,6 +258,11 @@ export const StockForm = ({
                 placeholderTextColor={theme.colors.neutral.textSecondary}
                 editable={!isSubmitting}
               />
+              {touched.lowStockThreshold && errors.lowStockThreshold && (
+                <Text style={[styles.errorText, { color: theme.colors.error }]}>
+                  {errors.lowStockThreshold}
+                </Text>
+              )}
             </View>
 
             <View style={styles.inputGroup}>
@@ -323,14 +319,110 @@ export const StockForm = ({
                     color: theme.colors.neutral.textPrimary 
                   }
                 ]}
-                onChangeText={handleChange('price')}
+                onChangeText={(text) => setFieldValue('price', text ? parseFloat(text) : undefined)}
                 onBlur={handleBlur('price')}
-                value={values.price}
+                value={values.price?.toString() || ''}
                 keyboardType="numeric"
                 placeholder="Prix unitaire (optionnel)"
                 placeholderTextColor={theme.colors.neutral.textSecondary}
                 editable={!isSubmitting}
               />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+                Numéro de lot
+              </Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  { 
+                    backgroundColor: theme.colors.neutral.surface,
+                    color: theme.colors.neutral.textPrimary 
+                  }
+                ]}
+                onChangeText={handleChange('batchNumber')}
+                onBlur={handleBlur('batchNumber')}
+                value={values.batchNumber}
+                placeholder="Numéro de lot (optionnel)"
+                placeholderTextColor={theme.colors.neutral.textSecondary}
+                editable={!isSubmitting}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+                Date d'expiration
+              </Text>
+              {(Platform.OS === 'ios' || showDatePicker) && (
+                <DateTimePicker
+                  value={values.expiryDate || new Date()}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'default' : 'calendar'}
+                  onChange={(event, date) => {
+                    setShowDatePicker(false);
+                    if (date) {
+                      setFieldValue('expiryDate', date);
+                    }
+                  }}
+                  disabled={isSubmitting}
+                />
+              )}
+              {Platform.OS === 'android' && !showDatePicker && (
+                <TouchableOpacity
+                  onPress={() => setShowDatePicker(true)}
+                  style={[
+                    styles.input,
+                    { 
+                      backgroundColor: theme.colors.neutral.surface,
+                      justifyContent: 'center' 
+                    }
+                  ]}
+                  disabled={isSubmitting}
+                >
+                  <Text style={{ color: theme.colors.neutral.textPrimary }}>
+                    {values.expiryDate ? values.expiryDate.toLocaleDateString() : "Sélectionner une date"}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <View style={styles.checkboxContainer}>
+              <Switch
+                value={values.isNatural}
+                onValueChange={(value: boolean) => {
+                  setFieldValue('isNatural', value);
+                }}
+                disabled={isSubmitting}
+              />
+              <Text style={[styles.checkboxLabel, { color: theme.colors.neutral.textPrimary }]}>
+                Produit naturel
+              </Text>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+                Qualité *
+              </Text>
+              <View style={[
+                styles.pickerContainer,
+                { backgroundColor: theme.colors.neutral.surface }
+              ]}>
+                <RNPickerSelect
+                  items={qualityOptions}
+                  onValueChange={(value) => setFieldValue('qualityStatus', value)}
+                  value={values.qualityStatus}
+                  disabled={isSubmitting}
+                  style={{
+                    inputIOS: {
+                      color: theme.colors.neutral.textPrimary,
+                    },
+                    inputAndroid: {
+                      color: theme.colors.neutral.textPrimary,
+                    },
+                  }}
+                />
+              </View>
             </View>
 
             <View style={styles.inputGroup}>
@@ -360,13 +452,13 @@ export const StockForm = ({
             <View style={styles.buttonContainer}>
               <Button
                 title="Annuler"
-                onPress={handleCancel}
+                onPress={onCancel}
                 style={[styles.button, styles.cancelButton]}
                 disabled={isSubmitting}
               />
               <Button
                 title={isSubmitting ? "En cours..." : "Enregistrer"}
-                onPress={handleSubmit}
+                onPress={() => handleSubmit()}
                 style={[styles.button, styles.submitButton]}
                 disabled={isSubmitting}
               />
@@ -440,5 +532,14 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     marginBottom: 16,
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  checkboxLabel: {
+    marginLeft: 8,
+    fontSize: 14,
   },
 }); 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, Modal, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, Modal, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../../../context/ThemeContext';
 import { createThemedStyles } from '../../../utils/createThemedStyles';
@@ -7,10 +7,11 @@ import { createThemedStyles } from '../../../utils/createThemedStyles';
 interface QuantityModalProps {
   visible: boolean;
   onClose: () => void;
-  onConfirm: (quantity: number) => void;
+  onConfirm: (quantity: number, notes?: string) => Promise<void>;
   type: 'add' | 'remove';
-  currentQuantity?: number;
-  unit?: string;
+  currentQuantity: number;
+  unit: string;
+  loading: boolean;
 }
 
 export const QuantityModal = ({ 
@@ -19,13 +20,15 @@ export const QuantityModal = ({
   onConfirm, 
   type,
   currentQuantity,
-  unit 
+  unit,
+  loading
 }: QuantityModalProps) => {
   const theme = useTheme();
   const [quantity, setQuantity] = useState('');
+  const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     const num = Number(quantity);
     setError(null);
 
@@ -34,14 +37,19 @@ export const QuantityModal = ({
       return;
     }
 
-    if (type === 'remove' && currentQuantity && num > currentQuantity) {
+    if (type === 'remove' && num > currentQuantity) {
       setError('La quantité à retirer ne peut pas dépasser le stock actuel');
       return;
     }
 
-    onConfirm(num);
-    setQuantity('');
-    onClose();
+    try {
+      await onConfirm(num, notes);
+      setQuantity('');
+      setNotes('');
+      onClose();
+    } catch (error) {
+      setError('Une erreur est survenue');
+    }
   };
 
   return (
@@ -59,11 +67,9 @@ export const QuantityModal = ({
             </Text>
           </View>
 
-          {currentQuantity && (
-            <Text style={[styles.currentQuantity, { color: theme.colors.neutral.textSecondary }]}>
-              Stock actuel: {currentQuantity} {unit}
-            </Text>
-          )}
+          <Text style={[styles.currentQuantity, { color: theme.colors.neutral.textSecondary }]}>
+            Stock actuel: {currentQuantity} {unit}
+          </Text>
 
           <TextInput
             style={[styles.modalInput, { 
@@ -76,6 +82,24 @@ export const QuantityModal = ({
             keyboardType="numeric"
             placeholder={`Quantité à ${type === 'add' ? 'ajouter' : 'retirer'}`}
             placeholderTextColor={theme.colors.neutral.textSecondary}
+            editable={!loading}
+          />
+
+          <TextInput
+            style={[styles.modalInput, { 
+              backgroundColor: theme.colors.neutral.background,
+              color: theme.colors.neutral.textPrimary,
+              borderColor: theme.colors.neutral.border,
+              height: 100,
+              textAlignVertical: 'top'
+            }]}
+            value={notes}
+            onChangeText={setNotes}
+            placeholder="Notes (optionnel)"
+            placeholderTextColor={theme.colors.neutral.textSecondary}
+            multiline
+            numberOfLines={4}
+            editable={!loading}
           />
 
           {error && (
@@ -88,6 +112,7 @@ export const QuantityModal = ({
             <TouchableOpacity 
               style={[styles.modalButton, styles.cancelButton]} 
               onPress={onClose}
+              disabled={loading}
             >
               <Text style={[styles.buttonText, { color: theme.colors.neutral.textPrimary }]}>
                 Annuler
@@ -96,13 +121,19 @@ export const QuantityModal = ({
             <TouchableOpacity 
               style={[
                 styles.modalButton, 
-                { backgroundColor: type === 'add' ? theme.colors.success : theme.colors.error }
+                { backgroundColor: type === 'add' ? theme.colors.success : theme.colors.error },
+                loading && { opacity: 0.7 }
               ]} 
               onPress={handleConfirm}
+              disabled={loading || !quantity}
             >
-              <Text style={[styles.buttonText, { color: theme.colors.neutral.surface }]}>
-                Confirmer
-              </Text>
+              {loading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={[styles.buttonText, { color: '#fff' }]}>
+                  Confirmer
+                </Text>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -144,11 +175,11 @@ const styles = createThemedStyles((theme) => ({
     marginBottom: 16,
   },
   modalInput: {
-    height: 48,
     borderRadius: 12,
     paddingHorizontal: 16,
+    paddingVertical: 12,
     fontSize: 16,
-    marginBottom: 8,
+    marginBottom: 16,
     borderWidth: 1,
   },
   errorText: {
@@ -169,7 +200,7 @@ const styles = createThemedStyles((theme) => ({
     alignItems: 'center',
   },
   cancelButton: {
-    backgroundColor: theme.colors.neutral.gray.light,
+    backgroundColor: theme.colors.neutral.background,
   },
   buttonText: {
     fontSize: 16,

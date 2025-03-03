@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { storage } from '../utils/storage';
 import Constants from 'expo-constants';
+import { StockItem } from '../screens/Stock/types';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 console.log('Using API URL:', API_URL); // For debugging
@@ -72,9 +73,12 @@ const stockApi = {
   },
 
   // Create stock
-  createStock: async (stockData: any) => {
+  createStock: async (stockData: Omit<StockItem, 'id' | 'stockHistory'>) => {
     try {
-      const response = await api.post('/stocks', stockData);
+      const response = await api.post('/stocks', {
+        ...stockData,
+        quantity: stockData.quantity || 0
+      });
       return response.data;
     } catch (error) {
       console.error('Error creating stock:', error);
@@ -127,5 +131,52 @@ const stockApi = {
   }
 };
 
-// Export both the base API and stock-specific methods
-export { api, stockApi }; 
+// Animal API methods
+const animalApi = {
+  // Get all animals
+  getAllAnimals: async () => {
+    try {
+      const response = await api.get('/animals');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching animals:', error);
+      throw error;
+    }
+  },
+
+  // Create animal
+  createAnimal: async (animalData: any) => {
+    try {
+      const response = await api.post('/animals', animalData);
+      return response.data;
+    } catch (error) {
+      console.error('Error creating animal:', error);
+      throw error;
+    }
+  },
+
+  // Update animal
+  updateAnimal: async (id: string, data: any) => {
+    try {
+      const response = await api.put(`/animals/${id}`, data);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating animal:', error);
+      throw error;
+    }
+  },
+
+  // Delete animal
+  deleteAnimal: async (id: string) => {
+    try {
+      const response = await api.delete(`/animals/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error deleting animal:', error);
+      throw error;
+    }
+  },
+};
+
+// Export both the base API and specific methods
+export { api, stockApi, animalApi }; 

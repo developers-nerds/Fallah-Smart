@@ -41,7 +41,7 @@ const Register = () => {
 
   const handleRegister = async () => {
     const API_URL = process.env.EXPO_PUBLIC_API_URL;
-
+    console.log(API_URL,"gggg222");
     try {
       if (formData.password !== formData.confirmPassword) {
         Alert.alert('Error', 'Passwords do not match');
@@ -51,7 +51,7 @@ const Register = () => {
       setIsLoading(true);
       setError('');
 
-      const response = await axios.post('http://192.168.156.83:5000/api/users/register', {
+      const response = await axios.post(`${API_URL}/users/register`, {
         ...formData,
         role: 'user',
       });

@@ -3,6 +3,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { NavigationContainer } from '@react-navigation/native';
 import { StockNavigator } from './navigation/StockNavigator';
 import { StockProvider } from './context/StockContext';
+import { PesticideProvider } from './context/PesticideContext';
 import { StatusBar } from 'react-native';
 
 export default function App() {
@@ -16,7 +17,9 @@ export default function App() {
       >
         <ThemeProvider>
           <StockProvider>
-            <StockNavigator />
+            <PesticideProvider>
+              <StockNavigator />
+            </PesticideProvider>
           </StockProvider>
         </ThemeProvider>
       </NavigationContainer>
