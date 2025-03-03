@@ -24,11 +24,9 @@ const Scans = require("./models/Scans")(sequelize, DataTypes);
 const Stock = require("./models/Stock")(sequelize, DataTypes);
 const StockHistory = require("./models/StockHistory")(sequelize, DataTypes);
 const Transactions = require("./models/Transactions")(sequelize, DataTypes);
-const UserAnimals = require("./models/userAnimals")(sequelize, DataTypes);
 const Users = require("./models/Users")(sequelize, DataTypes);
 
 // Define associations
-
 // For users
 Users.hasMany(Scans, {
   foreignKey: "userId",
@@ -36,17 +34,32 @@ Users.hasMany(Scans, {
   onDelete: "CASCADE",
   onUpdate: "CASCADE",
 });
+
 Users.hasMany(Conversations, {
   foreignKey: "userId",
   as: "conversations",
   onDelete: "CASCADE",
   onUpdate: "CASCADE",
 });
+
 Users.hasMany(Notification, {
   foreignKey: "userId",
   as: "notifications",
   onDelete: "CASCADE",
   onUpdate: "CASCADE",
+});
+
+// User and AnimalDetails associations
+Users.hasMany(AnimalDetails, {
+  foreignKey: "userId",
+  as: "animals",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+
+AnimalDetails.belongsTo(Users, {
+  foreignKey: "userId",
+  as: "user",
 });
 
 // For scans
@@ -62,18 +75,6 @@ Notification.belongsTo(Users, {
 });
 
 // Media associations with other tables
-Animal_doc.hasMany(Media, {
-  foreignKey: "animalDocId",
-  as: "media",
-  onDelete: "CASCADE",
-  onUpdate: "CASCADE",
-});
-
-Media.belongsTo(Animal_doc, {
-  foreignKey: "animalDocId",
-  as: "animalDoc",
-});
-
 AnimalDetails.hasMany(Media, {
   foreignKey: "animalDetailsId",
   as: "media",
@@ -84,6 +85,18 @@ AnimalDetails.hasMany(Media, {
 Media.belongsTo(AnimalDetails, {
   foreignKey: "animalDetailsId",
   as: "animalDetails",
+});
+
+Animal_doc.hasMany(Media, {
+  foreignKey: "animalDocId",
+  as: "media",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+
+Media.belongsTo(Animal_doc, {
+  foreignKey: "animalDocId",
+  as: "animalDoc",
 });
 
 Category.hasMany(Media, {
@@ -157,18 +170,6 @@ Media.belongsTo(Scans, {
   as: "scan",
 });
 
-UserAnimals.hasMany(Media, {
-  foreignKey: "userAnimalId",
-  as: "media",
-  onDelete: "CASCADE",
-  onUpdate: "CASCADE",
-});
-
-Media.belongsTo(UserAnimals, {
-  foreignKey: "userAnimalId",
-  as: "userAnimal",
-});
-
 // For conversations
 Conversations.hasMany(Messages, {
   foreignKey: "conversationId",
@@ -232,18 +233,6 @@ StockHistory.hasMany(Stock, {
 Stock.belongsTo(StockHistory, {
   foreignKey: "stockHistoryId",
   as: "stockHistory",
-});
-
-Users.hasMany(UserAnimals, {
-  foreignKey: "userId",
-  as: "userAnimals",
-  onDelete: "CASCADE",
-  onUpdate: "CASCADE",
-});
-
-UserAnimals.belongsTo(Users, {
-  foreignKey: "userId",
-  as: "user",
 });
 
 Users.hasMany(Pesticide, {
@@ -388,11 +377,24 @@ Likes.belongsTo(Users, {
   as: "user",
 });
 
+// User and Stock associations
+Users.hasMany(Stock, {
+  foreignKey: "userId",
+  as: "stocks",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+
+Stock.belongsTo(Users, {
+  foreignKey: "userId",
+  as: "user",
+});
+
 // Sync all models with the database
 async function syncModels() {
   try {
-    // Use { alter: true } for production to safely update schema
-    // await sequelize.sync({ force: true });
+    // Use { force: true } for production to safely update schema
+    await sequelize.sync({ alter: true });
     console.log("Database models synchronized successfully");
   } catch (error) {
     console.error("Error synchronizing database models:", error);
@@ -418,7 +420,6 @@ module.exports = {
   Stock,
   StockHistory,
   Transactions,
-  UserAnimals,
   Likes,
   Comments,
   Accounts,

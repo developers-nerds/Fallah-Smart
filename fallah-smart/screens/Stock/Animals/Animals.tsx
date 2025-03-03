@@ -5,32 +5,38 @@ import { useStock } from '../../../context/StockContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Button } from '../../../components/Button';
 import { createThemedStyles } from '../../../utils/createThemedStyles';
+import { Animal, HealthStatus, Gender } from '../types';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { StockStackParamList } from '../../../navigation/types';
 
-interface Animal {
-  id: string;
-  type: string;
-  count: number;
-  healthStatus: 'excellent' | 'good' | 'fair' | 'poor';
-  feedingSchedule: string;
-  gender: 'male' | 'female';
-  notes: string;
-}
+type AnimalsScreenProps = {
+  navigation: StackNavigationProp<StockStackParamList, 'Animals'>;
+};
 
-const AnimalsScreen = ({ navigation }) => {
+const AnimalsScreen: React.FC<AnimalsScreenProps> = ({ navigation }) => {
   const theme = useTheme();
   const [formData, setFormData] = useState({
     type: '',
     count: '',
-    healthStatus: 'good',
+    healthStatus: 'good' as HealthStatus,
     feedingSchedule: '',
-    gender: 'male',
+    gender: 'male' as Gender,
+    feeding: '',
+    care: '',
+    health: '',
+    housing: '',
+    breeding: '',
+    diseases: '',
+    medications: '',
+    behavior: '',
+    economics: '',
+    vaccination: '',
     notes: ''
   });
 
-  const { addAnimal } = useStock();
+  const { createAnimal } = useStock();
 
   const handleAddAnimal = () => {
-    // Validate required fields
     if (!formData.type.trim()) {
       alert('Le type d\'animal est requis');
       return;
@@ -42,62 +48,80 @@ const AnimalsScreen = ({ navigation }) => {
       return;
     }
 
-    // Add the animal using the context
-    addAnimal({
+    createAnimal({
+      ...formData,
+      count,
       type: formData.type.trim(),
-      count: count,
-      healthStatus: formData.healthStatus,
       feedingSchedule: formData.feedingSchedule.trim(),
-      gender: formData.gender,
-      notes: formData.notes.trim()
+      feeding: formData.feeding.trim() || null,
+      care: formData.care.trim() || null,
+      health: formData.health.trim() || null,
+      housing: formData.housing.trim() || null,
+      breeding: formData.breeding.trim() || null,
+      diseases: formData.diseases.trim() || null,
+      medications: formData.medications.trim() || null,
+      behavior: formData.behavior.trim() || null,
+      economics: formData.economics.trim() || null,
+      vaccination: formData.vaccination.trim() || null,
+      notes: formData.notes.trim() || null
     });
 
-    // Clear the form
     setFormData({
       type: '',
       count: '',
       healthStatus: 'good',
       feedingSchedule: '',
       gender: 'male',
+      feeding: '',
+      care: '',
+      health: '',
+      housing: '',
+      breeding: '',
+      diseases: '',
+      medications: '',
+      behavior: '',
+      economics: '',
+      vaccination: '',
       notes: ''
     });
 
-    // Optionally navigate back or show success message
     alert('Animal ajouté avec succès!');
   };
+
+  const renderTextField = (
+    label: string, 
+    field: keyof typeof formData, 
+    placeholder: string, 
+    multiline: boolean = false
+  ) => (
+    <View style={styles.field}>
+      <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+        {label}
+      </Text>
+      <TextInput
+        style={[
+          styles.input,
+          { 
+            backgroundColor: theme.colors.neutral.surface,
+            height: multiline ? 100 : 48,
+            textAlignVertical: multiline ? 'top' : 'center'
+          }
+        ]}
+        placeholder={placeholder}
+        value={formData[field] as string}
+        onChangeText={(text) => setFormData({ ...formData, [field]: text })}
+        multiline={multiline}
+      />
+    </View>
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
       <ScrollView style={styles.scrollView}>
         <View style={styles.form}>
-          {/* Animal Type */}
-          <View style={styles.field}>
-            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
-              Type d'animal
-            </Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: theme.colors.neutral.surface }]}
-              placeholder="Ex: Vache, Mouton..."
-              value={formData.type}
-              onChangeText={(text) => setFormData({ ...formData, type: text })}
-            />
-          </View>
-
-          {/* Number of Animals */}
-          <View style={styles.field}>
-            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
-              Nombre
-            </Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: theme.colors.neutral.surface }]}
-              keyboardType="numeric"
-              placeholder="Nombre d'animaux"
-              value={formData.count}
-              onChangeText={(text) => setFormData({ ...formData, count: text })}
-            />
-          </View>
-
-          {/* Health Status */}
+          {renderTextField('Type d\'animal', 'type', 'Ex: Vache, Mouton...')}
+          {renderTextField('Nombre', 'count', 'Nombre d\'animaux')}
+          
           <View style={styles.field}>
             <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
               État de santé
@@ -114,7 +138,7 @@ const AnimalsScreen = ({ navigation }) => {
                         : theme.colors.neutral.surface,
                     }
                   ]}
-                  onPress={() => setFormData({ ...formData, healthStatus: status as any })}
+                  onPress={() => setFormData({ ...formData, healthStatus: status as HealthStatus })}
                 >
                   <Text 
                     style={[
@@ -133,20 +157,6 @@ const AnimalsScreen = ({ navigation }) => {
             </View>
           </View>
 
-          {/* Feeding Schedule */}
-          <View style={styles.field}>
-            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
-              Programme d'alimentation
-            </Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: theme.colors.neutral.surface }]}
-              placeholder="Ex: 2 fois par jour"
-              value={formData.feedingSchedule}
-              onChangeText={(text) => setFormData({ ...formData, feedingSchedule: text })}
-            />
-          </View>
-
-          {/* Gender */}
           <View style={styles.field}>
             <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
               Sexe
@@ -163,7 +173,7 @@ const AnimalsScreen = ({ navigation }) => {
                         : theme.colors.neutral.surface,
                     }
                   ]}
-                  onPress={() => setFormData({ ...formData, gender: gender as any })}
+                  onPress={() => setFormData({ ...formData, gender: gender as Gender })}
                 >
                   <Text 
                     style={[
@@ -182,26 +192,18 @@ const AnimalsScreen = ({ navigation }) => {
             </View>
           </View>
 
-          {/* Notes */}
-          <View style={styles.field}>
-            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
-              Notes
-            </Text>
-            <TextInput
-              style={[
-                styles.input, 
-                { 
-                  backgroundColor: theme.colors.neutral.surface,
-                  height: 100,
-                  textAlignVertical: 'top'
-                }
-              ]}
-              multiline
-              placeholder="Conseils naturels, maladies..."
-              value={formData.notes}
-              onChangeText={(text) => setFormData({ ...formData, notes: text })}
-            />
-          </View>
+          {renderTextField('Programme d\'alimentation', 'feedingSchedule', 'Ex: 2 fois par jour')}
+          {renderTextField('Alimentation', 'feeding', 'Détails sur l\'alimentation...', true)}
+          {renderTextField('Soins', 'care', 'Détails sur les soins...', true)}
+          {renderTextField('Santé', 'health', 'État de santé détaillé...', true)}
+          {renderTextField('Logement', 'housing', 'Conditions de logement...', true)}
+          {renderTextField('Reproduction', 'breeding', 'Informations sur la reproduction...', true)}
+          {renderTextField('Maladies', 'diseases', 'Historique des maladies...', true)}
+          {renderTextField('Médicaments', 'medications', 'Traitements médicaux...', true)}
+          {renderTextField('Comportement', 'behavior', 'Observations comportementales...', true)}
+          {renderTextField('Économie', 'economics', 'Aspects économiques...', true)}
+          {renderTextField('Vaccination', 'vaccination', 'Programme de vaccination...', true)}
+          {renderTextField('Notes', 'notes', 'Notes additionnelles...', true)}
         </View>
       </ScrollView>
 
@@ -222,7 +224,7 @@ const AnimalsScreen = ({ navigation }) => {
   );
 };
 
-const styles = createThemedStyles((theme) => ({
+const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -242,7 +244,6 @@ const styles = createThemedStyles((theme) => ({
     fontWeight: '500',
   },
   input: {
-    height: 48,
     borderRadius: 8,
     paddingHorizontal: 16,
     fontSize: 16,
@@ -272,6 +273,6 @@ const styles = createThemedStyles((theme) => ({
   viewButton: {
     marginTop: 8,
   },
-}));
+});
 
 export default AnimalsScreen; 

@@ -1,8 +1,12 @@
 require('dotenv').config();
 const express = require("express");
-require("dotenv").config();
+const cors = require("cors");
+const userRoutes = require("./routes/userRoutes");
+const stockRoutes = require("./routes/stockRoutes");
+const animalRoutes = require("./routes/animalRoutes");
+const pesticideRoutes = require('./routes/pesticideRoutes');
 const app = express();
-const port = 5000;
+const port = process.env.PORT;
 const cors = require("cors");
 const path = require('path');
 const blogRoutes = require("./routes/blogRoutes");
@@ -10,11 +14,24 @@ const userRoutes = require("./routes/userRoutes");
 const scanRoutes = require("./routes/scanRoutes");
 const conversationRoutes = require("./routes/conversationRoutes");
 
-app.use(cors());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
 
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Routes
 app.use("/api/users", userRoutes);
+app.use("/api/stocks", stockRoutes);
+app.use("/api/animals", animalRoutes);
+app.use('/api/pesticides', pesticideRoutes);
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ message: 'Something went wrong!' });
+
 app.use("/api/blog", blogRoutes);
 
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));

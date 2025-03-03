@@ -10,10 +10,7 @@
     "db:init": "node src/database/assossiation.js",
     "db:seed": "node src/database/seeds/seeds.js",
     "db:drop": "node src/database/interaction/dropDataBase.js",
-    "db:reset": "npm run db:drop && npm run db:create && npm run db:init && npm run db:seed",
-    "dev": "nodemon src/server.js",
-    "db:test": "node src/database/testConnection.js",
-    "db:setup": "node src/database/dbInit.js && node src/database/seeds/userSeeds.js && node src/database/seeds/mediaSeeds.js"
+    "db:reset": "npm run db:drop && npm run db:create && npm run db:init "
   },
   "dependencies": {
     "axios": "^1.8.1",
