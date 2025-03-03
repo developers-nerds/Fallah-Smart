@@ -22,7 +22,7 @@ const seedNotifications = require('./notificationSeeds');
 const seedMedia = require('./mediaSeeds');
 const seedRecurringTransactions = require('./recurringTransactionSeeds');
 const seedTransactions = require('./transactionSeeds');
-const seedScans = require('./scanSeeds');
+// const seedScans = require('./scanSeeds');
 
 async function seedAll() {
   try {
@@ -43,7 +43,7 @@ async function seedAll() {
     await seedPosts();
     await seedComments();
     await seedLikes();
-    await seedScans();
+    // await seedScans();
     await seedMedia();
     await seedConversations(); 
     await seedAccounts();
