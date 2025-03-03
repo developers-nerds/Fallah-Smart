@@ -9,6 +9,8 @@ import { useStock } from '../context/StockContext';
 import { useNavigation } from '@react-navigation/native';
 import { ThemeProvider } from '../context/ThemeContext';
 import TabBar from './TabBar';
+import Login from '../screens/Auth/Login';
+import Register from '../screens/Auth/Register';
 
 const Stack = createStackNavigator();
 
@@ -16,10 +18,17 @@ export const StockNavigator = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen 
+        name="Login" 
+        component={Login}
+      />
+      <Stack.Screen 
+        name="Register" 
+        component={Register}
+      />
+      <Stack.Screen 
         name="StockTab" 
         component={TabBar}
         options={{ title: 'Mes Stocks' }}
-        
       />
       <Stack.Screen 
         name="StockDetail" 
@@ -35,7 +44,6 @@ export const StockNavigator = () => {
         name="Animals" 
         component={AnimalsScreen}
         options={{ title: 'Ajouter un Animal', headerShown: true }}
-        
       />
       <Stack.Screen 
         name="AnimalList" 
