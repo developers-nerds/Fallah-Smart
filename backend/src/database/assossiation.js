@@ -151,7 +151,6 @@ Posts.hasMany(Media, {
   foreignKey: "postId",
   as: "media",
   onDelete: "CASCADE",
-  onUpdate: "CASCADE",
 });
 
 Media.belongsTo(Posts, {
@@ -352,6 +351,32 @@ BackupSync.belongsTo(Users, {
   as: "user",
 });
 
+// Users and Comments associations
+Users.hasMany(Comments, {
+  foreignKey: "userId",
+  as: "comments",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+
+Comments.belongsTo(Users, {
+  foreignKey: "userId",
+  as: "user",
+});
+
+// Users and Likes associations
+Users.hasMany(Likes, {
+  foreignKey: "userId",
+  as: "likes",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+
+Likes.belongsTo(Users, {
+  foreignKey: "userId",
+  as: "user",
+});
+
 // User and Stock associations
 Users.hasMany(Stock, {
   foreignKey: "userId",
@@ -378,8 +403,11 @@ async function syncModels() {
 
 syncModels();
 
+// Export models AFTER defining associations
 module.exports = {
+  sequelize,
   Users,
+  Posts,
   Scans,
   Conversations,
   Messages,
@@ -392,7 +420,6 @@ module.exports = {
   Stock,
   StockHistory,
   Transactions,
-  Posts,
   Likes,
   Comments,
   Accounts,
