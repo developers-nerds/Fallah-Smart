@@ -324,134 +324,135 @@ const Blogs = () => {
 
   // Add a function to handle post likes within the Blogs component
   const handlePostLike = async (postId) => {
-    try {
-      const response = await axios.post(`${API_URL}/posts/${postId}/like`);
-      
-      // Update the post in state to reflect the new like count
-      setPosts(prevPosts => prevPosts.map(post => {
-        if (post.id === postId) {
-          return {
-            ...post,
-            likesCount: post.userLiked 
-              ? Math.max(0, post.likesCount - 1) // If unliking, decrease
-              : post.likesCount + 1, // If liking, increase
-            userLiked: !post.userLiked // Toggle liked status
-          };
-        }
-        return post;
-      }));
-    } catch (error) {
-      console.error('Error toggling like:', error);
-    }
-  };
-
-  // Update the renderPostItem function to use the handlePostLike function
-  const renderPostItem = ({ item }) => (
-    <TouchableOpacity 
-      style={styles.postCard}
-      onPress={() => navigation.navigate('PostDetail', { 
-        postId: item.id,
-        onCommentAdded: () => handleCommentAdded(item.id)
-      })}
-      activeOpacity={0.9}
-    >
-      <View style={styles.postHeader}>
-        <View style={styles.authorInfo}>
-          {item.author?.profilePicture ? (
-            <Image 
-              source={{ 
-                uri: item.author.profilePicture.startsWith('http') 
-                  ? item.author.profilePicture 
-                  : `http:192.168.1.16:5000${item.author.profilePicture}` 
-              }} 
-              style={styles.authorAvatar} 
-            />
-          ) : (
-            <View style={styles.authorAvatarPlaceholder}>
-              <MaterialCommunityIcons name="account" size={18} color="#fff" />
-            </View>
-          )}
-          <View>
-            <Text style={styles.authorName}>
-              {item.author?.firstName 
-                ? `${item.author.firstName} ${item.author.lastName}` 
-                : item.author?.username || 'Anonymous'}
-            </Text>
-            <Text style={styles.postDate}>{timeAgo(item.createdAt)}</Text>
-          </View>
-        </View>
-        
-        {item.category && (
-          <View style={styles.categoryBadge}>
-            {renderCategoryIcon(item.category)}
-            <Text style={styles.categoryText}>{item.category}</Text>
-          </View>
-        )}
-      </View>
-      
-      <Text style={styles.postTitle}>{item.title}</Text>
-      
-      {item.description && (
-        <Text style={styles.postDescription} numberOfLines={3}>
-          {item.description}
-        </Text>
-      )}
-      
-      {item.media && item.media.length > 0 && (
-        <View style={styles.mediaContainer}>
-          {item.media.slice(0, 1).map((media, index) => (
-            <Image 
-              key={index} 
-              source={{ uri: media.url }} 
-              style={styles.postImage} 
-              resizeMode="cover"
-            />
-          ))}
-          {item.media.length > 1 && (
-            <View style={styles.mediaCountBadge}>
-              <Text style={styles.mediaCountText}>+{item.media.length - 1}</Text>
-            </View>
-          )}
-        </View>
-      )}
-      
-      <View style={styles.postFooter}>
-        <TouchableOpacity 
-          style={styles.footerAction}
-          onPress={(e) => {
-            e.stopPropagation(); // Prevent post navigation
-            handlePostLike(item.id);
-          }}
-        >
-          <MaterialCommunityIcons 
-            name={item.userLiked ? "heart" : "heart-outline"} 
-            size={20} 
-            color={item.userLiked ? theme.colors.error : theme.colors.neutral.textSecondary} 
-          />
-          <Text style={styles.footerActionText}>{item.likesCount || 0} Likes</Text>
-        </TouchableOpacity>
-        
-        <View style={styles.footerAction}>
-          <MaterialCommunityIcons name="comment-outline" size={20} color={theme.colors.neutral.textSecondary} />
-          <Text style={styles.footerActionText}>{item.commentsCount || 0} Comments</Text>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
-
-  // Add a function to handle comment additions
-  const handleCommentAdded = (postId) => {
-    // Update the post's comment count in state
+  try {
+    const response = await axios.post(`${API_URL}/posts/${postId}/like`);
+    
+    // Update the post in state to reflect the new like count
     setPosts(prevPosts => prevPosts.map(post => {
       if (post.id === postId) {
         return {
           ...post,
-          commentsCount: (post.commentsCount || 0) + 1
+          likesCount: post.userLiked 
+            ? Math.max(0, post.likesCount - 1) // If unliking, decrease
+            : post.likesCount + 1, // If liking, increase
+          userLiked: !post.userLiked // Toggle liked status
         };
       }
       return post;
     }));
-  };
+  } catch (error) {
+    console.error('Error toggling like:', error);
+  }
+};
+
+// Update the renderPostItem function to use the handlePostLike function
+const renderPostItem = ({ item }) => (
+  <TouchableOpacity 
+    style={styles.postCard}
+    onPress={() => navigation.navigate('PostDetail', { 
+      postId: item.id,
+      onCommentAdded: () => handleCommentAdded(item.id)
+    })}
+    activeOpacity={0.9}
+  >
+    <View style={styles.postHeader}>
+      <View style={styles.authorInfo}>
+        {item.author?.profilePicture ? (
+          <Image 
+            source={{ 
+              uri: item.author.profilePicture.startsWith('http') 
+                ? item.author.profilePicture 
+                : `http://192.168.1.16:5000${item.author.profilePicture}` // Fixed URL
+            }} 
+            style={styles.authorAvatar} 
+          />
+        ) : (
+          <View style={styles.authorAvatarPlaceholder}>
+            <MaterialCommunityIcons name="account" size={18} color="#fff" />
+          </View>
+        )}
+        <View>
+          <Text style={styles.authorName}>
+            {item.author?.firstName 
+              ? `${item.author.firstName} ${item.author.lastName}` 
+              : item.author?.username || 'Anonymous'}
+          </Text>
+          <Text style={styles.postDate}>{timeAgo(item.createdAt)}</Text>
+        </View>
+      </View>
+      
+      {item.category && (
+        <View style={styles.categoryBadge}>
+          {renderCategoryIcon(item.category)}
+          <Text style={styles.categoryText}>{item.category}</Text>
+        </View>
+      )}
+    </View>
+    
+    <Text style={styles.postTitle}>{item.title}</Text>
+    
+    {item.description && (
+      <Text style={styles.postDescription} numberOfLines={3}>
+        {item.description}
+      </Text>
+    )}
+    
+    {item.media && item.media.length > 0 && (
+      <View style={styles.mediaContainer}>
+        {item.media.slice(0, 1).map((media, index) => (
+          <Image 
+            key={index} 
+            source={{ uri: media.url }} 
+            style={styles.postImage} 
+            resizeMode="cover"
+          />
+        ))}
+        {item.media.length > 1 && (
+          <View style={styles.mediaCountBadge}>
+            <Text style={styles.mediaCountText}>+{item.media.length - 1}</Text>
+          </View>
+        )}
+      </View>
+    )}
+    
+    <View style={styles.postFooter}>
+      <TouchableOpacity 
+        style={styles.footerAction}
+        onPress={(e) => {
+          e.stopPropagation(); // Prevent post navigation
+          handlePostLike(item.id);
+        }}
+      >
+        <MaterialCommunityIcons 
+          name={item.userLiked ? "heart" : "heart-outline"} 
+          size={20} 
+          color={item.userLiked ? theme.colors.error : theme.colors.neutral.textSecondary} 
+        />
+        <Text style={styles.footerActionText}>{item.likesCount || 0} Likes</Text>
+      </TouchableOpacity>
+      
+      <View style={styles.footerAction}>
+        <MaterialCommunityIcons name="comment-outline" size={20} color={theme.colors.neutral.textSecondary} />
+        <Text style={styles.footerActionText}>{item.commentsCount || 0} Comments</Text>
+      </View>
+    </View>
+  </TouchableOpacity>
+);
+
+// Function to handle comment additions
+const handleCommentAdded = (postId) => {
+  // Update the post's comment count in state
+  setPosts(prevPosts => prevPosts.map(post => {
+    if (post.id === postId) {
+      return {
+        ...post,
+        commentsCount: (post.commentsCount || 0) + 1
+      };
+    }
+    return post;
+  }));
+};
+
 
   // Update the navigation to PostDetail to include a callback for when comments are added
   // Add this inside the Blogs component, possibly in useEffect or a navigation function

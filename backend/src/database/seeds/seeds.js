@@ -47,7 +47,7 @@ async function seedAll() {
     await seedPosts();
     await seedComments();
     await seedLikes();
-    await seedScans();
+    // await seedScans();
     await seedMedia();
     await seedConversations(); 
     await seedAccounts();

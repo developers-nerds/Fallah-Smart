@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, Pressable, Text, TouchableOpacity, Alert } from 'react-native';
-import { DrawerContentScrollView, DrawerItem, DrawerContentComponentProps } from '@react-navigation/drawer';
+import { DrawerContentScrollView, DrawerItem } from '@react-navigation/drawer';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
@@ -28,6 +28,7 @@ type MenuItemProps = {
 
 export type DrawerParamList = {
   HomeContent: undefined;
+  Chat: undefined;
   Scan: undefined;
   Stock: undefined;
   Wallet: undefined;
@@ -52,20 +53,17 @@ const MenuItem: React.FC<MenuItemProps> = ({ icon, label, onPress, active }) => 
     transform: [
       { scale: scale.value },
       { translateX: translateX.value },
-      { rotate: `${rotation.value}deg` }
-    ]
+      { rotate: `${rotation.value}deg` },
+    ],
   }));
 
   const handlePress = () => {
     if (icon === 'home-variant') {
-      scale.value = withSequence(
-        withSpring(1.2),
-        withSpring(1)
-      );
+      scale.value = withSequence(withSpring(1.2), withSpring(1));
       rotation.value = withSequence(
-        withTiming(360, { 
-          duration: 800, 
-          easing: Easing.bezier(0.25, 0.1, 0.25, 1) 
+        withTiming(360, {
+          duration: 800,
+          easing: Easing.bezier(0.25, 0.1, 0.25, 1),
         }),
         withTiming(0, { duration: 0 })
       );
@@ -76,12 +74,7 @@ const MenuItem: React.FC<MenuItemProps> = ({ icon, label, onPress, active }) => 
   return (
     <AnimatedPressable
       onPress={handlePress}
-      style={[
-        styles.menuItem,
-        active && styles.activeMenuItem,
-        animatedStyle
-      ]}
-    >
+      style={[styles.menuItem, active && styles.activeMenuItem, animatedStyle]}>
       <View style={styles.menuItemContent}>
         <MaterialCommunityIcons
           name={icon}
@@ -93,7 +86,11 @@ const MenuItem: React.FC<MenuItemProps> = ({ icon, label, onPress, active }) => 
           onPress={handlePress}
           labelStyle={[
             styles.menuItemLabel,
-            { color: active ? styles.activeMenuItem.backgroundColor : styles.menuItem.backgroundColor }
+            {
+              color: active
+                ? styles.activeMenuItem.backgroundColor
+                : styles.menuItem.backgroundColor,
+            },
           ]}
           style={styles.drawerItem}
         />
@@ -113,7 +110,7 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
       [
         {
           text: 'Cancel',
-          style: 'cancel'
+          style: 'cancel',
         },
         {
           text: 'Logout',
@@ -124,7 +121,7 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
               routes: [{ name: 'Login' }],
             });
           },
-          style: 'destructive'
+          style: 'destructive',
         },
       ],
       { cancelable: true }
@@ -136,14 +133,23 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
       <View style={styles.header}>
         <MaterialCommunityIcons name="menu" size={24} color={theme.colors.neutral.textPrimary} />
       </View>
-      
+
       <MenuItem
         icon="home-variant"
         label="Home"
         active={currentRoute === 'HomeContent'}
         onPress={() => {
-          props.navigation.navigate('HomeContent');
-          props.navigation.closeDrawer();
+          navigation.navigate('HomeContent');
+          navigation.closeDrawer();
+        }}
+      />
+      <MenuItem
+        icon="chat"
+        label="Chat"
+        active={currentRoute === 'Chat'}
+        onPress={() => {
+          navigation.navigate('Chat');
+          navigation.closeDrawer();
         }}
       />
       <MenuItem
@@ -184,18 +190,9 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
       />
 
       <View style={styles.logoutContainer}>
-        <TouchableOpacity
-          style={styles.logoutButton}
-          onPress={handleLogout}
-        >
-          <Ionicons
-            name="log-out-outline"
-            size={24}
-            color={theme.colors.error}
-          />
-          <Text style={[styles.logoutText, { color: theme.colors.error }]}>
-            Logout
-          </Text>
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Ionicons name="log-out-outline" size={24} color={theme.colors.error} />
+          <Text style={[styles.logoutText, { color: theme.colors.error }]}>Logout</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -253,4 +250,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default SideBar; 
+export default SideBar;
