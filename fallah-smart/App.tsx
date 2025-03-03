@@ -1,45 +1,29 @@
-import "react-native-gesture-handler"
-import { ThemeProvider } from "./context/ThemeContext"
-import { NavigationContainer } from "@react-navigation/native"
-import { createStackNavigator } from "@react-navigation/stack"
-import { StockNavigator } from "./navigation/StockNavigator"
-import { StockProvider } from "./context/StockContext"
-import AddIncome from "./screens/Wallet/components/AddIncome"
-
-// To this
-import AddExpense from "./screens/Wallet/components/AddExpense"
-const Stack = createStackNavigator()
-
-// Update the Stack.Navigator to include AddExpense
-const RootNavigator = () => {
-  return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="Main">
-        {() => (
-          <StockProvider>
-            <StockNavigator />
-          </StockProvider>
-        )}
-      </Stack.Screen>
-      <Stack.Screen name="AddIncome" component={AddIncome} />
-      <Stack.Screen name="AddExpense" component={AddExpense} />
-    </Stack.Navigator>
-  )
-}
-
-const AppContent = () => {
-  return (
-    <NavigationContainer>
-      <RootNavigator />
-    </NavigationContainer>
-  )
-}
+import 'react-native-gesture-handler';
+import { ThemeProvider } from './context/ThemeContext';
+import { NavigationContainer } from '@react-navigation/native';
+import { StockNavigator } from './navigation/StockNavigator';
+import { StockProvider } from './context/StockContext';
+import { PesticideProvider } from './context/PesticideContext';
+import { StatusBar } from 'react-native';
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <AppContent />
-    </ThemeProvider>
-  )
+    <>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <NavigationContainer
+        onStateChange={(state) => {
+          console.log('New navigation state:', state);
+        }}
+      >
+        <ThemeProvider>
+          <StockProvider>
+            <PesticideProvider>
+              <StockNavigator />
+            </PesticideProvider>
+          </StockProvider>
+        </ThemeProvider>
+      </NavigationContainer>
+    </>
+  );
 }
 

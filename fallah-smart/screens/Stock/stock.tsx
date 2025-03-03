@@ -1,5 +1,17 @@
-import React, { useState, useMemo } from 'react';
-import { View, FlatList, StyleSheet, TextInput, TouchableOpacity, Text, ScrollView } from 'react-native';
+import React, { useState, useMemo, useCallback } from 'react';
+import { 
+  View, 
+  FlatList, 
+  StyleSheet, 
+  TextInput, 
+  TouchableOpacity, 
+  Text, 
+  ScrollView, 
+  ActivityIndicator,
+  RefreshControl,
+  Platform,
+  Dimensions
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { StockStackParamList } from '../../navigation/StockNavigator';
@@ -10,6 +22,20 @@ import { useStock } from '../../context/StockContext';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StockCategory, StockItem } from './types';
 import { createThemedStyles } from '../../utils/createThemedStyles';
+import type { FeatherNames, MaterialNames } from '../../types/icons';
+import { BlurView } from 'expo-blur';
+import Animated, { 
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  interpolate,
+  Extrapolate,
+  FadeIn,
+  FadeInDown
+} from 'react-native-reanimated';
+
+const { width } = Dimensions.get('window');
 
 type StockScreenNavigationProp = StackNavigationProp<StockStackParamList, 'StockList'>;
 
@@ -24,20 +50,79 @@ const categories: { value: StockCategory; label: string; iconType: 'feather' | '
   { value: 'animals', label: 'Animaux', iconType: 'material', icon: 'cow' }
 ];
 
+interface StockStats {
+  totalItems: number;
+  lowStockItems: StockItem[];
+  totalValue: number;
+}
+
 const StockScreen = () => {
   const theme = useTheme();
   const navigation = useNavigation<StockScreenNavigationProp>();
-  const { stocks } = useStock();
+  const { stocks, loading, error, refreshStocks } = useStock();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<StockCategory>('all');
+  const [refreshing, setRefreshing] = useState(false);
+  const [stockStats, setStockStats] = useState<StockStats>({
+    totalItems: 0,
+    lowStockItems: [],
+    totalValue: 0
+  });
+  const scrollY = useSharedValue(0);
 
-  const handleCategoryPress = (category: StockCategory) => {
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+  });
+
+  const headerStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      scrollY.value,
+      [0, 100],
+      [1, 0.9],
+      Extrapolate.CLAMP
+    );
+
+    return {
+      opacity,
+      backgroundColor: theme.colors.neutral.surface,
+      shadowColor: '#000000',
+    };
+  });
+
+  // Calculate stats from stocks
+  const calculateStats = useCallback((stockItems: StockItem[]): StockStats => {
+    return {
+      totalItems: stockItems.length,
+      lowStockItems: stockItems.filter(s => s.quantity <= (s.lowStockThreshold || 0)),
+      totalValue: stockItems.reduce((sum, stock) => sum + ((stock.price || 0) * (stock.quantity || 0)), 0)
+    };
+  }, []);
+
+  React.useEffect(() => {
+    setStockStats(calculateStats(stocks));
+  }, [stocks, calculateStats]);
+
+  // Handle refresh
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refreshStocks();
+    } catch (error) {
+      console.error('Error refreshing:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const handleCategoryPress = useCallback((category: StockCategory) => {
     if (category === 'animals') {
       navigation.navigate('Animals');
     } else {
       setSelectedCategory(prev => prev === category ? 'all' : category);
     }
-  };
+  }, [navigation]);
 
   const filteredStocks = useMemo(() => {
     return stocks.filter(stock => {
@@ -47,221 +132,259 @@ const StockScreen = () => {
     });
   }, [stocks, searchQuery, selectedCategory]);
 
-  const handleStockPress = (item: StockItem) => {
+  const handleStockPress = useCallback((item: StockItem) => {
     navigation.navigate('StockDetail', { stockId: item.id });
-  };
+  }, [navigation]);
 
-  const handleAddStock = () => {
-    // @ts-ignore
+  const handleAddStock = useCallback(() => {
     navigation.navigate('AddStock');
-  };
+  }, [navigation]);
 
-  const handleAddAnimal = () => {
+  const handleAddAnimal = useCallback(() => {
     navigation.navigate('Animals');
-  };
+  }, [navigation]);
+
+  if (loading && !stocks.length) {
+    return (
+      <View style={[styles.container, styles.centerContent, { backgroundColor: theme.colors.neutral.background }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary.base} />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={[styles.container, styles.centerContent, { backgroundColor: theme.colors.neutral.background }]}>
+        <MaterialCommunityIcons 
+          name="alert-circle-outline" 
+          size={64} 
+          color={theme.colors.error} 
+        />
+        <Text style={[styles.errorText, { color: theme.colors.error }]}>{error}</Text>
+        <Button 
+          title="Réessayer" 
+          onPress={refreshStocks}
+          variant="primary"
+          style={{ marginTop: 16 }}
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
-      <View style={styles.topButtonsContainer}>
-        <TouchableOpacity
-          style={[styles.topButton, { backgroundColor: theme.colors.primary.base }]}
-          onPress={() => navigation.navigate('AddStock')}
-        >
-          <MaterialCommunityIcons 
-            name="plus" 
-            size={20} 
-            color={theme.colors.neutral.surface} 
-          />
-          <Text style={[styles.topButtonText, { color: theme.colors.neutral.surface }]}>
-            Ajouter Stock
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.topButton, { backgroundColor: theme.colors.accent.base }]}
-          onPress={() => navigation.navigate('Animals')}
-        >
-          <MaterialCommunityIcons 
-            name="cow" 
-            size={20} 
-            color={theme.colors.neutral.surface} 
-          />
-          <Text style={[styles.topButtonText, { color: theme.colors.neutral.surface }]}>
-            Ajouter Animal
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.statsSection}>
-        <View style={styles.summaryContainer}>
-          <View style={[styles.summaryItem, { backgroundColor: theme.colors.accent.base }]}>
-            <View style={styles.summaryIconContainer}>
-              <MaterialCommunityIcons 
-                name="warehouse" 
-                size={24} 
-                color={theme.colors.neutral.surface} 
-              />
-            </View>
-            <Text style={styles.summaryNumber}>{stocks.length}</Text>
-            <Text style={styles.summaryLabel}>Total Stocks</Text>
-          </View>
-          <View style={[styles.summaryItem, { backgroundColor: theme.colors.warning }]}>
-            <View style={styles.summaryIconContainer}>
-              <MaterialCommunityIcons 
-                name="alert-circle" 
-                size={24} 
-                color={theme.colors.neutral.surface} 
-              />
-            </View>
-            <Text style={styles.summaryNumber}>
-              {stocks.filter(s => s.quantity <= s.lowStockThreshold).length}
-            </Text>
-            <Text style={styles.summaryLabel}>Stock Bas</Text>
-          </View>
+      <Animated.View style={[styles.header, headerStyle]}>
+        <Text style={[styles.headerTitle, { color: theme.colors.neutral.textPrimary }]}>
+          Stock
+        </Text>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity
+            style={styles.headerButton}
+            onPress={() => navigation.navigate('PesticideList')}
+          >
+            <MaterialCommunityIcons 
+              name="flask-outline" 
+              size={24} 
+              color={theme.colors.primary.base} 
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.headerButton}
+            onPress={() => navigation.navigate('Animals')}
+          >
+            <MaterialCommunityIcons 
+              name="cow" 
+              size={24} 
+              color={theme.colors.primary.base} 
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.headerButton}
+            onPress={() => navigation.navigate('AddStock')}
+          >
+            <Feather name="plus" size={24} color={theme.colors.primary.base} />
+          </TouchableOpacity>
         </View>
-      </View>
+      </Animated.View>
 
-      <View style={styles.searchSection}>
-        <View style={styles.searchContainer}>
-          <Feather name="search" size={20} color={theme.colors.neutral.textSecondary} />
-          <TextInput
-            style={[styles.searchInput, { color: theme.colors.neutral.textPrimary }]}
-            placeholder="Rechercher un produit..."
-            placeholderTextColor={theme.colors.neutral.textSecondary}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
+      <Animated.ScrollView
+        showsVerticalScrollIndicator={false}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={[theme.colors.primary.base]}
+            tintColor={theme.colors.primary.base}
           />
-          {searchQuery !== '' && (
-            <TouchableOpacity 
-              onPress={() => setSearchQuery('')}
-              style={styles.clearButton}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        }
+      >
+        <View style={styles.statsSection}>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.statsContent}
+          >
+            <View style={[styles.summaryItem, { backgroundColor: theme.colors.accent.base }]}>
+              <View style={styles.summaryIconContainer}>
+                <MaterialCommunityIcons 
+                  name="warehouse" 
+                  size={24} 
+                  color={theme.colors.neutral.surface} 
+                />
+              </View>
+              <Text style={styles.summaryNumber}>
+                {stockStats?.totalItems || stocks.length}
+              </Text>
+              <Text style={styles.summaryLabel}>Total Stocks</Text>
+            </View>
+
+            <View style={[styles.summaryItem, { backgroundColor: theme.colors.warning }]}>
+              <View style={styles.summaryIconContainer}>
+                <MaterialCommunityIcons 
+                  name="alert-circle" 
+                  size={24} 
+                  color={theme.colors.neutral.surface} 
+                />
+              </View>
+              <Text style={styles.summaryNumber}>
+                {stockStats?.lowStockItems?.length || 
+                 stocks.filter(s => s.quantity <= s.lowStockThreshold).length}
+              </Text>
+              <Text style={styles.summaryLabel}>Stock Bas</Text>
+            </View>
+
+            <View style={[styles.summaryItem, { backgroundColor: theme.colors.success }]}>
+              <View style={styles.summaryIconContainer}>
+                <MaterialCommunityIcons 
+                  name="cash" 
+                  size={24} 
+                  color={theme.colors.neutral.surface} 
+                />
+              </View>
+              <Text style={styles.summaryNumber}>
+                {stockStats?.totalValue?.toFixed(2) || '0.00'}€
+              </Text>
+              <Text style={styles.summaryLabel}>Valeur Totale</Text>
+            </View>
+          </ScrollView>
+        </View>
+
+        <View style={styles.categoriesContainer}>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoriesContent}
+          >
+            <TouchableOpacity
+              style={[
+                styles.categoryChip,
+                { 
+                  backgroundColor: selectedCategory === 'all' 
+                    ? theme.colors.primary.base 
+                    : theme.colors.neutral.surface,
+                }
+              ]}
+              onPress={() => handleCategoryPress('all')}
+              activeOpacity={0.7}
             >
-              <Feather name="x" size={20} color={theme.colors.neutral.textSecondary} />
+              <Text style={[
+                styles.categoryText,
+                { 
+                  color: selectedCategory === 'all'
+                    ? theme.colors.neutral.surface 
+                    : theme.colors.neutral.textPrimary 
+                }
+              ]}>
+                Tous
+              </Text>
             </TouchableOpacity>
+
+            {categories.map((category) => {
+              const isSelected = selectedCategory === category.value;
+              return (
+                <TouchableOpacity
+                  key={category.value}
+                  style={[
+                    styles.categoryChip,
+                    { 
+                      backgroundColor: isSelected 
+                        ? theme.colors.primary.base 
+                        : theme.colors.neutral.surface,
+                    }
+                  ]}
+                  onPress={() => handleCategoryPress(category.value)}
+                  activeOpacity={0.7}
+                >
+                  {category.iconType === 'feather' ? (
+                    <Feather 
+                      name={category.icon as FeatherNames} 
+                      size={16} 
+                      color={isSelected 
+                        ? theme.colors.neutral.surface 
+                        : theme.colors.neutral.textPrimary
+                      } 
+                    />
+                  ) : (
+                    <MaterialCommunityIcons 
+                      name={category.icon as MaterialNames} 
+                      size={16} 
+                      color={isSelected 
+                        ? theme.colors.neutral.surface 
+                        : theme.colors.neutral.textPrimary
+                      } 
+                    />
+                  )}
+                  <Text style={[
+                    styles.categoryText,
+                    { 
+                      color: isSelected 
+                        ? theme.colors.neutral.surface 
+                        : theme.colors.neutral.textPrimary
+                    }
+                  ]}>
+                    {category.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        <View style={styles.listContainer}>
+          {filteredStocks.map((item, index) => (
+            <Animated.View
+              key={item.id}
+              entering={FadeInDown.delay(index * 100).springify()}
+              style={styles.cardContainer}
+            >
+              <StockItemCard
+                item={item}
+                onPress={() => navigation.navigate('StockDetail', { stockId: item.id })}
+              />
+            </Animated.View>
+          ))}
+
+          {filteredStocks.length === 0 && (
+            <View style={styles.emptyContainer}>
+              <MaterialCommunityIcons 
+                name="package-variant" 
+                size={64} 
+                color={theme.colors.neutral.textSecondary} 
+              />
+              <Text style={[styles.emptyText, { color: theme.colors.neutral.textSecondary }]}>
+                Aucun stock trouvé
+              </Text>
+              <Text style={[styles.emptySubText, { color: theme.colors.neutral.textSecondary }]}>
+                {searchQuery 
+                  ? "Essayez d'autres termes de recherche"
+                  : 'Ajoutez des produits pour commencer'}
+              </Text>
+            </View>
           )}
         </View>
-      </View>
-
-      <View style={styles.categoriesContainer}>
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoriesContent}
-        >
-          <TouchableOpacity
-            style={[
-              styles.categoryChip,
-              { 
-                backgroundColor: selectedCategory === 'all' 
-                  ? theme.colors.primary.light 
-                  : theme.colors.neutral.surface,
-                borderColor: selectedCategory === 'all'
-                  ? theme.colors.primary.base 
-                  : theme.colors.secondary.light,
-              }
-            ]}
-            onPress={() => handleCategoryPress('all')}
-          >
-            <Text style={[
-              styles.categoryText,
-              { 
-                color: selectedCategory === 'all'
-                  ? theme.colors.neutral.surface 
-                  : theme.colors.neutral.textPrimary 
-              }
-            ]}>
-              Tous
-            </Text>
-          </TouchableOpacity>
-          {categories.map((category) => {
-            const isSelected = selectedCategory === category.value;
-            return (
-              <TouchableOpacity
-                key={category.value}
-                style={[
-                  styles.categoryChip,
-                  { 
-                    backgroundColor: isSelected 
-                      ? theme.colors.primary.light 
-                      : theme.colors.neutral.surface,
-                    borderColor: isSelected 
-                      ? theme.colors.primary.base 
-                      : theme.colors.secondary.light,
-                  }
-                ]}
-                onPress={() => handleCategoryPress(category.value)}
-              >
-                {category.iconType === 'feather' ? (
-                  <Feather 
-                    name={category.icon as FeatherNames} 
-                    size={16} 
-                    color={isSelected 
-                      ? theme.colors.neutral.surface 
-                      : theme.colors.neutral.textPrimary
-                    } 
-                  />
-                ) : (
-                  <MaterialCommunityIcons 
-                    name={category.icon as MaterialNames} 
-                    size={16} 
-                    color={isSelected 
-                      ? theme.colors.neutral.surface 
-                      : theme.colors.neutral.textPrimary
-                    } 
-                  />
-                )}
-                <Text style={[
-                  styles.categoryText,
-                  { 
-                    color: isSelected 
-                      ? theme.colors.neutral.surface 
-                      : theme.colors.neutral.textPrimary,
-                    fontWeight: isSelected ? '600' : '400'
-                  }
-                ]}>
-                  {category.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
-
-      <FlatList
-        data={filteredStocks}
-        renderItem={({ item }) => (
-          <StockItemCard
-            item={item}
-            onPress={() => handleStockPress(item)}
-          />
-        )}
-        keyExtractor={item => item.id}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Feather 
-              name="package" 
-              size={64} 
-              color={theme.colors.neutral.textSecondary} 
-            />
-            <Text style={[styles.emptyText, { color: theme.colors.neutral.textSecondary }]}>
-              Aucun stock trouvé
-            </Text>
-            <Text style={[styles.emptySubText, { color: theme.colors.neutral.textSecondary }]}>
-              {searchQuery 
-                ? "Essayez d'autres termes de recherche"
-                : 'Ajoutez des produits pour commencer'}
-            </Text>
-          </View>
-        }
-      />
-
-      <Button
-        title="Voir les Animaux"
-        onPress={() => navigation.navigate('AnimalList')}
-        style={styles.viewAnimalsButton}
-      />
+      </Animated.ScrollView>
     </View>
   );
 };
@@ -270,39 +393,41 @@ const styles = createThemedStyles((theme) => ({
   container: {
     flex: 1,
   },
-  topButtonsContainer: {
+  header: {
+    paddingTop: Platform.OS === 'ios' ? 44 : 0,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.neutral.border,
+    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    zIndex: 1000,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 16,
+  },
+  headerButtons: {
     flexDirection: 'row',
     gap: 16,
-    padding: 16,
-    paddingBottom: 8,
   },
-  topButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 8,
+  headerButton: {
+    padding: 12,
+    borderRadius: 12,
     elevation: 2,
   },
-  topButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
   statsSection: {
-    padding: 16,
-    paddingBottom: 8,
+    paddingVertical: 16,
   },
-  summaryContainer: {
-    flexDirection: 'row',
+  statsContent: {
+    paddingHorizontal: 16,
     gap: 12,
   },
   summaryItem: {
-    flex: 1,
+    width: width * 0.4,
     borderRadius: 16,
     padding: 16,
-    alignItems: 'center',
     elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -319,32 +444,29 @@ const styles = createThemedStyles((theme) => ({
     marginBottom: 8,
   },
   summaryNumber: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: theme.colors.neutral.surface,
+    color: '#FFF',
     marginTop: 4,
   },
   summaryLabel: {
     fontSize: 14,
-    color: theme.colors.neutral.surface,
+    color: '#FFF',
     marginTop: 4,
     fontWeight: '500',
     opacity: 0.9,
   },
   searchSection: {
     padding: 16,
+    paddingTop: 8,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
     borderRadius: 12,
-    borderWidth: 1,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    overflow: 'hidden',
   },
   searchInput: {
     flex: 1,
@@ -361,6 +483,7 @@ const styles = createThemedStyles((theme) => ({
   categoriesContent: {
     paddingHorizontal: 16,
     paddingBottom: 8,
+    gap: 8,
   },
   categoryChip: {
     flexDirection: 'row',
@@ -369,17 +492,24 @@ const styles = createThemedStyles((theme) => ({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 12,
-    marginRight: 8,
-    borderWidth: 1,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   categoryText: {
     fontSize: 14,
+    fontWeight: '600',
   },
-  listContent: {
-    paddingBottom: 100,
+  listContainer: {
+    padding: 16,
+    paddingTop: 8,
+  },
+  cardContainer: {
+    marginBottom: 12,
   },
   emptyContainer: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 64,
@@ -392,10 +522,18 @@ const styles = createThemedStyles((theme) => ({
   emptySubText: {
     fontSize: 14,
     marginTop: 8,
+    textAlign: 'center',
   },
-  viewAnimalsButton: {
+  centerContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorText: {
+    fontSize: 16,
+    textAlign: 'center',
     marginTop: 16,
-    marginHorizontal: 16,
+    marginBottom: 8,
   },
 }));
 

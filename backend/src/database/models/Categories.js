@@ -13,15 +13,18 @@ module.exports = (sequelize, DataTypes) => {
       icon: {
         type: DataTypes.STRING,
         allowNull: true,
+        defaultValue: 'default-icon',
       },
       color: {
         type: DataTypes.STRING,
         allowNull: true,
+        defaultValue: '#000000',
       },
     },
     {
       timestamps: false,
     }
   );
+
   return Category;
 };
