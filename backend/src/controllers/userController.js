@@ -7,8 +7,8 @@ const config = require("../config/db");
 // JWT Configuration
 const JWT_SECRET = process.env.JWT_SECRET ;
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET ;
-const JWT_EXPIRES_IN = '1h';
-const JWT_REFRESH_EXPIRES_IN = '7d';
+const JWT_EXPIRES_IN = '30d';
+const JWT_REFRESH_EXPIRES_IN = '30d';
 
 const userController = {
   // Register new user
