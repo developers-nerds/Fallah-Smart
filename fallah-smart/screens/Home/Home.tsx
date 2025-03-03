@@ -7,6 +7,7 @@ import StockScreen from '../Stock/stock';
 import WalletScreen from '../Wallet/Wallet';
 import DictionaryScreen from '../dictionary/dictionary';
 import ChatScreen from '../Chat/Chat';
+import { DictionaryNavigator } from '../../navigation/DictionaryNavigator';
 
 const Drawer = createDrawerNavigator();
 
@@ -22,21 +23,19 @@ const HomeScreen = () => {
   return (
     <Drawer.Navigator
       drawerContent={(props) => <SideBar {...props} />}
-      screenOptions={{ headerShown: true }}
-    >
-      <Drawer.Screen 
-        name="HomeContent" 
-        component={HomeContent}
-        options={{ title: 'Home' }}
-      />
+      screenOptions={{ headerShown: true }}>
+      <Drawer.Screen name="HomeContent" component={HomeContent} options={{ title: 'Home' }} />
       <Drawer.Screen name="Chat" component={ChatScreen} />
       <Drawer.Screen name="Scan" component={ScanScreen} />
       <Drawer.Screen name="Stock" component={StockScreen} />
       <Drawer.Screen name="Wallet" component={WalletScreen} />
-      <Drawer.Screen name="Dictionary" component={DictionaryScreen} />
+      <Drawer.Screen
+        name="Dictionary"
+        component={DictionaryNavigator}
+        options={{ title: 'القاموس الزراعي' }}
+      />
     </Drawer.Navigator>
   );
 };
 
 export default HomeScreen;
-
