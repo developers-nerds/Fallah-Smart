@@ -2,6 +2,8 @@ const express = require("express");
 const cors = require("cors");
 const userRoutes = require("./routes/userRoutes");
 const stockRoutes = require("./routes/stockRoutes");
+const animalRoutes = require("./routes/animalRoutes");
+const pesticideRoutes = require('./routes/pesticideRoutes');
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -14,6 +16,8 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use("/api/users", userRoutes);
 app.use("/api/stocks", stockRoutes);
+app.use("/api/animals", animalRoutes);
+app.use('/api/pesticides', pesticideRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

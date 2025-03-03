@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
 import { StockHistory as StockHistoryType } from '../types';
 import { Feather } from '@expo/vector-icons';
@@ -9,6 +9,8 @@ interface StockHistoryComponentProps {
   unit: string;
   loading: boolean;
 }
+
+const ITEMS_PER_PAGE = 5;
 
 const getTypeInfo = (type: string) => {
   switch (type) {
@@ -27,6 +29,12 @@ const getTypeInfo = (type: string) => {
 
 export const StockHistoryComponent: React.FC<StockHistoryComponentProps> = ({ history, unit, loading }) => {
   const theme = useTheme();
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const totalPages = Math.ceil(history.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const currentItems = history.slice(startIndex, endIndex);
 
   const formatDate = (date: Date | string) => {
     try {
@@ -41,6 +49,18 @@ export const StockHistoryComponent: React.FC<StockHistoryComponentProps> = ({ hi
     } catch (error) {
       console.error('Error formatting date:', error);
       return typeof date === 'string' ? date : date.toISOString();
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
     }
   };
 
@@ -69,7 +89,7 @@ export const StockHistoryComponent: React.FC<StockHistoryComponentProps> = ({ hi
 
   return (
     <View style={styles.container}>
-      {history.map((item) => {
+      {currentItems.map((item) => {
         const { icon, label, color } = getTypeInfo(item.type);
         
         return (
@@ -100,6 +120,46 @@ export const StockHistoryComponent: React.FC<StockHistoryComponentProps> = ({ hi
           </View>
         );
       })}
+
+      {totalPages > 1 && (
+        <View style={styles.paginationContainer}>
+          <TouchableOpacity
+            style={[
+              styles.paginationButton,
+              currentPage === 1 && styles.paginationButtonDisabled,
+              { backgroundColor: theme.colors.neutral.surface }
+            ]}
+            onPress={handlePreviousPage}
+            disabled={currentPage === 1}
+          >
+            <Feather
+              name="chevron-left"
+              size={20}
+              color={currentPage === 1 ? theme.colors.neutral.textSecondary : theme.colors.primary.base}
+            />
+          </TouchableOpacity>
+
+          <Text style={[styles.paginationText, { color: theme.colors.neutral.textPrimary }]}>
+            {currentPage} / {totalPages}
+          </Text>
+
+          <TouchableOpacity
+            style={[
+              styles.paginationButton,
+              currentPage === totalPages && styles.paginationButtonDisabled,
+              { backgroundColor: theme.colors.neutral.surface }
+            ]}
+            onPress={handleNextPage}
+            disabled={currentPage === totalPages}
+          >
+            <Feather
+              name="chevron-right"
+              size={20}
+              color={currentPage === totalPages ? theme.colors.neutral.textSecondary : theme.colors.primary.base}
+            />
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 };
@@ -158,5 +218,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+  },
+  paginationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 16,
+    gap: 16,
+  },
+  paginationButton: {
+    padding: 8,
+    borderRadius: 8,
+    elevation: 1,
+  },
+  paginationButtonDisabled: {
+    opacity: 0.5,
+  },
+  paginationText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
 }); 
