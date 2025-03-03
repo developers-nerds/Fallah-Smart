@@ -5,9 +5,12 @@ const userRoutes = require("./routes/userRoutes");
 const stockRoutes = require("./routes/stockRoutes");
 const animalRoutes = require("./routes/animalRoutes");
 const pesticideRoutes = require('./routes/pesticideRoutes');
-
 const app = express();
-const port = process.env.PORT || 5000;
+const port = process.env.PORT;
+const scanRoutes = require("./routes/scanRoutes");
+const conversationRoutes = require("./routes/conversationRoutes");
+
+
 
 // Middleware
 app.use(cors());
@@ -26,6 +29,8 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: 'Something went wrong!' });
 });
 
+app.use("/api/scans", scanRoutes);
+app.use("/api/conversations", conversationRoutes);
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });

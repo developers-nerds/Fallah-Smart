@@ -38,6 +38,7 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
   const handleRegister = async () => {
     const API_URL = process.env.EXPO_PUBLIC_API_URL;

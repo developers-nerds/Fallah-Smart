@@ -6,7 +6,14 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING(150),
         allowNull: true,
       },
-
+      icon: {
+        type: DataTypes.STRING(150),
+        allowNull: true,
+      },
+      description: {
+        type: DataTypes.STRING(150),
+        allowNull: true,
+      },
     },
     {
       timestamps: true,
