@@ -366,7 +366,7 @@ BackupSync.belongsTo(Users, {
 async function syncModels() {
   try {
     // Use { alter: true } for production to safely update schema
-    // await sequelize.sync({ force: true });
+    await sequelize.sync({ force: true });
     console.log("Database models synchronized successfully");
   } catch (error) {
     console.error("Error synchronizing database models:", error);
