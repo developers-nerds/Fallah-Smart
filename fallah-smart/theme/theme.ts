@@ -8,18 +8,21 @@ export const theme = {
       light: '#4B7B2C',   // Fresh leaf green
       dark: '#1B3912',    // Deep forest green
       disabled: '#A5C49B', // Muted green
+      surface: '#E8F5E9',  // Light green surface
     },
     secondary: {
       base: '#8B5E3C',    // Earth brown
       light: '#A67C52',   // Light soil
       dark: '#5C3C22',    // Deep soil
       disabled: '#CCAD91', // Muted brown
+      surface: '#FFF3E0',  // Light brown surface
     },
     accent: {
       base: '#D4AF37',    // Wheat gold
       light: '#E6C65C',   // Light wheat
       dark: '#B39125',    // Rich harvest
       disabled: '#F2E3AA', // Pale wheat
+      surface: '#FFF8E1',  // Light gold surface
     },
     neutral: {
       background: '#F8F6F1', // Light parchment
@@ -61,6 +64,63 @@ export const theme = {
     small: 4,  // Inputs, alerts
     medium: 8, // Buttons, cards
     large: 16, // Modals
+  },
+  typography: {
+    arabic: {
+      h1: {
+        fontSize: 32,
+        lineHeight: 40,
+        fontWeight: 'bold',
+        letterSpacing: 0.15,
+      },
+      h2: {
+        fontSize: 24,
+        lineHeight: 32,
+        fontWeight: '600',
+        letterSpacing: 0.15,
+      },
+      h3: {
+        fontSize: 20,
+        lineHeight: 28,
+        fontWeight: '600',
+        letterSpacing: 0.15,
+      },
+      body: {
+        fontSize: 16,
+        lineHeight: 24,
+        fontWeight: 'normal',
+        letterSpacing: 0.5,
+      },
+      caption: {
+        fontSize: 14,
+        lineHeight: 20,
+        fontWeight: 'normal',
+        letterSpacing: 0.25,
+      },
+    },
+  },
+  shadows: {
+    small: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    medium: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.15,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    large: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.2,
+      shadowRadius: 12,
+      elevation: 6,
+    },
   },
 };
 
