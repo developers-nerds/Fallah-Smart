@@ -26,7 +26,7 @@ import { BLOG_API_URL } from '../../config/api';
 // Update API URL to use only one specific address
 const getApiBaseUrl = () => {
   // Always use this specific URL regardless of platform
-  return "http://192.168.104.24:5000/api/blog";
+  return "http://192.168.11.225:5000/api/blog";
 };
 
 // Use the function to get the base URL
@@ -57,7 +57,7 @@ const fetchWithRetry = async (url, options = {}, maxRetries = 3) => {
 };
 
 // Add this at the top with other constants
-const BASE_URL = "http://192.168.104.24:5000";
+const BASE_URL = "http://192.168.11.225:5000";
 
 const PostDetail = ({ route, navigation }) => {
   const { postId } = route.params;
@@ -486,8 +486,8 @@ const PostDetail = ({ route, navigation }) => {
             <View style={styles.mediaContainer}>
               {post.media.map((media, idx) => {
                 const mediaUrl = typeof media === 'string' 
-                  ? `http://192.168.1.16:5000/uploads/${media}`
-                  : media.url || `http://192.168.1.16:5000/uploads/${media.path || media.filename}`;
+                  ? `http://192.168.11.225:5000/uploads/${media}`
+                  : media.url || `http://192.168.11.225:5000/uploads/${media.path || media.filename}`;
                 
                 return (
                   <View key={idx} style={styles.postImageContainer}>
