@@ -35,7 +35,8 @@ type UserProfile = {
 };
 
 // Add gender options
-const GENDER_OPTIONS = ['Male', 'Female', 'Other'];
+const GENDER_OPTIONS = ['Male', 'Female'];
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
 // Add image picker function
 const pickImage = async () => {
@@ -86,7 +87,7 @@ const Profile = () => {
         console.log("Stored user profile picture:", storedUser.profilePicture);
       }
 
-      const response = await axios.get('http://192.168.104.24:5000/api/users/profile');
+      const response = await axios.get(`${API_URL}/users/profile`);
       if (response?.data) {
         console.log("Server response profile picture:", response.data.profilePicture);
         setProfile(response.data);
@@ -141,7 +142,7 @@ const Profile = () => {
       
       // Make the API request
       const response = await axios.put(
-        'http://192.168.104.24:5000/api/users/profile',
+        `${API_URL}/users/profile`,
         formData,
         {
           headers: {
@@ -221,7 +222,7 @@ const Profile = () => {
                   source={{ 
                     uri: selectedImage?.uri || (profile?.profilePicture?.startsWith('http') 
                       ? profile?.profilePicture 
-                      : `http://192.168.104.24:5000${profile?.profilePicture}`) 
+                      : `${API_URL}${profile?.profilePicture}`) 
                   }} 
                   style={styles.avatarImage} 
                   onLoad={() => console.log("Profile image loaded successfully")}
@@ -418,7 +419,7 @@ const Profile = () => {
                           source={{ 
                             uri: profile.profilePicture.startsWith('http') 
                               ? profile.profilePicture 
-                              : `http:192.168.1.16:5000${profile.profilePicture}` 
+                              : `${API_URL}${profile.profilePicture}` 
                           }} 
                           style={styles.selectedImage} 
                         />

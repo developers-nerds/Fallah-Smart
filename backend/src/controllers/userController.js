@@ -4,9 +4,10 @@ const { Users } = require('../database/assossiation');
 const { Op } = require('sequelize');
 require('dotenv').config();
 const config = require("../config/db");
+
 // JWT Configuration
-const JWT_SECRET = process.env.JWT_SECRET ;
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET ;
+const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
 const JWT_EXPIRES_IN = '30d';
 const JWT_REFRESH_EXPIRES_IN = '30d';
 
@@ -219,7 +220,7 @@ const userController = {
     }
   },
 
-  // New methods moved from routes
+  // Get user profile
   getProfile: async (req, res) => {
     try {
       const user = await Users.findByPk(req.user.id, {
@@ -238,6 +239,7 @@ const userController = {
     }
   },
 
+  // Update profile
   updateProfile: async (req, res) => {
     try {
       console.log('Profile update request received');
@@ -293,6 +295,7 @@ const userController = {
     }
   },
 
+  // Change password
   changePassword: async (req, res) => {
     try {
       const { currentPassword, newPassword } = req.body;
@@ -322,6 +325,7 @@ const userController = {
     }
   },
 
+  // Delete account
   deleteAccount: async (req, res) => {
     try {
       const user = await Users.findByPk(req.user.id);
@@ -337,6 +341,7 @@ const userController = {
     }
   },
 
+  // Get all users
   getAllUsers: async (req, res) => {
     try {
       // Check if user is admin
@@ -383,6 +388,21 @@ function generateRefreshToken(user) {
     JWT_REFRESH_SECRET,
     { expiresIn: JWT_REFRESH_EXPIRES_IN }
   );
+}
+
+// Helper function to generate unique username
+async function generateUniqueUsername(baseUsername) {
+  let username = baseUsername;
+  let counter = 1;
+  
+  while (true) {
+    const existingUser = await Users.findOne({ where: { username } });
+    if (!existingUser) break;
+    username = `${baseUsername}${counter}`;
+    counter++;
+  }
+  
+  return username;
 }
 
 module.exports = userController;
