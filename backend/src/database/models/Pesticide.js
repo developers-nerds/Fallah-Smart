@@ -20,11 +20,23 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.BOOLEAN,
         defaultValue: false,
       },
+      userId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+      }
     },
     {
       timestamps: true,
     }
   );
+
+  Pesticide.associate = function(models) {
+    Pesticide.belongsTo(models.Users, {
+      foreignKey: 'userId',
+      as: 'user',
+      onDelete: 'CASCADE'
+    });
+  };
 
   return Pesticide;
 };
