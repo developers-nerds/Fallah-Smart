@@ -1,16 +1,22 @@
 require("dotenv").config();
 const express = require("express");
-const cors = require("cors");
-const userRoutes = require("./routes/userRoutes");
 const stockRoutes = require("./routes/stockRoutes");
-const animalRoutes = require("./routes/animalRoutes");
+// const animalRoutes = require("./routes/animalRoutes");
 const pesticideRoutes = require("./routes/pesticideRoutes");
+const animalRoutes = require("./routes/animalRoutes");
 const app = express();
 const port = process.env.Port;
+const cors = require("cors");
 const path = require("path");
 const blogRoutes = require("./routes/blogRoutes");
 const scanRoutes = require("./routes/scanRoutes");
+const userRoutes = require("./routes/userRoutes");
+
 const conversationRoutes = require("./routes/conversationRoutes");
+const cropRoutes = require("./routes/crops");
+const cropDetailsRoutes = require("./routes/cropsDetails");
+const animalDetailsRoutes = require("./routes/animalsDetails");
+const animal = require("./routes/animal");
 
 // Middleware
 app.use(cors());
@@ -20,7 +26,17 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use("/api/users", userRoutes);
 app.use("/api/stocks", stockRoutes);
-app.use("/api/animals", animalRoutes);
+// app.use("/api/animals", animalRoutes);
+app.use("/api/pesticides", pesticideRoutes);
+app.use("/api/blog", blogRoutes);
+app.use("/api/scans", scanRoutes);
+app.use("/api/conversations", conversationRoutes);
+app.use("/api/crops", cropRoutes);
+app.use("/api/cropsDetails", cropDetailsRoutes);
+app.use("/api/animalDetails", animalDetailsRoutes);
+app.use("/api/animal", animal);
+
+// app.use("/api/animals", animalRoutes);
 app.use("/api/pesticides", pesticideRoutes);
 
 // Error handling middleware
@@ -45,8 +61,6 @@ app.get("/test-image", (req, res) => {
   `);
 });
 
-app.use("/api/scans", scanRoutes);
-app.use("/api/conversations", conversationRoutes);
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });

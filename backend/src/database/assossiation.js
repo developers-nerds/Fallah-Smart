@@ -50,17 +50,17 @@ Users.hasMany(Notification, {
 });
 
 // User and AnimalDetails associations
-Users.hasMany(AnimalDetails, {
-  foreignKey: "userId",
-  as: "animals",
-  onDelete: "CASCADE",
-  onUpdate: "CASCADE",
-});
+// Users.hasMany(AnimalDetails, {
+//   foreignKey: "userId",
+//   as: "animals",
+//   onDelete: "CASCADE",
+//   onUpdate: "CASCADE",
+// });
 
-AnimalDetails.belongsTo(Users, {
-  foreignKey: "userId",
-  as: "user",
-});
+// AnimalDetails.belongsTo(Users, {
+//   foreignKey: "userId",
+//   as: "user",
+// });
 
 // For scans
 Scans.belongsTo(Users, {
