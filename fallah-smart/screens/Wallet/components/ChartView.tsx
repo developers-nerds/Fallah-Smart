@@ -4,9 +4,13 @@ import { theme } from "../../../theme/theme"
 
 interface ChartViewProps {
   categories: Array<{
+    id: number
     name: string
-    amount: number
+    icon: string
+    type: string
     color: string
+    amount: number
+    count: number
     isIncome: boolean
   }>
 }
