@@ -8,25 +8,31 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  Image,
   Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import { theme } from '../../theme/theme';
 import { storage } from '../../utils/storage';
+import { RootStackParamList } from '../../navigation/types';
 
 const Login = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<LoginScreenNavigationProp>();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const API_URL = process.env.EXPO_PUBLIC_API_URL;
-  console.log(API_URL,"gggg");
+
   const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
     try {
       setIsLoading(true);
       setError('');
@@ -45,16 +51,28 @@ const Login = () => {
   
       axios.defaults.headers.common['Authorization'] = `Bearer ${tokens.access.token}`;
   
-      navigation.navigate('StockTab');
-    } catch (err) {
-      const errorMessage = err.response?.data?.message || 'An error occurred during login';
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'StockTab' }],
+      });
+    } catch (error: any) {
+      console.error('Login Error:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
+      
+      const errorMessage = error.response?.data?.message || error.message || 'An error occurred during login';
       setError(errorMessage);
       Alert.alert('Login Error', errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
-  
+
+  const handleRegisterPress = () => {
+    navigation.navigate('Register');
+  };
 
   return (
     <KeyboardAvoidingView
@@ -88,6 +106,7 @@ const Login = () => {
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
+            autoComplete="email"
           />
         </View>
 
@@ -105,6 +124,7 @@ const Login = () => {
             value={password}
             onChangeText={setPassword}
             secureTextEntry={!showPassword}
+            autoComplete="password"
           />
           <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
             <Ionicons
@@ -115,11 +135,11 @@ const Login = () => {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.forgotPassword}>
-          <Text style={[styles.forgotPasswordText, { color: theme.colors.neutral.textSecondary }]}>
-            Forgot Password?
+        {error ? (
+          <Text style={[styles.errorText, { color: theme.colors.error }]}>
+            {error}
           </Text>
-        </TouchableOpacity>
+        ) : null}
 
         <TouchableOpacity
           style={[
@@ -137,15 +157,17 @@ const Login = () => {
           )}
         </TouchableOpacity>
 
+        <View style={styles.dividerContainer}>
+          <View style={[styles.divider, { backgroundColor: theme.colors.neutral.border }]} />
+          <Text style={[styles.dividerText, { color: theme.colors.neutral.textSecondary }]}>OR</Text>
+          <View style={[styles.divider, { backgroundColor: theme.colors.neutral.border }]} />
+        </View>
+
         <View style={styles.registerContainer}>
           <Text style={[styles.registerText, { color: theme.colors.neutral.textSecondary }]}>
             Don't have an account?{' '}
           </Text>
-          <TouchableOpacity 
-            onPress={() => {
-              navigation.navigate('Register');
-            }}
-          >
+          <TouchableOpacity onPress={handleRegisterPress}>
             <Text style={[styles.registerLink, { color: theme.colors.primary.base }]}>
               Register
             </Text>
@@ -201,13 +223,11 @@ const styles = StyleSheet.create({
   eyeIcon: {
     padding: theme.spacing.xs,
   },
-  forgotPassword: {
-    alignSelf: 'flex-end',
-    marginBottom: theme.spacing.md,
-  },
-  forgotPasswordText: {
+  errorText: {
     fontSize: theme.fontSizes.caption,
     fontFamily: theme.fonts.regular,
+    marginBottom: theme.spacing.md,
+    textAlign: 'center',
   },
   loginButton: {
     borderRadius: theme.borderRadius.medium,
@@ -233,6 +253,20 @@ const styles = StyleSheet.create({
   registerLink: {
     fontSize: theme.fontSizes.body,
     fontFamily: theme.fonts.medium,
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: theme.spacing.md,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+  },
+  dividerText: {
+    marginHorizontal: theme.spacing.md,
+    fontSize: theme.fontSizes.caption,
+    fontFamily: theme.fonts.regular,
   },
 });
 

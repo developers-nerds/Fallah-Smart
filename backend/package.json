@@ -10,7 +10,7 @@
     "db:init": "node src/database/assossiation.js",
     "db:seed": "node src/database/seeds/seeds.js",
     "db:drop": "node src/database/interaction/dropDataBase.js",
-    "db:reset": "npm run db:drop && npm run db:create && npm run db:init "
+    "db:reset": "npm run db:drop && npm run db:create && npm run db:init && npm run db:seed"
   },
   "dependencies": {
     "axios": "^1.8.1",
@@ -18,7 +18,6 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.18.2",
-    "google-auth-library": "^9.15.1",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^7.0.0",
     "multer": "^1.4.5-lts.1",
