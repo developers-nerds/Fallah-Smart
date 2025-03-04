@@ -50,12 +50,12 @@ Users.hasMany(Notification, {
 });
 
 // User and AnimalDetails associations
-Users.hasMany(AnimalDetails, {
-  foreignKey: "userId",
-  as: "animals",
-  onDelete: "CASCADE",
-  onUpdate: "CASCADE",
-});
+// Users.hasMany(AnimalDetails, {
+//   foreignKey: "userId",
+//   as: "animals",
+//   onDelete: "CASCADE",
+//   onUpdate: "CASCADE",
+// });
 
 AnimalDetails.belongsTo(Users, {
   foreignKey: "userId",
@@ -425,7 +425,7 @@ Stock.belongsTo(Users, {
 async function syncModels() {
   try {
     // Use { force: true } for production to safely update schema
-    await sequelize.sync({ alter: true });
+    // await sequelize.sync({ alter: true });
     console.log("Database models synchronized successfully");
   } catch (error) {
     console.error("Error synchronizing database models:", error);
