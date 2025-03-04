@@ -92,19 +92,20 @@ const QuantityModal = ({
         <BlurView intensity={80} tint="dark" style={styles.modalBlur}>
           <View style={[styles.modalContent, { backgroundColor: theme.colors.neutral.surface }]}>
             <Text style={[styles.modalTitle, { color: theme.colors.neutral.textPrimary }]}>
-              {type === 'add' ? 'Ajouter au stock' : 'Retirer du stock'}
+              {type === 'add' ? 'إضافة للمخزون' : 'سحب من المخزون'}
             </Text>
 
             <View style={styles.modalInputContainer}>
               <TextInput
                 style={[styles.modalInput, { 
                   backgroundColor: theme.colors.neutral.background,
-                  color: theme.colors.neutral.textPrimary 
+                  color: theme.colors.neutral.textPrimary,
+                  textAlign: 'right'
                 }]}
                 value={quantity}
                 onChangeText={setQuantity}
                 keyboardType="numeric"
-                placeholder={`Quantité en ${unit}`}
+                placeholder={`الكمية بـ ${unit}`}
                 placeholderTextColor={theme.colors.neutral.textSecondary}
                 editable={!loading}
               />
@@ -114,11 +115,12 @@ const QuantityModal = ({
                   backgroundColor: theme.colors.neutral.background,
                   color: theme.colors.neutral.textPrimary,
                   height: 100,
-                  textAlignVertical: 'top'
+                  textAlignVertical: 'top',
+                  textAlign: 'right'
                 }]}
                 value={notes}
                 onChangeText={setNotes}
-                placeholder="Notes (optionnel)"
+                placeholder="ملاحظات (اختياري)"
                 placeholderTextColor={theme.colors.neutral.textSecondary}
                 multiline
                 numberOfLines={4}
@@ -133,7 +135,7 @@ const QuantityModal = ({
                 disabled={loading}
               >
                 <Text style={[styles.buttonText, { color: theme.colors.neutral.textPrimary }]}>
-                  Annuler
+                  إلغاء
                 </Text>
               </TouchableOpacity>
 
@@ -150,7 +152,7 @@ const QuantityModal = ({
                 {loading ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <Text style={[styles.buttonText, { color: '#fff' }]}>Confirmer</Text>
+                  <Text style={[styles.buttonText, { color: '#fff' }]}>تأكيد</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -249,10 +251,10 @@ export const PesticideDetail = ({ route, navigation }: PesticideDetailProps) => 
           size={64} 
           color={theme.colors.error} 
         />
-        <Text style={[styles.errorText, { color: theme.colors.error }]}>{error}</Text>
+        <Text style={[styles.errorText, { color: theme.colors.error }]}>لم يتم العثور على المبيد</Text>
         <CustomButton 
-          title="Réessayer" 
-          onPress={refreshPesticides}
+          title="رجوع" 
+          onPress={() => navigation.goBack()}
           variant="primary"
         />
       </View>
@@ -267,9 +269,9 @@ export const PesticideDetail = ({ route, navigation }: PesticideDetailProps) => 
           size={64} 
           color={theme.colors.error} 
         />
-        <Text style={[styles.errorText, { color: theme.colors.error }]}>Pesticide non trouvé</Text>
+        <Text style={[styles.errorText, { color: theme.colors.error }]}>لم يتم العثور على المبيد</Text>
         <CustomButton 
-          title="Retour" 
+          title="رجوع" 
           onPress={() => navigation.goBack()}
           variant="primary"
         />
@@ -287,7 +289,7 @@ export const PesticideDetail = ({ route, navigation }: PesticideDetailProps) => 
           <Feather name="arrow-left" size={24} color={theme.colors.neutral.textPrimary} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.colors.neutral.textPrimary }]}>
-          Détails du Pesticide
+          تفاصيل المبيد
         </Text>
       </Animated.View>
 
@@ -338,7 +340,7 @@ export const PesticideDetail = ({ route, navigation }: PesticideDetailProps) => 
                   ? theme.colors.error 
                   : theme.colors.success 
               }]}>
-                Stock actuel
+                المخزون الحالي
               </Text>
             </View>
             <View style={styles.stockLevelBar}>
@@ -378,7 +380,7 @@ export const PesticideDetail = ({ route, navigation }: PesticideDetailProps) => 
                   color={theme.colors.neutral.textSecondary}
                 />
                 <Text style={[styles.thresholdText, { color: theme.colors.neutral.textSecondary }]}>
-                  Seuil: {pesticide.lowStockThreshold} {pesticide.unit}
+                  الحد الأدنى: {pesticide.lowStockThreshold} {pesticide.unit}
                 </Text>
               </View>
             </View>
@@ -386,7 +388,7 @@ export const PesticideDetail = ({ route, navigation }: PesticideDetailProps) => 
               <View style={[styles.lowStockWarning, { backgroundColor: theme.colors.error }]}>
                 <MaterialCommunityIcons name="alert" size={20} color="#FFF" />
                 <Text style={styles.lowStockWarningText}>
-                  Stock faible! Reapprovisionnez bientôt
+                  مخزون منخفض! يرجى إعادة التزويد قريباً
                 </Text>
               </View>
             )}
@@ -403,7 +405,7 @@ export const PesticideDetail = ({ route, navigation }: PesticideDetailProps) => 
             >
               <MaterialCommunityIcons name="plus-circle" size={24} color="#fff" />
               <Text style={[styles.actionButtonText, { color: '#fff' }]}>
-                Ajouter du stock
+                إضافة مخزون
               </Text>
             </TouchableOpacity>
 
@@ -417,7 +419,7 @@ export const PesticideDetail = ({ route, navigation }: PesticideDetailProps) => 
             >
               <MaterialCommunityIcons name="minus-circle" size={24} color="#fff" />
               <Text style={[styles.actionButtonText, { color: '#fff' }]}>
-                Retirer du stock
+                سحب من المخزون
               </Text>
             </TouchableOpacity>
           </View>
@@ -425,7 +427,7 @@ export const PesticideDetail = ({ route, navigation }: PesticideDetailProps) => 
           <View style={styles.infoGrid}>
             <View style={styles.infoSection}>
               <Text style={[styles.sectionLabel, { color: theme.colors.neutral.textSecondary }]}>
-                Informations générales
+                معلومات عامة
               </Text>
               <View style={[styles.infoItem, { backgroundColor: theme.colors.neutral.background }]}>
                 <View style={[styles.iconContainer, { backgroundColor: theme.colors.primary.base }]}>
@@ -433,7 +435,7 @@ export const PesticideDetail = ({ route, navigation }: PesticideDetailProps) => 
                 </View>
                 <View style={styles.infoContent}>
                   <Text style={[styles.infoLabel, { color: theme.colors.neutral.textSecondary }]}>
-                    Cible
+                    الهدف
                   </Text>
                   <Text style={[styles.infoValue, { color: theme.colors.neutral.textPrimary }]}>
                     {pesticide.target || 'Non spécifié'}
@@ -448,7 +450,7 @@ export const PesticideDetail = ({ route, navigation }: PesticideDetailProps) => 
                   </View>
                   <View style={styles.infoContent}>
                     <Text style={[styles.infoLabel, { color: theme.colors.neutral.textSecondary }]}>
-                      Délai avant récolte
+                      فترة الانتظار قبل الحصاد
                     </Text>
                     <Text style={[styles.infoValue, { color: theme.colors.warning }]}>
                       {pesticide.waitingPeriod} jours
@@ -460,7 +462,7 @@ export const PesticideDetail = ({ route, navigation }: PesticideDetailProps) => 
 
             <View style={styles.infoSection}>
               <Text style={[styles.sectionLabel, { color: theme.colors.neutral.textSecondary }]}>
-                Sécurité et application
+                السلامة والتطبيق
               </Text>
               {pesticide.safetyInstructions && (
                 <View style={[styles.infoItem, { backgroundColor: theme.colors.neutral.background }]}>
@@ -469,7 +471,7 @@ export const PesticideDetail = ({ route, navigation }: PesticideDetailProps) => 
                   </View>
                   <View style={styles.infoContent}>
                     <Text style={[styles.infoLabel, { color: theme.colors.neutral.textSecondary }]}>
-                      Instructions de sécurité
+                      تعليمات السلامة
                     </Text>
                     <Text style={[styles.infoValue, { color: theme.colors.neutral.textPrimary }]}>
                       {pesticide.safetyInstructions}
@@ -485,7 +487,7 @@ export const PesticideDetail = ({ route, navigation }: PesticideDetailProps) => 
                   </View>
                   <View style={styles.infoContent}>
                     <Text style={[styles.infoLabel, { color: theme.colors.neutral.textSecondary }]}>
-                      Instructions d'application
+                      تعليمات التطبيق
                     </Text>
                     <Text style={[styles.infoValue, { color: theme.colors.neutral.textPrimary }]}>
                       {pesticide.applicationInstructions}

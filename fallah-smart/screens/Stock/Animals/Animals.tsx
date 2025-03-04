@@ -44,13 +44,13 @@ const getHealthStatusColor = (status: HealthStatus, theme: any) => {
 const getHealthStatusLabel = (status: HealthStatus): string => {
   switch (status) {
     case 'excellent':
-      return 'Excellent';
+      return 'ممتاز';
     case 'good':
-      return 'Bon';
+      return 'جيد';
     case 'fair':
-      return 'Moyen';
+      return 'متوسط';
     case 'poor':
-      return 'Mauvais';
+      return 'سيء';
     default:
       return status;
   }
@@ -58,10 +58,10 @@ const getHealthStatusLabel = (status: HealthStatus): string => {
 
 const getAnimalIcon = (type: string): string => {
   const lowercaseType = type.toLowerCase();
-  if (lowercaseType.includes('vache') || lowercaseType.includes('boeuf')) return 'cow';
-  if (lowercaseType.includes('mouton') || lowercaseType.includes('brebis')) return 'sheep';
-  if (lowercaseType.includes('poule') || lowercaseType.includes('coq')) return 'bird';
-  if (lowercaseType.includes('chèvre')) return 'goat';
+  if (lowercaseType.includes('بقرة') || lowercaseType.includes('ثور')) return 'cow';
+  if (lowercaseType.includes('خروف') || lowercaseType.includes('نعجة')) return 'sheep';
+  if (lowercaseType.includes('دجاج') || lowercaseType.includes('ديك')) return 'bird';
+  if (lowercaseType.includes('ماعز')) return 'goat';
   return 'paw';
 };
 
@@ -127,7 +127,7 @@ export const AnimalsScreen = ({ navigation }: AnimalsScreenProps) => {
                 {item.type}
               </Text>
               <Text style={[styles.animalGender, { color: theme.colors.neutral.textSecondary }]}>
-                {item.gender === 'male' ? 'Mâle' : 'Femelle'}
+                {item.gender === 'male' ? 'ذكر' : 'أنثى'}
               </Text>
             </View>
             <View style={[styles.countBadge, { backgroundColor: theme.colors.primary.base }]}>
@@ -152,7 +152,7 @@ export const AnimalsScreen = ({ navigation }: AnimalsScreenProps) => {
               </Text>
             </View>
             <Text style={[styles.feedingText, { color: theme.colors.neutral.textSecondary }]}>
-              {item.feedingSchedule || 'Pas de programme d\'alimentation'}
+              {item.feedingSchedule || 'لا يوجد برنامج تغذية'}
             </Text>
           </View>
         </TouchableOpacity>
@@ -177,7 +177,7 @@ export const AnimalsScreen = ({ navigation }: AnimalsScreenProps) => {
           color={theme.colors.error} 
         />
         <Text style={[styles.errorText, { color: theme.colors.error }]}>
-          Une erreur est survenue
+          حدث خطأ
         </Text>
       </View>
     );
@@ -188,7 +188,7 @@ export const AnimalsScreen = ({ navigation }: AnimalsScreenProps) => {
       <SearchBar
         value={searchQuery}
         onChangeText={setSearchQuery}
-        placeholder="Rechercher un animal..."
+        placeholder="بحث عن حيوان..."
       />
 
       <FlatList
@@ -213,7 +213,7 @@ export const AnimalsScreen = ({ navigation }: AnimalsScreenProps) => {
               color={theme.colors.neutral.textSecondary} 
             />
             <Text style={[styles.emptyText, { color: theme.colors.neutral.textSecondary }]}>
-              Aucun animal trouvé
+              لم يتم العثور على حيوانات
             </Text>
           </View>
         }

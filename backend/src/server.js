@@ -4,7 +4,7 @@ const cors = require("cors");
 const path = require('path');
 const userRoutes = require("./routes/userRoutes");
 const stockRoutes = require("./routes/stockRoutes");
-const animalRoutes = require("./routes/animalRoutes");
+const animalGastonRoutes = require("./routes/animalGastonRoutes");
 const pesticideRoutes = require('./routes/pesticideRoutes');
 const blogRoutes = require("./routes/blogRoutes");
 const scanRoutes = require("./routes/scanRoutes");
@@ -24,7 +24,7 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 // Routes
 app.use("/api/users", userRoutes);
 app.use("/api/stocks", stockRoutes);
-app.use("/api/animals", animalRoutes);
+app.use("/api/animals", animalGastonRoutes);
 app.use('/api/pesticides', pesticideRoutes);
 app.use("/api/blog", blogRoutes);
 app.use("/api/scans", scanRoutes);
