@@ -3,8 +3,8 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useTheme } from '../context/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
 import { CommonActions } from '@react-navigation/native';
-import Animated, { 
-  useAnimatedStyle, 
+import Animated, {
+  useAnimatedStyle,
   withSpring,
   withRepeat,
   withSequence,
@@ -36,17 +36,14 @@ const TabIcon: React.FC<TabIconProps> = ({ name, color, focused, onPress, isHome
   const navigation = useNavigation();
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scale: scale.value },
-      { rotate: `${rotation.value}deg` }
-    ]
+    transform: [{ scale: scale.value }, { rotate: `${rotation.value}deg` }],
   }));
 
   const navigateToHome = () => {
     navigation.dispatch(
       CommonActions.navigate({
         name: 'Home',
-        params: { screen: 'HomeContent' }
+        params: { screen: 'HomeContent' },
       })
     );
   };
@@ -61,16 +58,13 @@ const TabIcon: React.FC<TabIconProps> = ({ name, color, focused, onPress, isHome
     switch (name) {
       case 'home-variant':
         rotation.value = withSequence(
-          withTiming(360, { 
-            duration: 800, 
-            easing: Easing.bezier(0.25, 0.1, 0.25, 1) 
+          withTiming(360, {
+            duration: 800,
+            easing: Easing.bezier(0.25, 0.1, 0.25, 1),
           }),
           withTiming(0, { duration: 0 })
         );
-        scale.value = withSequence(
-          withSpring(1.3),
-          withSpring(1)
-        );
+        scale.value = withSequence(withSpring(1.3), withSpring(1));
         break;
 
       case 'post':
@@ -86,12 +80,7 @@ const TabIcon: React.FC<TabIconProps> = ({ name, color, focused, onPress, isHome
 
       case 'account':
         scale.value = withRepeat(
-          withSequence(
-            withSpring(1.3),
-            withSpring(0.9),
-            withSpring(1.2),
-            withSpring(1)
-          ),
+          withSequence(withSpring(1.3), withSpring(0.9), withSpring(1.2), withSpring(1)),
           1,
           false
         );
@@ -121,6 +110,14 @@ const TabBar = () => {
           borderTopWidth: 1,
           height: 60,
           paddingHorizontal: theme.spacing.md,
+          elevation: 0,
+          shadowColor: '#000',
+          shadowOffset: {
+            width: 0,
+            height: -2,
+          },
+          shadowOpacity: 0.1,
+          shadowRadius: 3,
         },
         tabBarActiveTintColor: theme.colors.primary.base,
         tabBarInactiveTintColor: theme.colors.neutral.textSecondary,
@@ -128,58 +125,60 @@ const TabBar = () => {
           fontSize: theme.fontSizes.caption,
           marginTop: theme.spacing.xs,
         },
-      }}
-    >
-      <Tab.Screen 
-        name="Home" 
+      }}>
+      <Tab.Screen
+        name="Home"
         component={HomeScreen}
         options={{
           tabBarButton: (props) => (
-            <TabIcon 
-              name="home-variant" 
-              color={props.accessibilityState?.selected ? 
-                theme.colors.primary.base : 
-                theme.colors.neutral.textSecondary
+            <TabIcon
+              name="home-variant"
+              color={
+                props.accessibilityState?.selected
+                  ? theme.colors.primary.base
+                  : theme.colors.neutral.textSecondary
               }
               focused={props.accessibilityState?.selected || false}
               onPress={() => props.onPress?.()}
               isHome={true}
             />
-          )
+          ),
         }}
       />
-      <Tab.Screen 
-        name="Blogs" 
+      <Tab.Screen
+        name="Blogs"
         component={BlogsScreen}
         options={{
           tabBarButton: (props) => (
-            <TabIcon 
-              name="post" 
-              color={props.accessibilityState?.selected ? 
-                theme.colors.primary.base : 
-                theme.colors.neutral.textSecondary
+            <TabIcon
+              name="post"
+              color={
+                props.accessibilityState?.selected
+                  ? theme.colors.primary.base
+                  : theme.colors.neutral.textSecondary
               }
               focused={props.accessibilityState?.selected || false}
               onPress={() => props.onPress?.()}
             />
-          )
+          ),
         }}
       />
-      <Tab.Screen 
-        name="Profile" 
+      <Tab.Screen
+        name="Profile"
         component={ProfileScreen}
         options={{
           tabBarButton: (props) => (
-            <TabIcon 
-              name="account" 
-              color={props.accessibilityState?.selected ? 
-                theme.colors.primary.base : 
-                theme.colors.neutral.textSecondary
+            <TabIcon
+              name="account"
+              color={
+                props.accessibilityState?.selected
+                  ? theme.colors.primary.base
+                  : theme.colors.neutral.textSecondary
               }
               focused={props.accessibilityState?.selected || false}
               onPress={() => props.onPress?.()}
             />
-          )
+          ),
         }}
       />
     </Tab.Navigator>
