@@ -29,42 +29,62 @@ const Login = () => {
   const [error, setError] = useState('');
   const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
-  const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
-      return;
-    }
 
+  const handleLogin = async () => {
     try {
+      // Remove any existing authorization header
+      delete axios.defaults.headers.common['Authorization'];
+      
+      // Input validation
+      if (!email || !password) {
+        Alert.alert('Validation Error', 'Please enter both email and password');
+        return;
+      }
+
+      if (!API_URL) {
+        Alert.alert('Configuration Error', 'API URL is not configured');
+        return;
+      }
+
       setIsLoading(true);
       setError('');
   
       const response = await axios.post(`${API_URL}/users/login`, {
-        email,
+        email: email.trim(),
         password,
       });
   
       const { user, tokens } = response.data;
+  
+      if (!user || !tokens) {
+        throw new Error('Invalid response from server');
+      }
   
       await Promise.all([
         storage.setUser(user),
         storage.setTokens(tokens.access.token, tokens.refresh.token)
       ]);
   
+      // Set the authorization header for subsequent requests
       axios.defaults.headers.common['Authorization'] = `Bearer ${tokens.access.token}`;
   
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'StockTab' }],
-      });
-    } catch (error: any) {
+      navigation.navigate('StockTab');
+    } catch (err) {
+      let errorMessage = 'An error occurred during login';
+      
       console.error('Login Error:', {
-        status: error.response?.status,
-        data: error.response?.data,
-        message: error.message
+        status: err.response?.status,
+        data: err.response?.data,
+        headers: err.response?.headers,
+        url: err.config?.url
       });
       
-      const errorMessage = error.response?.data?.message || error.message || 'An error occurred during login';
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+
       setError(errorMessage);
       Alert.alert('Login Error', errorMessage);
     } finally {

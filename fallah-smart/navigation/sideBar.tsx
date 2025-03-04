@@ -1,6 +1,10 @@
 import React from 'react';
 import { View, StyleSheet, Pressable, Text, TouchableOpacity, Alert } from 'react-native';
-import { DrawerContentScrollView, DrawerItem } from '@react-navigation/drawer';
+import {
+  DrawerContentScrollView,
+  DrawerItem,
+  DrawerContentComponentProps,
+} from '@react-navigation/drawer';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
@@ -24,6 +28,7 @@ type MenuItemProps = {
   label: string;
   onPress: () => void;
   active?: boolean;
+  navigation: DrawerNavigationProp<DrawerParamList>;
 };
 
 export type DrawerParamList = {
@@ -43,7 +48,7 @@ type SideBarProps = {
   };
 };
 
-const MenuItem: React.FC<MenuItemProps> = ({ icon, label, onPress, active }) => {
+const MenuItem: React.FC<MenuItemProps> = ({ icon, label, onPress, active, navigation }) => {
   const theme = useTheme();
   const scale = useSharedValue(1);
   const translateX = useSharedValue(0);
@@ -139,18 +144,20 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
         label="Home"
         active={currentRoute === 'HomeContent'}
         onPress={() => {
-          navigation.navigate('HomeContent');
-          navigation.closeDrawer();
+          props.navigation.navigate('HomeContent');
+          props.navigation.closeDrawer();
         }}
+        navigation={props.navigation}
       />
       <MenuItem
         icon="chat"
         label="Chat"
         active={currentRoute === 'Chat'}
         onPress={() => {
-          navigation.navigate('Chat');
-          navigation.closeDrawer();
+          props.navigation.navigate('Chat');
+          props.navigation.closeDrawer();
         }}
+        navigation={props.navigation}
       />
       <MenuItem
         icon="barcode-scan"
@@ -160,6 +167,7 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
           props.navigation.navigate('Scan');
           props.navigation.closeDrawer();
         }}
+        navigation={props.navigation}
       />
       <MenuItem
         icon="warehouse"
@@ -169,6 +177,7 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
           props.navigation.navigate('Stock');
           props.navigation.closeDrawer();
         }}
+        navigation={props.navigation}
       />
       <MenuItem
         icon="wallet"
@@ -178,6 +187,7 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
           props.navigation.navigate('Wallet');
           props.navigation.closeDrawer();
         }}
+        navigation={props.navigation}
       />
       <MenuItem
         icon="book-open-variant"
@@ -187,6 +197,7 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
           props.navigation.navigate('Dictionary');
           props.navigation.closeDrawer();
         }}
+        navigation={props.navigation}
       />
 
       <View style={styles.logoutContainer}>
