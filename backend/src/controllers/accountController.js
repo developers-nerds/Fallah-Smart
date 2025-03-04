@@ -79,6 +79,50 @@ const accountController = {
       console.error('Error deleting account:', error);
       res.status(500).json({ message: 'Error deleting account', error: error.message });
     }
+  },  // Add comma here
+
+  // Update account balance
+  updateAccountBalance: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { balance, type, amount } = req.body;
+  
+      const account = await Accounts.findOne({
+        where: { 
+          id: id,
+          userId: req.user.id 
+        }
+      });
+  
+      if (!account) {
+        return res.status(404).json({ 
+          success: false,
+          message: 'Account not found or does not belong to user' 
+        });
+      }
+
+      // Calculate new balance based on transaction type
+      let newBalance = account.balance;
+      if (type === 'Income') {
+        newBalance = account.balance + amount;
+      } else if (type === 'Expense') {
+        newBalance = account.balance - amount;
+      }
+  
+      await account.update({ balance: newBalance });
+  
+      res.json({
+        success: true,
+        balance: newBalance
+      });
+    } catch (error) {
+      console.error('Error updating account balance:', error);
+      res.status(500).json({ 
+        success: false,
+        message: 'Error updating account balance', 
+        error: error.message 
+      });
+    }
   }
 };
 
