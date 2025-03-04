@@ -1,13 +1,14 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { View, Text, StyleSheet, StatusBar, TouchableOpacity, ScrollView, Animated } from "react-native"
+import { useState,useEffect } from "react"
+import { View, Text, StyleSheet, StatusBar, TouchableOpacity, ScrollView, Animated, ActivityIndicator } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useNavigation } from "@react-navigation/native"
-import AsyncStorage from '@react-native-async-storage/async-storage'
 import Icon from "react-native-vector-icons/MaterialIcons"
 import { ChartView } from "./components/ChartView"
 import { CategoryList } from "./components/CategoryList"
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from "axios"
 
 import { theme } from "../../theme/theme"
 
@@ -86,10 +87,99 @@ const categories = [
   },
 ]
 
+// Remove the hardcoded categories array
+
 const HomeScreen = () => {
   const [showList, setShowList] = useState(false)
   const [fadeAnim] = useState(new Animated.Value(1))
+  const [accounts, setAccounts] = useState([]);
+  const [selectedAccountId, setSelectedAccountId] = useState(0);
+  const [transactions, setTransactions] = useState([]);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
+
   const navigation = useNavigation()
+
+
+  const getUserIdFromToken = async () => {
+    try {
+      const userStr = await AsyncStorage.getItem('@user');
+      if (!userStr) {
+        setError('No user data found. Please log in.');
+        setLoading(false);
+        return null;
+      }
+      const userData = JSON.parse(userStr);
+      return userData.id;
+    } catch (error) {
+      setError('Invalid user data. Please log in again.');
+      setLoading(false);
+      return null;
+    }
+  };
+
+  const fetchAccounts = async () => {
+    const userStr = await AsyncStorage.getItem('@access_token');
+    const userId = await getUserIdFromToken();
+
+    if (!userId || !userStr) return;
+
+    try {
+      const response = await axios.get('http://localhost:5000/api/accounts', {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userStr}`
+        }
+      });
+      
+     
+      setAccounts(response.data);
+      if (response.data.length > 0) {
+        setSelectedAccountId(response.data[0].id);
+        fetchTransactions(response.data[0].id);
+      }
+      
+    } catch (error) {
+      setError('Error fetching accounts: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchTransactions = async (selectedAccountId) => {
+    const userStr = await AsyncStorage.getItem('@access_token');
+
+    try {
+      const response = await axios.get(`http://localhost:5000/api/transactions/${selectedAccountId}`, {
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+     
+      if (response.data.success) {
+        setTransactions(response.data.data);
+      } else {
+        setError('Error fetching transactions: ' + response.data.message);
+      }
+    } catch (error) {
+      setError('Network error: ' + (error.response?.data?.message || error.message));
+    }
+  };
+
+  useEffect(() => {
+    const getUser = async () => {
+      try {
+        const userStr = await AsyncStorage.getItem('@user');
+        console.log('User Data:', userStr);
+      } catch (error) {
+        console.error('Error fetching user:', error);
+      }
+    };
+  
+    getUser();
+    fetchAccounts();
+  }, []);
 
   useEffect(() => {
     const getToken = async () => {
@@ -102,7 +192,11 @@ const HomeScreen = () => {
     };
   
     getToken();
+    fetchAccounts();
   }, []);
+  console.log("account",accounts)
+  console.log("accoundid",selectedAccountId)
+  console.log("transaction",transactions)
 
   const toggleView = () => {
     Animated.sequence([
@@ -142,6 +236,33 @@ const HomeScreen = () => {
     return sum + (category.isIncome ? category.amount : -category.amount)
   }, 0)
 
+  // Add this function to process transactions into categories
+  const processTransactionsIntoCategories = () => {
+    const categoryMap = new Map();
+    
+    transactions.forEach(transaction => {
+      const category = transaction.category;
+      if (!categoryMap.has(category.id)) {
+        categoryMap.set(category.id, {
+          id: category.id,
+          name: category.name,
+          icon: category.icon || 'question-mark', // fallback icon
+          type: category.type || 'font-awesome-5',
+          color: category.color || '#7BC29A',
+          amount: 0,
+          count: 0,
+          isIncome: category.type === 'Income'
+        });
+      }
+      
+      const categoryData = categoryMap.get(category.id);
+      categoryData.amount += transaction.amount;
+      categoryData.count += 1;
+    });
+
+    return Array.from(categoryMap.values());
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar backgroundColor={theme.colors.primary.base} barStyle="light-content" />
@@ -175,14 +296,24 @@ const HomeScreen = () => {
         {showList && (
           <TouchableOpacity onPress={toggleView}>
             <View style={[styles.balanceBox, styles.balanceBoxList]}>
-              <Text style={styles.balanceText}>Balance ${totalBalance.toFixed(2)}</Text>
+              <Text style={styles.balanceText}>
+                Balance ${accounts[0]?.balance?.toFixed(2) || '0.00'}
+              </Text>
             </View>
           </TouchableOpacity>
         )}
 
-        {/* Animated Container */}
+        {/* Update the Animated Container */}
         <Animated.View style={[styles.contentContainer, { opacity: fadeAnim }]}>
-          {showList ? <CategoryList categories={categories} /> : <ChartView categories={categories} />}
+          {loading ? (
+            <ActivityIndicator size="large" color={theme.colors.primary.base} />
+          ) : (
+            showList ? (
+              <CategoryList categories={processTransactionsIntoCategories()} />
+            ) : (
+              <ChartView categories={processTransactionsIntoCategories()} />
+            )
+          )}
         </Animated.View>
 
         {/* Action Buttons */}
@@ -198,7 +329,9 @@ const HomeScreen = () => {
           {!showList && (
             <TouchableOpacity onPress={toggleView}>
               <View style={styles.balanceBox}>
-                <Text style={styles.balanceText}>Balance ${totalBalance.toFixed(2)}</Text>
+                <Text style={styles.balanceText}>
+                  Balance ${accounts[0]?.balance?.toFixed(2) || '0.00'}
+                </Text>
               </View>
             </TouchableOpacity>
           )}

@@ -27,7 +27,7 @@ const transactionController = {
           {
             model: Category,
             as: 'category',
-            attributes: ['id', 'name']
+            attributes: ['id', 'name','type','icon','color']
           },
           {
             model: Accounts,
