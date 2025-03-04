@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native"
 import { MaterialCommunityIcons, FontAwesome5 } from "@expo/vector-icons"
-
+import { theme } from "../../../theme/theme"
 interface Category {
   id: number
   name: string
@@ -41,7 +41,7 @@ export const CategoryList = ({ categories }: CategoryListProps) => {
             </View>
           </View>
 
-          <Text style={[styles.amount, { color: category.isIncome ? "#7BC29A" : "#FF9999" }]}>
+          <Text style={[styles.amount, { color: category.isIncome ?  theme.colors.success :  theme.colors.error }]}>
             ${category.amount.toFixed(2)}
           </Text>
         </TouchableOpacity>
