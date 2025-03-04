@@ -25,29 +25,62 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const API_URL = process.env.EXPO_PUBLIC_API_URL;
-  console.log(API_URL,"gggg");
+
   const handleLogin = async () => {
     try {
+      // Remove any existing authorization header
+      delete axios.defaults.headers.common['Authorization'];
+      
+      // Input validation
+      if (!email || !password) {
+        Alert.alert('Validation Error', 'Please enter both email and password');
+        return;
+      }
+
+      if (!API_URL) {
+        Alert.alert('Configuration Error', 'API URL is not configured');
+        return;
+      }
+
       setIsLoading(true);
       setError('');
   
       const response = await axios.post(`${API_URL}/users/login`, {
-        email,
+        email: email.trim(),
         password,
       });
   
       const { user, tokens } = response.data;
+  
+      if (!user || !tokens) {
+        throw new Error('Invalid response from server');
+      }
   
       await Promise.all([
         storage.setUser(user),
         storage.setTokens(tokens.access.token, tokens.refresh.token)
       ]);
   
+      // Set the authorization header for subsequent requests
       axios.defaults.headers.common['Authorization'] = `Bearer ${tokens.access.token}`;
   
       navigation.navigate('StockTab');
     } catch (err) {
-      const errorMessage = err.response?.data?.message || 'An error occurred during login';
+      let errorMessage = 'An error occurred during login';
+      
+      console.error('Login Error:', {
+        status: err.response?.status,
+        data: err.response?.data,
+        headers: err.response?.headers,
+        url: err.config?.url
+      });
+      
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+
       setError(errorMessage);
       Alert.alert('Login Error', errorMessage);
     } finally {
