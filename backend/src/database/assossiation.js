@@ -61,17 +61,44 @@ AnimalDetails.belongsTo(Users, {
   foreignKey: "userId",
   as: "user",
 });
-
-// For scans
-Scans.belongsTo(Users, {
+// ... existing imports and associations ...
+// Update User and Accounts association to Many-to-One with unique alias
+Users.hasMany(Accounts, {
   foreignKey: "userId",
-  as: "user",
+  as: "userAccounts", // Changed from "accounts"
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
 });
 
-// For notifications
-Notification.belongsTo(Users, {
+Accounts.belongsTo(Users, {
   foreignKey: "userId",
-  as: "user",
+  as: "accountOwner", // Changed from "user"
+});
+
+// Add Category and Transactions association
+Category.hasMany(Transactions, {
+  foreignKey: "categoryId",
+  as: "transactions",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+
+Transactions.belongsTo(Category, {
+  foreignKey: "categoryId",
+  as: "category",
+});
+
+// Add BackupSync associations with Transactions
+BackupSync.belongsTo(Transactions, {
+  foreignKey: "transactionId",
+  as: "transaction",
+});
+
+Transactions.hasMany(BackupSync, {
+  foreignKey: "transactionId",
+  as: "backupSyncs",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
 });
 
 // Media associations with other tables
@@ -98,6 +125,10 @@ Media.belongsTo(Animal_doc, {
   foreignKey: "animalDocId",
   as: "animalDoc",
 });
+
+
+
+
 
 Category.hasMany(Media, {
   foreignKey: "categoryId",

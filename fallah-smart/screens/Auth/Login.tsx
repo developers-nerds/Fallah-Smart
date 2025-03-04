@@ -1,4 +1,4 @@
-  import React, { useState } from 'react';
+import React, { useState } from 'react';
   import {
     View,
     Text,
@@ -55,6 +55,9 @@
         if (!user || !tokens) {
           throw new Error('Invalid response from server');
         }
+    
+        console.log('Access Token:', tokens.access.token);
+        console.log('Refresh Token:', tokens.refresh.token);
     
         await Promise.all([
           storage.setUser(user),

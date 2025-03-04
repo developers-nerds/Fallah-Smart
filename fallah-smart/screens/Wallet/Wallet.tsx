@@ -1,9 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { View, Text, StyleSheet, StatusBar, TouchableOpacity, ScrollView, Animated } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useNavigation } from "@react-navigation/native"
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import Icon from "react-native-vector-icons/MaterialIcons"
 import { ChartView } from "./components/ChartView"
 import { CategoryList } from "./components/CategoryList"
@@ -89,6 +90,19 @@ const HomeScreen = () => {
   const [showList, setShowList] = useState(false)
   const [fadeAnim] = useState(new Animated.Value(1))
   const navigation = useNavigation()
+
+  useEffect(() => {
+    const getToken = async () => {
+      try {
+        const token = await AsyncStorage.getItem('@access_token');
+        console.log('Access Token:', token);
+      } catch (error) {
+        console.error('Error fetching token:', error);
+      }
+    };
+  
+    getToken();
+  }, []);
 
   const toggleView = () => {
     Animated.sequence([
@@ -295,4 +309,3 @@ const styles = StyleSheet.create({
 })
 
 export default HomeScreen
-
