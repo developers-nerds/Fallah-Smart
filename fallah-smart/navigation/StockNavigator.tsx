@@ -3,11 +3,12 @@ import { createStackNavigator } from '@react-navigation/stack';
 import StockScreen from '../screens/Stock/stock';
 import { StockDetail } from '../screens/Stock/StockDetail';
 import { StockForm } from '../screens/Stock/components/StockForm';
-import AnimalsScreen from '../screens/Stock/Animals/Animals';
-import AnimalList from '../screens/Stock/Animals/AnimalList';
+import { AnimalsScreen } from '../screens/Stock/Animals/Animals';
+import { AddAnimalScreen } from '../screens/Stock/Animals/AddAnimal';
+import { AnimalDetailScreen } from '../screens/Stock/Animals/AnimalDetail';
 import { useStock } from '../context/StockContext';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
-import { ThemeProvider } from '../context/ThemeContext';
+import { useTheme } from '../context/ThemeContext';
 import TabBar from './TabBar';
 import Login from '../screens/Auth/Login';
 import Register from '../screens/Auth/Register';
@@ -16,111 +17,119 @@ import { View, ActivityIndicator, Text } from 'react-native';
 import { PesticideList } from '../screens/Stock/Pesticides/PesticideList';
 import { PesticideDetail } from '../screens/Stock/Pesticides/PesticideDetail';
 import { AddPesticide } from '../screens/Stock/Pesticides/AddPesticide';
+import { PesticideProvider } from '../context/PesticideContext';
 import Blogs from '../screens/blogs/blogs';
 import PostDetail from '../screens/blogs/PostDetail';
-
-export type StockStackParamList = {
-  Login: undefined;
-  Register: undefined;
-  StockTab: undefined;
-  StockList: undefined;
-  StockDetail: { stockId: string };
-  AddStock: undefined;
-  Animals: undefined;
-  AnimalList: undefined;
-  PesticideList: undefined;
-  PesticideDetail: { pesticideId: number };
-  AddPesticide: undefined;
-};
+import { StockStackParamList } from './types';
 
 const Stack = createStackNavigator<StockStackParamList>();
 
 export const StockNavigator = () => {
-  return (
-    <Stack.Navigator
-      screenOptions={{
-        headerShown: false,
-        headerStyle: {
-          elevation: 0,
-          shadowOpacity: 0,
-        },
-      }}
-    >
-      <Stack.Screen 
-        name="Login" 
-        component={Login}
-        options={{ headerShown: true }}
-      />
-      <Stack.Screen 
-        name="Register" 
-        component={Register}
-        options={{ headerShown: true }}
-      />
-      <Stack.Screen 
-        name="StockTab" 
-        component={TabBar}
-        options={{ title: 'Mes Stocks' }}
-      />
-      <Stack.Screen 
-        name="StockList" 
-        component={StockScreen}
-        options={{
-          title: 'Gestion des Stocks',
-          headerShown: true,
-        }}
-      />
-      <Stack.Screen 
-        name="StockDetail" 
-        component={StockDetail}
-        options={{
-          title: 'Détails du Stock',
-          headerShown: true,
-        }}
-      />
-      <Stack.Screen 
-        name="AddStock" 
-        component={AddStockScreen}
-        options={{ title: 'Ajouter un Stock', headerShown: true }}
-      />
-      <Stack.Screen 
-        name="Animals" 
-        component={AnimalsScreen}
-        options={{ title: 'Ajouter un Animal', headerShown: true }}
-      />
-      <Stack.Screen 
-        name="AnimalList" 
-        component={AnimalList}
-        options={{ title: 'Mes Animaux', headerShown: true }}
-      />
-      <Stack.Screen 
-        name="PesticideList" 
-        component={PesticideList}
-        options={{ title: 'Liste des Pesticides', headerShown: true }}
-      />
-      <Stack.Screen 
-        name="PesticideDetail" 
-        component={PesticideDetail}
-        options={{ title: 'Détails du Pesticide', headerShown: true }}
-      />
-      <Stack.Screen 
-        name="AddPesticide" 
-        component={AddPesticide}
-        options={{ title: 'Ajouter un Pesticide', headerShown: true }}
-          />
-        <Stack.Screen 
+  const theme = useTheme();
 
-        name="Blogs" 
-        component={Blogs}
-        options={{ title: 'Blog', headerShown: true }}
-      />
-      <Stack.Screen 
-        name="PostDetail" 
-        component={PostDetail}
-        options={{ title: 'Post Detail', headerShown: false }}
-      />
-    </Stack.Navigator>
+  return (
+    <PesticideProvider>
+      <Stack.Navigator
+        screenOptions={{
+          headerStyle: {
+            backgroundColor: theme.colors.neutral.surface,
+            elevation: 0,
+            shadowOpacity: 0,
+          },
+          headerTintColor: theme.colors.neutral.textPrimary,
+          headerTitleStyle: {
+            fontWeight: '600',
+          },
+          cardStyle: {
+            backgroundColor: theme.colors.neutral.background,
+          },
+        }}
+      >
+        <Stack.Screen 
+          name="Login" 
+          component={Login}
+          options={{ headerShown: true }}
+        />
+        <Stack.Screen 
+          name="Register" 
+          component={Register}
+          options={{ headerShown: true }}
+        />
+        <Stack.Screen 
+          name="StockTab" 
+          component={TabBar}
+          options={{ title: 'Mes Stocks', headerShown: false }}
+        />
+        <Stack.Screen 
+          name="StockList" 
+          component={StockScreen}
+          options={{
+            title: 'Gestion des Stocks',
+            headerShown: true,
+          }}
+        />
+        <Stack.Screen 
+          name="StockDetail" 
+          component={StockDetail}
+          options={{ title: 'Détails du Stock', headerShown: true }}
+          
+        />
+        <Stack.Screen 
+          name="AddStock" 
+          component={AddStockScreen}
+          options={{ title: 'Ajouter un Stock', headerShown: true }}
+        />
+        <Stack.Screen 
+          name="Animals" 
+          component={AnimalsScreen}
+          options={{
+            title: 'Mes Animaux',
+          }}
+        />
+        <Stack.Screen 
+          name="AddAnimal" 
+          component={AddAnimalScreen}
+          options={{
+            title: 'Ajouter un Animal',
+          }}
+        />
+        <Stack.Screen 
+          name="AnimalDetail" 
+          component={AnimalDetailScreen}
+          options={{
+            title: 'Détails de l\'Animal',
+          }}
+        />
+        <Stack.Screen 
+          name="PesticideList" 
+          component={PesticideList}
+          options={{ title: 'Liste des Pesticides', headerShown: true }}
+        />
+        <Stack.Screen 
+          name="PesticideDetail" 
+          component={PesticideDetail}
+          options={{ title: 'Détails du Pesticide', headerShown: true }}
+        />
+        <Stack.Screen 
+          name="AddPesticide" 
+          component={AddPesticide}
+          options={{ title: 'Ajouter un Pesticide', headerShown: true }}
+        />
+        <Stack.Screen 
+          name="Blogs" 
+          component={Blogs}
+          options={{ title: 'Blog', headerShown: true }}
+        />
+        <Stack.Screen 
+          name="PostDetail" 
+          component={PostDetail}
+          options={{ title: 'Post Detail', headerShown: false }}
+        />
+      </Stack.Navigator>
+    </PesticideProvider>
   );
 };
+
 const AddStockScreen = () => {
   const { addStock, loading, error, refreshStocks } = useStock();
   const navigation = useNavigation<NavigationProp<StockStackParamList>>();
@@ -154,13 +163,11 @@ const AddStockScreen = () => {
   }
 
   return (
-    <ThemeProvider>
-      <StockForm
-        onSubmit={handleSubmit}
-        onCancel={handleCancel}
-        error={submitError}
-        isSubmitting={submitting}
-      />
-    </ThemeProvider>
+    <StockForm
+      onSubmit={handleSubmit}
+      onCancel={handleCancel}
+      error={submitError}
+      isSubmitting={submitting}
+    />
   );
 }; 

@@ -157,9 +157,16 @@ export const PesticideList = ({ navigation }: PesticideListProps) => {
                     onPress={() => navigation.navigate('PesticideDetail', { pesticideId: pesticide.id })}
                   >
                     <View style={styles.cardHeader}>
-                      <Text style={[styles.pesticideName, { color: theme.colors.neutral.textPrimary }]}>
-                        {pesticide.name}
-                      </Text>
+                      <View style={styles.cardTitleContainer}>
+                        <MaterialCommunityIcons
+                          name="flask-outline"
+                          size={24}
+                          color={pesticide.isNatural ? theme.colors.success : theme.colors.accent.base}
+                        />
+                        <Text style={[styles.pesticideName, { color: theme.colors.neutral.textPrimary }]}>
+                          {pesticide.name}
+                        </Text>
+                      </View>
                       {pesticide.isNatural && (
                         <View style={[styles.naturalBadge, { backgroundColor: theme.colors.success }]}>
                           <Feather name="leaf" size={12} color="#FFF" />
@@ -169,11 +176,55 @@ export const PesticideList = ({ navigation }: PesticideListProps) => {
                     </View>
 
                     <View style={styles.pesticideInfo}>
-                      <Text style={[styles.quantity, { 
-                        color: pesticide.quantity <= 0 ? theme.colors.error : theme.colors.neutral.textPrimary 
-                      }]}>
-                        {pesticide.quantity} {pesticide.unit}
-                      </Text>
+                      <View style={styles.infoRow}>
+                        <View style={styles.quantityContainer}>
+                          <MaterialCommunityIcons
+                            name="package-variant"
+                            size={20}
+                            color={pesticide.quantity <= pesticide.lowStockThreshold 
+                              ? theme.colors.error 
+                              : theme.colors.success}
+                          />
+                          <Text style={[styles.quantity, { 
+                            color: pesticide.quantity <= pesticide.lowStockThreshold 
+                              ? theme.colors.error 
+                              : theme.colors.success 
+                          }]}>
+                            {pesticide.quantity} {pesticide.unit}
+                          </Text>
+                        </View>
+                        {pesticide.quantity <= pesticide.lowStockThreshold && (
+                          <View style={[styles.warningBadge, { backgroundColor: theme.colors.error }]}>
+                            <MaterialCommunityIcons name="alert" size={16} color="#FFF" />
+                            <Text style={styles.warningText}>Stock faible</Text>
+                          </View>
+                        )}
+                      </View>
+
+                      <View style={styles.infoRow}>
+                        <View style={styles.targetContainer}>
+                          <MaterialCommunityIcons
+                            name="bug-outline"
+                            size={20}
+                            color={theme.colors.neutral.textSecondary}
+                          />
+                          <Text style={[styles.targetText, { color: theme.colors.neutral.textSecondary }]}>
+                            {pesticide.target || 'Cible non spécifiée'}
+                          </Text>
+                        </View>
+                        {pesticide.waitingPeriod && (
+                          <View style={styles.waitingPeriodContainer}>
+                            <MaterialCommunityIcons
+                              name="clock-outline"
+                              size={20}
+                              color={theme.colors.warning}
+                            />
+                            <Text style={[styles.waitingPeriodText, { color: theme.colors.warning }]}>
+                              {pesticide.waitingPeriod} jours
+                            </Text>
+                          </View>
+                        )}
+                      </View>
                     </View>
                   </TouchableOpacity>
                 </Animated.View>
@@ -246,11 +297,11 @@ const styles = createThemedStyles((theme) => ({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   pesticideName: {
     fontSize: 18,
-    fontWeight: '600',
+    fontFamily: theme.fonts.bold,
   },
   naturalBadge: {
     flexDirection: 'row',
@@ -263,14 +314,60 @@ const styles = createThemedStyles((theme) => ({
   naturalText: {
     color: '#FFF',
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: theme.fonts.medium,
   },
   pesticideInfo: {
-    marginTop: 8,
+    gap: 12,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  quantityContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   quantity: {
     fontSize: 16,
-    fontWeight: '500',
+    fontFamily: theme.fonts.bold,
+  },
+  warningBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  warningText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontFamily: theme.fonts.medium,
+  },
+  targetContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  targetText: {
+    fontSize: 14,
+    fontFamily: theme.fonts.medium,
+  },
+  waitingPeriodContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  waitingPeriodText: {
+    fontSize: 14,
+    fontFamily: theme.fonts.medium,
+  },
+  cardTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   centerContent: {
     flex: 1,

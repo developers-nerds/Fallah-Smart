@@ -47,53 +47,53 @@ export const theme = {
     bold: 'Roboto-Bold',
   },
   fontSizes: {
-    h1: 24,    // Headers
-    h2: 20,    // Subheaders
-    body: 14,  // Main text
-    caption: 12, // Small text
-    button: 16, // Button text
+    h1: 32,    // Large headers
+    h2: 24,    // Subheaders
+    body: 18,  // Main text - larger for better readability
+    caption: 16, // Small text - larger for better readability
+    button: 20, // Button text - larger for better touch targets
   },
   spacing: {
-    xs: 4,  // Extra small
-    sm: 8,  // Small
-    md: 16, // Medium
-    lg: 24, // Large
-    xl: 32, // Extra large
+    xs: 8,   // Extra small
+    sm: 12,  // Small
+    md: 20,  // Medium
+    lg: 32,  // Large
+    xl: 40,  // Extra large
   },
   borderRadius: {
-    small: 4,  // Inputs, alerts
-    medium: 8, // Buttons, cards
-    large: 16, // Modals
+    small: 8,   // Inputs, alerts
+    medium: 12, // Buttons, cards
+    large: 20,  // Modals
   },
   typography: {
     arabic: {
       h1: {
-        fontSize: 32,
-        lineHeight: 40,
+        fontSize: 40,
+        lineHeight: 48,
         fontWeight: 'bold',
         letterSpacing: 0.15,
       },
       h2: {
-        fontSize: 24,
-        lineHeight: 32,
+        fontSize: 32,
+        lineHeight: 40,
         fontWeight: '600',
         letterSpacing: 0.15,
       },
       h3: {
-        fontSize: 20,
-        lineHeight: 28,
+        fontSize: 28,
+        lineHeight: 36,
         fontWeight: '600',
         letterSpacing: 0.15,
       },
       body: {
-        fontSize: 16,
-        lineHeight: 24,
+        fontSize: 20,
+        lineHeight: 28,
         fontWeight: 'normal',
         letterSpacing: 0.5,
       },
       caption: {
-        fontSize: 14,
-        lineHeight: 20,
+        fontSize: 18,
+        lineHeight: 24,
         fontWeight: 'normal',
         letterSpacing: 0.25,
       },
