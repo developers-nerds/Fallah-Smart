@@ -1,4 +1,4 @@
-import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 
-export type FeatherNames = keyof typeof Feather.glyphMap;
-export type MaterialNames = keyof typeof MaterialCommunityIcons.glyphMap;
+export type FeatherNames = React.ComponentProps<typeof Feather>['name'];
+export type MaterialNames = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
