@@ -1,13 +1,11 @@
 require('dotenv').config();
 const express = require("express");
 const cors = require("cors");
-const userRoutes = require("./routes/userRoutes");
 const stockRoutes = require("./routes/stockRoutes");
 const animalRoutes = require("./routes/animalRoutes");
 const pesticideRoutes = require('./routes/pesticideRoutes');
 const app = express();
 const port = process.env.PORT;
-const cors = require("cors");
 const path = require('path');
 const blogRoutes = require("./routes/blogRoutes");
 const userRoutes = require("./routes/userRoutes");
@@ -30,7 +28,7 @@ app.use('/api/pesticides', pesticideRoutes);
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ message: 'Something went wrong!' });
+  res.status(500).json({ message: 'Something went wrong!' })});
 
 app.use("/api/blog", blogRoutes);
 
