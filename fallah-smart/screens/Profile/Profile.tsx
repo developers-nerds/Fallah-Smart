@@ -86,7 +86,7 @@ const Profile = () => {
         console.log("Stored user profile picture:", storedUser.profilePicture);
       }
 
-      const response = await axios.get('http://192.168.1.14:5000/api/users/profile');
+      const response = await axios.get('http://192.168.104.18:5000/api/users/profile');
       if (response?.data) {
         console.log("Server response profile picture:", response.data.profilePicture);
         setProfile(response.data);

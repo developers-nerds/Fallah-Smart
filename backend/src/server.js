@@ -2,8 +2,7 @@ require('dotenv').config();
 const express = require("express");
 const cors = require("cors");
 const path = require('path');
-
-// Route imports
+const transactionRoutes = require("./routes/transactionRoutes");
 const userRoutes = require("./routes/userRoutes");
 const stockRoutes = require("./routes/stockRoutes");
 const animalRoutes = require("./routes/animalRoutes");
@@ -11,6 +10,7 @@ const pesticideRoutes = require('./routes/pesticideRoutes');
 const blogRoutes = require("./routes/blogRoutes");
 const scanRoutes = require("./routes/scanRoutes");
 const conversationRoutes = require("./routes/conversationRoutes");
+const accountRoutes = require("./routes/accountRoutes");
 
 const app = express();
 const port = process.env.PORT;
@@ -24,6 +24,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Routes
+app.use("/api/transactions", transactionRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/stocks", stockRoutes);
 app.use("/api/animals", animalRoutes);
@@ -31,6 +32,7 @@ app.use('/api/pesticides', pesticideRoutes);
 app.use("/api/blog", blogRoutes);
 app.use("/api/scans", scanRoutes);
 app.use("/api/conversations", conversationRoutes);
+app.use("/api/accounts", accountRoutes);
 
 app.get('/test-image', (req, res) => {
   res.send(`
