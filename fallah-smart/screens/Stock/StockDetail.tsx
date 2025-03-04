@@ -144,16 +144,16 @@ const QuantityModal = ({
                 color={type === 'add' ? theme.colors.success : theme.colors.error}
               />
               <Text style={[styles.modalTitle, { color: theme.colors.neutral.textPrimary }]}>
-                {type === 'add' ? 'Ajouter au stock' : 'Retirer du stock'}
+                {type === 'add' ? 'إضافة للمخزون' : 'سحب من المخزون'}
               </Text>
             </View>
 
             <View style={styles.currentQuantityContainer}>
               <Text style={[styles.currentQuantityLabel, { color: theme.colors.neutral.textSecondary }]}>
-                Stock actuel
+                المخزون الحالي
               </Text>
               <Text style={[styles.currentQuantity, { color: theme.colors.neutral.textPrimary }]}>
-                {currentQuantity} {unit}
+                {currentQuantity.toLocaleString('en-US')} {unit}
               </Text>
             </View>
 
@@ -173,7 +173,7 @@ const QuantityModal = ({
                   value={quantity}
                   onChangeText={setQuantity}
                   keyboardType="numeric"
-                  placeholder={`Quantité en ${unit}`}
+                  placeholder={`الكمية بـ ${unit}`}
                   placeholderTextColor={theme.colors.neutral.textSecondary}
                   editable={!loading}
                 />
@@ -195,7 +195,7 @@ const QuantityModal = ({
                   }]}
                   value={notes}
                   onChangeText={setNotes}
-                  placeholder="Notes (optionnel)"
+                  placeholder="ملاحظات (اختياري)"
                   placeholderTextColor={theme.colors.neutral.textSecondary}
                   multiline
                   numberOfLines={4}
@@ -211,7 +211,7 @@ const QuantityModal = ({
                 disabled={loading}
               >
                 <Text style={[styles.buttonText, { color: theme.colors.neutral.textPrimary }]}>
-                  Annuler
+                  إلغاء
                 </Text>
               </TouchableOpacity>
 
@@ -228,7 +228,7 @@ const QuantityModal = ({
                 {loading ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <Text style={[styles.buttonText, { color: '#fff' }]}>Confirmer</Text>
+                  <Text style={[styles.buttonText, { color: '#fff' }]}>تأكيد</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -243,12 +243,12 @@ const HistoryItem = ({ history, unit }: { history: StockHistory; unit: string })
   const theme = useTheme();
   const isAdd = history.type === 'add';
   const date = new Date(history.date);
-  const formattedDate = date.toLocaleDateString('fr-FR', { 
+  const formattedDate = date.toLocaleDateString('en-US', { 
     day: 'numeric',
     month: 'long',
     year: 'numeric'
   });
-  const formattedTime = date.toLocaleTimeString('fr-FR', {
+  const formattedTime = date.toLocaleTimeString('en-US', {
     hour: '2-digit',
     minute: '2-digit'
   });
@@ -285,7 +285,7 @@ const HistoryItem = ({ history, unit }: { history: StockHistory; unit: string })
           <Text style={[styles.historyQuantity, { 
             color: isAdd ? theme.colors.success : theme.colors.error 
           }]}>
-            {isAdd ? '+' : '-'}{history.quantity} {unit}
+            {isAdd ? '+' : '-'}{history.quantity.toLocaleString('en-US')} {unit}
           </Text>
         </View>
         {history.notes && (
@@ -323,17 +323,17 @@ type QualityMap = {
 };
 
 const getCategoryLabel = (category: StockCategory): string => {
-  if (category === 'all') return 'Tous';
+  if (category === 'all') return 'الكل';
   
   const categories: CategoryMap = {
-    seeds: 'Semences',
-    fertilizer: 'Engrais',
-    harvest: 'Récoltes',
-    feed: 'Aliments',
-    pesticide: 'Pesticides',
-    equipment: 'Équipement',
-    tools: 'Outils',
-    animals: 'Animaux'
+    seeds: 'البذور',
+    fertilizer: 'الأسمدة',
+    harvest: 'المحاصيل',
+    feed: 'الأعلاف',
+    pesticide: 'المبيدات',
+    equipment: 'المعدات',
+    tools: 'الأدوات',
+    animals: 'الحيوانات'
   };
   return categories[category];
 };
@@ -353,11 +353,11 @@ const getQualityColor = (quality: 'good' | 'medium' | 'poor' | undefined, theme:
 
 const getQualityLabel = (quality: 'good' | 'medium' | 'poor' | undefined): string => {
   const qualities: QualityMap = {
-    good: 'Bon',
-    medium: 'Moyen',
-    poor: 'Mauvais'
+    good: 'جيد',
+    medium: 'متوسط',
+    poor: 'سيء'
   };
-  return quality ? qualities[quality] : 'Non défini';
+  return quality ? qualities[quality] : 'غير محدد';
 };
 
 const AddStockModal = ({ visible, onClose, onAdd }: {
@@ -422,19 +422,19 @@ const AddStockModal = ({ visible, onClose, onAdd }: {
       <View style={styles.modalOverlay}>
         <View style={[styles.modalContent, { backgroundColor: theme.colors.neutral.surface }]}>
           <Text style={[styles.modalTitle, { color: theme.colors.neutral.textPrimary }]}>
-            Ajouter un nouveau stock
+            إضافة مخزون جديد
           </Text>
 
           <ScrollView>
             <TextInput
               style={styles.modalInput}
-              placeholder="Nom du produit*"
+              placeholder="اسم المنتج*"
               value={formData.name}
               onChangeText={text => setFormData(prev => ({ ...prev, name: text }))}
             />
 
             <View style={styles.pickerContainer}>
-              <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>Catégorie</Text>
+              <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>الفئة</Text>
               <Picker
                 selectedValue={formData.category}
                 style={styles.modalInput}
@@ -448,28 +448,28 @@ const AddStockModal = ({ visible, onClose, onAdd }: {
 
             <TextInput
               style={styles.modalInput}
-              placeholder="Quantité initiale"
+              placeholder="الكمية الأولية"
               keyboardType="numeric"
               value={formData.quantity.toString()}
               onChangeText={text => setFormData(prev => ({ ...prev, quantity: Number(text) }))}
             />
 
             <View style={styles.pickerContainer}>
-              <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>Unité</Text>
+              <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>الوحدة</Text>
               <Picker
                 selectedValue={formData.unit}
                 style={styles.modalInput}
                 onValueChange={(itemValue) => setFormData(prev => ({ ...prev, unit: itemValue as StockUnit }))}
               >
                 {STOCK_UNITS.map(unit => (
-                  <Picker.Item key={unit} label={unit.toUpperCase()} value={unit} />
+                  <Picker.Item key={unit.value} label={unit.label} value={unit.value} />
                 ))}
               </Picker>
             </View>
 
             <TextInput
               style={styles.modalInput}
-              placeholder="Seuil d'alerte*"
+              placeholder="الحد الأدنى للتنبيه*"
               keyboardType="numeric"
               value={formData.lowStockThreshold.toString()}
               onChangeText={text => setFormData(prev => ({ ...prev, lowStockThreshold: Number(text) }))}
@@ -477,21 +477,21 @@ const AddStockModal = ({ visible, onClose, onAdd }: {
 
             <TextInput
               style={styles.modalInput}
-              placeholder="Emplacement"
+              placeholder="الموقع"
               value={formData.location}
               onChangeText={text => setFormData(prev => ({ ...prev, location: text }))}
             />
 
             <TextInput
               style={styles.modalInput}
-              placeholder="Fournisseur"
+              placeholder="المورد"
               value={formData.supplier}
               onChangeText={text => setFormData(prev => ({ ...prev, supplier: text }))}
             />
 
             <TextInput
               style={styles.modalInput}
-              placeholder="Prix (€)"
+              placeholder="السعر (درهم)"
               keyboardType="numeric"
               value={formData.price?.toString() || ''}
               onChangeText={text => setFormData(prev => ({ ...prev, price: Number(text) }))}
@@ -499,20 +499,20 @@ const AddStockModal = ({ visible, onClose, onAdd }: {
 
             <TextInput
               style={styles.modalInput}
-              placeholder="Numéro de lot"
+              placeholder="رقم الدفعة"
               value={formData.batchNumber}
               onChangeText={text => setFormData(prev => ({ ...prev, batchNumber: text }))}
             />
 
             <TextInput
               style={styles.modalInput}
-              placeholder="Date d'expiration (AAAA-MM-JJ)"
+              placeholder="تاريخ انتهاء الصلاحية (YYYY-MM-DD)"
               value={formData.expiryDate}
               onChangeText={text => setFormData(prev => ({ ...prev, expiryDate: text }))}
             />
 
             <View style={styles.switchContainer}>
-              <Text style={[styles.switchLabel, { color: theme.colors.neutral.textPrimary }]}>Produit naturel</Text>
+              <Text style={[styles.switchLabel, { color: theme.colors.neutral.textPrimary }]}>منتج طبيعي</Text>
               <Switch
                 value={formData.isNatural}
                 onValueChange={(value: boolean) => setFormData(prev => ({ ...prev, isNatural: value }))}
@@ -526,10 +526,10 @@ const AddStockModal = ({ visible, onClose, onAdd }: {
               style={styles.modalInput}
               onValueChange={(itemValue) => setFormData(prev => ({ ...prev, qualityStatus: itemValue as 'good' | 'medium' | 'poor' | undefined }))}
             >
-              <Picker.Item label="Sélectionner la qualité" value={undefined} />
-              <Picker.Item label="Bon" value="good" />
-              <Picker.Item label="Moyen" value="medium" />
-              <Picker.Item label="Mauvais" value="poor" />
+              <Picker.Item label="اختر الجودة" value={undefined} />
+              <Picker.Item label="جيد" value="good" />
+              <Picker.Item label="متوسط" value="medium" />
+              <Picker.Item label="سيء" value="poor" />
             </Picker>
           </ScrollView>
 
@@ -539,7 +539,7 @@ const AddStockModal = ({ visible, onClose, onAdd }: {
               onPress={onClose}
               disabled={loading}
             >
-              <Text style={styles.buttonText}>Annuler</Text>
+              <Text style={styles.buttonText}>إلغاء</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               style={[styles.modalButton, styles.confirmButton]}
@@ -549,7 +549,7 @@ const AddStockModal = ({ visible, onClose, onAdd }: {
               {loading ? (
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
-                <Text style={[styles.buttonText, { color: '#fff' }]}>Ajouter</Text>
+                <Text style={[styles.buttonText, { color: '#fff' }]}>إضافة</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -681,7 +681,7 @@ export const StockDetail = ({ route, navigation }: StockDetailProps) => {
         />
         <Text style={[styles.errorText, { color: theme.colors.error }]}>{error}</Text>
         <CustomButton 
-          title="Réessayer" 
+          title="إعادة المحاولة" 
           onPress={refreshStocks}
           variant="primary"
         />
@@ -697,9 +697,9 @@ export const StockDetail = ({ route, navigation }: StockDetailProps) => {
           size={64} 
           color={theme.colors.error} 
         />
-        <Text style={[styles.errorText, { color: theme.colors.error }]}>Stock non trouvé</Text>
+        <Text style={[styles.errorText, { color: theme.colors.error }]}>لم يتم العثور على المخزون</Text>
         <CustomButton 
-          title="Retour" 
+          title="رجوع" 
           onPress={() => navigation.goBack()}
           variant="primary"
         />
@@ -735,7 +735,7 @@ export const StockDetail = ({ route, navigation }: StockDetailProps) => {
               {stock.isNatural && (
                 <View style={[styles.naturalBadge, { backgroundColor: theme.colors.success }]}>
                   <Feather name={leafIcon} size={12} color="#FFF" />
-                  <Text style={styles.naturalText}>Naturel</Text>
+                  <Text style={styles.naturalText}>طبيعي</Text>
                 </View>
               )}
             </View>
@@ -756,7 +756,7 @@ export const StockDetail = ({ route, navigation }: StockDetailProps) => {
               <Text style={[styles.stockLevelTitle, { 
                 color: isLowStock ? theme.colors.error : theme.colors.success 
               }]}>
-                Stock actuel
+                المخزون الحالي
               </Text>
             </View>
             <View style={styles.stockLevelBar}>
@@ -775,7 +775,7 @@ export const StockDetail = ({ route, navigation }: StockDetailProps) => {
                 <Text style={[styles.stockLevelText, { 
                   color: isLowStock ? theme.colors.error : theme.colors.success 
                 }]}>
-                  {stock.quantity}
+                  {stock.quantity.toLocaleString('en-US')}
                 </Text>
                 <Text style={[styles.unitText, { 
                   color: isLowStock ? theme.colors.error : theme.colors.success 
@@ -790,7 +790,7 @@ export const StockDetail = ({ route, navigation }: StockDetailProps) => {
                   color={theme.colors.neutral.textSecondary}
                 />
                 <Text style={[styles.thresholdText, { color: theme.colors.neutral.textSecondary }]}>
-                  Seuil: {stock.lowStockThreshold} {stock.unit}
+                  الحد الأدنى: {stock.lowStockThreshold.toLocaleString('en-US')} {stock.unit}
                 </Text>
               </View>
             </View>
@@ -815,7 +815,7 @@ export const StockDetail = ({ route, navigation }: StockDetailProps) => {
             >
               <MaterialCommunityIcons name="plus-circle" size={24} color="#fff" />
               <Text style={[styles.actionButtonText, { color: '#fff' }]}>
-                Ajouter du stock
+                إضافة للمخزون
               </Text>
             </TouchableOpacity>
 
@@ -829,7 +829,7 @@ export const StockDetail = ({ route, navigation }: StockDetailProps) => {
             >
               <MaterialCommunityIcons name="minus-circle" size={24} color="#fff" />
               <Text style={[styles.actionButtonText, { color: '#fff' }]}>
-                Retirer du stock
+                سحب من المخزون
               </Text>
             </TouchableOpacity>
           </View>
@@ -856,7 +856,7 @@ export const StockDetail = ({ route, navigation }: StockDetailProps) => {
                 color={theme.colors.neutral.textPrimary}
               />
               <Text style={[styles.sectionTitle, { color: theme.colors.neutral.textPrimary }]}>
-                Détails
+                التفاصيل
               </Text>
               <View style={[
                 styles.sectionBadge,
@@ -867,7 +867,7 @@ export const StockDetail = ({ route, navigation }: StockDetailProps) => {
                 }
               ]}>
                 <Text style={styles.sectionSubtitle}>
-                  {activeSection === 'details' ? 'Masquer' : 'Afficher'}
+                  {activeSection === 'details' ? 'إخفاء' : 'عرض'}
                 </Text>
               </View>
             </View>
@@ -889,7 +889,7 @@ export const StockDetail = ({ route, navigation }: StockDetailProps) => {
             >
               <View style={styles.detailsSection}>
                 <Text style={[styles.sectionLabel, { color: theme.colors.neutral.textSecondary }]}>
-                  Informations générales
+                  معلومات عامة
                 </Text>
                 {stock.location && (
                   <View style={[styles.infoItem, { backgroundColor: theme.colors.neutral.background }]}>
@@ -898,7 +898,7 @@ export const StockDetail = ({ route, navigation }: StockDetailProps) => {
                     </View>
                     <View style={styles.infoContent}>
                       <Text style={[styles.infoLabel, { color: theme.colors.neutral.textSecondary }]}>
-                        Emplacement
+                        الموقع
                       </Text>
                       <Text style={[styles.infoValue, { color: theme.colors.neutral.textPrimary }]}>
                         {stock.location}
@@ -914,7 +914,7 @@ export const StockDetail = ({ route, navigation }: StockDetailProps) => {
                     </View>
                     <View style={styles.infoContent}>
                       <Text style={[styles.infoLabel, { color: theme.colors.neutral.textSecondary }]}>
-                        Fournisseur
+                        المورد
                       </Text>
                       <Text style={[styles.infoValue, { color: theme.colors.neutral.textPrimary }]}>
                         {stock.supplier}
@@ -926,7 +926,7 @@ export const StockDetail = ({ route, navigation }: StockDetailProps) => {
 
               <View style={styles.detailsSection}>
                 <Text style={[styles.sectionLabel, { color: theme.colors.neutral.textSecondary }]}>
-                  Détails du produit
+                  تفاصيل المنتج
                 </Text>
                 {stock.price && (
                   <View style={[styles.infoItem, { backgroundColor: theme.colors.neutral.background }]}>
@@ -935,10 +935,10 @@ export const StockDetail = ({ route, navigation }: StockDetailProps) => {
                     </View>
                     <View style={styles.infoContent}>
                       <Text style={[styles.infoLabel, { color: theme.colors.neutral.textSecondary }]}>
-                        Prix
+                        السعر
                       </Text>
                       <Text style={[styles.infoValue, { color: theme.colors.neutral.textPrimary }]}>
-                        {stock.price} €/{stock.unit}
+                        {stock.price.toLocaleString('en-US')} درهم/{stock.unit}
                       </Text>
                     </View>
                   </View>
@@ -951,7 +951,7 @@ export const StockDetail = ({ route, navigation }: StockDetailProps) => {
                     </View>
                     <View style={styles.infoContent}>
                       <Text style={[styles.infoLabel, { color: theme.colors.neutral.textSecondary }]}>
-                        Numéro de lot
+                        رقم الدفعة
                       </Text>
                       <Text style={[styles.infoValue, { color: theme.colors.neutral.textPrimary }]}>
                         {stock.batchNumber}
@@ -963,19 +963,19 @@ export const StockDetail = ({ route, navigation }: StockDetailProps) => {
 
               <View style={styles.detailsSection}>
                 <Text style={[styles.sectionLabel, { color: theme.colors.neutral.textSecondary }]}>
-                  Qualité et péremption
+                  الجودة وتاريخ الانتهاء
                 </Text>
                 {stock.expiryDate && (
                   <View style={[styles.infoItem, { backgroundColor: theme.colors.neutral.background }]}>
-                    <View style={[styles.iconContainer, { backgroundColor: theme.colors.error }]}>
+                    <View style={[styles.iconContainer, { backgroundColor: theme.colors.warning }]}>
                       <Feather name="calendar" size={20} color="#FFF" />
                     </View>
                     <View style={styles.infoContent}>
                       <Text style={[styles.infoLabel, { color: theme.colors.neutral.textSecondary }]}>
-                        Date d'expiration
+                        تاريخ الانتهاء
                       </Text>
                       <Text style={[styles.infoValue, { color: theme.colors.neutral.textPrimary }]}>
-                        {new Date(stock.expiryDate).toLocaleDateString()}
+                        {new Date(stock.expiryDate).toLocaleDateString('ar-SA')}
                       </Text>
                     </View>
                   </View>
@@ -983,19 +983,16 @@ export const StockDetail = ({ route, navigation }: StockDetailProps) => {
 
                 {stock.qualityStatus && (
                   <View style={[styles.infoItem, { backgroundColor: theme.colors.neutral.background }]}>
-                    <View style={[styles.iconContainer, { backgroundColor: getQualityColor(stock.qualityStatus, theme) }]}>
-                      <MaterialCommunityIcons 
-                        name="check-decagram" 
-                        size={20} 
-                        color="#FFF"
-                      />
+                    <View style={[styles.iconContainer, { backgroundColor: theme.colors.accent.base }]}>
+                      <Feather name="check-circle" size={20} color="#FFF" />
                     </View>
                     <View style={styles.infoContent}>
                       <Text style={[styles.infoLabel, { color: theme.colors.neutral.textSecondary }]}>
-                        Qualité
+                        الجودة
                       </Text>
                       <Text style={[styles.infoValue, { color: theme.colors.neutral.textPrimary }]}>
-                        {getQualityLabel(stock.qualityStatus)}
+                        {stock.qualityStatus === 'good' ? 'جيد' : 
+                         stock.qualityStatus === 'medium' ? 'متوسط' : 'سيء'}
                       </Text>
                     </View>
                   </View>
@@ -1026,7 +1023,7 @@ export const StockDetail = ({ route, navigation }: StockDetailProps) => {
                 color={theme.colors.neutral.textPrimary}
               />
               <Text style={[styles.sectionTitle, { color: theme.colors.neutral.textPrimary }]}>
-                Historique
+                السجل
               </Text>
               <View style={[
                 styles.sectionBadge,
@@ -1037,7 +1034,7 @@ export const StockDetail = ({ route, navigation }: StockDetailProps) => {
                 }
               ]}>
                 <Text style={styles.sectionSubtitle}>
-                  {activeSection === 'history' ? 'Masquer' : 'Afficher'}
+                  {activeSection === 'history' ? 'إخفاء' : 'عرض'}
                 </Text>
               </View>
             </View>

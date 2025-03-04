@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Platform } from 'react-native';
-import { StockItem } from '../types';
+import { StockItem, STOCK_CATEGORIES, STOCK_UNITS } from '../types';
 import { useTheme } from '../../../context/ThemeContext';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 
@@ -13,14 +13,14 @@ interface StockItemCardProps {
 
 const getCategoryLabel = (category: string): string => {
   const categories = {
-    seeds: 'Semences',
-    fertilizer: 'Engrais',
-    harvest: 'Récoltes',
-    feed: 'Aliments',
-    pesticide: 'Pesticides',
-    equipment: 'Équipement',
-    tools: 'Outils',
-    animals: 'Animaux'
+    seeds: 'البذور',
+    fertilizer: 'الأسمدة',
+    harvest: 'المحاصيل',
+    feed: 'الأعلاف',
+    pesticide: 'المبيدات',
+    equipment: 'المعدات',
+    tools: 'الأدوات',
+    animals: 'الحيوانات'
   };
   return categories[category] || category;
 };
@@ -40,11 +40,11 @@ const getQualityColor = (quality: string | undefined, theme: any) => {
 
 const getQualityLabel = (quality: string | undefined): string => {
   const qualities = {
-    good: 'Bon',
-    medium: 'Moyen',
-    poor: 'Mauvais'
+    good: 'جيد',
+    medium: 'متوسط',
+    poor: 'سيء'
   };
-  return qualities[quality || ''] || 'Non défini';
+  return qualities[quality || ''] || 'غير محدد';
 };
 
 const getCategoryIcon = (category: string): string => {
@@ -92,8 +92,8 @@ export const StockItemCard = ({ item, onPress }: StockItemCardProps) => {
             <Text style={[styles.name, { color: theme.colors.neutral.textPrimary }]}>
               {item.name}
             </Text>
-            <Text style={[styles.category, { color: theme.colors.primary.base }]}>
-              {getCategoryLabel(item.category)}
+            <Text style={[styles.category, { color: theme.colors.neutral.textSecondary }]}>
+              {STOCK_CATEGORIES.find(cat => cat.value === item.category)?.label || item.category}
             </Text>
           </View>
         </View>
@@ -101,7 +101,7 @@ export const StockItemCard = ({ item, onPress }: StockItemCardProps) => {
           <View style={[styles.lowStockBadge, { backgroundColor: theme.colors.warning }]}>
             <Feather name="alert-triangle" size={16} color={theme.colors.neutral.surface} />
             <Text style={[styles.lowStockText, { color: theme.colors.neutral.surface }]}>
-              Stock Faible
+              مخزون منخفض
             </Text>
           </View>
         )}
@@ -120,7 +120,7 @@ export const StockItemCard = ({ item, onPress }: StockItemCardProps) => {
               styles.quantity, 
               { color: isLowStock ? theme.colors.warning : theme.colors.neutral.textPrimary }
             ]}>
-              {item.quantity} {item.unit}
+              {item.quantity.toLocaleString('en-US')} {STOCK_UNITS.find(unit => unit.value === item.unit)?.label || item.unit}
             </Text>
           </View>
           {item.location && (
@@ -171,10 +171,14 @@ export const StockItemCard = ({ item, onPress }: StockItemCardProps) => {
                     : theme.colors.neutral.textSecondary 
                 }
               ]}>
-                Expire le {new Date(item.expiryDate).toLocaleDateString()}
+                ينتهي في {new Date(item.expiryDate).toLocaleDateString('ar-SA', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
+                })}
                 {daysUntilExpiry && daysUntilExpiry <= 30 && (
                   <Text style={{ color: theme.colors.error }}>
-                    {' '}({daysUntilExpiry} jours)
+                    {' '}({daysUntilExpiry.toLocaleString('en-US')} يوم)
                   </Text>
                 )}
               </Text>

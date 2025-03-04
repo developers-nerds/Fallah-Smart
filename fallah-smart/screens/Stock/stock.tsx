@@ -41,14 +41,14 @@ const ITEMS_PER_PAGE = 5;
 type StockScreenNavigationProp = StackNavigationProp<StockStackParamList, 'StockList'>;
 
 const categories: { value: StockCategory; label: string; iconType: 'feather' | 'material'; icon: string }[] = [
-  { value: 'seeds', label: 'Semences', iconType: 'material', icon: 'seed' },
-  { value: 'fertilizer', label: 'Engrais', iconType: 'material', icon: 'watering-can' },
-  { value: 'harvest', label: 'Récoltes', iconType: 'material', icon: 'sprout' },
-  { value: 'feed', label: 'Aliments', iconType: 'material', icon: 'food-variant' },
-  { value: 'pesticide', label: 'Pesticides', iconType: 'material', icon: 'bug' },
-  { value: 'equipment', label: 'Équipement', iconType: 'material', icon: 'tractor' },
-  { value: 'tools', label: 'Outils', iconType: 'material', icon: 'tools' },
-  { value: 'animals', label: 'Animaux', iconType: 'material', icon: 'cow' }
+  { value: 'seeds', label: 'البذور', iconType: 'material', icon: 'seed' },
+  { value: 'fertilizer', label: 'الأسمدة', iconType: 'material', icon: 'watering-can' },
+  { value: 'harvest', label: 'المحاصيل', iconType: 'material', icon: 'sprout' },
+  { value: 'feed', label: 'الأعلاف', iconType: 'material', icon: 'food-variant' },
+  { value: 'pesticide', label: 'المبيدات', iconType: 'material', icon: 'bug' },
+  { value: 'equipment', label: 'المعدات', iconType: 'material', icon: 'tractor' },
+  { value: 'tools', label: 'الأدوات', iconType: 'material', icon: 'tools' },
+  { value: 'animals', label: 'الحيوانات', iconType: 'material', icon: 'cow' }
 ];
 
 interface StockStats {
@@ -168,17 +168,17 @@ const StockScreen = () => {
             color={theme.colors.neutral.textSecondary} 
           />
           <Text style={[styles.emptyText, { color: theme.colors.neutral.textSecondary }]}>
-            Aucun résultat trouvé
+            لا توجد نتائج
           </Text>
           <Text style={[styles.emptySubText, { color: theme.colors.neutral.textSecondary }]}>
-            Essayez d'autres termes de recherche
+            يرجى البحث بمصطلحات أخرى
           </Text>
           <TouchableOpacity
             style={[styles.clearButton, { backgroundColor: theme.colors.primary.base }]}
             onPress={handleClearSearch}
           >
             <Text style={[styles.clearButtonText, { color: theme.colors.neutral.surface }]}>
-              Effacer la recherche
+              مسح البحث
             </Text>
           </TouchableOpacity>
         </View>
@@ -193,10 +193,10 @@ const StockScreen = () => {
           color={theme.colors.neutral.textSecondary} 
         />
         <Text style={[styles.emptyText, { color: theme.colors.neutral.textSecondary }]}>
-          Aucun stock trouvé
+          لا توجد منتجات في المخزون
         </Text>
         <Text style={[styles.emptySubText, { color: theme.colors.neutral.textSecondary }]}>
-          Commencez par ajouter vos premiers produits
+          اضغط على زر الإضافة لإضافة منتج جديد
         </Text>
         <TouchableOpacity
           style={[styles.addButton, { backgroundColor: theme.colors.primary.base }]}
@@ -204,7 +204,7 @@ const StockScreen = () => {
         >
           <Feather name="plus" size={24} color={theme.colors.neutral.surface} />
           <Text style={[styles.addButtonText, { color: theme.colors.neutral.surface }]}>
-            Ajouter un produit
+            إضافة منتج جديد
           </Text>
         </TouchableOpacity>
       </View>
@@ -420,7 +420,7 @@ const StockScreen = () => {
         />
         <Text style={[styles.errorText, { color: theme.colors.error }]}>{error}</Text>
         <Button 
-          title="Réessayer" 
+          title="إعادة المحاولة" 
           onPress={refreshStocks}
           variant="primary"
           style={{ marginTop: 16 }}
@@ -433,7 +433,7 @@ const StockScreen = () => {
     <View style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
       <Animated.View style={[styles.header, headerStyle]}>
         <Text style={[styles.headerTitle, { color: theme.colors.neutral.textPrimary }]}>
-          Stock
+          المخزون
         </Text>
         <View style={styles.headerButtons}>
           <TouchableOpacity
@@ -493,9 +493,9 @@ const StockScreen = () => {
                 />
               </View>
               <Text style={styles.summaryNumber}>
-                {stockStats?.totalItems || stocks.length}
+                {(stockStats?.totalItems || stocks.length).toLocaleString('en-US')}
               </Text>
-              <Text style={styles.summaryLabel}>Total Stocks</Text>
+              <Text style={styles.summaryLabel}>إجمالي المخزون</Text>
             </View>
 
             <View style={[styles.summaryItem, { backgroundColor: theme.colors.warning }]}>
@@ -507,9 +507,9 @@ const StockScreen = () => {
                 />
               </View>
               <Text style={styles.summaryNumber}>
-                {stockStats.lowStockItems.length}
+                {stockStats.lowStockItems.length.toLocaleString('en-US')}
               </Text>
-              <Text style={styles.summaryLabel}>Stock Faible</Text>
+              <Text style={styles.summaryLabel}>مخزون منخفض</Text>
             </View>
 
             <View style={[styles.summaryItem, { backgroundColor: theme.colors.success }]}>
@@ -521,9 +521,9 @@ const StockScreen = () => {
                 />
               </View>
               <Text style={styles.summaryNumber}>
-                {stockStats.totalValue.toLocaleString()} DH
+                {stockStats.totalValue.toLocaleString('en-US')} DH
               </Text>
-              <Text style={styles.summaryLabel}>Valeur Totale</Text>
+              <Text style={styles.summaryLabel}>القيمة الإجمالية</Text>
             </View>
           </ScrollView>
         </View>
@@ -538,7 +538,7 @@ const StockScreen = () => {
             />
             <TextInput
               style={styles.searchInput}
-              placeholder="Rechercher un produit..."
+              placeholder="البحث عن منتج..."
               placeholderTextColor={theme.colors.neutral.textSecondary}
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -581,7 +581,7 @@ const StockScreen = () => {
                 selectedCategory === 'all' && { color: theme.colors.neutral.surface }
               ]}
             >
-              Tous
+              الكل
             </Text>
           </TouchableOpacity>
           {categories.map((category) => (
@@ -624,7 +624,7 @@ const StockScreen = () => {
               <View key={item.id} style={{ position: 'relative' }}>
                 {item.quantity <= (item.lowStockThreshold || 0) && (
                   <View style={styles.lowStockIndicator}>
-                    <Text style={styles.lowStockText}>Stock Faible</Text>
+                    <Text style={styles.lowStockText}>مخزون منخفض</Text>
                   </View>
                 )}
                 <StockItemCard
@@ -648,10 +648,10 @@ const StockScreen = () => {
               onPress={() => setCurrentPage(prev => Math.max(1, prev - 1))}
               disabled={currentPage === 1}
             >
-              <Text style={styles.paginationButtonText}>Précédent</Text>
+              <Text style={styles.paginationButtonText}>السابق</Text>
             </TouchableOpacity>
             <Text style={styles.paginationText}>
-              Page {currentPage} sur {totalPages}
+              صفحة {currentPage.toLocaleString('en-US')} من {totalPages.toLocaleString('en-US')}
             </Text>
             <TouchableOpacity
               style={[
@@ -661,7 +661,7 @@ const StockScreen = () => {
               onPress={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
               disabled={currentPage === totalPages}
             >
-              <Text style={styles.paginationButtonText}>Suivant</Text>
+              <Text style={styles.paginationButtonText}>التالي</Text>
             </TouchableOpacity>
           </View>
         )}

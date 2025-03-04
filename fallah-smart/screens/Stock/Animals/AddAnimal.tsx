@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   View, 
   StyleSheet, 
@@ -15,9 +15,42 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Animal, HealthStatus, Gender } from '../types';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { StockStackParamList } from '../../../navigation/types';
-import Animated, { FadeInRight } from 'react-native-reanimated';
+import Animated, { FadeInRight, useAnimatedStyle } from 'react-native-reanimated';
+import { Feather } from '@expo/vector-icons';
+import * as Yup from 'yup';
+import { CustomButton } from '../../../components/CustomButton';
 
 const { width } = Dimensions.get('window');
+
+const getHealthStatusLabel = (status: HealthStatus): string => {
+  switch (status) {
+    case 'excellent':
+      return 'ممتاز';
+    case 'good':
+      return 'جيد';
+    case 'fair':
+      return 'متوسط';
+    case 'poor':
+      return 'سيء';
+    default:
+      return 'غير معروف';
+  }
+};
+
+const getHealthStatusColor = (status: HealthStatus, theme: any): string => {
+  switch (status) {
+    case 'excellent':
+      return theme.colors.success.base;
+    case 'good':
+      return theme.colors.success.light;
+    case 'fair':
+      return theme.colors.warning.base;
+    case 'poor':
+      return theme.colors.error.base;
+    default:
+      return theme.colors.neutral.border;
+  }
+};
 
 type AddAnimalScreenProps = {
   navigation: StackNavigationProp<StockStackParamList, 'AddAnimal'>;
@@ -27,13 +60,7 @@ interface FormPage {
   title: string;
   subtitle: string;
   icon: string;
-  fields: {
-    key: keyof FormData;
-    label: string;
-    placeholder: string;
-    multiline?: boolean;
-    required?: boolean;
-  }[];
+  fields: string[];
 }
 
 interface FormData {
@@ -76,48 +103,53 @@ const initialFormData: FormData = {
 
 const formPages: FormPage[] = [
   {
-    title: 'Informations de base',
-    subtitle: 'Entrez les informations essentielles de l\'animal',
+    title: 'المعلومات الأساسية',
+    subtitle: 'أدخل المعلومات الأساسية للحيوان',
     icon: 'information',
-    fields: [
-      { key: 'type', label: 'Type d\'animal', placeholder: 'Ex: Vache, Mouton...', required: true },
-      { key: 'count', label: 'Nombre', placeholder: 'Nombre d\'animaux', required: true },
-      { key: 'feedingSchedule', label: 'Programme d\'alimentation', placeholder: 'Ex: 2 fois par jour' }
-    ]
+    fields: ['type', 'gender', 'count', 'healthStatus'],
   },
   {
-    title: 'Santé et soins',
-    subtitle: 'Détaillez l\'état de santé et les soins nécessaires',
+    title: 'التغذية والرعاية',
+    subtitle: 'أدخل تفاصيل التغذية والرعاية',
     icon: 'heart-pulse',
-    fields: [
-      { key: 'health', label: 'État de santé', placeholder: 'État de santé détaillé...', multiline: true },
-      { key: 'care', label: 'Soins', placeholder: 'Détails sur les soins...', multiline: true },
-      { key: 'medications', label: 'Médicaments', placeholder: 'Traitements médicaux...', multiline: true },
-      { key: 'vaccination', label: 'Vaccination', placeholder: 'Programme de vaccination...', multiline: true }
-    ]
+    fields: ['feedingSchedule', 'feeding', 'care', 'housing'],
   },
   {
-    title: 'Gestion',
-    subtitle: 'Informations sur la gestion quotidienne',
+    title: 'الصحة والطب',
+    subtitle: 'أدخل معلومات الصحة والعلاج',
     icon: 'cog',
-    fields: [
-      { key: 'feeding', label: 'Alimentation', placeholder: 'Détails sur l\'alimentation...', multiline: true },
-      { key: 'housing', label: 'Logement', placeholder: 'Conditions de logement...', multiline: true },
-      { key: 'behavior', label: 'Comportement', placeholder: 'Observations comportementales...', multiline: true }
-    ]
+    fields: ['health', 'diseases', 'medications', 'vaccination'],
   },
   {
-    title: 'Informations supplémentaires',
-    subtitle: 'Ajoutez des détails complémentaires',
+    title: 'معلومات إضافية',
+    subtitle: 'أدخل معلومات إضافية',
     icon: 'text-box',
-    fields: [
-      { key: 'breeding', label: 'Reproduction', placeholder: 'Informations sur la reproduction...', multiline: true },
-      { key: 'diseases', label: 'Maladies', placeholder: 'Historique des maladies...', multiline: true },
-      { key: 'economics', label: 'Économie', placeholder: 'Aspects économiques...', multiline: true },
-      { key: 'notes', label: 'Notes', placeholder: 'Notes additionnelles...', multiline: true }
-    ]
-  }
+    fields: ['breeding', 'behavior', 'economics', 'notes'],
+  },
 ];
+
+const validationSchema = Yup.object().shape({
+  type: Yup.string().required('نوع الحيوان مطلوب'),
+  gender: Yup.string().oneOf(['male', 'female']).required('جنس الحيوان مطلوب'),
+  count: Yup.number()
+    .required('العدد مطلوب')
+    .min(1, 'يجب أن يكون العدد 1 على الأقل'),
+  healthStatus: Yup.string()
+    .oneOf(['excellent', 'good', 'fair', 'poor'])
+    .required('الحالة الصحية مطلوبة'),
+  feedingSchedule: Yup.string().required('برنامج التغذية مطلوب'),
+  feeding: Yup.string(),
+  care: Yup.string(),
+  housing: Yup.string(),
+  health: Yup.string(),
+  diseases: Yup.string(),
+  medications: Yup.string(),
+  breeding: Yup.string(),
+  behavior: Yup.string(),
+  economics: Yup.string(),
+  vaccination: Yup.string(),
+  notes: Yup.string(),
+});
 
 export const AddAnimalScreen = ({ navigation }: AddAnimalScreenProps) => {
   const theme = useTheme();
@@ -125,17 +157,24 @@ export const AddAnimalScreen = ({ navigation }: AddAnimalScreenProps) => {
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [currentPage, setCurrentPage] = useState(0);
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
+  const [loading, setLoading] = useState(false);
+
+  const progressStyle = useAnimatedStyle(() => {
+    return {
+      width: `${((currentPage + 1) / formPages.length) * 100}%`,
+    };
+  });
 
   const validateForm = () => {
     const newErrors: Partial<Record<keyof FormData, string>> = {};
 
     if (!formData.type.trim()) {
-      newErrors.type = 'Le type d\'animal est requis';
+      newErrors.type = 'نوع الحيوان مطلوب';
     }
 
     const count = Number(formData.count);
     if (isNaN(count) || count <= 0) {
-      newErrors.count = 'Le nombre doit être un nombre positif';
+      newErrors.count = 'يجب أن يكون العدد رقمًا موجبًا';
     }
 
     setErrors(newErrors);
@@ -148,6 +187,7 @@ export const AddAnimalScreen = ({ navigation }: AddAnimalScreenProps) => {
     }
 
     try {
+      setLoading(true);
       await createAnimal({
         ...formData,
         count: Number(formData.count),
@@ -170,6 +210,8 @@ export const AddAnimalScreen = ({ navigation }: AddAnimalScreenProps) => {
     } catch (error) {
       console.error('Error creating animal:', error);
       // Handle error
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -187,232 +229,467 @@ export const AddAnimalScreen = ({ navigation }: AddAnimalScreenProps) => {
     }
   };
 
-  const renderTextField = (
-    field: FormPage['fields'][0]
-  ) => (
-    <View key={field.key} style={styles.field}>
-      <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
-        {field.label}
-        {field.required && <Text style={{ color: theme.colors.error }}> *</Text>}
-      </Text>
-      <View style={[styles.inputContainer, { backgroundColor: theme.colors.neutral.surface }]}>
-        <TextInput
-          style={[
-            styles.input,
-            field.multiline && styles.textArea,
-            errors[field.key] && styles.inputError
-          ]}
-          placeholder={field.placeholder}
-          value={formData[field.key]}
-          onChangeText={(text) => {
-            setFormData(prev => ({ ...prev, [field.key]: text }));
-            if (errors[field.key]) {
-              setErrors(prev => ({ ...prev, [field.key]: undefined }));
-            }
-          }}
-          multiline={field.multiline}
-          numberOfLines={field.multiline ? 4 : 1}
-          placeholderTextColor={theme.colors.neutral.textSecondary}
-        />
-      </View>
-      {errors[field.key] && (
-        <Text style={[styles.errorText, { color: theme.colors.error }]}>
-          {errors[field.key]}
-        </Text>
-      )}
-    </View>
-  );
-
-  const renderHealthStatus = () => (
-    <View style={styles.field}>
-      <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
-        État de santé
-      </Text>
-      <View style={styles.optionsGrid}>
-        {['excellent', 'good', 'fair', 'poor'].map((status) => (
-          <TouchableOpacity
-            key={status}
-            style={[
-              styles.optionButton,
-              {
-                backgroundColor: formData.healthStatus === status 
-                  ? theme.colors.primary.base 
-                  : theme.colors.neutral.surface,
-              }
-            ]}
-            onPress={() => setFormData(prev => ({ ...prev, healthStatus: status as HealthStatus }))}
-          >
-            <MaterialCommunityIcons
-              name={status === 'excellent' ? 'star' : status === 'good' ? 'check-circle' : status === 'fair' ? 'alert' : 'alert-circle'}
-              size={24}
-              color={formData.healthStatus === status ? '#FFF' : theme.colors.neutral.textSecondary}
-            />
-            <Text 
-              style={[
-                styles.optionText,
-                {
-                  color: formData.healthStatus === status 
-                    ? '#FFF'
-                    : theme.colors.neutral.textPrimary,
-                }
-              ]}
-            >
-              {status === 'excellent' ? 'Excellent' : 
-               status === 'good' ? 'Bon' :
-               status === 'fair' ? 'Moyen' : 'Mauvais'}
+  const renderField = (field: string) => {
+    switch (field) {
+      case 'type':
+        return (
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+              نوع الحيوان *
             </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </View>
-  );
-
-  const renderGender = () => (
-    <View style={styles.field}>
-      <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
-        Sexe
-      </Text>
-      <View style={styles.genderButtons}>
-        {[
-          { value: 'male', label: 'Mâle', icon: 'gender-male' },
-          { value: 'female', label: 'Femelle', icon: 'gender-female' }
-        ].map((gender) => (
-          <TouchableOpacity
-            key={gender.value}
-            style={[
-              styles.genderButton,
-              {
-                backgroundColor: formData.gender === gender.value 
-                  ? theme.colors.primary.base 
-                  : theme.colors.neutral.surface,
-              }
-            ]}
-            onPress={() => setFormData(prev => ({ ...prev, gender: gender.value as Gender }))}
-          >
-            <MaterialCommunityIcons
-              name={gender.icon}
-              size={24}
-              color={formData.gender === gender.value ? '#FFF' : theme.colors.neutral.textSecondary}
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.colors.neutral.surface,
+                color: theme.colors.neutral.textPrimary,
+                borderColor: theme.colors.neutral.border,
+                textAlign: 'right'
+              }]}
+              value={formData.type}
+              onChangeText={(text) => setFormData({ ...formData, type: text })}
+              placeholder="أدخل نوع الحيوان"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
             />
-            <Text 
-              style={[
-                styles.genderText,
-                {
-                  color: formData.gender === gender.value 
-                    ? '#FFF'
-                    : theme.colors.neutral.textPrimary,
-                }
-              ]}
-            >
-              {gender.label}
+          </View>
+        );
+
+      case 'gender':
+        return (
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+              جنس الحيوان *
             </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </View>
-  );
+            <View style={styles.genderContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.genderButton,
+                  formData.gender === 'male' && { backgroundColor: theme.colors.primary.base }
+                ]}
+                onPress={() => setFormData({ ...formData, gender: 'male' })}
+              >
+                <MaterialCommunityIcons
+                  name="gender-male"
+                  size={24}
+                  color={formData.gender === 'male' ? '#FFF' : theme.colors.neutral.textSecondary}
+                />
+                <Text style={[
+                  styles.genderText,
+                  { color: formData.gender === 'male' ? '#FFF' : theme.colors.neutral.textSecondary }
+                ]}>
+                  ذكر
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.genderButton,
+                  formData.gender === 'female' && { backgroundColor: theme.colors.primary.base }
+                ]}
+                onPress={() => setFormData({ ...formData, gender: 'female' })}
+              >
+                <MaterialCommunityIcons
+                  name="gender-female"
+                  size={24}
+                  color={formData.gender === 'female' ? '#FFF' : theme.colors.neutral.textSecondary}
+                />
+                <Text style={[
+                  styles.genderText,
+                  { color: formData.gender === 'female' ? '#FFF' : theme.colors.neutral.textSecondary }
+                ]}>
+                  أنثى
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        );
+
+      case 'count':
+        return (
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+              عدد الحيوانات *
+            </Text>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.colors.neutral.surface,
+                color: theme.colors.neutral.textPrimary,
+                borderColor: theme.colors.neutral.border,
+                textAlign: 'right'
+              }]}
+              value={formData.count}
+              onChangeText={(text) => setFormData({ ...formData, count: text })}
+              placeholder="1"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+              keyboardType="numeric"
+            />
+          </View>
+        );
+
+      case 'healthStatus':
+        return (
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+              الحالة الصحية *
+            </Text>
+            <View style={styles.healthStatusContainer}>
+              {['excellent', 'good', 'fair', 'poor'].map((status) => (
+                <TouchableOpacity
+                  key={status}
+                  style={[
+                    styles.healthStatusButton,
+                    formData.healthStatus === status && { backgroundColor: getHealthStatusColor(status, theme) }
+                  ]}
+                  onPress={() => setFormData({ ...formData, healthStatus: status as HealthStatus })}
+                >
+                  <MaterialCommunityIcons
+                    name="heart-pulse"
+                    size={20}
+                    color={formData.healthStatus === status ? '#FFF' : theme.colors.neutral.textSecondary}
+                  />
+                  <Text style={[
+                    styles.healthStatusText,
+                    { color: formData.healthStatus === status ? '#FFF' : theme.colors.neutral.textSecondary }
+                  ]}>
+                    {getHealthStatusLabel(status as HealthStatus)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        );
+
+      case 'feedingSchedule':
+        return (
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+              برنامج التغذية *
+            </Text>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.colors.neutral.surface,
+                color: theme.colors.neutral.textPrimary,
+                borderColor: theme.colors.neutral.border,
+                textAlign: 'right'
+              }]}
+              value={formData.feedingSchedule}
+              onChangeText={(text) => setFormData({ ...formData, feedingSchedule: text })}
+              placeholder="أدخل برنامج التغذية"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+            />
+          </View>
+        );
+
+      case 'feeding':
+        return (
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+              التغذية
+            </Text>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.colors.neutral.surface,
+                color: theme.colors.neutral.textPrimary,
+                borderColor: theme.colors.neutral.border,
+                textAlign: 'right'
+              }]}
+              value={formData.feeding}
+              onChangeText={(text) => setFormData({ ...formData, feeding: text })}
+              placeholder="أدخل تفاصيل التغذية"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+              multiline
+              numberOfLines={4}
+            />
+          </View>
+        );
+
+      case 'care':
+        return (
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+              الرعاية
+            </Text>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.colors.neutral.surface,
+                color: theme.colors.neutral.textPrimary,
+                borderColor: theme.colors.neutral.border,
+                textAlign: 'right'
+              }]}
+              value={formData.care}
+              onChangeText={(text) => setFormData({ ...formData, care: text })}
+              placeholder="أدخل تفاصيل الرعاية"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+              multiline
+              numberOfLines={4}
+            />
+          </View>
+        );
+
+      case 'housing':
+        return (
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+              السكن
+            </Text>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.colors.neutral.surface,
+                color: theme.colors.neutral.textPrimary,
+                borderColor: theme.colors.neutral.border,
+                textAlign: 'right'
+              }]}
+              value={formData.housing}
+              onChangeText={(text) => setFormData({ ...formData, housing: text })}
+              placeholder="أدخل تفاصيل السكن"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+              multiline
+              numberOfLines={4}
+            />
+          </View>
+        );
+
+      case 'health':
+        return (
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+              الصحة
+            </Text>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.colors.neutral.surface,
+                color: theme.colors.neutral.textPrimary,
+                borderColor: theme.colors.neutral.border,
+                textAlign: 'right'
+              }]}
+              value={formData.health}
+              onChangeText={(text) => setFormData({ ...formData, health: text })}
+              placeholder="أدخل تفاصيل الحالة الصحية"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+              multiline
+              numberOfLines={4}
+            />
+          </View>
+        );
+
+      case 'diseases':
+        return (
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+              الأمراض
+            </Text>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.colors.neutral.surface,
+                color: theme.colors.neutral.textPrimary,
+                borderColor: theme.colors.neutral.border,
+                textAlign: 'right'
+              }]}
+              value={formData.diseases}
+              onChangeText={(text) => setFormData({ ...formData, diseases: text })}
+              placeholder="أدخل تفاصيل الأمراض"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+              multiline
+              numberOfLines={4}
+            />
+          </View>
+        );
+
+      case 'medications':
+        return (
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+              الأدوية
+            </Text>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.colors.neutral.surface,
+                color: theme.colors.neutral.textPrimary,
+                borderColor: theme.colors.neutral.border,
+                textAlign: 'right'
+              }]}
+              value={formData.medications}
+              onChangeText={(text) => setFormData({ ...formData, medications: text })}
+              placeholder="أدخل تفاصيل الأدوية"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+              multiline
+              numberOfLines={4}
+            />
+          </View>
+        );
+
+      case 'vaccination':
+        return (
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+              التطعيم
+            </Text>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.colors.neutral.surface,
+                color: theme.colors.neutral.textPrimary,
+                borderColor: theme.colors.neutral.border,
+                textAlign: 'right'
+              }]}
+              value={formData.vaccination}
+              onChangeText={(text) => setFormData({ ...formData, vaccination: text })}
+              placeholder="أدخل تفاصيل التطعيم"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+              multiline
+              numberOfLines={4}
+            />
+          </View>
+        );
+
+      case 'breeding':
+        return (
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+              التكاثر
+            </Text>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.colors.neutral.surface,
+                color: theme.colors.neutral.textPrimary,
+                borderColor: theme.colors.neutral.border,
+                textAlign: 'right'
+              }]}
+              value={formData.breeding}
+              onChangeText={(text) => setFormData({ ...formData, breeding: text })}
+              placeholder="أدخل تفاصيل التكاثر"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+              multiline
+              numberOfLines={4}
+            />
+          </View>
+        );
+
+      case 'behavior':
+        return (
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+              السلوك
+            </Text>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.colors.neutral.surface,
+                color: theme.colors.neutral.textPrimary,
+                borderColor: theme.colors.neutral.border,
+                textAlign: 'right'
+              }]}
+              value={formData.behavior}
+              onChangeText={(text) => setFormData({ ...formData, behavior: text })}
+              placeholder="أدخل تفاصيل السلوك"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+              multiline
+              numberOfLines={4}
+            />
+          </View>
+        );
+
+      case 'economics':
+        return (
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+              الجوانب الاقتصادية
+            </Text>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.colors.neutral.surface,
+                color: theme.colors.neutral.textPrimary,
+                borderColor: theme.colors.neutral.border,
+                textAlign: 'right'
+              }]}
+              value={formData.economics}
+              onChangeText={(text) => setFormData({ ...formData, economics: text })}
+              placeholder="أدخل تفاصيل الجوانب الاقتصادية"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+              multiline
+              numberOfLines={4}
+            />
+          </View>
+        );
+
+      case 'notes':
+        return (
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+              ملاحظات
+            </Text>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.colors.neutral.surface,
+                color: theme.colors.neutral.textPrimary,
+                borderColor: theme.colors.neutral.border,
+                textAlign: 'right'
+              }]}
+              value={formData.notes}
+              onChangeText={(text) => setFormData({ ...formData, notes: text })}
+              placeholder="أدخل ملاحظات إضافية"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+              multiline
+              numberOfLines={4}
+            />
+          </View>
+        );
+
+      default:
+        return null;
+    }
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
-      <ScrollView style={styles.scrollView}>
-        {formPages.map((page, index) => (
+      <View style={[styles.header, { backgroundColor: theme.colors.neutral.surface }]}>
+        <Text style={[styles.headerTitle, { color: theme.colors.neutral.textPrimary }]}>
+          {formPages[currentPage].title}
+        </Text>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Feather name="arrow-left" size={24} color={theme.colors.neutral.textPrimary} />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.progressContainer}>
+        <View style={[styles.progressBar, { backgroundColor: theme.colors.neutral.border }]}>
           <Animated.View
-            key={index}
-            entering={FadeInRight}
             style={[
-              styles.page,
-              { display: currentPage === index ? 'flex' : 'none' }
+              styles.progressFill,
+              { backgroundColor: theme.colors.primary.base },
+              progressStyle,
             ]}
-          >
-            <View style={styles.pageHeader}>
-              <View style={[styles.iconContainer, { backgroundColor: theme.colors.primary.light }]}>
-                <MaterialCommunityIcons
-                  name={page.icon}
-                  size={24}
-                  color={theme.colors.primary.base}
-                />
-              </View>
-              <View style={styles.headerText}>
-                <Text style={[styles.pageTitle, { color: theme.colors.neutral.textPrimary }]}>
-                  {page.title}
-                </Text>
-                <Text style={[styles.pageSubtitle, { color: theme.colors.neutral.textSecondary }]}>
-                  {page.subtitle}
-                </Text>
-              </View>
-            </View>
+          />
+        </View>
+        <Text style={[styles.progressText, { color: theme.colors.neutral.textSecondary }]}>
+          الخطوة {currentPage + 1} من {formPages.length}
+        </Text>
+      </View>
 
-            <View style={styles.pageContent}>
-              {index === 0 && (
-                <>
-                  {page.fields.slice(0, 2).map(renderTextField)}
-                  {renderHealthStatus()}
-                  {renderGender()}
-                  {renderTextField(page.fields[2])}
-                </>
-              )}
-              {index > 0 && page.fields.map(renderTextField)}
+      <ScrollView style={styles.content}>
+        <View style={styles.form}>
+          {formPages[currentPage].fields.map((field) => (
+            <View key={field}>
+              {renderField(field)}
             </View>
-          </Animated.View>
-        ))}
-      </ScrollView>
-
-      <View style={[styles.footer, { backgroundColor: theme.colors.neutral.surface }]}>
-        <View style={styles.pagination}>
-          {formPages.map((_, index) => (
-            <View
-              key={index}
-              style={[
-                styles.paginationDot,
-                {
-                  backgroundColor: currentPage === index 
-                    ? theme.colors.primary.base 
-                    : theme.colors.neutral.border
-                }
-              ]}
-            />
           ))}
         </View>
+      </ScrollView>
 
-        <View style={styles.buttons}>
-          {currentPage > 0 && (
-            <TouchableOpacity
-              style={[
-                styles.button,
-                styles.secondaryButton,
-                { backgroundColor: theme.colors.neutral.background }
-              ]}
-              onPress={prevPage}
-            >
-              <MaterialCommunityIcons
-                name="chevron-left"
-                size={24}
-                color={theme.colors.neutral.textPrimary}
-              />
-              <Text style={[styles.buttonText, { color: theme.colors.neutral.textPrimary }]}>
-                Précédent
-              </Text>
-            </TouchableOpacity>
-          )}
-
-          <TouchableOpacity
-            style={[
-              styles.button,
-              styles.primaryButton,
-              { backgroundColor: theme.colors.primary.base }
-            ]}
-            onPress={nextPage}
-          >
-            <Text style={[styles.buttonText, { color: '#FFF' }]}>
-              {currentPage === formPages.length - 1 ? 'Ajouter' : 'Suivant'}
-            </Text>
-            <MaterialCommunityIcons
-              name={currentPage === formPages.length - 1 ? 'check' : 'chevron-right'}
-              size={24}
-              color="#FFF"
-            />
-          </TouchableOpacity>
-        </View>
+      <View style={styles.footer}>
+        <CustomButton
+          title={currentPage === formPages.length - 1 ? 'إنهاء' : 'التالي'}
+          onPress={nextPage}
+          variant="primary"
+          loading={loading}
+          style={{ flex: 1, marginLeft: currentPage > 0 ? 8 : 0 }}
+        />
+        {currentPage > 0 && (
+          <CustomButton
+            title="السابق"
+            onPress={prevPage}
+            variant="secondary"
+            style={{ flex: 1, marginRight: 8 }}
+          />
+        )}
       </View>
     </View>
   );
@@ -422,40 +699,45 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  scrollView: {
-    flex: 1,
-  },
-  page: {
-    padding: 16,
-  },
-  pageHeader: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 24,
+    padding: 16,
   },
-  iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  headerText: {
-    flex: 1,
-  },
-  pageTitle: {
+  headerTitle: {
     fontSize: 24,
     fontWeight: '600',
-    marginBottom: 4,
+    marginRight: 16,
   },
-  pageSubtitle: {
+  backButton: {
+    padding: 8,
+  },
+  progressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  progressBar: {
+    flex: 1,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#E0E0E0',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 6,
+  },
+  progressText: {
+    marginLeft: 16,
     fontSize: 16,
   },
-  pageContent: {
+  content: {
+    flex: 1,
+  },
+  form: {
     gap: 24,
   },
-  field: {
+  inputGroup: {
     marginBottom: 16,
   },
   label: {
@@ -463,49 +745,12 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginBottom: 8,
   },
-  inputContainer: {
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
   input: {
     height: 48,
     paddingHorizontal: 16,
     fontSize: 16,
   },
-  textArea: {
-    height: 120,
-    paddingTop: 12,
-    paddingBottom: 12,
-    textAlignVertical: 'top',
-  },
-  inputError: {
-    borderWidth: 1,
-    borderColor: 'red',
-  },
-  errorText: {
-    fontSize: 12,
-    marginTop: 4,
-  },
-  optionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  optionButton: {
-    flex: 1,
-    minWidth: (width - 48) / 2,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    borderRadius: 8,
-    gap: 8,
-  },
-  optionText: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  genderButtons: {
+  genderContainer: {
     flexDirection: 'row',
     gap: 8,
   },
@@ -522,28 +767,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
-  footer: {
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
-  },
-  pagination: {
+  healthStatusContainer: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    marginBottom: 16,
+    flexWrap: 'wrap',
     gap: 8,
   },
-  paginationDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  buttons: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  button: {
+  healthStatusButton: {
     flex: 1,
+    minWidth: (width - 48) / 2,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -551,15 +782,13 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     gap: 8,
   },
-  secondaryButton: {
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  primaryButton: {
-    flex: 2,
-  },
-  buttonText: {
+  healthStatusText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '500',
+  },
+  footer: {
+    flexDirection: 'row',
+    padding: 16,
+    gap: 8,
   },
 }); 

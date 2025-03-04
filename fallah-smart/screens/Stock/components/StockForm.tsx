@@ -37,46 +37,46 @@ interface StockFormValues {
   expiryDate?: Date;
 }
 
-const categories: { value: StockCategory; label: string; icon: string }[] = [
-  { value: 'seeds', label: 'Semences', icon: 'seed-outline' },
-  { value: 'fertilizer', label: 'Engrais', icon: 'bottle-tonic-plus-outline' },
-  { value: 'harvest', label: 'Récoltes', icon: 'basket-outline' },
-  { value: 'feed', label: 'Aliments', icon: 'food-outline' },
-  { value: 'pesticide', label: 'Pesticides', icon: 'spray-bottle' },
-  { value: 'equipment', label: 'Équipement', icon: 'tractor-variant' },
-  { value: 'tools', label: 'Outils', icon: 'tools' }
+const categories: { value: StockCategory; label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }[] = [
+  { value: 'seeds', label: 'البذور', icon: 'seed-outline' },
+  { value: 'fertilizer', label: 'الأسمدة', icon: 'bottle-tonic-plus-outline' },
+  { value: 'harvest', label: 'المحاصيل', icon: 'basket-outline' },
+  { value: 'feed', label: 'الأعلاف', icon: 'food-outline' },
+  { value: 'pesticide', label: 'المبيدات', icon: 'spray-bottle' },
+  { value: 'equipment', label: 'المعدات', icon: 'tractor-variant' },
+  { value: 'tools', label: 'الأدوات', icon: 'tools' }
 ];
 
-const units: { value: StockUnit; label: string; icon: string }[] = [
-  { value: 'kg', label: 'Kilogrammes', icon: 'scale' },
-  { value: 'g', label: 'Grammes', icon: 'scale' },
-  { value: 'l', label: 'Litres', icon: 'bottle-water' },
-  { value: 'ml', label: 'Millilitres', icon: 'bottle-water' },
-  { value: 'units', label: 'Unités', icon: 'package-variant' }
+const units: { value: StockUnit; label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }[] = [
+  { value: 'kg', label: 'كيلوغرام', icon: 'scale' },
+  { value: 'g', label: 'غرام', icon: 'scale' },
+  { value: 'l', label: 'لتر', icon: 'bottle-soda' },
+  { value: 'ml', label: 'مليلتر', icon: 'bottle-soda' },
+  { value: 'units', label: 'وحدة', icon: 'package-variant' }
 ];
 
-const qualityOptions: { value: 'good' | 'medium' | 'poor'; label: string; icon: string; color: string }[] = [
-  { value: 'good', label: 'Bon', icon: 'check-decagram', color: '#4CAF50' },
-  { value: 'medium', label: 'Moyen', icon: 'alert-circle', color: '#FFC107' },
-  { value: 'poor', label: 'Mauvais', icon: 'close-circle', color: '#F44336' }
+const qualityOptions: { value: 'good' | 'medium' | 'poor'; label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap; color: string }[] = [
+  { value: 'good', label: 'جيد', icon: 'check-decagram', color: '#4CAF50' },
+  { value: 'medium', label: 'متوسط', icon: 'alert-circle', color: '#FFC107' },
+  { value: 'poor', label: 'سيء', icon: 'close-circle', color: '#F44336' }
 ];
 
 const validationSchema = Yup.object().shape({
-  name: Yup.string().required('Le nom est requis'),
+  name: Yup.string().required('اسم المنتج مطلوب'),
   quantity: Yup.number()
-    .required('La quantité est requise')
-    .min(0, 'La quantité doit être positive'),
-  unit: Yup.string().required('L\'unité est requise'),
-  category: Yup.string().required('La catégorie est requise'),
+    .required('الكمية مطلوبة')
+    .min(0, 'يجب أن تكون الكمية إيجابية'),
+  unit: Yup.string().required('الوحدة مطلوبة'),
+  category: Yup.string().required('الفئة مطلوبة'),
   lowStockThreshold: Yup.number()
-    .required('Le seuil de stock bas est requis')
-    .min(0, 'Le seuil doit être positif'),
+    .required('الحد الأدنى للمخزون مطلوب')
+    .min(0, 'يجب أن يكون الحد الأدنى إيجابياً'),
   location: Yup.string(),
   supplier: Yup.string(),
-  price: Yup.number().nullable().min(0, 'Le prix doit être positif'),
+  price: Yup.number().nullable().min(0, 'يجب أن يكون السعر إيجابياً'),
   notes: Yup.string(),
   isNatural: Yup.boolean(),
-  qualityStatus: Yup.string().oneOf(['good', 'medium', 'poor']).required('La qualité est requise'),
+  qualityStatus: Yup.string().oneOf(['good', 'medium', 'poor']).required('حالة الجودة مطلوبة'),
   batchNumber: Yup.string(),
   expiryDate: Yup.date().nullable()
 });
@@ -108,7 +108,7 @@ const FormPage = ({
   children: React.ReactNode;
   title: string;
   subtitle: string;
-  icon: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
   isActive: boolean;
   entering: any;
 }) => {
@@ -154,7 +154,22 @@ export const StockForm = ({
   const totalPages = 3;
 
   const handleSubmit = (values: StockFormValues) => {
-    onSubmit(values);
+    const stockItem: Omit<StockItem, 'id' | 'stockHistory' | 'createdAt' | 'updatedAt'> = {
+      name: values.name,
+      category: values.category,
+      quantity: values.quantity,
+      unit: values.unit,
+      lowStockThreshold: values.lowStockThreshold,
+      location: values.location,
+      supplier: values.supplier,
+      price: values.price,
+      batchNumber: values.batchNumber,
+      expiryDate: values.expiryDate?.toISOString(),
+      isNatural: values.isNatural,
+      qualityStatus: values.qualityStatus,
+      notes: values.notes
+    };
+    onSubmit(stockItem as any);
   };
 
   const formInitialValues: StockFormValues = {
@@ -191,15 +206,15 @@ export const StockForm = ({
 
             <ScrollView style={styles.scrollView}>
               <FormPage
-                title="Informations de base"
-                subtitle="Remplissez les informations essentielles du produit"
+                title="المعلومات الأساسية"
+                subtitle="أدخل المعلومات الأساسية للمنتج"
                 icon="package-variant"
                 isActive={currentPage === 0}
                 entering={FadeInRight}
               >
                 <View style={styles.inputGroup}>
                   <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
-                    Nom du produit *
+                    اسم المنتج *
                   </Text>
                   <View style={[styles.inputContainer, { backgroundColor: theme.colors.neutral.surface }]}>
                     <MaterialCommunityIcons
@@ -217,7 +232,7 @@ export const StockForm = ({
                       onChangeText={handleChange('name')}
                       onBlur={handleBlur('name')}
                       value={values.name}
-                      placeholder="Nom du produit"
+                      placeholder="اسم المنتج"
                       placeholderTextColor={theme.colors.neutral.textSecondary}
                       editable={!isSubmitting}
                     />
@@ -232,7 +247,7 @@ export const StockForm = ({
                 <View style={styles.row}>
                   <View style={[styles.inputGroup, { flex: 2 }]}>
                     <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
-                      Quantité *
+                      الكمية *
                     </Text>
                     <View style={[styles.inputContainer, { backgroundColor: theme.colors.neutral.surface }]}>
                       <MaterialCommunityIcons
@@ -251,7 +266,7 @@ export const StockForm = ({
                         onBlur={handleBlur('quantity')}
                         value={values.quantity.toString()}
                         keyboardType="numeric"
-                        placeholder="Quantité"
+                        placeholder="الكمية"
                         placeholderTextColor={theme.colors.neutral.textSecondary}
                         editable={!isSubmitting}
                       />
@@ -265,7 +280,7 @@ export const StockForm = ({
 
                   <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
                     <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
-                      Unité *
+                      الوحدة *
                     </Text>
                     <View style={[styles.pickerContainer, { backgroundColor: theme.colors.neutral.surface }]}>
                       <RNPickerSelect
@@ -292,7 +307,7 @@ export const StockForm = ({
 
                 <View style={styles.inputGroup}>
                   <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
-                    Catégorie *
+                    الفئة *
                   </Text>
                   <View style={[styles.pickerContainer, { backgroundColor: theme.colors.neutral.surface }]}>
                     <RNPickerSelect
@@ -318,7 +333,7 @@ export const StockForm = ({
 
                 <View style={styles.inputGroup}>
                   <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
-                    Seuil de stock bas *
+                    الحد الأدنى للمخزون *
                   </Text>
                   <View style={[styles.inputContainer, { backgroundColor: theme.colors.neutral.surface }]}>
                     <MaterialCommunityIcons
@@ -337,7 +352,7 @@ export const StockForm = ({
                       onBlur={handleBlur('lowStockThreshold')}
                       value={values.lowStockThreshold.toString()}
                       keyboardType="numeric"
-                      placeholder="Seuil d'alerte"
+                      placeholder="الحد الأدنى للمخزون"
                       placeholderTextColor={theme.colors.neutral.textSecondary}
                       editable={!isSubmitting}
                     />
@@ -351,15 +366,15 @@ export const StockForm = ({
               </FormPage>
 
               <FormPage
-                title="Détails supplémentaires"
-                subtitle="Ajoutez des informations complémentaires"
-                icon="information"
+                title="الكمية والسعر"
+                subtitle="حدد الكمية والسعر"
+                icon="currency-usd"
                 isActive={currentPage === 1}
                 entering={FadeInRight}
               >
                 <View style={styles.inputGroup}>
                   <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
-                    Emplacement
+                    الموقع (اختياري)
                   </Text>
                   <View style={[styles.inputContainer, { backgroundColor: theme.colors.neutral.surface }]}>
                     <MaterialCommunityIcons
@@ -373,7 +388,7 @@ export const StockForm = ({
                       onChangeText={handleChange('location')}
                       onBlur={handleBlur('location')}
                       value={values.location}
-                      placeholder="Emplacement (optionnel)"
+                      placeholder="الموقع (اختياري)"
                       placeholderTextColor={theme.colors.neutral.textSecondary}
                       editable={!isSubmitting}
                     />
@@ -382,7 +397,7 @@ export const StockForm = ({
 
                 <View style={styles.inputGroup}>
                   <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
-                    Fournisseur
+                    المورد
                   </Text>
                   <View style={[styles.inputContainer, { backgroundColor: theme.colors.neutral.surface }]}>
                     <MaterialCommunityIcons
@@ -396,7 +411,7 @@ export const StockForm = ({
                       onChangeText={handleChange('supplier')}
                       onBlur={handleBlur('supplier')}
                       value={values.supplier}
-                      placeholder="Fournisseur (optionnel)"
+                      placeholder="المورد (اختياري)"
                       placeholderTextColor={theme.colors.neutral.textSecondary}
                       editable={!isSubmitting}
                     />
@@ -405,7 +420,7 @@ export const StockForm = ({
 
                 <View style={styles.inputGroup}>
                   <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
-                    Prix unitaire
+                    السعر (درهم)
                   </Text>
                   <View style={[styles.inputContainer, { backgroundColor: theme.colors.neutral.surface }]}>
                     <MaterialCommunityIcons
@@ -420,7 +435,7 @@ export const StockForm = ({
                       onBlur={handleBlur('price')}
                       value={values.price?.toString() || ''}
                       keyboardType="numeric"
-                      placeholder="Prix unitaire (optionnel)"
+                      placeholder="السعر (درهم)"
                       placeholderTextColor={theme.colors.neutral.textSecondary}
                       editable={!isSubmitting}
                     />
@@ -429,7 +444,7 @@ export const StockForm = ({
 
                 <View style={styles.inputGroup}>
                   <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
-                    Numéro de lot
+                    رقم الدفعة
                   </Text>
                   <View style={[styles.inputContainer, { backgroundColor: theme.colors.neutral.surface }]}>
                     <MaterialCommunityIcons
@@ -443,7 +458,7 @@ export const StockForm = ({
                       onChangeText={handleChange('batchNumber')}
                       onBlur={handleBlur('batchNumber')}
                       value={values.batchNumber}
-                      placeholder="Numéro de lot (optionnel)"
+                      placeholder="رقم الدفعة (اختياري)"
                       placeholderTextColor={theme.colors.neutral.textSecondary}
                       editable={!isSubmitting}
                     />
@@ -452,15 +467,15 @@ export const StockForm = ({
               </FormPage>
 
               <FormPage
-                title="Qualité et péremption"
-                subtitle="Spécifiez la qualité et la date d'expiration"
-                icon="check-decagram"
+                title="تفاصيل إضافية"
+                subtitle="أضف معلومات إضافية"
+                icon="information"
                 isActive={currentPage === 2}
                 entering={FadeInRight}
               >
                 <View style={styles.inputGroup}>
                   <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
-                    Date d'expiration
+                    تاريخ انتهاء الصلاحية
                   </Text>
                   {(Platform.OS === 'ios' || showDatePicker) && (
                     <DateTimePicker
@@ -492,7 +507,7 @@ export const StockForm = ({
                         style={styles.inputIcon}
                       />
                       <Text style={{ color: theme.colors.neutral.textPrimary }}>
-                        {values.expiryDate ? values.expiryDate.toLocaleDateString() : "Sélectionner une date"}
+                        {values.expiryDate ? values.expiryDate.toLocaleDateString() : "اختر تاريخ"}
                       </Text>
                     </TouchableOpacity>
                   )}
@@ -507,13 +522,13 @@ export const StockForm = ({
                     disabled={isSubmitting}
                   />
                   <Text style={[styles.checkboxLabel, { color: theme.colors.neutral.textPrimary }]}>
-                    Produit naturel
+                    منتج طبيعي
                   </Text>
                 </View>
 
                 <View style={styles.inputGroup}>
                   <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
-                    Qualité *
+                    حالة الجودة *
                   </Text>
                   <View style={styles.qualityOptions}>
                     {qualityOptions.map((option) => (
@@ -551,7 +566,7 @@ export const StockForm = ({
 
                 <View style={styles.inputGroup}>
                   <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
-                    Notes
+                    ملاحظات
                   </Text>
                   <View style={[styles.inputContainer, { backgroundColor: theme.colors.neutral.surface }]}>
                     <MaterialCommunityIcons
@@ -569,7 +584,7 @@ export const StockForm = ({
                       onChangeText={handleChange('notes')}
                       onBlur={handleBlur('notes')}
                       value={values.notes}
-                      placeholder="Notes additionnelles (optionnel)"
+                      placeholder="ملاحظات إضافية (اختياري)"
                       placeholderTextColor={theme.colors.neutral.textSecondary}
                       multiline
                       numberOfLines={4}
@@ -609,7 +624,7 @@ export const StockForm = ({
                       color={theme.colors.neutral.textPrimary}
                     />
                     <Text style={[styles.paginationButtonText, { color: theme.colors.neutral.textPrimary }]}>
-                      Précédent
+                      السابق
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -620,7 +635,7 @@ export const StockForm = ({
                     disabled={isSubmitting}
                   >
                     <Text style={[styles.paginationButtonText, { color: '#FFF' }]}>
-                      Suivant
+                      التالي
                     </Text>
                     <MaterialCommunityIcons
                       name="chevron-right"
@@ -635,7 +650,7 @@ export const StockForm = ({
                     disabled={isSubmitting}
                   >
                     <Text style={[styles.paginationButtonText, { color: '#FFF' }]}>
-                      {isSubmitting ? "En cours..." : "Enregistrer"}
+                      {isSubmitting ? "جاري التحميل..." : "حفظ"}
                     </Text>
                     <MaterialCommunityIcons
                       name="check"
@@ -649,7 +664,7 @@ export const StockForm = ({
 
             <View style={styles.buttonContainer}>
               <Button
-                title="Annuler"
+                title="إلغاء"
                 onPress={onCancel}
                 style={[styles.button, styles.cancelButton]}
                 disabled={isSubmitting}

@@ -42,13 +42,13 @@ const getHealthStatusColor = (status: HealthStatus, theme: any) => {
 const getHealthStatusLabel = (status: HealthStatus): string => {
   switch (status) {
     case 'excellent':
-      return 'Excellent';
+      return 'ممتاز';
     case 'good':
-      return 'Bon';
+      return 'جيد';
     case 'fair':
-      return 'Moyen';
+      return 'متوسط';
     case 'poor':
-      return 'Mauvais';
+      return 'سيء';
     default:
       return status;
   }
@@ -56,10 +56,10 @@ const getHealthStatusLabel = (status: HealthStatus): string => {
 
 const getAnimalIcon = (type: string): string => {
   const lowercaseType = type.toLowerCase();
-  if (lowercaseType.includes('vache') || lowercaseType.includes('boeuf')) return 'cow';
-  if (lowercaseType.includes('mouton') || lowercaseType.includes('brebis')) return 'sheep';
-  if (lowercaseType.includes('poule') || lowercaseType.includes('coq')) return 'bird';
-  if (lowercaseType.includes('chèvre')) return 'goat';
+  if (lowercaseType.includes('بقرة') || lowercaseType.includes('ثور')) return 'cow';
+  if (lowercaseType.includes('خروف') || lowercaseType.includes('نعجة')) return 'sheep';
+  if (lowercaseType.includes('دجاج') || lowercaseType.includes('ديك')) return 'bird';
+  if (lowercaseType.includes('ماعز')) return 'goat';
   return 'paw';
 };
 
@@ -79,7 +79,7 @@ export const AnimalDetailScreen = ({ navigation, route }: AnimalDetailScreenProp
           color={theme.colors.error} 
         />
         <Text style={[styles.errorText, { color: theme.colors.error }]}>
-          Animal non trouvé
+          لم يتم العثور على الحيوان
         </Text>
       </View>
     );
@@ -87,15 +87,15 @@ export const AnimalDetailScreen = ({ navigation, route }: AnimalDetailScreenProp
 
   const handleDelete = useCallback(() => {
     Alert.alert(
-      'Supprimer l\'animal',
-      'Êtes-vous sûr de vouloir supprimer cet animal ?',
+      'حذف الحيوان',
+      'هل أنت متأكد من حذف هذا الحيوان؟',
       [
         {
-          text: 'Annuler',
+          text: 'إلغاء',
           style: 'cancel',
         },
         {
-          text: 'Supprimer',
+          text: 'حذف',
           style: 'destructive',
           onPress: async () => {
             setIsDeleting(true);
@@ -104,7 +104,7 @@ export const AnimalDetailScreen = ({ navigation, route }: AnimalDetailScreenProp
               navigation.goBack();
             } catch (error) {
               console.error('Error deleting animal:', error);
-              Alert.alert('Erreur', 'Une erreur est survenue lors de la suppression');
+              Alert.alert('خطأ', 'حدث خطأ أثناء الحذف');
             } finally {
               setIsDeleting(false);
             }
@@ -122,7 +122,7 @@ export const AnimalDetailScreen = ({ navigation, route }: AnimalDetailScreenProp
         await removeAnimalQuantity(animal.id, 1);
       }
     } catch (error) {
-      Alert.alert('Erreur', 'Une erreur est survenue lors de la modification de la quantité');
+      Alert.alert('خطأ', 'حدث خطأ أثناء تعديل الكمية');
     }
   }, [animal.id, addAnimalQuantity, removeAnimalQuantity]);
 
@@ -170,7 +170,7 @@ export const AnimalDetailScreen = ({ navigation, route }: AnimalDetailScreenProp
                 {animal.type}
               </Text>
               <Text style={[styles.animalGender, { color: theme.colors.neutral.textSecondary }]}>
-                {animal.gender === 'male' ? 'Mâle' : 'Femelle'}
+                {animal.gender === 'male' ? 'ذكر' : 'أنثى'}
               </Text>
             </View>
           </View>
@@ -189,7 +189,7 @@ export const AnimalDetailScreen = ({ navigation, route }: AnimalDetailScreenProp
                   {animal.count}
                 </Text>
                 <Text style={[styles.quantityLabel, { color: '#FFF' }]}>
-                  animaux
+                  حيوان
                 </Text>
               </View>
               <TouchableOpacity
@@ -214,18 +214,18 @@ export const AnimalDetailScreen = ({ navigation, route }: AnimalDetailScreenProp
         </Animated.View>
 
         <View style={styles.content}>
-          {renderInfoSection('Programme d\'alimentation', 'food-apple', animal.feedingSchedule)}
-          {renderInfoSection('Alimentation', 'food', animal.feeding)}
-          {renderInfoSection('Soins', 'medical-bag', animal.care)}
-          {renderInfoSection('Santé', 'heart-pulse', animal.health)}
-          {renderInfoSection('Logement', 'home', animal.housing)}
-          {renderInfoSection('Reproduction', 'baby-face', animal.breeding)}
-          {renderInfoSection('Maladies', 'virus', animal.diseases)}
-          {renderInfoSection('Médicaments', 'pill', animal.medications)}
-          {renderInfoSection('Comportement', 'eye', animal.behavior)}
-          {renderInfoSection('Économie', 'cash', animal.economics)}
-          {renderInfoSection('Vaccination', 'needle', animal.vaccination)}
-          {renderInfoSection('Notes', 'note-text', animal.notes)}
+          {renderInfoSection('برنامج التغذية', 'food-apple', animal.feedingSchedule)}
+          {renderInfoSection('التغذية', 'food', animal.feeding)}
+          {renderInfoSection('الرعاية', 'medical-bag', animal.care)}
+          {renderInfoSection('الصحة', 'heart-pulse', animal.health)}
+          {renderInfoSection('السكن', 'home', animal.housing)}
+          {renderInfoSection('التكاثر', 'baby-face', animal.breeding)}
+          {renderInfoSection('الأمراض', 'virus', animal.diseases)}
+          {renderInfoSection('الأدوية', 'pill', animal.medications)}
+          {renderInfoSection('السلوك', 'eye', animal.behavior)}
+          {renderInfoSection('الجوانب الاقتصادية', 'cash', animal.economics)}
+          {renderInfoSection('التطعيم', 'needle', animal.vaccination)}
+          {renderInfoSection('ملاحظات', 'note-text', animal.notes)}
         </View>
       </ScrollView>
 
@@ -237,7 +237,7 @@ export const AnimalDetailScreen = ({ navigation, route }: AnimalDetailScreenProp
         >
           <MaterialCommunityIcons name="trash-can" size={24} color="#FFF" />
           <Text style={styles.deleteButtonText}>
-            {isDeleting ? 'Suppression...' : 'Supprimer'}
+            {isDeleting ? 'جاري الحذف...' : 'حذف'}
           </Text>
         </TouchableOpacity>
       </View>

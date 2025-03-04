@@ -58,72 +58,71 @@ export const StockNavigator = () => {
         <Stack.Screen 
           name="StockTab" 
           component={TabBar}
-          options={{ title: 'Mes Stocks', headerShown: false }}
+          options={{ title: 'مخزوني', headerShown: false }}
         />
         <Stack.Screen 
           name="StockList" 
           component={StockScreen}
           options={{
-            title: 'Gestion des Stocks',
+            title: 'إدارة المخزون',
             headerShown: true,
           }}
         />
         <Stack.Screen 
           name="StockDetail" 
           component={StockDetail}
-          options={{ title: 'Détails du Stock', headerShown: true }}
-          
+          options={{ title: 'تفاصيل المخزون', headerShown: true }}
         />
         <Stack.Screen 
           name="AddStock" 
           component={AddStockScreen}
-          options={{ title: 'Ajouter un Stock', headerShown: true }}
+          options={{ title: 'إضافة مخزون', headerShown: true }}
         />
         <Stack.Screen 
           name="Animals" 
           component={AnimalsScreen}
           options={{
-            title: 'Mes Animaux',
+            title: 'حيواناتي',
           }}
         />
         <Stack.Screen 
           name="AddAnimal" 
           component={AddAnimalScreen}
           options={{
-            title: 'Ajouter un Animal',
+            title: 'إضافة حيوان',
           }}
         />
         <Stack.Screen 
           name="AnimalDetail" 
           component={AnimalDetailScreen}
           options={{
-            title: 'Détails de l\'Animal',
+            title: 'تفاصيل الحيوان',
           }}
         />
         <Stack.Screen 
           name="PesticideList" 
           component={PesticideList}
-          options={{ title: 'Liste des Pesticides', headerShown: true }}
+          options={{ title: 'قائمة المبيدات', headerShown: true }}
         />
         <Stack.Screen 
           name="PesticideDetail" 
           component={PesticideDetail}
-          options={{ title: 'Détails du Pesticide', headerShown: true }}
+          options={{ title: 'تفاصيل المبيد', headerShown: true }}
         />
         <Stack.Screen 
           name="AddPesticide" 
           component={AddPesticide}
-          options={{ title: 'Ajouter un Pesticide', headerShown: true }}
+          options={{ title: 'إضافة مبيد', headerShown: true }}
         />
         <Stack.Screen 
           name="Blogs" 
           component={Blogs}
-          options={{ title: 'Blog', headerShown: true }}
+          options={{ title: 'المدونة', headerShown: true }}
         />
         <Stack.Screen 
           name="PostDetail" 
           component={PostDetail}
-          options={{ title: 'Post Detail', headerShown: false }}
+          options={{ title: 'تفاصيل المنشور', headerShown: false }}
         />
       </Stack.Navigator>
     </PesticideProvider>
@@ -142,7 +141,7 @@ const AddStockScreen = () => {
       setSubmitError(null);
       await addStock(values);
       await refreshStocks();
-      navigation.navigate('StockList');
+      navigation.navigate('StockList' as never);
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : 'Failed to add stock');
     } finally {
@@ -151,7 +150,7 @@ const AddStockScreen = () => {
   };
 
   const handleCancel = () => {
-    navigation.navigate('StockList');
+    navigation.navigate('StockList' as never);
   };
 
   if (loading) {

@@ -1,6 +1,6 @@
 module.exports = (connection, DataTypes) => {
-  const AnimalDetails = connection.define(
-    "AnimalDetails",
+  const AnimalGaston = connection.define(
+    "AnimalGaston",
     {
       type: {
         type: DataTypes.STRING,
@@ -57,9 +57,9 @@ module.exports = (connection, DataTypes) => {
       }
     },
     {
-      tableName: "animal_details",
+      tableName: "animal_gaston",
       timestamps: true,
     }
   );
-  return AnimalDetails;
+  return AnimalGaston;
 };
