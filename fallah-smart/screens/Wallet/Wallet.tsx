@@ -146,6 +146,53 @@ const HomeScreen = () => {
     }
   };
 
+  // Add this function to calculate and update balance
+  const calculateAndUpdateBalance = async (transactions) => {
+    try {
+      const totalIncome = transactions
+        .filter(transaction => transaction.category.type === 'Income')
+        .reduce((sum, transaction) => sum + transaction.amount, 0);
+
+      const totalExpense = transactions
+        .filter(transaction => transaction.category.type === 'Expense')
+        .reduce((sum, transaction) => sum + transaction.amount, 0);
+
+      const newBalance = totalIncome - totalExpense;
+
+      // Get the access token
+      const userStr = await AsyncStorage.getItem('@access_token');
+      
+      if (selectedAccountId && userStr) {
+        const response = await axios.put(`http://localhost:5000/api/accounts/${selectedAccountId}`, {
+          type: transactions[0]?.category?.type || 'Income',
+          amount: transactions[0]?.amount || 0,
+          balance: newBalance
+        }, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${userStr}`
+          }
+        });
+
+        if (response.data.success) {
+          setAccounts(prevAccounts => 
+            prevAccounts.map(account => 
+              account.id === selectedAccountId 
+                ? { ...account, balance: response.data.balance }
+                : account
+            )
+          );
+        }
+      }
+
+      return newBalance;
+    } catch (error) {
+      console.error('Error updating balance:', error);
+      setError('Error updating balance: ' + (error.response?.data?.message || error.message));
+    }
+  };
+
+  // Modify the fetchTransactions function to calculate balance after fetching
   const fetchTransactions = async (selectedAccountId) => {
     const userStr = await AsyncStorage.getItem('@access_token');
 
@@ -153,12 +200,14 @@ const HomeScreen = () => {
       const response = await axios.get(`http://localhost:5000/api/transactions/${selectedAccountId}`, {
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userStr}`
         }
       });
       
-     
       if (response.data.success) {
         setTransactions(response.data.data);
+        // Calculate and update balance whenever transactions are fetched
+        await calculateAndUpdateBalance(response.data.data);
       } else {
         setError('Error fetching transactions: ' + response.data.message);
       }
@@ -260,7 +309,28 @@ const HomeScreen = () => {
       categoryData.count += 1;
     });
 
-    return Array.from(categoryMap.values());
+    // Convert to array and sort: income categories first, then expenses
+    return Array.from(categoryMap.values()).sort((a, b) => {
+      if (a.isIncome === b.isIncome) {
+        // If both are income or both are expenses, sort by amount (highest first)
+        return b.amount - a.amount;
+      }
+      // Put income categories first
+      return a.isIncome ? -1 : 1;
+    });
+  };
+
+  // ... existing imports ...
+  
+  // Add this function to get formatted current date
+  const getCurrentDate = () => {
+    const date = new Date();
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long'
+      
+    });
   };
 
   return (
@@ -287,9 +357,9 @@ const HomeScreen = () => {
       </View>
 
       <ScrollView style={styles.scrollView}>
-        {/* Month Display */}
+        {/* Month Display - Updated */}
         <View style={styles.monthContainer}>
-          <Text style={styles.monthText}>February</Text>
+          <Text style={styles.monthText}>{getCurrentDate()}</Text>
         </View>
 
         {/* Balance Box - Clickable */}

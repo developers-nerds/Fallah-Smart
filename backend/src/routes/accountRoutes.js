@@ -13,7 +13,7 @@ router.get('/', accountController.getAllAccounts);
 router.post('/', accountController.createAccount);
 
 // Update authenticated user's account
-router.put('/', accountController.updateAccount);
+router.put('/:id', accountController.updateAccountBalance);
 
 // Delete authenticated user's account
 router.delete('/', accountController.deleteAccount);
