@@ -5,36 +5,91 @@ async function seedTransactions() {
   try {
     console.log("🌱 Seeding transactions...");
 
-    const accounts = await Accounts.findAll();
-    if (!accounts.length) {
-      throw new Error("No accounts found. Please seed accounts first.");
-    }
-
-    const transactionsToCreate = [];
-    const categories = ['Feed', 'Equipment', 'Supplies', 'Labor', 'Maintenance', 'Sales', 'Investment'];
-
-    for (const account of accounts) {
-      const transactionCount = faker.number.int({ min: 5, max: 15 });
-
-      for (let i = 0; i < transactionCount; i++) {
-        const amount = faker.number.float({ min: 10, max: 5000, multipleOf: 0.01 });
-        transactionsToCreate.push({
-          accountId: account.id,
-          amount: amount,
-          type: amount > 0 ? 'income' : 'expense',
-          description: faker.commerce.productDescription(),
-          category: faker.helpers.arrayElement(categories),
-          date: faker.date.recent({ days: 90 }),
-          status: faker.helpers.arrayElement(['completed', 'pending', 'failed']),
-          reference: faker.string.alphanumeric(10),
-          createdAt: new Date(),
-          updatedAt: new Date()
-        });
+    const transactions = [
+      {
+        amount: 999,
+        type: "income",
+        date: new Date("2025-03-03"),
+        note: "chahreya",
+        categoryId: 1,
+        accountId: 1
+      },
+      {
+        amount: 200,
+        type: "expense",
+        date: new Date("2025-03-03"),
+        note: "kaskrout",
+        categoryId: 2,
+        accountId: 1
+      },
+      {
+        amount: 100,
+        type: "expense",
+        date: new Date("2025-03-03"),
+        note: "mekla",
+        categoryId: 2,
+        accountId: 1
+      },
+      {
+        amount: 100,
+        type: "expense",
+        date: new Date("2025-03-03"),
+        note: "pizza",
+        categoryId: 2,
+        accountId: 1
+      },
+      {
+        amount: 50,
+        type: "expense",
+        date: new Date("2025-03-03"),
+        note: "essence",
+        categoryId: 4,
+        accountId: 1
+      },
+      {
+        amount: 30,
+        type: "expense",
+        date: new Date("2025-03-03"),
+        note: "micho",
+        categoryId: 5,
+        accountId: 1
+      },
+      {
+        amount: 100,
+        type: "expense",
+        date: new Date("2024-02-20"),
+        note: "talyatelyy",
+        categoryId: 2,
+        accountId: 1
+      },
+      {
+        amount: 100,
+        type: "income",
+        date: new Date("2024-02-20"),
+        note: "bousta",
+        categoryId: 1,
+        accountId: 1
+      },
+      {
+        amount: 1000,
+        type: "income",
+        date: new Date("2024-02-20"),
+        note: "cha9a9a",
+        categoryId: 1,
+        accountId: 1
+      },
+      {
+        amount: 109,
+        type: "expense",
+        date: new Date("2024-02-20"),
+        note: "mazout",
+        categoryId: 4,
+        accountId: 1
       }
-    }
+    ];
 
-    await Transactions.bulkCreate(transactionsToCreate);
-    console.log(`✅ Created ${transactionsToCreate.length} transactions`);
+    await Transactions.bulkCreate(transactions);
+    console.log(`✅ Created ${transactions.length} transactions`);
 
     return true;
   } catch (error) {
