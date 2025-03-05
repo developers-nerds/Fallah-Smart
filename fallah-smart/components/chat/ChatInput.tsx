@@ -1,5 +1,15 @@
 import React, { useEffect } from 'react';
-import { View, TextInput, TouchableOpacity, StyleSheet, Image, Animated, Text } from 'react-native';
+import {
+  View,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Image,
+  Animated,
+  Text,
+  Platform,
+  LayoutAnimation,
+} from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { theme } from '../../theme/theme';
 
@@ -68,6 +78,12 @@ const ChatInput = ({
       ]).start(() => {
         imageScaleAnim.setValue(0);
       });
+    }
+  }, [selectedImage]);
+
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     }
   }, [selectedImage]);
 
@@ -143,6 +159,7 @@ const ChatInput = ({
           placeholder="Type a message..."
           placeholderTextColor={theme.colors.neutral.gray.base}
           multiline
+          textAlignVertical="center"
         />
         <View style={styles.buttonContainer}>
           <TouchableOpacity
@@ -186,10 +203,14 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.neutral.surface,
     borderTopWidth: 1,
     borderTopColor: theme.colors.neutral.border,
+    width: '100%',
+    position: 'relative',
   },
   inputRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
+    minHeight: 50,
+    paddingBottom: Platform.OS === 'ios' ? theme.spacing.xs : 0,
   },
   imagePreviewContainer: {
     marginBottom: theme.spacing.md,
@@ -236,14 +257,17 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.neutral.gray.light,
     borderRadius: theme.borderRadius.medium,
     paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
+    paddingVertical: Platform.OS === 'ios' ? theme.spacing.sm : theme.spacing.xs,
     color: theme.colors.neutral.textPrimary,
     marginRight: theme.spacing.sm,
     maxHeight: 100,
+    minHeight: 40,
+    textAlignVertical: 'center',
   },
   buttonContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingBottom: Platform.OS === 'ios' ? 0 : theme.spacing.xs,
   },
   iconButton: {
     marginHorizontal: theme.spacing.xs,

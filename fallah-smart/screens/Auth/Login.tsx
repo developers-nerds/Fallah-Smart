@@ -17,6 +17,7 @@ import axios from 'axios';
 import { theme } from '../../theme/theme';
 import { storage } from '../../utils/storage';
 import { RootStackParamList } from '../../navigation/types';
+import { useAuth } from '../../contexts/AuthContext';
 
 const Login = () => {
   const navigation = useNavigation<LoginScreenNavigationProp>();
@@ -26,43 +27,61 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const API_URL = process.env.EXPO_PUBLIC_API_URL;
+  const { login } = useAuth();
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
-      return;
-    }
-
     try {
+      // Remove any existing authorization header
+      delete axios.defaults.headers.common['Authorization'];
+      
+      // Input validation
+      if (!email || !password) {
+        Alert.alert('Validation Error', 'Please enter both email and password');
+        return;
+      }
+
+      if (!API_URL) {
+        Alert.alert('Configuration Error', 'API URL is not configured');
+        return;
+      }
+
       setIsLoading(true);
       setError('');
   
       const response = await axios.post(`${API_URL}/users/login`, {
-        email,
+        email: email.trim(),
         password,
       });
   
       const { user, tokens } = response.data;
   
-      await Promise.all([
-        storage.setUser(user),
-        storage.setTokens(tokens.access.token, tokens.refresh.token)
-      ]);
+      if (!user || !tokens) {
+        throw new Error('Invalid response from server');
+      }
   
+      // Use the auth context login function
+      await login(user, tokens);
+  
+      // Set the authorization header for subsequent requests
       axios.defaults.headers.common['Authorization'] = `Bearer ${tokens.access.token}`;
   
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'StockTab' }],
-      });
-    } catch (error: any) {
+      navigation.navigate('StockTab');
+    } catch (err) {
+      let errorMessage = 'An error occurred during login';
+      
       console.error('Login Error:', {
-        status: error.response?.status,
-        data: error.response?.data,
-        message: error.message
+        status: err.response?.status,
+        data: err.response?.data,
+        headers: err.response?.headers,
+        url: err.config?.url
       });
       
-      const errorMessage = error.response?.data?.message || error.message || 'An error occurred during login';
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+
       setError(errorMessage);
       Alert.alert('Login Error', errorMessage);
     } finally {

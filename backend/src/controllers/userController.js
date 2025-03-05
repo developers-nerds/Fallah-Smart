@@ -143,57 +143,41 @@ const userController = {
     try {
       const { email, password } = req.body;
 
-      // Find user with additional data
-      const user = await Users.findOne({
-        where: { email },
-        attributes: { exclude: ['password'] }
-      });
-
+      const user = await Users.findOne({ where: { email } });
       if (!user) {
-        return res.status(401).json({ message: 'Invalid credentials' });
+        return res.status(401).json({ message: 'Invalid email or password' });
       }
 
-      // Get user with password for verification
-      const userWithPassword = await Users.findOne({ where: { email } });
-      
-      // Verify password
-      const validPassword = await bcrypt.compare(password, userWithPassword.password);
-      if (!validPassword) {
-        return res.status(401).json({ message: 'Invalid credentials' });
+      const isValidPassword = await bcrypt.compare(password, user.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ message: 'Invalid email or password' });
       }
 
-      // Update last login
-      await user.update({
-        isOnline: true,
-        lastLogin: new Date()
-      });
+      // Generate tokens
+      const tokens = {
+        access: {
+          token: jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '1d' }),
+          expires: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        },
+        refresh: {
+          token: jwt.sign({ id: user.id }, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' }),
+          expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        },
+      };
 
-      // Generate tokens with user data
-      const accessToken = generateAccessToken(user);
-      const refreshToken = generateRefreshToken(user);
+      // Remove sensitive data
+      const userData = {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+      };
 
-      // Save refresh token
-      await user.update({ refreshToken });
-
-      res.json({
-        user: user,
-        tokens: {
-          access: {
-            token: accessToken,
-            expires: JWT_EXPIRES_IN
-          },
-          refresh: {
-            token: refreshToken,
-            expires: JWT_REFRESH_EXPIRES_IN
-          }
-        }
-      });
+      res.json({ user: userData, tokens });
     } catch (error) {
       console.error('Login error:', error);
-      res.status(500).json({
-        message: 'Error logging in',
-        error: error.message
-      });
+      res.status(500).json({ message: 'Error during login' });
     }
   },
 
@@ -242,26 +226,17 @@ const userController = {
   // Update profile
   updateProfile: async (req, res) => {
     try {
-      console.log('Profile update request received');
-      console.log('Request body:', req.body);
-      console.log('File received:', req.file ? 'Yes' : 'No');
-      
-      const {
-        username,
-        firstName,
-        lastName,
-        gender,
-        phoneNumber
-      } = req.body;
+      const userId = req.user.id; // Get user ID from auth middleware
+      const user = await Users.findByPk(userId);
 
-      // Validate the user exists
-      const user = await Users.findByPk(req.user.id);
       if (!user) {
-        console.log('User not found:', req.user.id);
         return res.status(404).json({ message: 'User not found' });
       }
 
-      // Handle profile image upload
+      // Get the update data from request body
+      const { username, firstName, lastName, gender, phoneNumber } = req.body;
+
+      // Handle profile picture
       let profilePicture = user.profilePicture;
       if (req.file) {
         // Create URL for the uploaded file
@@ -270,7 +245,7 @@ const userController = {
       }
 
       // Update user data
-      await user.update({
+      const updatedUser = await user.update({
         username: username || user.username,
         firstName: firstName || user.firstName,
         lastName: lastName || user.lastName,
@@ -279,13 +254,20 @@ const userController = {
         profilePicture: profilePicture
       });
 
-      // Fetch updated user data
-      const updatedUser = await Users.findByPk(req.user.id, {
-        attributes: { exclude: ['password', 'refreshToken'] }
-      });
+      // Remove sensitive data before sending response
+      const userResponse = {
+        id: updatedUser.id,
+        username: updatedUser.username,
+        firstName: updatedUser.firstName,
+        lastName: updatedUser.lastName,
+        email: updatedUser.email,
+        gender: updatedUser.gender,
+        phoneNumber: updatedUser.phoneNumber,
+        profilePicture: updatedUser.profilePicture
+      };
 
-      console.log("Profile updated successfully for user:", updatedUser.id);
-      res.json(updatedUser);
+      res.json(userResponse);
+
     } catch (error) {
       console.error('Profile update error:', error);
       res.status(500).json({ 
@@ -357,6 +339,63 @@ const userController = {
     } catch (error) {
       console.error('Users fetch error:', error);
       res.status(500).json({ message: 'Error fetching users' });
+    }
+  },
+
+  verify: async (req, res) => {
+    try {
+      const token = req.headers.authorization?.split(' ')[1];
+      if (!token) {
+        return res.status(401).json({ message: 'No token provided' });
+      }
+
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const user = await Users.findByPk(decoded.id);
+
+      if (!user) {
+        return res.status(401).json({ message: 'User not found' });
+      }
+
+      res.json({ 
+        valid: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          role: user.role
+        }
+      });
+    } catch (error) {
+      res.status(401).json({ message: 'Invalid token' });
+    }
+  },
+
+  refresh: async (req, res) => {
+    try {
+      const { refreshToken } = req.body;
+      
+      const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+      const user = await Users.findByPk(decoded.id);
+
+      if (!user) {
+        return res.status(401).json({ message: 'User not found' });
+      }
+
+      const tokens = {
+        access: {
+          token: jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '1d' }),
+          expires: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        },
+        refresh: {
+          token: jwt.sign({ id: user.id }, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' }),
+          expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        },
+      };
+
+      res.json({ tokens });
+    } catch (error) {
+      res.status(401).json({ message: 'Invalid refresh token' });
     }
   },
 };

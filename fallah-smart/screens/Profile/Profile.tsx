@@ -36,7 +36,7 @@ type UserProfile = {
 
 // Add gender options
 const GENDER_OPTIONS = ['Male', 'Female'];
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
+const API_URL = 'http://192.168.104.24:5000/api';
 
 // Add image picker function
 const pickImage = async () => {

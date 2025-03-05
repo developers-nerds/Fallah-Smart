@@ -23,4 +23,7 @@ router.put('/change-password', auth, userController.changePassword);
 router.delete('/account', auth, userController.deleteAccount);
 router.get('/users', auth, userController.getAllUsers);
 
+router.get('/verify', userController.verify);
+router.post('/refresh', userController.refresh);
+
 module.exports = router;

@@ -16,7 +16,8 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.fallahsmart"
+      "bundleIdentifier": "com.fallahsmart",
+      "associatedDomains": ["applinks:fallahsmart.com"]
     },
     "android": {
       "adaptiveIcon": {
@@ -24,7 +25,16 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.fallahsmart",
-      "permissions": ["INTERNET"]
+      "permissions": ["INTERNET"],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "category": ["DEFAULT", "BROWSABLE"],
+          "data": {
+            "scheme": "fallahsmart"
+          }
+        }
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -33,6 +43,7 @@
       "eas": {
         "projectId": "fallahsmart-c62d4"
       }
-    }
+    },
+    "scheme": "fallahsmart"
   }
 }

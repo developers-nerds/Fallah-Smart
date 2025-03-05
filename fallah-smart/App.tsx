@@ -5,6 +5,7 @@ import { StockNavigator } from './navigation/StockNavigator';
 import { StockProvider } from './context/StockContext';
 import { PesticideProvider } from './context/PesticideContext';
 import { StatusBar } from 'react-native';
+import { AuthProvider } from './contexts/AuthContext';
 
 export default function App() {
   return (
@@ -16,11 +17,13 @@ export default function App() {
         }}
       >
         <ThemeProvider>
-          <StockProvider>
-            <PesticideProvider>
-              <StockNavigator />
-            </PesticideProvider>
-          </StockProvider>
+          <AuthProvider>
+            <StockProvider>
+              <PesticideProvider>
+                <StockNavigator />
+              </PesticideProvider>
+            </StockProvider>
+          </AuthProvider>
         </ThemeProvider>
       </NavigationContainer>
     </>
