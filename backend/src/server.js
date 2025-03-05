@@ -9,6 +9,11 @@ const pesticideRoutes = require('./routes/pesticideRoutes');
 const blogRoutes = require("./routes/blogRoutes");
 const scanRoutes = require("./routes/scanRoutes");
 const conversationRoutes = require("./routes/conversationRoutes");
+const cropRoutes = require("./routes/crops");
+const cropDetailsRoutes = require("./routes/cropsDetails");
+const animalDetailsRoutes = require("./routes/animalsDetails");
+const animal = require("./routes/animal");
+const stockStatisticsRoutes = require("./routes/stockStatisticsRoutes");
 
 const app = express();
 const port = process.env.PORT;
@@ -29,6 +34,17 @@ app.use('/api/pesticides', pesticideRoutes);
 app.use("/api/blog", blogRoutes);
 app.use("/api/scans", scanRoutes);
 app.use("/api/conversations", conversationRoutes);
+app.use("/api/crops", cropRoutes);
+app.use("/api/cropsDetails", cropDetailsRoutes);
+app.use("/api/animalDetails", animalDetailsRoutes);
+app.use("/api/animal", animal);
+app.use("/api/stock-statistics", stockStatisticsRoutes);
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ message: 'Something went wrong!' });
+});
 
 // Test route for image serving
 app.get('/test-image', (req, res) => {

@@ -13,4 +13,5 @@ export type StockStackParamList = {
   AddPesticide: undefined;
   Blogs: undefined;
   PostDetail: { postId: string };
+  Statistics: undefined;
 }; 

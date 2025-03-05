@@ -438,6 +438,16 @@ const StockScreen = () => {
         <View style={styles.headerButtons}>
           <TouchableOpacity
             style={[styles.headerButton, { padding: theme.spacing.sm }]}
+            onPress={() => navigation.navigate('Statistics')}
+          >
+            <MaterialCommunityIcons 
+              name="chart-line" 
+              size={32} 
+              color={theme.colors.primary.base} 
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.headerButton, { padding: theme.spacing.sm }]}
             onPress={() => navigation.navigate('PesticideList')}
           >
             <MaterialCommunityIcons 

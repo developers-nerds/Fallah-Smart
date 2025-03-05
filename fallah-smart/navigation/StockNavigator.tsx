@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import StockScreen from '../screens/Stock/stock';
 import { StockDetail } from '../screens/Stock/StockDetail';
-import { StockForm } from '../screens/Stock/components/StockForm';
+import { StockForm, StockFormValues } from '../screens/Stock/components/StockForm';
 import { AnimalsScreen } from '../screens/Stock/Animals/Animals';
 import { AddAnimalScreen } from '../screens/Stock/Animals/AddAnimal';
 import { AnimalDetailScreen } from '../screens/Stock/Animals/AnimalDetail';
@@ -20,6 +20,7 @@ import { AddPesticide } from '../screens/Stock/Pesticides/AddPesticide';
 import { PesticideProvider } from '../context/PesticideContext';
 import Blogs from '../screens/blogs/blogs';
 import PostDetail from '../screens/blogs/PostDetail';
+import StockStatisticsScreen from '../screens/Stock/StockStatisticsScreen';
 import { StockStackParamList } from './types';
 
 const Stack = createStackNavigator<StockStackParamList>();
@@ -124,6 +125,11 @@ export const StockNavigator = () => {
           component={PostDetail}
           options={{ title: 'تفاصيل المنشور', headerShown: false }}
         />
+        <Stack.Screen 
+          name="Statistics" 
+          component={StockStatisticsScreen}
+          options={{ title: 'إحصائيات المخزون', headerShown: true }}
+        />
       </Stack.Navigator>
     </PesticideProvider>
   );
@@ -135,13 +141,17 @@ const AddStockScreen = () => {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const handleSubmit = async (values: Omit<StockItem, 'id' | 'stockHistory'>) => {
+  const handleSubmit = async (values: StockFormValues) => {
     try {
       setSubmitting(true);
       setSubmitError(null);
-      await addStock(values);
+      await addStock({
+        ...values,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
       await refreshStocks();
-      navigation.navigate('StockList' as never);
+      navigation.navigate('StockList');
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : 'Failed to add stock');
     } finally {
@@ -150,7 +160,7 @@ const AddStockScreen = () => {
   };
 
   const handleCancel = () => {
-    navigation.navigate('StockList' as never);
+    navigation.navigate('StockList');
   };
 
   if (loading) {
