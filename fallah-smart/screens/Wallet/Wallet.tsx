@@ -24,8 +24,8 @@ const HomeScreen = () => {
   const navigation = useNavigation()
 
   const API_BASE_URL = Platform.select({
-    web: 'http://localhost:5000',
-    default: 'http://192.168.104.18:5000' // Replace with your actual local IP
+    web: process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api',
+    default: process.env.EXPO_PUBLIC_API_URL
   });
 
   const getUserIdFromToken = async () => {
@@ -51,7 +51,7 @@ const HomeScreen = () => {
     if (!userId || !userStr) return;
 
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/accounts`, {
+      const response = await axios.get(`${API_BASE_URL}/accounts`, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${userStr}`
@@ -73,7 +73,7 @@ const HomeScreen = () => {
   const fetchTransactions = async (accountId) => {
     const userStr = await AsyncStorage.getItem('@access_token');
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/transactions/${accountId}`, {
+      const response = await axios.get(`${API_BASE_URL}/transactions/${accountId}`, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${userStr}`
@@ -105,7 +105,7 @@ const HomeScreen = () => {
 
       const userStr = await AsyncStorage.getItem('@access_token');
       if (selectedAccountId && userStr) {
-        const response = await axios.put(`${API_BASE_URL}/api/accounts/${selectedAccountId}`, {
+        const response = await axios.put(`${API_BASE_URL}/accounts/${selectedAccountId}`, {
           type: transactions[0]?.category?.type || 'Income',
           amount: transactions[0]?.amount || 0,
           balance: newBalance
