@@ -51,7 +51,7 @@ const Register = () => {
 
   const handleRegister = async () => {
     const API_URL = process.env.EXPO_PUBLIC_API_URL;
-    console.log(API_URL,"gggg222");
+    console.log(API_URL,"apiiiiiiiiiii");
     try {
       if (formData.password !== formData.confirmPassword) {
         Alert.alert('Error', 'Passwords do not match');
