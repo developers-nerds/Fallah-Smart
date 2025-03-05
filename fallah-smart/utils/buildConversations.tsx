@@ -11,7 +11,7 @@ interface ConversationData {
   icon: string;
   description: string;
 }
-
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 const API_URL = process.env.EXPO_PUBLIC_API_KEY;
 const header = { 'Content-Type': 'application/json' };
 
@@ -29,7 +29,7 @@ const parseAIResponse = (response: string): ConversationData => {
 
 export const createConversationInDB = async (conversationData: ConversationData, token: string) => {
   try {
-    const response = await fetch('http://localhost:3000/api/conversations/create', {
+    const response = await fetch(`${BASE_URL}/conversations/create`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -39,6 +39,7 @@ export const createConversationInDB = async (conversationData: ConversationData,
     });
 
     const data = await response.json();
+    console.log('data', data);
     return { success: true, data };
   } catch (error) {
     console.error('Error creating conversation:', error);
