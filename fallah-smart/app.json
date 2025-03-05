@@ -1,6 +1,9 @@
 {
   "expo": {
     "name": "fallahsmart",
+    "web": {
+      "bundler": "metro"
+    },
     "slug": "fallahsmart",
     "version": "1.0.0",
     "orientation": "portrait",
