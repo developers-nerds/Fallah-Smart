@@ -24,9 +24,9 @@ import axios from 'axios';
 import { theme } from '../../theme/theme';
 
 import * as ImagePicker from 'expo-image-picker';
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
 // API Base URL
-const API_URL = "http://192.168.104.24:5000/api/blog";
 
 // Post category options for creation only, not filtering
 const CATEGORIES = [
@@ -62,8 +62,8 @@ const Blogs = () => {
       setLoading(true);
       setError(null);
       
-      console.log('🔄 Fetching posts from:', `${API_URL}/posts`);
-      const response = await axios.get(`${API_URL}/posts`, {
+      console.log('🔄 Fetching posts from:', `${API_URL}/blog/posts`);
+      const response = await axios.get(`${API_URL}/blog/posts`, {
         timeout: 10000, // 10 second timeout
         headers: {
           'Accept': 'application/json',
@@ -362,7 +362,7 @@ const renderPostItem = ({ item }) => (
             source={{ 
               uri: item.author.profilePicture.startsWith('http') 
                 ? item.author.profilePicture 
-                : `http://192.168.1.16:5000${item.author.profilePicture}` // Fixed URL
+                : `http://192.168.11.225:5000${item.author.profilePicture}` // Fixed URL
             }} 
             style={styles.authorAvatar} 
           />

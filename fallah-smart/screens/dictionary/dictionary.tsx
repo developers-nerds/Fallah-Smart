@@ -87,8 +87,8 @@ const Dictionary = () => {
     try {
       setLoading(true);
       const [cropsResponse, animalsResponse] = await Promise.all([
-        axios.get('http:/192.168.11.155:5000/api/crops'),
-        axios.get('http://192.168.11.155:5000/api/animals/get')
+        axios.get('http://192.168.11.225:5000/api/crops'),
+        axios.get('http://192.168.11.225:5000/api/animal/get')
       ]);
       setCrops(cropsResponse.data);
       setAnimals(animalsResponse.data);

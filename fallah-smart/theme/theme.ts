@@ -4,14 +4,14 @@ import { StyleSheet, Text, View, TouchableOpacity, TextInput } from 'react-nativ
 export const theme = {
   colors: {
     primary: {
-      base: '#2F5E1E',    // Natural forest green
-      light: '#4B7B2C',   // Fresh leaf green
-      dark: '#1B3912',    // Deep forest green
-      disabled: '#A5C49B', // Muted green
-      surface: '#E8F5E9',  // Light green surface
+      base: '#093731',    // Deep forest green
+      light: '#1A4F47',   // Fresh leaf green
+      dark: '#052420',    // Deep forest
+      disabled: '#A5C4C0', // Muted green
+      surface: '#E8F5F3',  // Light green surface
     },
     secondary: {
-      base: '#8B5E3C',    // Earth brown
+      base: '#8B5E3C',    // Rich soil brown
       light: '#A67C52',   // Light soil
       dark: '#5C3C22',    // Deep soil
       disabled: '#CCAD91', // Muted brown
@@ -25,19 +25,19 @@ export const theme = {
       surface: '#FFF8E1',  // Light gold surface
     },
     neutral: {
-      background: '#F8F6F1', // Light parchment
+      background: '#F8F9F6', // Light sage
       surface: '#FFFFFF',    // Clean white
-      textPrimary: '#2C1810', // Deep bark
-      textSecondary: '#6B5750', // Aged wood
-      border: '#E6DFD5',      // Natural fiber
+      textPrimary: '#1A2F2B', // Deep forest
+      textSecondary: '#4A5F5B', // Aged leaf
+      border: '#E6EAE8',      // Natural fiber
       gray: {
-        base: '#B0A69A',     // Stone
-        light: '#ECE9E4',    // Light sand
-        dark: '#786F67',     // Dark stone
+        base: '#9BAEA9',     // Stone
+        light: '#F0F3F1',    // Light sage
+        dark: '#6B7A76',     // Dark stone
       },
     },
     error: '#C23616',     // Terracotta red
-    success: '#3C8C2C',   // Natural green
+    success: '#2E7D32',   // Natural green
     warning: '#CD950C',   // Amber honey
     info: '#4B6584',      // Rain cloud
   },

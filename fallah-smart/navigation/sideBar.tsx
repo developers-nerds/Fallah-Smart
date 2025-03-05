@@ -139,8 +139,8 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
         label="Home"
         active={currentRoute === 'HomeContent'}
         onPress={() => {
-          navigation.navigate('HomeContent');
-          navigation.closeDrawer();
+          props.navigation.navigate('HomeContent');
+          props.navigation.closeDrawer();
         }}
       />
       <MenuItem
@@ -148,8 +148,8 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
         label="Chat"
         active={currentRoute === 'Chat'}
         onPress={() => {
-          navigation.navigate('Chat');
-          navigation.closeDrawer();
+          props.navigation.navigate('Chat');
+          props.navigation.closeDrawer();
         }}
       />
       <MenuItem
