@@ -14,13 +14,13 @@ interface Transaction {
 interface Category {
   id: number
   name: string
-  icon: string
+  icon: keyof typeof MaterialCommunityIcons.glyphMap  // Update this line
   type: string
   color: string
   amount: number
   count: number
   isIncome: boolean
-  transactions?: Transaction[] // Add this
+  transactions?: Transaction[]
 }
 
 interface CategoryListProps {
