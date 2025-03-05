@@ -1,468 +1,838 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
+  Image,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
   ActivityIndicator,
   Alert,
-  TouchableOpacity,
-  TextInput,
-  Modal,
-  SafeAreaView,
-  Dimensions,
-  StatusBar,
-  Image,
+  KeyboardAvoidingView,
   Platform,
+  FlatList,
+  SafeAreaView,
+  RefreshControl,
+  Dimensions,
+  Modal
 } from 'react-native';
+import { MaterialCommunityIcons, Feather, FontAwesome } from '@expo/vector-icons';
+import { launchImageLibraryAsync, MediaTypeOptions } from 'expo-image-picker';
 import axios from 'axios';
-import { storage } from '../../utils/storage';
 import { theme } from '../../theme/theme';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
-import { FontAwesome } from '@expo/vector-icons';
+import { BackButton } from '../../components/BackButton';
+import { Button } from '../../components/Button';
+import { BLOG_API_URL } from '../../config/api';
 
-const { width } = Dimensions.get('window');
+// Update the API URL constants at the top of the file
+const BASE_URL = process.env.EXPO_PUBLIC_API;
+const API_URL = `${BASE_URL}/api/blog`;
 
-type UserProfile = {
-  username: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phoneNumber: string;
-  gender: string;
-  profilePicture?: string;
-};
-
-// Add gender options
-const GENDER_OPTIONS = ['Male', 'Female', 'Other'];
-
-// Add image picker function
-const pickImage = async () => {
-  try {
-    // Request permissions
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Please grant camera roll permissions to upload an image.');
-      return null;
-    }
-
-    // Launch image picker
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      return result.assets[0];
-    }
-    return null;
-  } catch (error) {
-    console.error('Error picking image:', error);
-    Alert.alert('Error', 'Failed to pick image');
-    return null;
+// Add a helper function to handle image URLs
+const getImageUrl = (imageUrl) => {
+  if (!imageUrl) return null;
+  if (imageUrl.startsWith('http')) {
+    // Replace any hardcoded IP with the environment variable
+    return imageUrl.replace(/http:\/\/\d+\.\d+\.\d+\.\d+:\d+/, BASE_URL);
   }
+  return `${BASE_URL}${imageUrl}`;
 };
 
-const Profile = () => {
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedProfile, setEditedProfile] = useState<UserProfile | null>(null);
-  const [selectedImage, setSelectedImage] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    fetchProfile();
-  }, []);
-
-  const fetchProfile = async () => {
+// Add this utility function for retrying failed API calls
+const fetchWithRetry = async (url, options = {}, maxRetries = 3) => {
+  let lastError;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
-      const storedUser = await storage.getUser();
-      if (storedUser) {
-        setProfile(storedUser);
-        console.log("Stored user profile picture:", storedUser.profilePicture);
+      return await axios(url, options);
+    } catch (err) {
+      console.log(`Attempt ${attempt + 1} failed. ${maxRetries - attempt - 1} retries left.`);
+      lastError = err;
+      
+      // Only retry on network errors, not on 4xx/5xx responses
+      if (err.response) {
+        throw err; // Don't retry if server returned an error response
       }
+      
+      // Wait before retrying (with exponential backoff)
+      await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
+    }
+  }
+  
+  throw lastError; // All retries failed
+};
 
-      const response = await axios.get('http://192.168.104.24:5000/api/users/profile');
-      if (response?.data) {
-        console.log("Server response profile picture:", response.data.profilePicture);
-        setProfile(response.data);
-        setEditedProfile(response.data);
-        await storage.setUser(response.data);
+const PostImageGallery = ({ media, BASE_URL }) => {
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  
+  // Prevent click propagation
+  const handleImagePress = (e) => {
+    e.stopPropagation();
+  };
+
+  // Update the processMediaUrl function
+  const processMediaUrl = (media) => {
+    if (typeof media === 'string') {
+      return getImageUrl(media);
+    }
+    return getImageUrl(media.url || `/uploads/${media.path || media.filename}`);
+  };
+
+  return (
+    <View style={styles.mediaGalleryContainer}>
+      <ScrollView
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onScroll={(event) => {
+          const offset = event.nativeEvent.contentOffset.x;
+          const newIndex = Math.round(offset / event.nativeEvent.layoutMeasurement.width);
+          setActiveImageIndex(newIndex);
+        }}
+        scrollEventThrottle={200}
+        onTouchStart={handleImagePress}
+        onTouchEnd={handleImagePress}
+        style={styles.galleryScrollView}
+      >
+        {media.map((item, idx) => {
+          const mediaUrl = processMediaUrl(item);
+          
+          return (
+            <View key={idx} style={styles.galleryImageContainer}>
+              <Image
+                source={{ uri: mediaUrl }}
+                style={styles.galleryImage}
+                resizeMode="contain"
+                onLoad={() => console.log(`Post image ${idx} loaded successfully`)}
+                onError={(e) => console.error(`Post image ${idx} load error:`, e.nativeEvent.error, mediaUrl)}
+              />
+            </View>
+          );
+        })}
+      </ScrollView>
+      
+      {media.length > 1 && (
+        <View style={styles.galleryPaginationContainer}>
+          {media.map((_, index) => (
+            <View 
+              key={index} 
+              style={[
+                styles.galleryPaginationDot, 
+                index === activeImageIndex && styles.galleryPaginationDotActive
+              ]} 
+            />
+          ))}
+        </View>
+      )}
+    </View>
+  );
+};
+
+const CommentImageGallery = ({ media, BASE_URL }) => {
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  
+  // Update the getCommentImageUrl function
+  const getCommentImageUrl = (mediaItem) => {
+    if (typeof mediaItem === 'string') {
+      return getImageUrl(mediaItem);
+    }
+    return getImageUrl(mediaItem.url || mediaItem.path || '');
+  };
+
+  // Single image display without pagination
+  if (media.length === 1) {
+    return (
+      <View style={styles.commentSingleImageContainer}>
+        <Image
+          source={{ uri: getCommentImageUrl(media[0]) }}
+          style={styles.commentSingleImage}
+          resizeMode="cover"
+        />
+      </View>
+    );
+  }
+
+  // Multiple images with pagination
+  return (
+    <View style={styles.commentGalleryContainer}>
+      <ScrollView
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onScroll={(event) => {
+          const offset = event.nativeEvent.contentOffset.x;
+          const newIndex = Math.round(offset / event.nativeEvent.layoutMeasurement.width);
+          setActiveImageIndex(newIndex);
+        }}
+        scrollEventThrottle={200}
+      >
+        {media.map((mediaItem, idx) => (
+          <Image
+            key={idx}
+            source={{ uri: getCommentImageUrl(mediaItem) }}
+            style={styles.commentGalleryImage}
+            resizeMode="cover"
+          />
+        ))}
+      </ScrollView>
+      
+      <View style={styles.commentPaginationContainer}>
+        {media.map((_, index) => (
+          <View 
+            key={index} 
+            style={[
+              styles.commentPaginationDot, 
+              index === activeImageIndex && styles.commentPaginationDotActive
+            ]} 
+          />
+        ))}
+      </View>
+    </View>
+  );
+};
+
+const PostDetail = ({ route, navigation }) => {
+  const { postId } = route.params;
+  const [post, setPost] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [comments, setComments] = useState([]);
+  const [newComment, setNewComment] = useState('');
+  const [commentImage, setCommentImage] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [liked, setLiked] = useState(false);
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+  const [customReason, setCustomReason] = useState('');
+
+  // Fetch post and comments
+  const fetchPostDetails = async () => {
+    try {
+      setLoading(true);
+      console.log(`Fetching post details for ID: ${postId} from ${API_URL}/posts/${postId}`);
+      
+      // Instead of testing the base URL directly, test the health endpoint or skip this check
+      // The base URL might not have a handler, which explains the 404
+      try {
+        // Don't test the base URL directly - it might not exist
+        // Just log the API URL we're going to use
+        console.log('Using API base URL:', API_URL);
+      } catch (testError) {
+        console.error('API base URL test error:', testError);
+        // Continue anyway since this is just a test
       }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to fetch profile');
-      console.error('Profile fetch error:', error);
+      
+      // Directly fetch the post with the ID we know
+      const postResponse = await axios.get(`${API_URL}/posts/${postId}`, {
+        timeout: 10000, // 10 second timeout
+      });
+      
+      console.log('Post data received:', postResponse.data ? 'Success' : 'Empty response');
+      setPost(postResponse.data);
+      setLiked(postResponse.data.userLiked || false);
+      
+      // Then fetch comments
+      try {
+        const commentsResponse = await axios.get(`${API_URL}/posts/${postId}/comments`);
+        console.log(`Received ${commentsResponse.data.length} comments`);
+        setComments(commentsResponse.data || []);
+      } catch (commentsError) {
+        console.error('Error fetching comments:', commentsError);
+        setComments([]);
+      }
+      
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching post details:', err);
+      
+      // Detailed error reporting with API URL for debugging
+      if (err.response) {
+        console.error('Server error:', err.response.status, err.response.data);
+        setError(`Server error (${err.response.status}): ${err.response.data.message || 'Unknown server error'}`);
+      } else if (err.request) {
+        console.error('No response received from:', `${API_URL}/posts/${postId}`);
+        setError(`Network error: Could not connect to ${API_URL}. Please check your connection and ensure the server is running.`);
+      } else {
+        setError(`Error: ${err.message}`);
+      }
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  // Add function to handle image selection
-  const handleSelectImage = async () => {
-    const image = await pickImage();
-    if (image) {
-      setSelectedImage(image);
-    }
-  };
+  useEffect(() => {
+    fetchPostDetails();
+  }, [postId]);
 
-  // Update the profile update function with retry logic and better error handling
-  const updateProfile = async () => {
-    if (!editedProfile) return;
-    
-    try {
-      setIsSubmitting(true);
+  useEffect(() => {
+    if (comments && comments.length > 0) {
+      console.log('Comments loaded, first comment:', JSON.stringify(comments[0], null, 2));
       
-      // Create FormData object
-      const formData = new FormData();
+      // Log if any comments have images
+      const commentsWithImages = comments.filter(c => 
+        c.image || c.imageUrl || (c.media && c.media.length > 0)
+      );
       
-      // Add profile fields
-      formData.append('username', editedProfile.username || '');
-      formData.append('firstName', editedProfile.firstName || '');
-      formData.append('lastName', editedProfile.lastName || '');
-      formData.append('gender', editedProfile.gender || '');
-      formData.append('phoneNumber', editedProfile.phoneNumber || '');
-      
-      // Handle image upload if there's a selected image
-      if (selectedImage) {
-        const fileExtension = selectedImage.uri.split('.').pop() || 'jpg';
-        const fileName = `profile_${Date.now()}.${fileExtension}`;
-        const mimeType = fileExtension.toLowerCase() === 'png' ? 'image/png' : 'image/jpeg';
-        
-        formData.append('profileImage', {
-          uri: Platform.OS === 'android' ? selectedImage.uri : selectedImage.uri.replace('file://', ''),
-          name: fileName,
-          type: mimeType
-        } as any);
+      if (commentsWithImages.length > 0) {
+        console.log(`Found ${commentsWithImages.length} comments with images`);
+        console.log('First comment with image:', JSON.stringify(commentsWithImages[0], null, 2));
+      } else {
+        console.log('No comments with images found in response');
       }
+    }
+  }, [comments]);
+
+  // Handle refresh
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchPostDetails();
+  };
+
+  // Handle like/unlike post
+  const toggleLike = async () => {
+    try {
+      const response = await axios.post(`${API_URL}/posts/${postId}/like`);
+      setLiked(response.data.liked);
       
-      // Make the API request
-      const response = await axios.put(
-        'http://192.168.104.24:5000/api/users/profile',
+      // Update post with new like count
+      setPost(prevPost => ({
+        ...prevPost,
+        likesCount: liked 
+          ? Math.max(0, (prevPost.likesCount || 0) - 1) 
+          : (prevPost.likesCount || 0) + 1
+      }));
+    } catch (err) {
+      console.error('Error toggling like:', err);
+      Alert.alert('Error', 'Failed to process your like. Please try again.');
+    }
+  };
+
+  // Pick image for comment
+  const pickCommentImage = async () => {
+    try {
+      const result = await launchImageLibraryAsync({
+        mediaTypes: MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+      
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        // Create a consistent object structure
+        const selectedAsset = {
+          uri: result.assets[0].uri,
+          type: result.assets[0].type || 'image/jpeg',
+          name: result.assets[0].fileName || 'photo.jpg'
+        };
+        setCommentImage(selectedAsset);
+      }
+    } catch (err) {
+      console.error('Error picking image:', err);
+      Alert.alert('Error', 'Failed to select image. Please try again.');
+    }
+  };
+
+  // Remove comment image
+  const removeCommentImage = () => {
+    setCommentImage(null);
+  };
+
+  // Update the addComment function to handle the response format
+  const handleSubmitComment = async () => {
+    if (!newComment.trim() && !commentImage) return;
+
+    try {
+      const formData = new FormData();
+      formData.append('content', newComment.trim());
+
+      // Add image to form data if exists
+      if (commentImage) {
+        const fileExtension = commentImage.uri.split('.').pop() || 'jpg';
+        const fileName = `comment_${Date.now()}.${fileExtension}`;
+        
+        formData.append('image', {
+          uri: Platform.OS === 'android' ? commentImage.uri : commentImage.uri.replace('file://', ''),
+          name: fileName,
+          type: `image/${fileExtension}`
+        });
+      }
+
+      // Send request
+      const response = await axios.post(
+        `${API_URL}/posts/${postId}/comments`, 
         formData,
         {
           headers: {
             'Content-Type': 'multipart/form-data',
             'Accept': 'application/json'
           },
-          timeout: 10000 // 10 second timeout
+          timeout: 10000
         }
       );
-      
-      // Handle successful response
-      if (response.data) {
-        setProfile(response.data);
-        setEditedProfile(response.data);
-        await storage.setUser(response.data);
-        setIsEditing(false);
-        Alert.alert('Success', 'Profile updated successfully!');
-      }
-      
+
+      // Clear form and refresh comments
+      setNewComment('');
+      setCommentImage(null);
+      fetchPostDetails();
+
     } catch (error) {
-      // Handle errors
-      console.error('Profile update error:', error);
-      
-      if (error.response) {
-        // Server returned an error
-        Alert.alert(
-          'Update Failed',
-          error.response.data?.message || 'Server error occurred'
-        );
-      } else if (error.request) {
-        // No response received
-        Alert.alert(
-          'Connection Error',
-          'Unable to connect to the server. Please check your internet connection.',
-          [
-            { text: 'OK' },
-            {
-              text: 'Retry',
-              onPress: () => updateProfile()
-            }
-          ]
-        );
-      } else {
-        // Other errors
-        Alert.alert(
-          'Error',
-          'An unexpected error occurred. Please try again.'
-        );
-      }
-    } finally {
-      setIsSubmitting(false);
+      console.error('Error posting comment:', error);
+      Alert.alert('Error', 'Failed to post comment. Please try again.');
     }
   };
 
-  if (loading && !profile) {
+  // Time ago format
+  const timeAgo = (date) => {
+    const now = new Date();
+    const postDate = new Date(date);
+    const diffInSeconds = Math.floor((now - postDate) / 1000);
+    
+    if (diffInSeconds < 60) return `${diffInSeconds}s`;
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h`;
+    if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d`;
+    return `${Math.floor(diffInSeconds / 604800)}w`;
+  };
+
+  // Render category icon
+  const renderCategoryIcon = (category) => {
+    switch (category) {
+      case 'Question':
+        return <Feather name="help-circle" size={16} color={theme.colors.primary.base} />;
+      case 'Market':
+        return <MaterialCommunityIcons name="shopping" size={16} color={theme.colors.primary.base} />;
+      case 'News':
+        return <MaterialCommunityIcons name="newspaper" size={16} color={theme.colors.primary.base} />;
+      default:
+        return null;
+    }
+  };
+
+  // Update the renderComment function to properly handle comment images
+  const renderComment = ({ item }) => {
+    const getProfilePictureUrl = (profilePicture) => {
+      return getImageUrl(profilePicture);
+    };
+
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primary.base} />
+      <View style={styles.commentContainer}>
+        <View style={styles.commentHeader}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            {/* Profile Picture */}
+            {item.user?.profilePicture ? (
+              <Image
+                source={{ 
+                  uri: getProfilePictureUrl(item.user.profilePicture)
+                }}
+                style={styles.commentAvatar}
+              />
+            ) : (
+              <View style={styles.commentAvatarPlaceholder}>
+                <FontAwesome name="user" size={20} color="#FFF" />
+              </View>
+            )}
+            
+            {/* User name and timestamp */}
+            <View>
+              <Text style={styles.userName}>
+                {item.user?.username || 'Anonymous'}
+              </Text>
+              <Text style={styles.commentTime}>
+                {timeAgo(item.createdAt)}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Comment content */}
+        <Text style={styles.commentContent}>{item.content}</Text>
+
+        {/* Comment image - check multiple possible image properties */}
+        {item.media && item.media.length > 0 && (
+          <CommentImageGallery media={item.media} BASE_URL={BASE_URL} />
+        )}
       </View>
+    );
+  };
+
+  // Update the post header section to show the author's profile picture
+  const renderPostHeader = () => (
+    <View style={styles.postHeader}>
+      <View style={styles.authorInfo}>
+        {post?.author?.profilePicture ? (
+          <Image
+            source={{ 
+              uri: post.author.profilePicture.startsWith('http') 
+                ? post.author.profilePicture 
+                : `${BASE_URL}${post.author.profilePicture}`
+            }}
+            style={styles.authorAvatar}
+          />
+        ) : (
+          <View style={styles.authorAvatarPlaceholder}>
+            <FontAwesome name="user" size={24} color="#FFF" />
+          </View>
+        )}
+        <View>
+          <Text style={styles.authorName}>
+            {post?.author?.username || 'Anonymous'}
+          </Text>
+          <Text style={styles.postTime}>
+            {timeAgo(post?.createdAt)}
+          </Text>
+        </View>
+      </View>
+      
+      <View style={styles.headerRight}>
+        <TouchableOpacity
+          style={styles.reportButton}
+          onPress={() => setReportModalVisible(true)}
+        >
+          <MaterialCommunityIcons 
+            name="flag-outline" 
+            size={22} 
+            color={theme.colors.neutral.textSecondary} 
+          />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  // Add this function to help debug the image structure from your backend
+  const inspectBackendImageStructure = async () => {
+    try {
+      console.log('Examining backend image structure...');
+      
+      // Fetch a single comment to inspect its structure
+      const testResponse = await axios.get(`${API_URL}/posts/${postId}/comments`);
+      if (testResponse.data && testResponse.data.length > 0) {
+        const testComment = testResponse.data[0];
+        console.log('Test comment full structure:', JSON.stringify(testComment, null, 2));
+        
+        // Look specifically for image-related properties
+        const imageProps = Object.keys(testComment).filter(key => 
+          key.includes('image') || 
+          key.includes('media') || 
+          key.includes('file') ||
+          key.includes('upload') ||
+          key.includes('photo')
+        );
+        
+        console.log('Image-related properties:', imageProps);
+        imageProps.forEach(prop => {
+          console.log(`Property ${prop}:`, testComment[prop]);
+        });
+      }
+    } catch (error) {
+      console.error('Error inspecting backend structure:', error);
+    }
+  };
+
+  // Call this function in useEffect
+  useEffect(() => {
+    inspectBackendImageStructure();
+  }, []);
+
+  // Add a function to handle reporting
+  const handleReportPost = async () => {
+    if (!reportReason || (reportReason === 'Other' && !customReason)) {
+      Alert.alert('Error', 'Please provide a reason for reporting this post');
+      return;
+    }
+    
+    setIsSubmittingReport(true);
+    
+    try {
+      await axios.post(`${API_URL}/posts/${postId}/report`, {
+        reason: reportReason === 'Other' ? customReason : reportReason
+      });
+      
+      setReportModalVisible(false);
+      setReportReason('');
+      setCustomReason('');
+      Alert.alert('Success', 'Thank you for your report. Our team will review it shortly.');
+    } catch (error) {
+      console.error('Error reporting post:', error);
+      Alert.alert('Error', 'Failed to submit report. Please try again later.');
+    } finally {
+      setIsSubmittingReport(false);
+    }
+  };
+
+  // Add these report reason options
+  const reportReasons = [
+    'Inappropriate content',
+    'Spam',
+    'Misleading information',
+    'Harassment or bullying',
+    'Violence',
+    'Hate speech',
+    'Other'
+  ];
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <BackButton onPress={() => navigation.goBack()} />
+          <Text style={styles.headerTitle}>Post Detail</Text>
+          <View style={{ width: 50 }} />
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary.base} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <BackButton onPress={() => navigation.goBack()} />
+          <Text style={styles.headerTitle}>Post Detail</Text>
+          <View style={{ width: 50 }} />
+        </View>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <Button title="Try Again" onPress={fetchPostDetails} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!post) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <BackButton onPress={() => navigation.goBack()} />
+          <Text style={styles.headerTitle}>Post Detail</Text>
+          <View style={{ width: 50 }} />
+        </View>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Post not found</Text>
+          <Button title="Go Back" onPress={() => navigation.goBack()} />
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
+      <View style={styles.header}>
+        <BackButton onPress={() => navigation.goBack()} />
+        <Text style={styles.headerTitle}>Post Detail</Text>
+        <View style={{ width: 50 }} />
+      </View>
       
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Header with pattern background */}
-        <View style={styles.header}>
-          <View style={styles.patternBackground} />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.keyboardView}
+      >
+        <ScrollView 
+          style={styles.container}
+          contentContainerStyle={styles.contentContainer}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          }
+        >
+          {renderPostHeader()}
           
-          {/* Profile avatar */}
-          <View style={styles.avatarContainer}>
-            <View style={styles.avatar}>
-              {selectedImage?.uri || profile?.profilePicture ? (
-                <Image 
-                  source={{ 
-                    uri: selectedImage?.uri || (profile?.profilePicture?.startsWith('http') 
-                      ? profile?.profilePicture 
-                      : `http://192.168.104.24:5000${profile?.profilePicture}`) 
-                  }} 
-                  style={styles.avatarImage} 
-                  onLoad={() => console.log("Profile image loaded successfully")}
-                  onError={(error) => console.error("Profile image error:", error.nativeEvent.error)}
-                />
+          <Text style={styles.postTitle}>{post.title}</Text>
+          
+          {post.description && (
+            <Text style={styles.postDescription}>{post.description}</Text>
+          )}
+          
+          {post.media && post.media.length > 0 && (
+            <PostImageGallery media={post.media} BASE_URL={BASE_URL} />
+          )}
+          
+          <View style={styles.postFooter}>
+            <TouchableOpacity 
+              style={styles.interactionButton}
+              onPress={toggleLike}
+            >
+              <MaterialCommunityIcons 
+                name={liked ? "heart" : "heart-outline"} 
+                size={24} 
+                color={liked ? theme.colors.error : theme.colors.neutral.textSecondary} 
+              />
+              <Text style={styles.interactionText}>
+                {post.likesCount || 0} {post.likesCount === 1 ? 'Like' : 'Likes'}
+              </Text>
+            </TouchableOpacity>
+            
+            <View style={styles.interactionButton}>
+              <MaterialCommunityIcons 
+                name="comment-outline" 
+                size={24} 
+                color={theme.colors.neutral.textSecondary} 
+              />
+              <Text style={styles.interactionText}>
+                {comments.length} {comments.length === 1 ? 'Comment' : 'Comments'}
+              </Text>
+            </View>
+            
+            <View style={styles.interactionButton}>
+              <MaterialCommunityIcons 
+                name="eye-outline" 
+                size={24} 
+                color={theme.colors.neutral.textSecondary} 
+              />
+              <Text style={styles.interactionText}>
+                {post.counter || 0} {post.counter === 1 ? 'View' : 'Views'}
+              </Text>
+            </View>
+          </View>
+          
+          {/* Add Comment Section */}
+          <View style={styles.addCommentSection}>
+            <Text style={styles.sectionTitle}>Add a Comment</Text>
+            <TextInput
+              style={styles.commentInput}
+              placeholder="Write your comment here..."
+              value={newComment}
+              onChangeText={setNewComment}
+              multiline
+            />
+            
+            {commentImage && (
+              <View style={styles.selectedImageWrapper}>
+                <Image source={{ uri: commentImage.uri }} style={styles.selectedImage} />
+                <TouchableOpacity 
+                  style={styles.removeImageButton}
+                  onPress={removeCommentImage}
+                >
+                  <MaterialCommunityIcons name="close-circle" size={24} color={theme.colors.error} />
+                </TouchableOpacity>
+              </View>
+            )}
+            
+            <View style={styles.commentActions}>
+              <TouchableOpacity 
+                style={styles.imagePickerButton}
+                onPress={pickCommentImage}
+              >
+                <MaterialCommunityIcons name="image-plus" size={24} color={theme.colors.primary.base} />
+              </TouchableOpacity>
+              
+              <Button 
+                title="Post Comment" 
+                onPress={handleSubmitComment}
+                disabled={!newComment.trim() && !commentImage}
+              />
+            </View>
+          </View>
+          
+          {/* Comments Section */}
+          <View style={styles.commentsSection}>
+            <Text style={styles.sectionTitle}>Comments ({comments.length})</Text>
+            
+            {/* Comments List */}
+            <View style={styles.commentsList}>
+              {comments.length > 0 ? (
+                comments.map((comment, index) => renderComment({ item: comment }))
               ) : (
-                <FontAwesome 
-                  name="user-circle" 
-                  size={84} 
-                  color={theme.colors.primary.base} 
-                />
+                <Text style={styles.noCommentsText}>No comments yet. Be the first to comment!</Text>
               )}
             </View>
           </View>
-        </View>
-        
-        {/* Profile sections */}
-        <View style={styles.content}>
-          {/* General Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionHeader}>General</Text>
-            
-            <View style={styles.profileField}>
-              <Text style={styles.fieldLabel}>Username</Text>
-              <Text style={styles.fieldValue}>
-                {profile?.username || 'Not set'}
-              </Text>
+        </ScrollView>
+      </KeyboardAvoidingView>
+      
+      <Modal
+        visible={reportModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => {
+          setReportModalVisible(false);
+          setReportReason('');
+          setCustomReason('');
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.reportModalContainer}>
+            <View style={styles.reportModalHeader}>
+              <Text style={styles.reportModalTitle}>Report Post</Text>
+              <TouchableOpacity 
+                onPress={() => {
+                  setReportModalVisible(false);
+                  setReportReason('');
+                  setCustomReason('');
+                }}
+              >
+                <MaterialCommunityIcons name="close" size={24} color={theme.colors.neutral.textSecondary} />
+              </TouchableOpacity>
             </View>
             
-            <View style={styles.profileField}>
-              <Text style={styles.fieldLabel}>Full Name</Text>
-              <Text style={styles.fieldValue}>
-                {(profile?.firstName || '') + ' ' + (profile?.lastName || '')}
-              </Text>
-            </View>
+            <Text style={styles.reportModalSubtitle}>Why are you reporting this post?</Text>
             
-            <View style={styles.profileField}>
-              <Text style={styles.fieldLabel}>Email</Text>
-              <Text style={styles.fieldValue}>
-                {profile?.email || 'Not provided'}
-              </Text>
-            </View>
-          </View>
-          
-          {/* Contact Information */}
-          <View style={styles.section}>
-            <Text style={styles.sectionHeader}>Contact Information</Text>
-            
-            <View style={styles.profileField}>
-              <Text style={styles.fieldLabel}>Phone Number</Text>
-              <Text style={styles.fieldValue}>
-                {profile?.phoneNumber || 'Not provided'}
-              </Text>
-            </View>
-            
-            <View style={styles.profileField}>
-              <Text style={styles.fieldLabel}>Gender</Text>
-              <Text style={styles.fieldValue}>
-                {profile?.gender || 'Not specified'}
-              </Text>
-            </View>
-          </View>
-          
-          {/* Edit button - visible only when needed */}
-          <TouchableOpacity 
-            style={styles.editButton}
-            onPress={() => setIsEditing(true)}
-          >
-            <MaterialCommunityIcons 
-              name="pencil" 
-              size={20} 
-              color="#FFFFFF" 
-            />
-            <Text style={styles.editButtonText}>Edit Profile</Text>
-          </TouchableOpacity>
-        </View>
-        
-        {/* Edit Modal */}
-        <Modal
-          visible={isEditing}
-          animationType="slide"
-          transparent={true}
-          onRequestClose={() => {
-            setEditedProfile(profile);
-            setIsEditing(false);
-          }}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Edit Profile</Text>
-                <TouchableOpacity 
-                  style={styles.closeButton}
-                  onPress={() => {
-                    setEditedProfile(profile);
-                    setIsEditing(false);
-                  }}
+            <ScrollView style={styles.reportReasonsList}>
+              {reportReasons.map((reason) => (
+                <TouchableOpacity
+                  key={reason}
+                  style={[
+                    styles.reportReasonItem,
+                    reportReason === reason && styles.reportReasonItemSelected
+                  ]}
+                  onPress={() => setReportReason(reason)}
                 >
-                  <MaterialCommunityIcons name="close" size={24} color={theme.colors.neutral.textSecondary || '#999'} />
+                  <Text style={styles.reportReasonText}>{reason}</Text>
+                  {reportReason === reason && (
+                    <MaterialCommunityIcons name="check" size={20} color={theme.colors.primary.base} />
+                  )}
                 </TouchableOpacity>
+              ))}
+            </ScrollView>
+            
+            {reportReason === 'Other' && (
+              <View style={styles.customReasonContainer}>
+                <TextInput
+                  style={styles.customReasonInput}
+                  placeholder="Please specify your reason"
+                  value={customReason}
+                  onChangeText={setCustomReason}
+                  multiline
+                  maxLength={200}
+                />
               </View>
+            )}
+            
+            <View style={styles.reportModalActions}>
+              <TouchableOpacity
+                style={styles.reportCancelButton}
+                onPress={() => {
+                  setReportModalVisible(false);
+                  setReportReason('');
+                  setCustomReason('');
+                }}
+              >
+                <Text style={styles.reportCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
               
-              <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
-                <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>Username</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={editedProfile?.username || ''}
-                    onChangeText={(text) => setEditedProfile(prev => prev ? {...prev, username: text} : null)}
-                    placeholder="Enter username"
-                    placeholderTextColor={theme.colors.neutral.textSecondary || '#999'}
-                  />
-                </View>
-                
-                <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>First Name</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={editedProfile?.firstName || ''}
-                    onChangeText={(text) => setEditedProfile(prev => prev ? {...prev, firstName: text} : null)}
-                    placeholder="Enter first name"
-                    placeholderTextColor={theme.colors.neutral.textSecondary || '#999'}
-                  />
-                </View>
-                
-                <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>Last Name</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={editedProfile?.lastName || ''}
-                    onChangeText={(text) => setEditedProfile(prev => prev ? {...prev, lastName: text} : null)}
-                    placeholder="Enter last name"
-                    placeholderTextColor={theme.colors.neutral.textSecondary || '#999'}
-                  />
-                </View>
-                
-                <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>Phone Number</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={editedProfile?.phoneNumber || ''}
-                    onChangeText={(text) => setEditedProfile(prev => prev ? {...prev, phoneNumber: text} : null)}
-                    keyboardType="phone-pad"
-                    placeholder="Enter phone number"
-                    placeholderTextColor={theme.colors.neutral.textSecondary || '#999'}
-                  />
-                </View>
-                
-                <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>Gender</Text>
-                  <View style={styles.genderContainer}>
-                    {GENDER_OPTIONS.map((option) => (
-                      <TouchableOpacity
-                        key={option}
-                        style={[
-                          styles.genderOption,
-                          editedProfile?.gender === option && styles.genderOptionSelected
-                        ]}
-                        onPress={() => setEditedProfile(prev => prev ? {...prev, gender: option} : null)}
-                      >
-                        <Text
-                          style={[
-                            styles.genderOptionText,
-                            editedProfile?.gender === option && styles.genderOptionTextSelected
-                          ]}
-                        >
-                          {option}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-                
-                {/* Add this image upload section in the modal */}
-                <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>Profile Picture</Text>
-                  <View style={styles.imageUploadContainer}>
-                    {selectedImage ? (
-                      <View style={styles.selectedImageContainer}>
-                        <Image 
-                          source={{ uri: selectedImage.uri }} 
-                          style={styles.selectedImage} 
-                        />
-                        <TouchableOpacity 
-                          style={styles.removeImageButton}
-                          onPress={() => setSelectedImage(null)}
-                        >
-                          <MaterialCommunityIcons name="close-circle" size={24} color="#fff" />
-                        </TouchableOpacity>
-                      </View>
-                    ) : profile?.profilePicture ? (
-                      <View style={styles.selectedImageContainer}>
-                        <Image 
-                          source={{ 
-                            uri: profile.profilePicture.startsWith('http') 
-                              ? profile.profilePicture 
-                              : `http:192.168.1.16:5000${profile.profilePicture}` 
-                          }} 
-                          style={styles.selectedImage} 
-                        />
-                      </View>
-                    ) : (
-                      <View style={[styles.profileImage, styles.profileImagePlaceholder]}>
-                        <FontAwesome name="user" size={60} color="#cccccc" />
-                      </View>
-                    )}
-                    
-                    <TouchableOpacity 
-                      style={styles.selectImageButton}
-                      onPress={handleSelectImage}
-                    >
-                      <MaterialCommunityIcons name="image-plus" size={24} color={theme.colors.primary.base} />
-                      <Text style={styles.selectImageText}>
-                        {selectedImage ? 'Change Photo' : profile?.profilePicture ? 'Change Photo' : 'Add Photo'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </ScrollView>
-              
-              <View style={styles.modalFooter}>
-                <TouchableOpacity 
-                  style={[styles.modalButton, styles.cancelButton]}
-                  onPress={() => {
-                    setEditedProfile(profile);
-                    setIsEditing(false);
-                  }}
-                >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={[styles.modalButton, styles.saveButton]}
-                  onPress={updateProfile}
-                >
-                  <Text style={styles.saveButtonText}>Save Changes</Text>
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity
+                style={[
+                  styles.reportSubmitButton,
+                  (!reportReason || (reportReason === 'Other' && !customReason) || isSubmittingReport) && 
+                    styles.reportSubmitButtonDisabled
+                ]}
+                onPress={handleReportPost}
+                disabled={!reportReason || (reportReason === 'Other' && !customReason) || isSubmittingReport}
+              >
+                {isSubmittingReport ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Text style={styles.reportSubmitButtonText}>Submit</Text>
+                )}
+              </TouchableOpacity>
             </View>
           </View>
-        </Modal>
-      </ScrollView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -470,281 +840,475 @@ const Profile = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F8F6F1',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    height: 56,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E6DFD5',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2C1810',
+  },
+  keyboardView: {
+    flex: 1,
   },
   container: {
     flex: 1,
   },
-  header: {
-    height: 180,
-    position: 'relative',
-    alignItems: 'center',
-  },
-  patternBackground: {
-    width: '100%',
-    height: '100%',
-    position: 'absolute',
-    backgroundColor: '#f5f5f5',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  avatarContainer: {
-    alignItems: 'center',
-    marginTop: 30,
-    marginBottom: 20,
-  },
-  avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: theme.colors.neutral.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 5,
-    overflow: 'hidden',
-  },
-  avatarImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  content: {
-    paddingTop: 20,
-    paddingHorizontal: 20,
-  },
-  section: {
-    marginBottom: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
-    paddingBottom: 16,
-  },
-  sectionHeader: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: theme.colors.primary.base,
-    marginBottom: 16,
-  },
-  profileField: {
-    marginBottom: 16,
-  },
-  fieldLabel: {
-    fontSize: 14,
-    color: '#555555',
-    marginBottom: 6,
-  },
-  fieldValue: {
-    fontSize: 16,
-    color: '#333333',
-    fontWeight: '500',
-  },
-  fieldValueLight: {
-    fontSize: 16,
-    color: '#999999',
-    fontStyle: 'italic',
-  },
-  signOutText: {
-    color: '#FF3B30',
-  },
-  editButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.primary.base,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 25,
-    alignSelf: 'center',
-    marginVertical: 24,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 5,
-  },
-  editButtonText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    marginLeft: 8,
-    fontSize: 16,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: theme.colors.neutral.surface,
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25,
-    padding: 24,
-    paddingTop: 20,
-    maxHeight: '85%',
-    elevation: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: theme.spacing.xl,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontFamily: theme.fonts.bold,
-    color: theme.colors.neutral.textPrimary,
-  },
-  closeButton: {
-    padding: theme.spacing.xs,
-  },
-  modalScroll: {
-    maxHeight: '70%',
-  },
-  modalFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: theme.spacing.xl,
-    paddingTop: theme.spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.neutral.border,
-  },
-  cancelButton: {
-    flex: 1,
-    marginRight: theme.spacing.sm,
-    backgroundColor: theme.colors.neutral.background,
-    borderWidth: 1,
-    borderColor: theme.colors.neutral.border,
-  },
-  saveButton: {
-    backgroundColor: theme.colors.primary.base,
-    flex: 1,
-    marginLeft: theme.spacing.sm,
-  },
-  cancelButtonText: {
-    color: theme.colors.neutral.textPrimary,
-  },
-  saveButtonText: {
-    color: theme.colors.neutral.surface,
-    fontSize: 16,
-    fontFamily: theme.fonts.medium,
-  },
-  inputContainer: {
-    marginBottom: theme.spacing.lg,
-  },
-  inputLabel: {
-    fontSize: theme.fontSizes.caption,
-    fontFamily: theme.fonts.regular,
-    color: theme.colors.neutral.textSecondary,
-    marginBottom: theme.spacing.xs,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: theme.colors.neutral.border,
-    borderRadius: 12,
+  contentContainer: {
     padding: 16,
-    fontSize: 16,
-    fontFamily: theme.fonts.regular,
-    color: theme.colors.neutral.textPrimary,
-    backgroundColor: '#FAFAFA',
-  },
-  genderContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 12,
-  },
-  genderOption: {
-    flex: 1,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: theme.colors.neutral.border,
-    borderRadius: 12,
-    marginHorizontal: 6,
-    alignItems: 'center',
-    backgroundColor: '#FAFAFA',
-  },
-  genderOptionSelected: {
-    backgroundColor: theme.colors.primary.base,
-    borderColor: theme.colors.primary.base,
-  },
-  genderOptionText: {
-    color: theme.colors.neutral.textPrimary,
-    fontSize: theme.fontSizes.body,
-    fontFamily: theme.fonts.medium,
-  },
-  genderOptionTextSelected: {
-    color: theme.colors.neutral.surface,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  modalButton: {
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 12,
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#C23616',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  postCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  postHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  authorInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  authorAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
+  },
+  authorAvatarPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.neutral.gray.medium,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 12,
   },
-  imageUploadContainer: {
+  authorName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.neutral.textPrimary,
+  },
+  postTime: {
+    fontSize: 12,
+    color: theme.colors.neutral.textSecondary,
+    marginTop: 2,
+  },
+  userName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.neutral.textPrimary,
+  },
+  commentTime: {
+    fontSize: 12,
+    color: theme.colors.neutral.textSecondary,
+  },
+  categoryBadge: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 10,
+    backgroundColor: '#ECE9E4',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 4,
   },
-  selectedImageContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+  categoryText: {
+    fontSize: 12,
+    color: '#2C1810',
+    marginLeft: 4,
+  },
+  postTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2C1810',
+    marginBottom: 8,
+  },
+  postDescription: {
+    fontSize: 14,
+    color: '#2C1810',
+    marginBottom: 12,
+  },
+  mediaContainer: {
+    marginBottom: 12,
+    borderRadius: 8,
     overflow: 'hidden',
-    marginBottom: 10,
+  },
+  postImageContainer: {
+    width: '100%',
+    height: 250,
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  postImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 8,
+  },
+  postFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderTopColor: '#ECE9E4',
+    paddingTop: 12,
+  },
+  interactionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  interactionText: {
+    fontSize: 14,
+    color: '#6B5750',
+    marginLeft: 4,
+  },
+  addCommentSection: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2C1810',
+    marginBottom: 12,
+  },
+  commentInput: {
+    backgroundColor: '#ECE9E4',
+    borderRadius: 8,
+    padding: 12,
+    minHeight: 80,
+    textAlignVertical: 'top',
+    marginBottom: 12,
+  },
+  selectedImageWrapper: {
     position: 'relative',
+    marginBottom: 12,
   },
   selectedImage: {
     width: '100%',
-    height: '100%',
+    height: 200,
+    borderRadius: 8,
   },
   removeImageButton: {
     position: 'absolute',
-    top: 0,
-    right: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    top: 8,
+    right: 8,
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    padding: 4,
   },
-  selectImageButton: {
+  commentActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  imagePickerButton: {
+    padding: 8,
+  },
+  commentsSection: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  noCommentsText: {
+    fontSize: 14,
+    color: '#6B5750',
+    textAlign: 'center',
+    marginVertical: 16,
+  },
+  commentContainer: {
+    marginBottom: theme.spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.neutral.border,
+    paddingBottom: theme.spacing.md,
+  },
+  commentHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: theme.spacing.sm,
+  },
+  commentAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginRight: theme.spacing.sm,
+  },
+  commentAvatarPlaceholder: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: theme.colors.neutral.gray.medium,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: theme.spacing.sm,
+  },
+  commentContent: {
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.regular,
+    color: theme.colors.neutral.textPrimary,
+    marginBottom: theme.spacing.sm,
+  },
+  commentMediaContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 8,
-    borderRadius: 4,
-    backgroundColor: 'rgba(0,0,0,0.05)',
+    marginTop: theme.spacing.sm,
   },
-  selectImageText: {
-    marginLeft: 8,
-    color: theme.colors.primary.base,
-    fontFamily: theme.fonts.medium,
+  commentImage: {
+    width: 100,
+    height: 100,
+    borderRadius: theme.borderRadius.medium,
+    marginRight: theme.spacing.sm,
   },
-  profileImagePlaceholder: {
-    backgroundColor: '#f0f0f0',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  profileImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 3,
-    borderColor: theme.colors.primary.base,
+  commentImagePreviewContainer: {
+    borderRadius: theme.borderRadius.medium,
     overflow: 'hidden',
+    marginVertical: theme.spacing.sm,
+    width: 100,
+    height: 100,
+    position: 'relative',
   },
-  profileImageContainer: {
+  commentImagePreview: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  commentFormActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: theme.spacing.sm,
+  },
+  commentForm: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  imageButton: {
+    padding: 8,
+  },
+  commentsList: {
+    marginTop: theme.spacing.md,
+  },
+  mediaGalleryContainer: {
+    width: '100%',
+    position: 'relative',
+    marginVertical: theme.spacing.md,
+  },
+  galleryScrollView: {
+    width: '100%',
+  },
+  galleryImageContainer: {
+    width: Dimensions.get('window').width,
+    height: 300,
     justifyContent: 'center',
-    marginBottom: 20,
+    alignItems: 'center',
+  },
+  galleryImage: {
+    width: Dimensions.get('window').width - 32,
+    height: 300,
+    borderRadius: theme.borderRadius.medium,
+  },
+  galleryPaginationContainer: {
+    flexDirection: 'row',
+    position: 'absolute',
+    bottom: 16,
+    alignSelf: 'center',
+  },
+  galleryPaginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    marginHorizontal: 4,
+  },
+  galleryPaginationDotActive: {
+    backgroundColor: 'white',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  commentSingleImageContainer: {
+    width: '100%',
+    height: 150,
+    borderRadius: theme.borderRadius.medium,
+    overflow: 'hidden',
+    marginTop: theme.spacing.sm,
+  },
+  commentSingleImage: {
+    width: '100%',
+    height: '100%',
+  },
+  commentGalleryContainer: {
+    width: '100%',
+    height: 150,
+    marginTop: theme.spacing.sm,
+    position: 'relative',
+  },
+  commentGalleryImage: {
+    width: 200,
+    height: 150,
+    borderRadius: theme.borderRadius.medium,
+    marginRight: theme.spacing.sm,
+  },
+  commentPaginationContainer: {
+    flexDirection: 'row',
+    position: 'absolute',
+    bottom: 8,
+    alignSelf: 'center',
+  },
+  commentPaginationDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    marginHorizontal: 3,
+  },
+  commentPaginationDotActive: {
+    backgroundColor: 'white',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  reportModalContainer: {
+    width: '100%',
+    backgroundColor: theme.colors.neutral.surface,
+    borderRadius: theme.borderRadius.large,
+    padding: 16,
+    maxHeight: '80%',
+  },
+  reportModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  reportModalTitle: {
+    fontSize: theme.fontSizes.h3,
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.neutral.textPrimary,
+  },
+  reportModalSubtitle: {
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.regular,
+    color: theme.colors.neutral.textSecondary,
+    marginBottom: 16,
+  },
+  reportReasonsList: {
+    maxHeight: 300,
+  },
+  reportReasonItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.neutral.gray.light,
+  },
+  reportReasonItemSelected: {
+    backgroundColor: theme.colors.primary.fade,
+  },
+  reportReasonText: {
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.regular,
+    color: theme.colors.neutral.textPrimary,
+  },
+  reportModalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 16,
+  },
+  reportCancelButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginRight: 8,
+  },
+  reportCancelButtonText: {
+    fontSize: theme.fontSizes.button,
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.neutral.textSecondary,
+  },
+  reportSubmitButton: {
+    backgroundColor: theme.colors.primary.base,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: theme.borderRadius.small,
+  },
+  reportSubmitButtonDisabled: {
+    backgroundColor: theme.colors.primary.disabled,
+  },
+  reportSubmitButtonText: {
+    fontSize: theme.fontSizes.button,
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.neutral.surface,
+  },
+  reportButton: {
+    padding: 8,
+  },
+  customReasonContainer: {
+    marginTop: 16,
+    marginBottom: 8,
+    padding: 16,
+    backgroundColor: theme.colors.neutral.gray.lighter,
+    borderRadius: theme.borderRadius.medium,
+  },
+  customReasonInput: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.regular,
+    color: theme.colors.neutral.textPrimary,
   },
 });
 
-export default Profile;
+export default PostDetail; 

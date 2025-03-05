@@ -25,6 +25,7 @@ const Stock = require("./models/Stock")(sequelize, DataTypes);
 const StockHistory = require("./models/StockHistory")(sequelize, DataTypes);
 const Transactions = require("./models/Transactions")(sequelize, DataTypes);
 const Users = require("./models/Users")(sequelize, DataTypes);
+const Reports = require('./models/Reports')(sequelize, DataTypes);
 
 // Define associations
 // For users
@@ -153,9 +154,9 @@ Posts.hasMany(Media, {
   onDelete: "CASCADE",
 });
 
-Media.belongsTo(Posts, {
-  foreignKey: "postId",
-  as: "post",
+Posts.belongsTo(Users, {
+  foreignKey: "userId",
+  as: "author",
 });
 
 Scans.hasMany(Media, {
@@ -253,11 +254,6 @@ Users.hasMany(Posts, {
   as: "posts",
   onDelete: "CASCADE",
   onUpdate: "CASCADE",
-});
-
-Posts.belongsTo(Users, {
-  foreignKey: "userId",
-  as: "user",
 });
 
 // Posts and Comments associations
@@ -390,18 +386,22 @@ Stock.belongsTo(Users, {
   as: "user",
 });
 
+// Reports associations
+Reports.belongsTo(Users, { foreignKey: 'userId', as: 'user' });
+Reports.belongsTo(Posts, { foreignKey: 'postId', as: 'post' });
+
 // Sync all models with the database
 async function syncModels() {
   try {
     // Use { force: true } for production to safely update schema
-    // await sequelize.sync({ force: true });
+    await sequelize.sync({ force: true });
     console.log("Database models synchronized successfully");
   } catch (error) {
     console.error("Error synchronizing database models:", error);
   }
 }
 
-syncModels();
+// syncModels();
 
 // Export models AFTER defining associations
 module.exports = {
@@ -427,4 +427,5 @@ module.exports = {
   Media,
   Notification,
   Recurring_Transactions,
+  Reports
 };

@@ -1,7 +1,12 @@
-const { Posts, Comments, Likes, Users, Media } = require('../database/assossiation');
+const { Posts, Comments, Likes, Users, Media, Reports } = require('../database/assossiation');
 const { Op } = require('sequelize');
 const path = require('path');
 const fs = require('fs');
+const dotenv = require('dotenv');
+
+dotenv.config();
+
+const BASE_URL = process.env.API_URL;
 
 const blogController = {
   // POST OPERATIONS
@@ -13,7 +18,7 @@ const blogController = {
         include: [
           {
             model: Users,
-            as: 'user',
+            as: 'author',
             attributes: ['id', 'username', 'firstName', 'lastName', 'profilePicture']
           },
           {
@@ -40,7 +45,7 @@ const blogController = {
         const postJson = post.toJSON();
         return {
           ...postJson,
-          author: postJson.user,
+          author: postJson.author,
           user: undefined,
           commentsCount: postJson.comments?.length || 0,
           likesCount: postJson.likes?.length || 0,
@@ -61,18 +66,38 @@ const blogController = {
     try {
       const { postId } = req.params;
       
-      // Change 'author' to 'user' to match your association definition
       const post = await Posts.findByPk(postId, {
         include: [
           {
             model: Users,
-            as: 'user',
+            as: 'author',
             attributes: ['id', 'username', 'firstName', 'lastName', 'profilePicture']
           },
           {
             model: Media,
             as: 'media',
             attributes: ['id', 'url', 'type']
+          },
+          {
+            model: Comments,
+            as: 'comments',
+            include: [
+              {
+                model: Users,
+                as: 'user',
+                attributes: ['id', 'username', 'firstName', 'lastName', 'profilePicture']
+              },
+              {
+                model: Media,
+                as: 'media',
+                attributes: ['id', 'url', 'type']
+              }
+            ]
+          },
+          {
+            model: Likes,
+            as: 'likes',
+            attributes: ['id', 'userId']
           }
         ]
       });
@@ -81,44 +106,36 @@ const blogController = {
         return res.status(404).json({ message: 'Post not found' });
       }
       
-      // Process post data
+      // Transform post data
       const postData = post.toJSON();
-      
-      // Rename user to author for frontend consistency (if needed)
-      postData.author = postData.user;
-      postData.user = undefined;
+      const formattedPost = {
+        ...postData,
+        author: postData.author,
+        user: undefined,
+        commentsCount: postData.comments?.length || 0,
+        likesCount: postData.likes?.length || 0
+      };
       
       // Get category from the post's category field
-      if (postData.category) {
-        postData.categoryInfo = { 
-          id: postData.category,
-          name: postData.category
+      if (formattedPost.category) {
+        formattedPost.categoryInfo = { 
+          id: formattedPost.category,
+          name: formattedPost.category
         };
       }
-      
-      // Get comments count separately
-      const commentsCount = await Comments.count({ where: { postId } });
-      postData.commentsCount = commentsCount;
-      
-      // Get likes count
-      const likesCount = await Likes.count({ where: { postId } });
-      postData.likesCount = likesCount;
       
       // Check if user has liked the post
       if (req.user) {
         const userLiked = await Likes.findOne({
           where: { postId, userId: req.user.id }
         });
-        postData.userLiked = !!userLiked;
+        formattedPost.userLiked = !!userLiked;
       }
       
-      res.status(200).json(postData);
+      res.status(200).json(formattedPost);
     } catch (error) {
       console.error('Error fetching post by ID:', error);
-      res.status(500).json({ 
-        message: 'Error fetching post details', 
-        error: error.message
-      });
+      res.status(500).json({ message: 'Error fetching post', error: error.message });
     }
   },
 
@@ -154,7 +171,7 @@ const blogController = {
           // Use full URL path that will be accessible from the frontend
           const fileName = path.basename(file.path);
           // Make URL consistent with how your frontend serves static files
-          const filePath = `http://192.168.1.16:5000/uploads/${fileName}`;
+          const filePath = `${BASE_URL}/uploads/${fileName}`;
           
           console.log("File path being saved:", filePath);
           console.log("Original file path:", file.path);
@@ -184,7 +201,7 @@ const blogController = {
         include: [
           {
             model: Users,
-            as: 'user',
+            as: 'author',
             attributes: ['id', 'username', 'firstName', 'lastName', 'profilePicture']
           },
           {
@@ -259,7 +276,7 @@ const blogController = {
           // Get file path relative to server - FIX URL FORMAT HERE
           const fileName = path.basename(file.path);
           // Use full URL path that will be accessible from the frontend
-          const filePath = `http://192.168.1.16:5000/uploads/${fileName}`;
+          const filePath = `${BASE_URL}/uploads/${fileName}`;
           
           console.log("File path being saved:", filePath);
           console.log("Original file path:", file.path);
@@ -361,7 +378,6 @@ const blogController = {
       
       const comments = await Comments.findAll({
         where: { postId },
-        attributes: ['id', 'content', 'createdAt', 'updatedAt', 'postId', 'userId'],
         include: [
           {
             model: Users,
@@ -377,24 +393,7 @@ const blogController = {
         order: [['createdAt', 'DESC']]
       });
 
-      // Process comments for client-side use
-      const processedComments = comments.map(comment => {
-        const commentObj = comment.toJSON();
-        
-        // Add imageUrl from media
-        if (commentObj.media && commentObj.media.length > 0) {
-          commentObj.imageUrl = commentObj.media[0].url;
-          
-          // Ensure URL format is correct
-          if (!commentObj.imageUrl.startsWith('http') && !commentObj.imageUrl.startsWith('/uploads/')) {
-            commentObj.imageUrl = `/uploads/${commentObj.imageUrl}`;
-          }
-        }
-        
-        return commentObj;
-      });
-      
-      res.status(200).json(processedComments);
+      res.status(200).json(comments);
     } catch (error) {
       console.error('Error fetching comments:', error);
       res.status(500).json({ message: 'Error fetching comments', error: error.message });
@@ -839,6 +838,29 @@ const blogController = {
     } catch (error) {
       console.error('Error fetching posts:', error);
       res.status(500).json({ message: 'Error fetching posts', error: error.message });
+    }
+  },
+
+  // Add this controller function
+  reportPost: async (req, res) => {
+    try {
+      const { postId } = req.params;
+      const { reason } = req.body;
+      const userId = req.user.id;
+      
+      // Create a report entry in your database
+      // This assumes you have a Reports model, if not you'd need to create one
+      const report = await Reports.create({
+        postId,
+        userId,
+        reason,
+        status: 'pending'
+      });
+      
+      res.status(200).json({ message: 'Report submitted successfully' });
+    } catch (error) {
+      console.error('Error reporting post:', error);
+      res.status(500).json({ message: 'Failed to submit report', error: error.message });
     }
   }
 };

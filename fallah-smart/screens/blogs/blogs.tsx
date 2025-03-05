@@ -15,7 +15,10 @@ import {
   Platform,
   SafeAreaView,
   RefreshControl,
-  StatusBar
+  StatusBar,
+  Button,
+  Dimensions,
+  Share
 } from 'react-native';
 import { FontAwesome, MaterialCommunityIcons, Feather, MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { launchImageLibraryAsync, MediaTypeOptions } from 'expo-image-picker';
@@ -25,8 +28,10 @@ import { theme } from '../../theme/theme';
 
 import * as ImagePicker from 'expo-image-picker';
 
-// API Base URL
-const API_URL = "http://192.168.104.24:5000/api/blog";
+// Update API URL constants
+const BASE_URL = process.env.EXPO_PUBLIC_API;
+const BLOG_URL = process.env.EXPO_PUBLIC_BlOG;
+const API_URL = `${BASE_URL}/api/blog`;
 
 // Post category options for creation only, not filtering
 const CATEGORIES = [
@@ -34,6 +39,185 @@ const CATEGORIES = [
   { label: 'Market', value: 'Market', icon: 'shopping', iconType: 'material' },
   { label: 'News', value: 'News', icon: 'newspaper', iconType: 'material' }
 ];
+
+// Update the image URL handling in the PostItem component
+const getImageUrl = (imageUrl) => {
+  if (!imageUrl) return null;
+  if (imageUrl.startsWith('http')) {
+    // Replace any hardcoded IP with the environment variable
+    return imageUrl.replace(/http:\/\/\d+\.\d+\.\d+\.\d+:\d+/, BASE_URL);
+  }
+  return `${BASE_URL}${imageUrl}`;
+};
+
+// First, create a new PostItem component at the top of your file (after imports)
+const PostItem = ({ item, navigation, handlePostLike, handleCommentAdded, timeAgo, renderCategoryIcon, BASE_URL, openReportModal, handleSharePost }) => {
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  
+  const handleImagePress = (e) => {
+    e.stopPropagation();
+  };
+  
+  return (
+    <View style={styles.postCard}>
+      <TouchableOpacity 
+        activeOpacity={0.9}
+        onPress={() => navigation.navigate('PostDetail', { 
+          postId: item.id,
+          onCommentAdded: () => handleCommentAdded(item.id)
+        })}
+      >
+        {/* Header section with user info and category */}
+        <View style={styles.postHeader}>
+          <View style={styles.userInfoContainer}>
+            {/* User avatar */}
+            {item.author?.profilePicture && (
+              <Image 
+                source={{ 
+                  uri: getImageUrl(item.author.profilePicture)
+                }} 
+                style={styles.userAvatar} 
+              />
+            )}
+            
+            {/* User info */}
+            <View style={styles.userInfo}>
+              <Text style={styles.userName}>
+                {item.author?.firstName 
+                  ? `${item.author.firstName} ${item.author.lastName}` 
+                  : item.author?.username || 'Anonymous'}
+              </Text>
+              <Text style={styles.postTime}>{timeAgo(item.createdAt)}</Text>
+            </View>
+          </View>
+          
+          {/* Category tag */}
+          {item.category && (
+            <View style={styles.categoryTag}>
+              {renderCategoryIcon(item.category)}
+              <Text style={styles.categoryText}>{item.category}</Text>
+            </View>
+          )}
+        </View>
+        
+        {/* Post title - make it prominent */}
+        <Text style={styles.postTitle}>{item.title}</Text>
+        
+        {/* Post description with limited lines */}
+        {item.description && (
+          <Text style={styles.postDescription} numberOfLines={3}>
+            {item.description}
+          </Text>
+        )}
+        
+        {/* Media section - updated to support horizontal scrolling */}
+        {item.media && item.media.length > 0 && (
+          <View style={styles.mediaContainer}>
+            <ScrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onScroll={(event) => {
+                const offset = event.nativeEvent.contentOffset.x;
+                const newIndex = Math.round(offset / event.nativeEvent.layoutMeasurement.width);
+                setActiveImageIndex(newIndex);
+              }}
+              scrollEventThrottle={200}
+              onTouchStart={handleImagePress}
+              onTouchEnd={handleImagePress}
+              style={styles.imageScrollView}
+            >
+              {item.media.map((media, index) => (
+                <Image 
+                  key={index} 
+                  source={{ 
+                    uri: getImageUrl(media.url)
+                  }} 
+                  style={styles.postImage} 
+                  resizeMode="cover"
+                />
+              ))}
+            </ScrollView>
+            
+            {/* Pagination indicators */}
+            {item.media.length > 1 && (
+              <View style={styles.paginationContainer}>
+                {item.media.map((_, index) => (
+                  <View 
+                    key={index} 
+                    style={[
+                      styles.paginationDot, 
+                      index === activeImageIndex && styles.paginationDotActive
+                    ]} 
+                  />
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+      </TouchableOpacity>
+      
+      {/* Footer section with interactions */}
+      <View style={styles.postFooter}>
+        <View style={styles.interactionButtons}>
+          {/* Like button */}
+          <TouchableOpacity 
+            style={styles.interactionButton}
+            onPress={() => handlePostLike(item.id)}
+          >
+            <MaterialCommunityIcons 
+              name={item.userLiked ? "thumb-up" : "thumb-up-outline"} 
+              size={18} 
+              color={item.userLiked ? theme.colors.primary.base : theme.colors.neutral.textSecondary} 
+            />
+            <Text style={styles.interactionCount}>{item.likesCount || 0}</Text>
+          </TouchableOpacity>
+          
+          {/* Comment button */}
+          <TouchableOpacity style={styles.interactionButton}>
+            <MaterialCommunityIcons 
+              name="comment-outline" 
+              size={18} 
+              color={theme.colors.neutral.textSecondary} 
+            />
+            <Text style={styles.interactionCount}>{item.commentsCount || 0}</Text>
+          </TouchableOpacity>
+          
+          {/* Share button */}
+          <TouchableOpacity 
+            style={styles.interactionButton}
+            onPress={(e) => {
+              e.stopPropagation(); // Prevent navigation
+              handleSharePost(item);
+            }}
+          >
+            <MaterialCommunityIcons 
+              name="share-outline" 
+              size={18} 
+              color={theme.colors.neutral.textSecondary} 
+            />
+            <Text style={styles.interactionCount}>Share</Text>
+          </TouchableOpacity>
+          
+          {/* Report button */}
+          <TouchableOpacity 
+            style={styles.interactionButton}
+            onPress={(e) => {
+              e.stopPropagation(); // Prevent navigation
+              openReportModal(item);
+            }}
+          >
+            <MaterialCommunityIcons 
+              name="flag-outline" 
+              size={18} 
+              color={theme.colors.neutral.textSecondary} 
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+};
 
 const Blogs = () => {
   const navigation = useNavigation();
@@ -50,6 +234,22 @@ const Blogs = () => {
   const [selectedImages, setSelectedImages] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [cameraPermission, setCameraPermission] = useState(null);
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+  const [postToReport, setPostToReport] = useState(null);
+  const [customReason, setCustomReason] = useState('');
+  
+  // Add the report reasons array
+  const reportReasons = [
+    'Inappropriate content',
+    'Spam',
+    'Misleading information',
+    'Harassment or bullying',
+    'Violence',
+    'Hate speech',
+    'Other'
+  ];
 
   // Fetch posts on component mount
   useEffect(() => {
@@ -345,98 +545,19 @@ const Blogs = () => {
   }
 };
 
-// Update the renderPostItem function to use the handlePostLike function
+// Now use this simplified renderPostItem that returns our PostItem component
 const renderPostItem = ({ item }) => (
-  <TouchableOpacity 
-    style={styles.postCard}
-    onPress={() => navigation.navigate('PostDetail', { 
-      postId: item.id,
-      onCommentAdded: () => handleCommentAdded(item.id)
-    })}
-    activeOpacity={0.9}
-  >
-    <View style={styles.postHeader}>
-      <View style={styles.authorInfo}>
-        {item.author?.profilePicture ? (
-          <Image 
-            source={{ 
-              uri: item.author.profilePicture.startsWith('http') 
-                ? item.author.profilePicture 
-                : `http://192.168.1.16:5000${item.author.profilePicture}` // Fixed URL
-            }} 
-            style={styles.authorAvatar} 
-          />
-        ) : (
-          <View style={styles.authorAvatarPlaceholder}>
-            <MaterialCommunityIcons name="account" size={18} color="#fff" />
-          </View>
-        )}
-        <View>
-          <Text style={styles.authorName}>
-            {item.author?.firstName 
-              ? `${item.author.firstName} ${item.author.lastName}` 
-              : item.author?.username || 'Anonymous'}
-          </Text>
-          <Text style={styles.postDate}>{timeAgo(item.createdAt)}</Text>
-        </View>
-      </View>
-      
-      {item.category && (
-        <View style={styles.categoryBadge}>
-          {renderCategoryIcon(item.category)}
-          <Text style={styles.categoryText}>{item.category}</Text>
-        </View>
-      )}
-    </View>
-    
-    <Text style={styles.postTitle}>{item.title}</Text>
-    
-    {item.description && (
-      <Text style={styles.postDescription} numberOfLines={3}>
-        {item.description}
-      </Text>
-    )}
-    
-    {item.media && item.media.length > 0 && (
-      <View style={styles.mediaContainer}>
-        {item.media.slice(0, 1).map((media, index) => (
-          <Image 
-            key={index} 
-            source={{ uri: media.url }} 
-            style={styles.postImage} 
-            resizeMode="cover"
-          />
-        ))}
-        {item.media.length > 1 && (
-          <View style={styles.mediaCountBadge}>
-            <Text style={styles.mediaCountText}>+{item.media.length - 1}</Text>
-          </View>
-        )}
-      </View>
-    )}
-    
-    <View style={styles.postFooter}>
-      <TouchableOpacity 
-        style={styles.footerAction}
-        onPress={(e) => {
-          e.stopPropagation(); // Prevent post navigation
-          handlePostLike(item.id);
-        }}
-      >
-        <MaterialCommunityIcons 
-          name={item.userLiked ? "heart" : "heart-outline"} 
-          size={20} 
-          color={item.userLiked ? theme.colors.error : theme.colors.neutral.textSecondary} 
-        />
-        <Text style={styles.footerActionText}>{item.likesCount || 0} Likes</Text>
-      </TouchableOpacity>
-      
-      <View style={styles.footerAction}>
-        <MaterialCommunityIcons name="comment-outline" size={20} color={theme.colors.neutral.textSecondary} />
-        <Text style={styles.footerActionText}>{item.commentsCount || 0} Comments</Text>
-      </View>
-    </View>
-  </TouchableOpacity>
+  <PostItem 
+    item={item} 
+    navigation={navigation} 
+    handlePostLike={handlePostLike}
+    handleCommentAdded={handleCommentAdded}
+    timeAgo={timeAgo}
+    renderCategoryIcon={renderCategoryIcon}
+    BASE_URL={BASE_URL}
+    openReportModal={openReportModal}
+    handleSharePost={handleSharePost}
+  />
 );
 
 // Function to handle comment additions
@@ -453,96 +574,173 @@ const handleCommentAdded = (postId) => {
   }));
 };
 
+// Add a function to handle reporting
+const handleReportPost = async () => {
+  if (!reportReason || (reportReason === 'Other' && !customReason)) {
+    Alert.alert('Error', 'Please provide a reason for reporting this post');
+    return;
+  }
+  
+  setIsSubmittingReport(true);
+  
+  try {
+    await axios.post(`${API_URL}/posts/${postToReport.id}/report`, {
+      reason: reportReason === 'Other' ? customReason : reportReason
+    });
+    
+    setReportModalVisible(false);
+    setReportReason('');
+    setCustomReason('');
+    setPostToReport(null);
+    Alert.alert('Success', 'Thank you for your report. Our team will review it shortly.');
+  } catch (error) {
+    console.error('Error reporting post:', error);
+    Alert.alert('Error', 'Failed to submit report. Please try again later.');
+  } finally {
+    setIsSubmittingReport(false);
+  }
+};
 
-  // Update the navigation to PostDetail to include a callback for when comments are added
-  // Add this inside the Blogs component, possibly in useEffect or a navigation function
-  useEffect(() => {
-    // Set up a listener for when we return from PostDetail
-    const unsubscribe = navigation.addListener('focus', () => {
-      // Refresh the posts when returning to this screen
-      fetchPosts();
+// Add a function to open the report modal
+const openReportModal = (post) => {
+  setPostToReport(post);
+  setReportModalVisible(true);
+};
+
+// Update the navigation to PostDetail to include a callback for when comments are added
+// Add this inside the Blogs component, possibly in useEffect or a navigation function
+useEffect(() => {
+  // Set up a listener for when we return from PostDetail
+  const unsubscribe = navigation.addListener('focus', () => {
+    // Refresh the posts when returning to this screen
+    fetchPosts();
+  });
+
+  return unsubscribe;
+}, [navigation]);
+
+// Update the handleSharePost function
+const handleSharePost = async (post) => {
+  try {
+    // Include post author if available
+    const author = post.author?.firstName 
+      ? `${post.author.firstName} ${post.author.lastName}` 
+      : 'A Fallah Smart user';
+
+    // Create the share content
+    const title = post.title || 'Check out this post';
+    const message = `${title}\n\n${post.description || ''}\n\nShared by ${author} via Fallah Smart app`;
+
+    // Get the first image URL if available
+    let imageUrl = null;
+    if (post.media && post.media.length > 0) {
+      imageUrl = getImageUrl(post.media[0].url);
+    }
+
+    // Configure share options based on platform
+    const shareOptions = Platform.select({
+      ios: {
+        activityItemSources: [
+          {
+            placeholderItem: { type: 'text', content: message },
+            item: {
+              default: { type: 'text', content: message },
+            },
+            linkMetadata: {
+              title: title,
+            },
+          },
+          imageUrl && {
+            placeholderItem: { type: 'url', content: imageUrl },
+            item: {
+              default: { type: 'url', content: imageUrl },
+            },
+            linkMetadata: {
+              title: title,
+              icon: imageUrl
+            },
+          },
+        ].filter(Boolean),
+      },
+      android: {
+        title,
+        message,
+        ...(imageUrl && { url: imageUrl }),
+      },
+      default: {
+        title,
+        message,
+      },
     });
 
-    return unsubscribe;
-  }, [navigation]);
+    const result = await Share.share(shareOptions, {
+      dialogTitle: 'Share this post',
+      subject: title,
+    });
+
+    if (result.action === Share.sharedAction) {
+      if (result.activityType) {
+        console.log('Shared with activity type:', result.activityType);
+      } else {
+        console.log('Shared successfully');
+      }
+    } else if (result.action === Share.dismissedAction) {
+      console.log('Share dialog dismissed');
+    }
+  } catch (error) {
+    console.error('Error sharing post:', error);
+    Alert.alert(
+      'Sharing Failed', 
+      'Unable to share this post. Please try again or use a different sharing method.'
+    );
+  }
+};
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar backgroundColor={theme.colors.neutral.surface} barStyle="dark-content" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.neutral.background }}>
+      <StatusBar backgroundColor={theme.colors.neutral.background} barStyle="dark-content" />
       
-      {/* Header with spacer to push down content */}
-      <View style={styles.headerSpacer} />
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Community</Text>
-      </View>
-      
-      {/* Main content */}
-      {loading && !refreshing ? (
+      {loading && !posts.length ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={theme.colors.primary.base} />
-          <Text style={styles.loadingText}>Loading posts...</Text>
         </View>
       ) : error ? (
         <View style={styles.centerContainer}>
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity 
-            style={styles.retryButton}
-            onPress={fetchPosts}
-          >
-            <Text style={styles.retryButtonText}>Try Again</Text>
-          </TouchableOpacity>
+          <Button title="Try Again" onPress={fetchPosts} style={{ marginTop: 16 }} />
         </View>
       ) : (
         <FlatList
           data={posts}
           renderItem={renderPostItem}
-          keyExtractor={item => item.id.toString()}
+          keyExtractor={(item) => item.id.toString()}
           contentContainerStyle={styles.postsList}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              colors={[theme.colors.primary.base]}
-              tintColor={theme.colors.primary.base}
-            />
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
           }
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <MaterialCommunityIcons 
-                name="post-outline" 
-                size={64} 
-                color={theme.colors.neutral.gray.base} 
-              />
-              <Text style={styles.emptyTitle}>No Posts Yet</Text>
-              <Text style={styles.emptyDescription}>
-                Be the first to share something with the community!
-              </Text>
-              <TouchableOpacity 
-                style={styles.createPostButton}
-                onPress={() => setModalVisible(true)}
-              >
-                <Text style={styles.createPostButtonText}>Create Post</Text>
-              </TouchableOpacity>
+            <View style={styles.centerContainer}>
+              <Text style={styles.emptyText}>No posts yet.</Text>
             </View>
           }
         />
       )}
       
-      {/* Floating ask community button */}
+      {/* Floating Action Button for creating a new post - styled like "Ask Community" */}
       <TouchableOpacity 
         style={styles.askCommunityButton}
         onPress={() => setModalVisible(true)}
-        activeOpacity={0.9}
       >
-        <Feather name="edit" size={18} color={theme.colors.neutral.surface} style={styles.editIcon} />
-        <Text style={styles.askCommunityButtonText}>Ask Community</Text>
+        <Feather name="edit" size={20} color="white" />
+        <Text style={styles.askCommunityText}>Ask Community</Text>
       </TouchableOpacity>
       
-      {/* Create Post Modal */}
+      {/* New Post Modal */}
       <Modal
-        visible={modalVisible}
         animationType="slide"
+        transparent={false}
+        visible={modalVisible}
         onRequestClose={() => setModalVisible(false)}
       >
         <SafeAreaView style={styles.modalContainer}>
@@ -657,6 +855,98 @@ const handleCommentAdded = (postId) => {
           </KeyboardAvoidingView>
         </SafeAreaView>
       </Modal>
+      
+      {/* Report Modal */}
+      <Modal
+        visible={reportModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => {
+          setReportModalVisible(false);
+          setReportReason('');
+          setCustomReason('');
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.reportModalContainer}>
+            <View style={styles.reportModalHeader}>
+              <Text style={styles.reportModalTitle}>Report Post</Text>
+              <TouchableOpacity 
+                onPress={() => {
+                  setReportModalVisible(false);
+                  setReportReason('');
+                  setCustomReason('');
+                }}
+              >
+                <MaterialCommunityIcons name="close" size={24} color={theme.colors.neutral.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            
+            <Text style={styles.reportModalSubtitle}>Why are you reporting this post?</Text>
+            
+            <ScrollView style={styles.reportReasonsList}>
+              {reportReasons.map((reason) => (
+                <TouchableOpacity
+                  key={reason}
+                  style={[
+                    styles.reportReasonItem,
+                    reportReason === reason && styles.reportReasonItemSelected
+                  ]}
+                  onPress={() => setReportReason(reason)}
+                >
+                  <Text style={styles.reportReasonText}>{reason}</Text>
+                  {reportReason === reason && (
+                    <MaterialCommunityIcons name="check" size={20} color={theme.colors.primary.base} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            
+            {/* Add custom reason input when 'Other' is selected */}
+            {reportReason === 'Other' && (
+              <View style={styles.customReasonContainer}>
+                <TextInput
+                  style={styles.customReasonInput}
+                  placeholder="Please specify your reason"
+                  value={customReason}
+                  onChangeText={setCustomReason}
+                  multiline
+                  maxLength={200}
+                />
+              </View>
+            )}
+            
+            <View style={styles.reportModalActions}>
+              <TouchableOpacity
+                style={styles.reportCancelButton}
+                onPress={() => {
+                  setReportModalVisible(false);
+                  setReportReason('');
+                  setCustomReason('');
+                }}
+              >
+                <Text style={styles.reportCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.reportSubmitButton,
+                  (!reportReason || (reportReason === 'Other' && !customReason) || isSubmittingReport) && 
+                    styles.reportSubmitButtonDisabled
+                ]}
+                onPress={handleReportPost}
+                disabled={!reportReason || (reportReason === 'Other' && !customReason) || isSubmittingReport}
+              >
+                {isSubmittingReport ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Text style={styles.reportSubmitButtonText}>Submit</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -680,211 +970,154 @@ const styles = StyleSheet.create({
     color: theme.colors.neutral.textPrimary,
   },
   postCard: {
-    backgroundColor: theme.colors.neutral.surface,
-    borderRadius: theme.borderRadius.medium,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
-    elevation: 2,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    marginBottom: 16,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowRadius: 3,
+    elevation: 2,
   },
   postHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: theme.spacing.sm,
+    padding: 16,
+    paddingBottom: 8,
   },
-  authorInfo: {
+  userInfoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  authorAvatar: {
+  userAvatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    marginRight: 10,
+    marginRight: 12,
   },
-  authorAvatarPlaceholder: {
+  userAvatarPlaceholder: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: theme.colors.neutral.gray.base,
+    backgroundColor: theme.colors.neutral.gray.dark,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    marginRight: 12,
   },
-  authorName: {
-    fontSize: 14,
-    fontFamily: theme.fonts.medium,
+  userInfo: {
+    justifyContent: 'center',
+  },
+  userName: {
+    fontSize: 15,
+    fontWeight: '600',
     color: theme.colors.neutral.textPrimary,
+    marginBottom: 2,
   },
-  postDate: {
-    fontSize: theme.fontSizes.caption,
-    fontFamily: theme.fonts.regular,
+  postTime: {
+    fontSize: 13,
     color: theme.colors.neutral.textSecondary,
   },
-  categoryBadge: {
+  categoryTag: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.neutral.gray.light,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 16,
   },
   categoryText: {
-    fontSize: theme.fontSizes.caption,
-    fontFamily: theme.fonts.regular,
-    color: theme.colors.neutral.textSecondary,
+    fontSize: 12,
     marginLeft: 4,
+    color: theme.colors.neutral.textSecondary,
   },
   postTitle: {
-    fontSize: theme.fontSizes.h2,
-    fontFamily: theme.fonts.medium,
+    fontSize: 17,
+    fontWeight: '600',
     color: theme.colors.neutral.textPrimary,
-    marginBottom: theme.spacing.sm,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
   },
   postDescription: {
-    fontSize: theme.fontSizes.body,
-    fontFamily: theme.fonts.regular,
-    color: theme.colors.neutral.textSecondary,
-    marginBottom: theme.spacing.md,
+    fontSize: 15,
+    color: theme.colors.neutral.textPrimary,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    lineHeight: 20,
   },
   mediaContainer: {
-    position: 'relative',
     width: '100%',
-    borderRadius: theme.borderRadius.medium,
-    overflow: 'hidden',
-    marginBottom: theme.spacing.md,
+    position: 'relative',
+  },
+  imageScrollView: {
+    width: '100%',
   },
   postImage: {
-    width: '100%',
+    width: Dimensions.get('window').width - 32, // Full width minus padding
     height: 200,
-    borderRadius: theme.borderRadius.medium,
   },
-  moreImagesOverlay: {
+  paginationContainer: {
+    flexDirection: 'row',
     position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    bottom: 10,
+    alignSelf: 'center',
   },
-  moreImagesText: {
-    fontSize: theme.fontSizes.h2,
-    fontFamily: theme.fonts.bold,
-    color: 'white',
+  paginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    marginHorizontal: 4,
+  },
+  paginationDotActive: {
+    backgroundColor: 'white',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
   postFooter: {
+    padding: 12,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.neutral.gray.light,
+  },
+  interactionButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.neutral.border,
   },
-  footerAction: {
+  interactionButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
-  footerActionText: {
-    fontSize: 14,
+  interactionCount: {
+    marginLeft: 4,
+    fontSize: theme.fontSizes.small,
     color: theme.colors.neutral.textSecondary,
-    marginLeft: 6,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: theme.spacing.xl,
-  },
-  loadingText: {
-    marginTop: theme.spacing.md,
-    fontSize: theme.fontSizes.body,
-    fontFamily: theme.fonts.regular,
-    color: theme.colors.neutral.textSecondary,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: theme.spacing.xl,
-  },
-  errorText: {
-    fontSize: theme.fontSizes.body,
-    fontFamily: theme.fonts.regular,
-    color: theme.colors.error,
-    textAlign: 'center',
-    marginBottom: theme.spacing.md,
-  },
-  retryButton: {
-    backgroundColor: theme.colors.primary.base,
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.borderRadius.small,
-  },
-  retryButtonText: {
-    fontSize: theme.fontSizes.body,
-    fontFamily: theme.fonts.medium,
-    color: theme.colors.neutral.surface,
-  },
-  emptyContainer: {
-    padding: theme.spacing.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyTitle: {
-    fontSize: theme.fontSizes.h2,
-    fontFamily: theme.fonts.medium,
-    color: theme.colors.neutral.textPrimary,
-    marginTop: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
-  },
-  emptyDescription: {
-    fontSize: theme.fontSizes.body,
-    fontFamily: theme.fonts.regular,
-    color: theme.colors.neutral.textSecondary,
-    textAlign: 'center',
-    marginBottom: theme.spacing.lg,
-  },
-  createPostButton: {
-    backgroundColor: theme.colors.primary.base,
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.borderRadius.small,
-  },
-  createPostButtonText: {
-    color: theme.colors.neutral.surface,
-    fontFamily: theme.fonts.medium,
-    fontSize: theme.fontSizes.body,
   },
   askCommunityButton: {
+    backgroundColor: theme.colors.primary.base,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 20,
     position: 'absolute',
     bottom: 20,
     right: 20,
-    backgroundColor: theme.colors.primary.base,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 30,
-    elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
   },
-  askCommunityButtonText: {
-    color: theme.colors.neutral.surface,
-    fontFamily: theme.fonts.medium,
-    fontSize: theme.fontSizes.body,
+  askCommunityText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
     marginLeft: 8,
-  },
-  editIcon: {
-    marginRight: 4,
   },
   modalContainer: {
     flex: 1,
@@ -1009,18 +1242,150 @@ const styles = StyleSheet.create({
     padding: theme.spacing.md,
     paddingTop: theme.spacing.sm,
   },
-  mediaCountBadge: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    padding: 4,
-    borderRadius: 12,
+  emptyContainer: {
+    padding: theme.spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  mediaCountText: {
-    fontSize: theme.fontSizes.caption,
-    fontFamily: theme.fonts.bold,
-    color: 'white',
+  emptyTitle: {
+    fontSize: theme.fontSizes.h2,
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.neutral.textPrimary,
+    marginTop: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+  },
+  emptyDescription: {
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.regular,
+    color: theme.colors.neutral.textSecondary,
+    textAlign: 'center',
+    marginBottom: theme.spacing.lg,
+  },
+  createPostButton: {
+    backgroundColor: theme.colors.primary.base,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.small,
+  },
+  createPostButtonText: {
+    color: theme.colors.neutral.surface,
+    fontFamily: theme.fonts.medium,
+    fontSize: theme.fontSizes.body,
+  },
+  errorText: {
+    color: theme.colors.error.text,
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.regular,
+    marginBottom: theme.spacing.md,
+  },
+  emptyText: {
+    color: theme.colors.neutral.textSecondary,
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.regular,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  reportModalContainer: {
+    width: '100%',
+    backgroundColor: theme.colors.neutral.surface,
+    borderRadius: theme.borderRadius.large,
+    padding: 16,
+    maxHeight: '80%',
+  },
+  reportModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  reportModalTitle: {
+    fontSize: theme.fontSizes.h3,
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.neutral.textPrimary,
+  },
+  reportModalSubtitle: {
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.regular,
+    color: theme.colors.neutral.textSecondary,
+    marginBottom: 16,
+  },
+  reportReasonsList: {
+    maxHeight: 300,
+  },
+  reportReasonItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.neutral.gray.light,
+  },
+  reportReasonItemSelected: {
+    backgroundColor: theme.colors.primary.fade,
+  },
+  reportReasonText: {
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.regular,
+    color: theme.colors.neutral.textPrimary,
+  },
+  reportModalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 16,
+  },
+  reportCancelButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginRight: 8,
+  },
+  reportCancelButtonText: {
+    fontSize: theme.fontSizes.button,
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.neutral.textSecondary,
+  },
+  reportSubmitButton: {
+    backgroundColor: theme.colors.primary.base,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: theme.borderRadius.small,
+  },
+  reportSubmitButtonDisabled: {
+    backgroundColor: theme.colors.primary.disabled,
+  },
+  reportSubmitButtonText: {
+    fontSize: theme.fontSizes.button,
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.neutral.surface,
+  },
+  customReasonContainer: {
+    marginTop: 16,
+    marginBottom: 8,
+    padding: 16,
+    backgroundColor: theme.colors.neutral.gray.lighter,
+    borderRadius: theme.borderRadius.medium,
+  },
+  customReasonInput: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.regular,
+    color: theme.colors.neutral.textPrimary,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+  },
+  actionText: {
+    marginLeft: 4,
+    fontSize: theme.fontSizes.small,
+    color: theme.colors.neutral.textSecondary,
   },
 });
 
