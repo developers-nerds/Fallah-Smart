@@ -8,78 +8,64 @@ import {
   Animated,
   Image,
   Easing,
+  ActivityIndicator,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { theme } from '../../theme/theme';
 import { handleNewConversation, Conversation } from '../../utils/conversationUtils';
+import { storage } from '../../utils/storage';
+const Url = process.env.EXPO_PUBLIC_API_URL;
 
-// Fake data with added unread status and icons
-const fakeConversations = [
-  {
-    id: '1',
-    title: 'Tomato disease prevention',
-    date: '2023-12-15',
-    preview: 'How do I prevent blight in tomatoes?',
-    unread: true,
-    icon: '🍅',
-  },
-  {
-    id: '2',
-    title: 'Irrigation systems',
-    date: '2023-12-10',
-    preview: 'What irrigation system is best for my small farm?',
-    unread: false,
-    icon: '💧',
-  },
-  {
-    id: '3',
-    title: 'Organic fertilizers',
-    date: '2023-12-05',
-    preview: 'Can you recommend organic fertilizers for vegetables?',
-    unread: true,
-    icon: '🌱',
-  },
-  {
-    id: '4',
-    title: 'Pest control',
-    date: '2023-11-28',
-    preview: 'How to control aphids without chemicals?',
-    unread: false,
-    icon: '🐞',
-  },
-  {
-    id: '5',
-    title: 'Crop rotation',
-    date: '2023-11-20',
-    preview: "What's a good crop rotation schedule for my garden?",
-    unread: false,
-    icon: '🌾',
-  },
-  {
-    id: '6',
-    title: 'Soil testing',
-    date: '2023-11-15',
-    preview: 'How often should I test my soil?',
-    unread: false,
-    icon: '🧪',
-  },
-  {
-    id: '7',
-    title: 'Weather patterns',
-    date: '2023-11-10',
-    preview: 'How will changing weather affect my crops?',
-    unread: false,
-    icon: '☁️',
-  },
-  {
-    id: '8',
-    title: 'Seed selection',
-    date: '2023-11-05',
-    preview: 'Which tomato varieties are disease resistant?',
-    unread: false,
-    icon: '🌰',
-  },
-];
+// Function to fetch conversations from the API
+const getConversations = async () => {
+  try {
+    const response = await fetch(`${Url}/conversations/get`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${await getToken()}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch conversations');
+    }
+
+    const data = await response.json();
+    console.log('data', data);
+    return data;
+  } catch (error) {
+    console.error('Error fetching conversations:', error);
+    return [];
+  }
+};
+
+// Helper function to get the auth token from storage
+const getToken = async () => {
+  try {
+    // Get token from storage utility
+    const tokens = await storage.getTokens();
+    return tokens.accessToken || '';
+  } catch (error) {
+    console.error('Error getting token:', error);
+    return '';
+  }
+};
+
+// Helper function to map API conversation data to our Conversation interface
+const mapApiConversations = (apiData: any[]): Conversation[] => {
+  if (!Array.isArray(apiData)) return [];
+
+  return apiData.map((conv: any) => ({
+    id: conv.id || conv._id,
+    title: conv.conversation_name || 'Untitled Conversation',
+    date: new Date(conv.createdAt || Date.now()).toISOString().split('T')[0],
+    preview: conv.description || 'No preview available',
+    unread: conv.unread || false,
+    icon: conv.icon || '🌱',
+    messages: conv.messages || [],
+  }));
+};
 
 interface ConversationSidebarProps {
   isVisible: boolean;
@@ -100,9 +86,44 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
   const bounceAnim = useRef(new Animated.Value(0)).current; // Bounce animation
   const [isAnimationComplete, setIsAnimationComplete] = useState(!isVisible);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [loading, setLoading] = useState(true); // Start with loading true
+  const [error, setError] = useState<string | null>(null);
 
-  // Create animated values for each conversation item
-  const itemAnimations = useRef(fakeConversations.map(() => new Animated.Value(0))).current;
+  // Create animated values for each conversation item - max 20 for performance
+  const itemAnimations = useRef(
+    Array(20)
+      .fill(0)
+      .map(() => new Animated.Value(0))
+  ).current;
+
+  // Fetch conversations when component mounts
+  useEffect(() => {
+    const fetchConversations = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await getConversations();
+        if (data && Array.isArray(data)) {
+          // Map API data to match our Conversation interface
+          const formattedConversations = mapApiConversations(data);
+          setConversations(formattedConversations);
+        } else {
+          setConversations([]);
+        }
+      } catch (err) {
+        console.error('Error in fetchConversations:', err);
+        setError('Failed to load conversations');
+        setConversations([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (isVisible) {
+      fetchConversations();
+    }
+  }, [isVisible]);
 
   useEffect(() => {
     if (isVisible) {
@@ -113,88 +134,73 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
       Animated.parallel([
         Animated.spring(slideAnim, {
           toValue: 0,
-          tension: 80,
-          friction: 10,
+          friction: 6,
+          tension: 40,
           useNativeDriver: true,
         }),
-        Animated.timing(scaleAnim, {
+        Animated.spring(scaleAnim, {
           toValue: 1,
-          duration: 300,
+          friction: 6,
+          tension: 40,
           useNativeDriver: true,
         }),
         Animated.timing(rotateAnim, {
-          toValue: 0,
-          duration: 400,
-          easing: Easing.elastic(1),
+          toValue: 1,
+          duration: 300,
+          easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
       ]).start();
 
-      // Staggered animations for conversation items
-      Animated.stagger(
-        50, // Stagger each item by 50ms
-        itemAnimations.map((anim) =>
-          Animated.spring(anim, {
+      // Animate conversation items sequentially
+      if (conversations.length > 0) {
+        conversations.forEach((_, i) => {
+          Animated.timing(itemAnimations[i], {
             toValue: 1,
-            tension: 100,
-            friction: 8,
-            useNativeDriver: true,
-          })
-        )
-      ).start();
-    } else {
-      // Closing animations - more fun and bouncy
-
-      // First animate the items out in reverse order
-      Animated.stagger(
-        30,
-        [...itemAnimations].reverse().map((anim) =>
-          Animated.timing(anim, {
-            toValue: 0,
             duration: 200,
+            delay: 100 + i * 50,
+            easing: Easing.out(Easing.cubic),
             useNativeDriver: true,
-          })
-        )
-      ).start();
-
-      // Then animate the sidebar with bounce and rotation
+          }).start();
+        });
+      }
+    } else {
+      // Closing animations
       Animated.sequence([
-        // Small bounce before closing
+        // First bounce slightly
         Animated.timing(bounceAnim, {
           toValue: 1,
-          duration: 150,
-          easing: Easing.out(Easing.back(2)),
+          duration: 100,
+          easing: Easing.inOut(Easing.quad),
           useNativeDriver: true,
         }),
-        // Then slide out with rotation
+        // Then slide out and scale down
         Animated.parallel([
           Animated.timing(slideAnim, {
             toValue: -300,
-            duration: 400,
-            easing: Easing.bezier(0.25, 1, 0.5, 1),
+            duration: 200,
+            easing: Easing.in(Easing.cubic),
             useNativeDriver: true,
           }),
           Animated.timing(scaleAnim, {
             toValue: 0.95,
-            duration: 300,
+            duration: 200,
+            easing: Easing.in(Easing.cubic),
             useNativeDriver: true,
           }),
           Animated.timing(rotateAnim, {
-            toValue: 1,
-            duration: 400,
-            easing: Easing.out(Easing.back(1.5)),
+            toValue: 0,
+            duration: 200,
+            easing: Easing.in(Easing.cubic),
             useNativeDriver: true,
           }),
         ]),
-      ]).start(({ finished }) => {
-        if (finished) {
-          setIsAnimationComplete(true);
-          // Reset bounce animation for next time
-          bounceAnim.setValue(0);
-        }
+      ]).start(() => {
+        // Mark animation as complete so component can be removed from DOM
+        setIsAnimationComplete(true);
       });
     }
-  }, [isVisible]);
+  }, [isVisible, conversations.length]);
 
   // Don't render if not visible and animation is complete
   if (!isVisible && isAnimationComplete) return null;
@@ -204,7 +210,10 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
     onSelectConversation(id);
   };
 
-  const renderItem = ({ item, index }: { item: (typeof fakeConversations)[0]; index: number }) => {
+  // Use the actual conversations only
+  const displayConversations = conversations;
+
+  const renderItem = ({ item, index }: { item: Conversation; index: number }) => {
     const scale = new Animated.Value(1); // For hover-like effect
     const isSelected = selectedId === item.id;
 
@@ -282,18 +291,10 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
     transform: [
       { translateX: slideAnim },
       { scale: scaleAnim },
-      // Add rotation on close
       {
-        rotateY: rotateAnim.interpolate({
+        rotate: rotateAnim.interpolate({
           inputRange: [0, 1],
-          outputRange: ['0deg', '-10deg'],
-        }),
-      },
-      // Add bounce effect before closing
-      {
-        translateX: bounceAnim.interpolate({
-          inputRange: [0, 0.5, 1],
-          outputRange: [0, 10, 0],
+          outputRange: ['-3deg', '0deg'],
         }),
       },
     ],
@@ -318,6 +319,27 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
     ],
   };
 
+  // Empty state component
+  const EmptyState = () => (
+    <View style={styles.emptyContainer}>
+      <MaterialIcons
+        name="chat-bubble-outline"
+        size={48}
+        color={theme.colors.neutral.textSecondary}
+      />
+      <Text style={styles.emptyText}>No conversations yet</Text>
+      <TouchableOpacity
+        style={styles.newConversationButton}
+        onPress={() => {
+          if (onNewConversation) {
+            handleNewConversation(onNewConversation, onClose);
+          }
+        }}>
+        <Text style={styles.newConversationButtonText}>Start a new conversation</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
     <Animated.View style={[styles.container, sidebarAnimatedStyle]}>
       <View style={styles.header}>
@@ -339,13 +361,51 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
         </View>
       </View>
 
-      <FlatList
-        data={fakeConversations}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.listContent}
-      />
+      {/* Conversations list */}
+      <View style={styles.conversationsContainer}>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={theme.colors.primary.base} />
+            <Text style={styles.loadingText}>Loading conversations...</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={() => {
+                // Trigger a re-fetch
+                setConversations([]);
+                setError(null);
+                setLoading(true);
+                getConversations()
+                  .then((data) => {
+                    if (data && Array.isArray(data)) {
+                      const formattedConversations = mapApiConversations(data);
+                      setConversations(formattedConversations);
+                    }
+                  })
+                  .catch((err) => {
+                    console.error('Error retrying fetch:', err);
+                    setError('Failed to load conversations');
+                  })
+                  .finally(() => setLoading(false));
+              }}>
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        ) : conversations.length === 0 ? (
+          <EmptyState />
+        ) : (
+          <FlatList
+            data={conversations}
+            keyExtractor={(item) => item.id}
+            renderItem={renderItem}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+          />
+        )}
+      </View>
 
       <View style={styles.footer}>
         <TouchableOpacity
@@ -523,6 +583,63 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.medium,
     fontSize: theme.fontSizes.body,
     marginLeft: theme.spacing.sm,
+  },
+  conversationsContainer: {
+    flex: 1,
+    padding: theme.spacing.md,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: theme.colors.neutral.textSecondary,
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.regular,
+    marginTop: theme.spacing.sm,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorText: {
+    color: theme.colors.primary.dark,
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.regular,
+    marginBottom: theme.spacing.sm,
+  },
+  retryButton: {
+    backgroundColor: theme.colors.primary.base,
+    borderRadius: theme.borderRadius.medium,
+    padding: theme.spacing.sm,
+  },
+  retryButtonText: {
+    color: theme.colors.neutral.surface,
+    fontFamily: theme.fonts.medium,
+    fontSize: theme.fontSizes.body,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: theme.colors.neutral.textSecondary,
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.regular,
+    marginBottom: theme.spacing.sm,
+  },
+  newConversationButton: {
+    backgroundColor: theme.colors.primary.base,
+    borderRadius: theme.borderRadius.medium,
+    padding: theme.spacing.sm,
+  },
+  newConversationButtonText: {
+    color: theme.colors.neutral.surface,
+    fontFamily: theme.fonts.medium,
+    fontSize: theme.fontSizes.body,
   },
 });
 

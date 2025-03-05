@@ -9,6 +9,8 @@ import {
   Text,
   Platform,
   LayoutAnimation,
+  NativeSyntheticEvent,
+  TextInputSubmitEditingEventData,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { theme } from '../../theme/theme';
@@ -105,6 +107,12 @@ const ChatInput = ({
     });
   };
 
+  const handleSubmitEditing = (e: NativeSyntheticEvent<TextInputSubmitEditingEventData>) => {
+    if (value.trim() || selectedImage) {
+      onSend();
+    }
+  };
+
   return (
     <View style={styles.container}>
       {selectedImage && (
@@ -158,7 +166,10 @@ const ChatInput = ({
           onChangeText={onChangeText}
           placeholder="Type a message..."
           placeholderTextColor={theme.colors.neutral.gray.base}
-          multiline
+          multiline={Platform.OS === 'ios'}
+          blurOnSubmit={true}
+          onSubmitEditing={handleSubmitEditing}
+          returnKeyType="send"
           textAlignVertical="center"
         />
         <View style={styles.buttonContainer}>

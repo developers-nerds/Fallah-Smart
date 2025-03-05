@@ -24,6 +24,9 @@ import { theme } from '../../theme/theme';
 import ConversationSidebar from '../../components/chat/ConversationSidebar';
 import SidebarOverlay from '../../components/chat/SidebarOverlay';
 import LoadingAnimation from '../../components/chat/LoadingAnimation';
+import MessageAlert from '../../components/chat/MessageAlert';
+import { GetConversationName, createConversationInDB } from '../../utils/buildConversations';
+import { storage } from '../../utils/storage';
 
 type ChatScreenProps = {
   navigation: DrawerNavigationProp<DrawerParamList, 'Chat'>;
@@ -43,6 +46,8 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
   const [isNewConversation, setIsNewConversation] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const keyboardTimer = useRef<NodeJS.Timeout | null>(null);
+  const [showMessageLimitAlert, setShowMessageLimitAlert] = useState(false);
+  const MESSAGE_LIMIT = 10;
 
   const toggleSidebar = () => {
     if (sidebarVisible) {
@@ -67,7 +72,48 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
   };
 
   const handleSend = async () => {
+    if (messages.length >= MESSAGE_LIMIT) {
+      setShowMessageLimitAlert(true);
+      setTimeout(() => setShowMessageLimitAlert(false), 3000);
+      return;
+    }
+
     if (inputText.trim() || selectedImage) {
+      const messageNumber = messages.length + 1;
+      console.log(
+        `Message number: ${messageNumber} ${messageNumber === 1 ? '(First message!)' : ''}`
+      );
+
+      // Special handling for second message
+      if (messageNumber === 2) {
+        console.log('Second message detected!');
+        console.log('Message content:', inputText);
+        try {
+          const conversationNameResponse = await GetConversationName(inputText);
+          if (conversationNameResponse.success && conversationNameResponse.parsedData) {
+            console.log('Conversation name response:', conversationNameResponse.text);
+
+            // Get the access token
+            const tokens = await storage.getTokens();
+            if (tokens.accessToken) {
+              // Create the conversation in the database
+              const result = await createConversationInDB(
+                conversationNameResponse.parsedData,
+                tokens.accessToken
+              );
+
+              if (result.success) {
+                console.log('Conversation created successfully:', result.data);
+              } else {
+                console.error('Failed to create conversation:', result.error);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error getting conversation name:', error);
+        }
+      }
+
       const newMessage = {
         id: Date.now().toString(),
         text: inputText,
@@ -210,6 +256,11 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
               />
             </View>
           )}
+          <MessageAlert
+            visible={showMessageLimitAlert}
+            message="You've reached the maximum limit of 5 messages. Please start a new conversation."
+            type="warning"
+          />
           <View style={styles.inputContainer}>
             <ChatInput
               value={inputText}

@@ -46,7 +46,7 @@ const ScanScreen = () => {
   const dot3Anim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const colorAnim = useRef(new Animated.Value(0)).current;
-
+  const API_KEY = process.env.EXPO_PUBLIC_API_KEY;
   // Existing effects (unchanged)
   useEffect(() => {
     Animated.parallel([
@@ -251,7 +251,7 @@ const ScanScreen = () => {
         };
 
         const response = await fetch(
-          'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyBylRkyhIq5I7Ti0118SpIh6qCOLPk-dt8',
+          `${API_KEY}`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

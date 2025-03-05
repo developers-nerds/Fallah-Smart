@@ -12,9 +12,13 @@ interface ChatHeaderProps {
 const ChatHeader: React.FC<ChatHeaderProps> = ({ onNewConversation, onTitlePress }) => {
   return (
     <View style={styles.container}>
-      <TouchableOpacity style={styles.titleContainer} onPress={onTitlePress}>
-        <MaterialIcons name="eco" size={24} color={theme.colors.primary.base} />
-        <Text style={styles.title}>Smart Farmer</Text>
+      <TouchableOpacity style={styles.historyButton} onPress={onTitlePress}>
+        <MaterialIcons name="history" size={22} color={theme.colors.primary.base} />
+        <View style={styles.titleContainer}>
+          <Text style={styles.title}>Smart Farmer</Text>
+          <Text style={styles.subtitle}>View conversation history</Text>
+        </View>
+        <MaterialIcons name="chevron-right" size={22} color={theme.colors.primary.base} />
       </TouchableOpacity>
       <TouchableOpacity
         onPress={() => {
@@ -37,24 +41,41 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.neutral.surface,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.neutral.border,
+    ...theme.shadows.small,
   },
-  titleContainer: {
+  historyButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: theme.colors.primary.surface,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.medium,
+    flex: 1,
+    marginRight: theme.spacing.md,
+  },
+  titleContainer: {
+    flex: 1,
+    marginLeft: theme.spacing.sm,
   },
   title: {
     fontSize: theme.fontSizes.h2,
     fontFamily: theme.fonts.bold,
     color: theme.colors.primary.base,
-    marginLeft: theme.spacing.sm,
+  },
+  subtitle: {
+    fontSize: theme.fontSizes.caption,
+    fontFamily: theme.fonts.regular,
+    color: theme.colors.neutral.textSecondary,
+    marginTop: 2,
   },
   newChatButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.primary.base,
-    paddingVertical: theme.spacing.xs,
-    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
     borderRadius: theme.borderRadius.medium,
+    ...theme.shadows.small,
   },
   newChatText: {
     color: theme.colors.neutral.surface,
