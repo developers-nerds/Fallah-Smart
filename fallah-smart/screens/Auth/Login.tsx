@@ -29,21 +29,21 @@ const Login = () => {
   const API_URL = process.env.EXPO_PUBLIC_API_URL;
   const { login } = useAuth();
 
-  const handleLogin = async () => {
-    try {
-      // Remove any existing authorization header
-      delete axios.defaults.headers.common['Authorization'];
-      
-      // Input validation
-      if (!email || !password) {
-        Alert.alert('Validation Error', 'Please enter both email and password');
-        return;
-      }
+    const handleLogin = async () => {
+      try {
+        // Remove any existing authorization header
+        delete axios.defaults.headers.common['Authorization'];
+        
+        // Input validation
+        if (!email || !password) {
+          Alert.alert('Validation Error', 'Please enter both email and password');
+          return;
+        }
 
-      if (!API_URL) {
-        Alert.alert('Configuration Error', 'API URL is not configured');
-        return;
-      }
+        if (!API_URL) {
+          Alert.alert('Configuration Error', 'API URL is not configured');
+          return;
+        }
 
       setIsLoading(true);
       setError('');
@@ -82,83 +82,78 @@ const Login = () => {
         errorMessage = err.message;
       }
 
-      setError(errorMessage);
-      Alert.alert('Login Error', errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+        setError(errorMessage);
+        Alert.alert('Login Error', errorMessage);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
 
-  const handleRegisterPress = () => {
-    navigation.navigate('Register');
-  };
-
-  return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}
-    >
-      <View style={styles.logoContainer}>
-        <MaterialCommunityIcons 
-          name="leaf" 
-          size={80} 
-          color={theme.colors.primary.base}
-          style={styles.logo}
-        />
-        <Text style={[styles.title, { color: theme.colors.neutral.textPrimary }]}>Welcome Back!</Text>
-        <Text style={[styles.subtitle, { color: theme.colors.neutral.textSecondary }]}>Sign in to continue</Text>
-      </View>
-
-      <View style={styles.formContainer}>
-        <View style={[styles.inputContainer, { backgroundColor: theme.colors.neutral.surface }]}>
-          <Ionicons 
-            name="mail-outline" 
-            size={20} 
-            color={theme.colors.neutral.textSecondary} 
-            style={styles.inputIcon} 
+    return (
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}
+      >
+        <View style={styles.logoContainer}>
+          <MaterialCommunityIcons 
+            name="leaf" 
+            size={80} 
+            color={theme.colors.primary.base}
+            style={styles.logo}
           />
-          <TextInput
-            style={[styles.input, { color: theme.colors.neutral.textPrimary }]}
-            placeholder="Email"
-            placeholderTextColor={theme.colors.neutral.textSecondary}
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoComplete="email"
-          />
+          <Text style={[styles.title, { color: theme.colors.neutral.textPrimary }]}>Welcome Back!</Text>
+          <Text style={[styles.subtitle, { color: theme.colors.neutral.textSecondary }]}>Sign in to continue</Text>
         </View>
 
-        <View style={[styles.inputContainer, { backgroundColor: theme.colors.neutral.surface }]}>
-          <Ionicons 
-            name="lock-closed-outline" 
-            size={20} 
-            color={theme.colors.neutral.textSecondary} 
-            style={styles.inputIcon} 
-          />
-          <TextInput
-            style={[styles.input, { color: theme.colors.neutral.textPrimary }]}
-            placeholder="Password"
-            placeholderTextColor={theme.colors.neutral.textSecondary}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry={!showPassword}
-            autoComplete="password"
-          />
-          <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-            <Ionicons
-              name={showPassword ? 'eye-outline' : 'eye-off-outline'}
-              size={20}
-              color={theme.colors.neutral.textSecondary}
+        <View style={styles.formContainer}>
+          <View style={[styles.inputContainer, { backgroundColor: theme.colors.neutral.surface }]}>
+            <Ionicons 
+              name="mail-outline" 
+              size={20} 
+              color={theme.colors.neutral.textSecondary} 
+              style={styles.inputIcon} 
             />
-          </TouchableOpacity>
-        </View>
+            <TextInput
+              style={[styles.input, { color: theme.colors.neutral.textPrimary }]}
+              placeholder="Email"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+          </View>
 
-        {error ? (
-          <Text style={[styles.errorText, { color: theme.colors.error }]}>
-            {error}
-          </Text>
-        ) : null}
+          <View style={[styles.inputContainer, { backgroundColor: theme.colors.neutral.surface }]}>
+            <Ionicons 
+              name="lock-closed-outline" 
+              size={20} 
+              color={theme.colors.neutral.textSecondary} 
+              style={styles.inputIcon} 
+            />
+            <TextInput
+              style={[styles.input, { color: theme.colors.neutral.textPrimary }]}
+              placeholder="Password"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+            />
+            <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
+              <Ionicons
+                name={showPassword ? 'eye-outline' : 'eye-off-outline'}
+                size={20}
+                color={theme.colors.neutral.textSecondary}
+              />
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity style={styles.forgotPassword}>
+            <Text style={[styles.forgotPasswordText, { color: theme.colors.neutral.textSecondary }]}>
+              Forgot Password?
+            </Text>
+          </TouchableOpacity>
 
         <TouchableOpacity
           style={[
@@ -182,20 +177,24 @@ const Login = () => {
           <View style={[styles.divider, { backgroundColor: theme.colors.neutral.border }]} />
         </View>
 
-        <View style={styles.registerContainer}>
-          <Text style={[styles.registerText, { color: theme.colors.neutral.textSecondary }]}>
-            Don't have an account?{' '}
-          </Text>
-          <TouchableOpacity onPress={handleRegisterPress}>
-            <Text style={[styles.registerLink, { color: theme.colors.primary.base }]}>
-              Register
+          <View style={styles.registerContainer}>
+            <Text style={[styles.registerText, { color: theme.colors.neutral.textSecondary }]}>
+              Don't have an account?{' '}
             </Text>
-          </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={() => {
+                navigation.navigate('Register');
+              }}
+            >
+              <Text style={[styles.registerLink, { color: theme.colors.primary.base }]}>
+                Register
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
-    </KeyboardAvoidingView>
-  );
-};
+      </KeyboardAvoidingView>
+    );
+  };
 
 const styles = StyleSheet.create({
   container: {
@@ -289,4 +288,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default Login;
+  export default Login;
