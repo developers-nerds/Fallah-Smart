@@ -1,44 +1,215 @@
 "use client"
 
-import { useState } from "react"
-import { View, Text, StyleSheet, TouchableOpacity, TextInput } from "react-native"
+import { useState, useEffect } from "react"
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, ActivityIndicator, Platform } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useNavigation } from "@react-navigation/native"
 import Icon from "react-native-vector-icons/MaterialIcons"
-import FontAwesome5 from "react-native-vector-icons/FontAwesome5"
+import { FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons"
 import { theme } from "../../../theme/theme"
 import DateTimePicker from "@react-native-community/datetimepicker"
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import axios from 'axios'
+
+interface Category {
+  id: number
+  name: string
+  icon: string
+  type: string
+  color: string
+  amount?: number
+  count?: number
+  isIncome?: boolean
+}
 
 export default function AddExpense() {
-  const [amount, setAmount] = useState("1000")
+  const [showCategories, setShowCategories] = useState(false)
+  const [categories, setCategories] = useState<Category[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
+  const [amount, setAmount] = useState("")
   const [note, setNote] = useState("Add expense")
   const [currentDate, setCurrentDate] = useState(() => {
     const date = new Date()
-    const options = { weekday: "long", day: "numeric", month: "long" }
+    const options = { weekday: "long", day: "numeric", month: "long", year: "numeric" }
     return date.toLocaleDateString("en-US", options)
   })
   const [date, setDate] = useState(new Date())
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [isManualDateInput, setIsManualDateInput] = useState(false)
   const [manualDate, setManualDate] = useState("")
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState("")
+  const [accounts, setAccounts] = useState([])
+  const [selectedAccountId, setSelectedAccountId] = useState(null)
+  
   const navigation = useNavigation()
-  const handleNumberPress = (num) => {
-    if (amount === "0") {
-      setAmount(num.toString())
-    } else {
-      setAmount((prev) => prev + num.toString())
+
+  const API_BASE_URL = Platform.select({
+    web: process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api',
+    default: process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.13:5000/api'
+  })
+
+  // Get user ID from token - copied from HomeScreen
+  const getUserIdFromToken = async () => {
+    try {
+      const userStr = await AsyncStorage.getItem('@user')
+      if (!userStr) {
+        setError('No user data found. Please log in.')
+        setLoading(false)
+        return null
+      }
+      const userData = JSON.parse(userStr)
+      return userData.id
+    } catch (error) {
+      setError('Invalid user data. Please log in again.')
+      setLoading(false)
+      return null
     }
   }
+
+  // Fetch accounts - adapted from HomeScreen
+  const fetchAccounts = async () => {
+    const token = await AsyncStorage.getItem('@access_token')
+    const userId = await getUserIdFromToken()
+    if (!userId || !token) return
+
+    try {
+      const response = await axios.get(`${API_BASE_URL}/accounts`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      console.log('Fetched accounts:', response.data)
+      setAccounts(response.data)
+      if (response.data.length > 0) {
+        setSelectedAccountId(response.data[0].id) // Set first account as default
+      }
+    } catch (error) {
+      setError('Error fetching accounts: ' + (error.response?.data?.message || error.message))
+    }
+  }
+
+  useEffect(() => {
+    fetchAccounts() // Fetch accounts when component mounts
+
+    const fetchCategories = async () => {
+      try {
+        setLoading(true)
+        const token = await AsyncStorage.getItem('@access_token')
+        if (!token) {
+          setError("No authentication token found")
+          return
+        }
+        const response = await axios.get(`${API_BASE_URL}/categories/type/Expense`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+        setCategories(response.data)
+      } catch (err) {
+        setError("Failed to fetch categories: " + err.message)
+        console.error("Error fetching categories:", err)
+        setCategories([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (showCategories) {
+      fetchCategories()
+    }
+  }, [showCategories])
+
+  const handleCreateTransaction = async () => {
+    try {
+      setIsSubmitting(true)
+      setSubmitError("")
+
+      const token = await AsyncStorage.getItem('@access_token')
+      const userStr = await AsyncStorage.getItem('@user')
+      
+      if (!token || !userStr) {
+        setSubmitError('Please login first')
+        return
+      }
+
+      // Validation
+      if (!selectedAccountId) {
+        setSubmitError('No account selected. Please try again.')
+        return
+      }
+
+      if (!selectedCategory || !selectedCategory.id) {
+        setSubmitError('Please select a category')
+        return
+      }
+
+      if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
+        setSubmitError('Please enter a valid amount')
+        return
+      }
+
+      const transactionData = {
+        accountId: selectedAccountId,
+        categoryId: selectedCategory.id,
+        amount: parseFloat(amount),
+        type: 'expense',
+        note: note || "",
+        date: date.toISOString()
+      }
+
+      console.log('Sending transaction data:', transactionData)
+
+      const response = await axios.post(
+        `${API_BASE_URL}/transactions`,
+        transactionData,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      )
+
+      console.log('Transaction response:', response.data)
+
+      if (response.data.success) {
+        setAmount("")
+        setNote("Add expense")
+        setSelectedCategory(null)
+        setShowCategories(false)
+        navigation.goBack()
+      } else {
+        setSubmitError(response.data.message || 'Failed to create transaction')
+      }
+    } catch (error) {
+      console.error('Error creating transaction:', error)
+      setSubmitError(error.response?.data?.message || 'Failed to create transaction: ' + error.message)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleNumberPress = (num) => {
+    setAmount((prev) => prev + num.toString())
+  }
+
   const handleOperatorPress = (operator) => {
     console.log("Operator pressed:", operator)
+    // Add operator handling if needed
   }
+
   const handleClear = () => {
-    setAmount("0")
+    setAmount("")
   }
+
   const goBack = () => {
     navigation.goBack()
   }
-  // Add these new functions before the return statement
+
   const onDateChange = (event, selectedDate) => {
     const currentDate = selectedDate || date
     setShowDatePicker(false)
@@ -47,17 +218,58 @@ export default function AddExpense() {
     setCurrentDate(currentDate.toLocaleDateString("en-US", options))
     setManualDate(currentDate.toLocaleDateString("en-US", options))
   }
+
   const handleManualDateChange = (text) => {
     setManualDate(text)
     setCurrentDate(text)
   }
+
   const toggleManualDateInput = () => {
     setIsManualDateInput(!isManualDateInput)
     if (!isManualDateInput) {
       setManualDate(currentDate)
     }
   }
-  // Replace the existing dateContainer in the return statement with this
+
+  const renderCategoryItem = ({ item }) => {
+    const isCustomIcon = item.icon.includes('-alt') || 
+                        item.icon === 'shopping-basket' ||
+                        item.icon === 'glass-martini-alt'
+
+    return (
+      <TouchableOpacity
+        style={[
+          styles.categoryCard,
+          selectedCategory?.id === item.id && styles.selectedCategoryCard
+        ]}
+        onPress={() => {
+          setSelectedCategory(item)
+          setShowCategories(false)
+          handleCreateTransaction()
+        }}
+      >
+        <View style={[styles.iconContainer, { backgroundColor: `${item.color}20` }]}>
+          {isCustomIcon ? (
+            <FontAwesome5 
+              name={item.icon.replace('-alt', '')}
+              size={24} 
+              color={item.color} 
+              style={styles.categoryIcon}
+            />
+          ) : (
+            <MaterialCommunityIcons 
+              name={item.icon} 
+              size={24} 
+              color={item.color} 
+              style={styles.categoryIcon}
+            />
+          )}
+        </View>
+        <Text style={styles.categoryCardText}>{item.name}</Text>
+      </TouchableOpacity>
+    )
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -84,7 +296,7 @@ export default function AddExpense() {
             style={styles.manualDateInput}
             value={manualDate}
             onChangeText={handleManualDateChange}
-            placeholder="Enter date (e.g., March 2, 2025)"
+            placeholder="Enter date (e.g., March 5, 2025)"
             keyboardType="default"
           />
           <TouchableOpacity onPress={toggleManualDateInput} style={styles.doneButton}>
@@ -92,12 +304,22 @@ export default function AddExpense() {
           </TouchableOpacity>
         </View>
       )}
+
+      {showDatePicker && (
+        <DateTimePicker
+          value={date}
+          mode="date"
+          display="default"
+          onChange={onDateChange}
+        />
+      )}
+
       <View style={styles.amountContainer}>
         <View style={styles.currencyContainer}>
           <FontAwesome5 name="money-bill" size={24} color={theme.colors.neutral.textSecondary} style={styles.moneyIcon} />
           <Text style={styles.currencyText}>USD</Text>
         </View>
-        <Text style={styles.amountText}>{amount}</Text>
+        <Text style={styles.amountText}>{amount || "0"}</Text>
         <TouchableOpacity style={styles.clearButton} onPress={handleClear}>
           <Icon name="clear" size={24} color={theme.colors.neutral.textSecondary} />
         </TouchableOpacity>
@@ -107,11 +329,16 @@ export default function AddExpense() {
         <Text style={styles.noteLabel}>Note</Text>
         <View style={styles.noteInputContainer}>
           <Icon name="edit" size={20} color={theme.colors.success} style={styles.editIcon} />
-          <TextInput style={styles.noteInput} value={note} onChangeText={setNote} placeholder="Add note" />
+          <TextInput 
+            style={styles.noteInput} 
+            value={note} 
+            onChangeText={setNote} 
+            placeholder="Add note" 
+          />
         </View>
       </View>
+
       <View style={styles.keypadContainer}>
-        {/* Same keypad layout as AddIncome */}
         <View style={styles.keypadRow}>
           <TouchableOpacity style={styles.keypadButton} onPress={() => handleNumberPress(1)}>
             <Text style={styles.keypadText}>1</Text>
@@ -170,14 +397,49 @@ export default function AddExpense() {
         </View>
       </View>
 
-      <TouchableOpacity style={styles.categoryButton}>
-        <Text style={styles.categoryButtonText}>CHOOSE CATEGORY</Text>
+      {submitError ? (
+        <Text style={styles.errorText}>{submitError}</Text>
+      ) : null}
+
+      <TouchableOpacity 
+        style={styles.categoryButton}
+        onPress={() => setShowCategories(!showCategories)}
+      >
+        <Text style={styles.categoryButtonText}>
+          {selectedCategory ? selectedCategory.name : (showCategories ? 'HIDE CATEGORIES' : 'CHOOSE CATEGORY')}
+        </Text>
       </TouchableOpacity>
+
+      {showCategories && (
+        <View style={styles.categoriesContainer}>
+          {loading ? (
+            <Text style={styles.messageText}>Loading categories...</Text>
+          ) : error ? (
+            <Text style={styles.errorText}>{error}</Text>
+          ) : categories.length === 0 ? (
+            <Text style={styles.messageText}>No categories found</Text>
+          ) : (
+            <FlatList
+              data={categories}
+              renderItem={renderCategoryItem}
+              keyExtractor={(item) => item.id.toString()}
+              numColumns={3}
+              contentContainerStyle={styles.categoryGrid}
+              showsVerticalScrollIndicator={true}
+            />
+          )}
+        </View>
+      )}
+
+      {isSubmitting && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color={theme.colors.success} />
+        </View>
+      )}
     </SafeAreaView>
   )
 }
 
-// Add these new styles to the StyleSheet
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -190,21 +452,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: theme.spacing.md,
-  },
-  amountContainer: {
-    flexDirection: "row",
-    backgroundColor: theme.colors.success,
-    margin: theme.spacing.md,
-    borderRadius: theme.borderRadius.medium,
-    padding: theme.spacing.md,
-    alignItems: "center",
-  },
-  noteInputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.success,
-    paddingBottom: theme.spacing.xs,
   },
   backButton: {
     padding: theme.spacing.xs,
@@ -230,9 +477,36 @@ const styles = StyleSheet.create({
     fontSize: theme.fontSizes.h2,
     color: theme.colors.neutral.textPrimary,
   },
+  penButton: {
+    marginLeft: theme.spacing.md,
+    padding: theme.spacing.xs,
+  },
+  manualDateContainer: {
+    paddingHorizontal: theme.spacing.lg,
+    marginTop: theme.spacing.sm,
+  },
+  manualDateInput: {
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.success,
+    fontSize: theme.fontSizes.button,
+    color: theme.colors.neutral.textPrimary,
+    paddingVertical: theme.spacing.xs,
+  },
+  doneButton: {
+    marginTop: theme.spacing.sm,
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.success,
+    borderRadius: theme.borderRadius.small,
+    alignItems: "center",
+  },
+  doneButtonText: {
+    color: theme.colors.neutral.surface,
+    fontSize: theme.fontSizes.button,
+    fontWeight: "500",
+  },
   amountContainer: {
     flexDirection: "row",
-    backgroundColor:theme.colors.success,
+    backgroundColor: theme.colors.success,
     margin: theme.spacing.md,
     borderRadius: theme.borderRadius.medium,
     padding: theme.spacing.md,
@@ -278,7 +552,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.error,
+    borderBottomColor: theme.colors.success,
     paddingBottom: theme.spacing.xs,
   },
   editIcon: {
@@ -329,31 +603,71 @@ const styles = StyleSheet.create({
     color: theme.colors.neutral.textSecondary,
     fontWeight: "500",
   },
-  penButton: {
-    marginLeft: theme.spacing.md,
+  categoriesContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '60%',
+    backgroundColor: theme.colors.neutral.surface,
+    borderTopLeftRadius: theme.borderRadius.large,
+    borderTopRightRadius: theme.borderRadius.large,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  messageText: {
+    textAlign: 'center',
+    padding: theme.spacing.md,
+    color: theme.colors.neutral.textSecondary,
+  },
+  errorText: {
+    textAlign: 'center',
+    padding: theme.spacing.md,
+    color: theme.colors.error,
+  },
+  categoryGrid: {
+    paddingVertical: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.md,
+  },
+  categoryCard: {
+    width: '31%',
+    height: 90,
+    backgroundColor: theme.colors.neutral.surface,
+    borderRadius: theme.borderRadius.small,
+    margin: '1%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#EEEEEE',
+    padding: theme.spacing.sm,
+  },
+  selectedCategoryCard: {
+    borderColor: theme.colors.success,
+    borderWidth: 2,
+  },
+  iconContainer: {
+    borderRadius: theme.borderRadius.small,
     padding: theme.spacing.xs,
   },
-  manualDateContainer: {
-    paddingHorizontal: theme.spacing.lg,
-    marginTop: theme.spacing.sm,
+  categoryIcon: {
+    marginBottom: 8,
   },
-  manualDateInput: {
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.success,
-    fontSize: theme.fontSizes.button,
+  categoryCardText: {
+    fontSize: 14,
     color: theme.colors.neutral.textPrimary,
-    paddingVertical: theme.spacing.xs,
+    textAlign: 'center',
   },
-  doneButton: {
-    marginTop: theme.spacing.sm,
-    padding: theme.spacing.md,
-    backgroundColor: theme.colors.success,
-    borderRadius: theme.borderRadius.small,
-    alignItems: "center",
-  },
-  doneButtonText: {
-    color: theme.colors.neutral.surface,
-    fontSize: theme.fontSizes.button,
-    fontWeight: "500",
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 })
