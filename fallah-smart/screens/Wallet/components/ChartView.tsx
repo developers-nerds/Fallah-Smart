@@ -4,9 +4,13 @@ import { theme } from "../../../theme/theme"
 
 interface ChartViewProps {
   categories: Array<{
+    id: number
     name: string
-    amount: number
+    icon: string
+    type: string
     color: string
+    amount: number
+    count: number
     isIncome: boolean
   }>
 }
@@ -66,10 +70,10 @@ export const ChartView = ({ categories }: ChartViewProps) => {
 
         {/* Text in center */}
         <SvgText x="50" y="45" fontSize="5" fontWeight="bold" fill={theme.colors.success} textAnchor="middle">
-          ${totalIncome.toFixed(2)}
+          {totalIncome.toFixed(2)}
         </SvgText>
         <SvgText x="50" y="55" fontSize="5" fontWeight="bold" fill={theme.colors.error} textAnchor="middle">
-          ${totalExpenses.toFixed(2)}
+          {totalExpenses.toFixed(2)}
         </SvgText>
       </Svg>
     </View>

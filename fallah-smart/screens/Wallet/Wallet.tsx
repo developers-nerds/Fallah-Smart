@@ -1,94 +1,142 @@
 "use client"
 
-import { useState } from "react"
-import { View, Text, StyleSheet, StatusBar, TouchableOpacity, ScrollView, Animated } from "react-native"
+import { useState, useEffect } from "react"
+import { View, Text, StyleSheet, StatusBar, TouchableOpacity, ScrollView, Animated, ActivityIndicator } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useNavigation } from "@react-navigation/native"
 import Icon from "react-native-vector-icons/MaterialIcons"
 import { ChartView } from "./components/ChartView"
 import { CategoryList } from "./components/CategoryList"
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from "axios"
+import { Platform } from 'react-native';
 import { theme } from "../../theme/theme"
-
-
-// Category data with amounts
-const categories = [
-  {
-    id: 1,
-    name: "Salary",
-    icon: "money-bill-wave",
-    type: "font-awesome-5",
-    color: "#7BC29A",
-    amount: 101000.0,
-    count: 2,
-    isIncome: true,
-  },
-  {
-    id: 2,
-    name: "Food",
-    icon: "shopping-basket",
-    type: "font-awesome-5",
-    color: "#FF9999",
-    amount: 8000.0,
-    count: 1,
-    isIncome: false,
-  },
-  {
-    id: 3,
-    name: "Car",
-    icon: "car",
-    type: "font-awesome-5",
-    color: "#5B9BD5",
-    amount: 8000.0,
-    count: 1,
-    isIncome: false,
-  },
-  {
-    id: 4,
-    name: "Entertainment",
-    icon: "glass-martini-alt",
-    type: "font-awesome-5",
-    color: "#E9B97A",
-    amount: 6000.0,
-    count: 1,
-    isIncome: false,
-  },
-  {
-    id: 5,
-    name: "Eating out",
-    icon: "utensils",
-    type: "font-awesome-5",
-    color: "#A5D6A7",
-    amount: 5000.0,
-    count: 1,
-    isIncome: false,
-  },
-  {
-    id: 6,
-    name: "Taxi",
-    icon: "taxi",
-    type: "font-awesome-5",
-    color: "#D6A01D",
-    amount: 4500.0,
-    count: 1,
-    isIncome: false,
-  },
-  {
-    id: 7,
-    name: "Pets",
-    icon: "cat",
-    type: "material-community",
-    color: "#A5D6A7",
-    amount: 3900.0,
-    count: 1,
-    isIncome: false,
-  },
-]
 
 const HomeScreen = () => {
   const [showList, setShowList] = useState(false)
   const [fadeAnim] = useState(new Animated.Value(1))
+  const [accounts, setAccounts] = useState([]);
+  const [selectedAccountId, setSelectedAccountId] = useState(0);
+  const [transactions, setTransactions] = useState([]);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
+
   const navigation = useNavigation()
+
+  const API_BASE_URL = Platform.select({
+    web: process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api',
+    default: process.env.EXPO_PUBLIC_API_URL
+  });
+
+  const getUserIdFromToken = async () => {
+    try {
+      const userStr = await AsyncStorage.getItem('@user');
+      if (!userStr) {
+        setError('No user data found. Please log in.');
+        setLoading(false);
+        return null;
+      }
+      const userData = JSON.parse(userStr);
+      return userData.id;
+    } catch (error) {
+      setError('Invalid user data. Please log in again.');
+      setLoading(false);
+      return null;
+    }
+  };
+
+  const fetchAccounts = async () => {
+    const userStr = await AsyncStorage.getItem('@access_token');
+    const userId = await getUserIdFromToken();
+    if (!userId || !userStr) return;
+
+    try {
+      const response = await axios.get(`${API_BASE_URL}/accounts`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userStr}`
+        }
+      });
+      console.log('Fetched accounts:', response.data);
+      setAccounts(response.data);
+      if (response.data.length > 0) {
+        setSelectedAccountId(response.data[0].id);
+        fetchTransactions(response.data[0].id);
+      }
+    } catch (error) {
+      setError('Error fetching accounts: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchTransactions = async (accountId) => {
+    const userStr = await AsyncStorage.getItem('@access_token');
+    try {
+      const response = await axios.get(`${API_BASE_URL}/transactions/${accountId}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${userStr}`
+        }
+      });
+      console.log('Fetched transactions for account', accountId, ':', response.data.data);
+      if (response.data.success) {
+        setTransactions(response.data.data);
+        await calculateAndUpdateBalance(response.data.data);
+      } else {
+        setError('Error fetching transactions: ' + response.data.message);
+      }
+    } catch (error) {
+      setError('Network error: ' + (error.response?.data?.message || error.message));
+    }
+  };
+
+  const calculateAndUpdateBalance = async (transactions) => {
+    try {
+      const totalIncome = transactions
+        .filter(transaction => transaction.category.type === 'Income')
+        .reduce((sum, transaction) => sum + transaction.amount, 0);
+      const totalExpense = transactions
+        .filter(transaction => transaction.category.type === 'Expense')
+        .reduce((sum, transaction) => sum + transaction.amount, 0);
+      const newBalance = totalIncome - totalExpense;
+
+      console.log('Total Income:', totalIncome, 'Total Expense:', totalExpense, 'Calculated Balance:', newBalance);
+
+      const userStr = await AsyncStorage.getItem('@access_token');
+      if (selectedAccountId && userStr) {
+        const response = await axios.put(`${API_BASE_URL}/accounts/${selectedAccountId}`, {
+          type: transactions[0]?.category?.type || 'Income',
+          amount: transactions[0]?.amount || 0,
+          balance: newBalance
+        }, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${userStr}`
+          }
+        });
+        console.log('Backend update response:', response.data);
+
+        if (response.data.success) {
+          setAccounts(prevAccounts => 
+            prevAccounts.map(account => 
+              account.id === selectedAccountId 
+                ? { ...account, balance: response.data.balance }
+                : account
+            )
+          );
+        }
+      }
+      return newBalance;
+    } catch (error) {
+      console.error('Error updating balance:', error);
+      setError('Error updating balance: ' + (error.response?.data?.message || error.message));
+    }
+  };
+
+  useEffect(() => {
+    fetchAccounts();
+  }, []);
 
   const toggleView = () => {
     Animated.sequence([
@@ -102,49 +150,63 @@ const HomeScreen = () => {
         duration: 200,
         useNativeDriver: true,
       }),
-    ]).start()
+    ]).start();
+    setShowList(!showList);
+  };
 
-    setShowList(!showList)
-  }
+  const navigateToAddIncome = () => navigation.navigate("AddIncome");
+  const navigateToAddExpense = () => navigation.navigate("AddExpense");
 
-  // Navigate to AddIncome screen
-  const navigateToAddIncome = () => {
-    navigation.navigate("AddIncome")
-  }
+  const getCurrentDate = () => {
+    const date = new Date();
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long'
+    });
+  };
 
-  // Inside the HomeScreen component, add:
-  const navigateToAddExpense = () => {
-    navigation.navigate("AddExpense")
-  }
-  // Update the expense button in the actionButtons View:
-  <TouchableOpacity 
-    style={[styles.actionButton, styles.expenseButton]} 
-    onPress={navigateToAddExpense}
-  >
-    <Text style={styles.actionButtonText}>−</Text>
-  </TouchableOpacity>
-  // Calculate total balance
-  const totalBalance = categories.reduce((sum, category) => {
-    return sum + (category.isIncome ? category.amount : -category.amount)
-  }, 0)
+  const processTransactionsIntoCategories = () => {
+    const categoryMap = new Map();
+    transactions.forEach(transaction => {
+      const category = transaction.category;
+      if (!categoryMap.has(category.id)) {
+        categoryMap.set(category.id, {
+          id: category.id,
+          name: category.name,
+          icon: category.icon || 'question-mark',
+          type: category.type || 'font-awesome-5',
+          color: category.color || '#7BC29A',
+          amount: 0,
+          count: 0,
+          isIncome: category.type === 'Income'
+        });
+      }
+      const categoryData = categoryMap.get(category.id);
+      categoryData.amount += transaction.amount;
+      categoryData.count += 1;
+    });
+    return Array.from(categoryMap.values()).sort((a, b) => {
+      if (a.isIncome === b.isIncome) return b.amount - a.amount;
+      return a.isIncome ? -1 : 1;
+    });
+  };
+
+  const currentAccount = accounts.find(acc => acc.id === selectedAccountId);
+  const displayedBalance = currentAccount?.balance?.toFixed(2) || '0.00';
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar backgroundColor={theme.colors.primary.base} barStyle="light-content" />
-      {/* Header */}
       <View style={styles.header}>
-        {/* Left Menu Button - Static */}
         <TouchableOpacity style={styles.menuButton}>
           <Icon name="menu" color="white" size={28} />
         </TouchableOpacity>
-
         <Text style={styles.headerTitle}>wallet</Text>
-
         <View style={styles.headerRight}>
           <TouchableOpacity style={styles.iconButton}>
             <Icon name="search" color="white" size={28} />
           </TouchableOpacity>
-          {/* Right More Button - Static */}
           <TouchableOpacity style={styles.iconButton}>
             <Icon name="more-vert" color="white" size={28} />
           </TouchableOpacity>
@@ -152,26 +214,35 @@ const HomeScreen = () => {
       </View>
 
       <ScrollView style={styles.scrollView}>
-        {/* Month Display */}
         <View style={styles.monthContainer}>
-          <Text style={styles.monthText}>February</Text>
+          <Text style={styles.monthText}>{getCurrentDate()}</Text>
         </View>
 
-        {/* Balance Box - Clickable */}
         {showList && (
           <TouchableOpacity onPress={toggleView}>
             <View style={[styles.balanceBox, styles.balanceBoxList]}>
-              <Text style={styles.balanceText}>Balance ${totalBalance.toFixed(2)}</Text>
+              <Text style={styles.balanceText}>
+                Balance  {displayedBalance} DT
+              </Text>
             </View>
           </TouchableOpacity>
         )}
 
-        {/* Animated Container */}
         <Animated.View style={[styles.contentContainer, { opacity: fadeAnim }]}>
-          {showList ? <CategoryList categories={categories} /> : <ChartView categories={categories} />}
+          {loading ? (
+            <ActivityIndicator size="large" color={theme.colors.primary.base} />
+          ) : (
+            showList ? (
+              <CategoryList 
+                categories={processTransactionsIntoCategories()} 
+                transactions={transactions}
+              />
+            ) : (
+              <ChartView categories={processTransactionsIntoCategories()} />
+            )
+          )}
         </Animated.View>
 
-        {/* Action Buttons */}
         <View style={styles.actionButtons}>
           <TouchableOpacity 
             style={[styles.actionButton, styles.expenseButton]} 
@@ -180,11 +251,12 @@ const HomeScreen = () => {
             <Text style={styles.actionButtonText}>−</Text>
           </TouchableOpacity>
 
-          {/* Balance Box - Clickable (only show when not in list view) */}
           {!showList && (
             <TouchableOpacity onPress={toggleView}>
               <View style={styles.balanceBox}>
-                <Text style={styles.balanceText}>Balance ${totalBalance.toFixed(2)}</Text>
+                <Text style={styles.balanceText}>
+                  Balance  {displayedBalance} DT
+                </Text>
               </View>
             </TouchableOpacity>
           )}
@@ -198,8 +270,8 @@ const HomeScreen = () => {
         </View>
       </ScrollView>
     </SafeAreaView>
-  )
-}
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -292,7 +364,6 @@ const styles = StyleSheet.create({
     marginHorizontal: theme.spacing.lg,
     marginBottom: theme.spacing.md,
   },
-})
+});
 
-export default HomeScreen
-
+export default HomeScreen;

@@ -9,6 +9,7 @@ import {
   Image,
   Easing,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { theme } from '../../theme/theme';
@@ -32,8 +33,15 @@ const getConversations = async () => {
     }
 
     const data = await response.json();
-    console.log('data', data);
-    return data;
+    console.log('Fetched conversations:', data);
+
+    // Check if data has the expected structure
+    if (data && Array.isArray(data.data)) {
+      return data.data; // Return the array of conversations
+    } else {
+      console.error('Unexpected data structure:', data);
+      return [];
+    }
   } catch (error) {
     console.error('Error fetching conversations:', error);
     return [];
@@ -57,13 +65,13 @@ const mapApiConversations = (apiData: any[]): Conversation[] => {
   if (!Array.isArray(apiData)) return [];
 
   return apiData.map((conv: any) => ({
-    id: conv.id || conv._id,
+    id: conv.id.toString(),
     title: conv.conversation_name || 'Untitled Conversation',
-    date: new Date(conv.createdAt || Date.now()).toISOString().split('T')[0],
-    preview: conv.description || 'No preview available',
-    unread: conv.unread || false,
-    icon: conv.icon || '🌱',
-    messages: conv.messages || [],
+    date: new Date(conv.createdAt).toLocaleDateString(),
+    preview: conv.description || 'No description',
+    unread: false,
+    icon: conv.icon || '💬',
+    messages: [],
   }));
 };
 
@@ -87,6 +95,7 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
   const [isAnimationComplete, setIsAnimationComplete] = useState(!isVisible);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true); // Start with loading true
   const [error, setError] = useState<string | null>(null);
 
@@ -213,6 +222,11 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
   // Use the actual conversations only
   const displayConversations = conversations;
 
+  // Filter conversations based on search term
+  const filteredConversations = conversations.filter((conversation) =>
+    conversation.title.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   const renderItem = ({ item, index }: { item: Conversation; index: number }) => {
     const scale = new Animated.Value(1); // For hover-like effect
     const isSelected = selectedId === item.id;
@@ -319,27 +333,6 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
     ],
   };
 
-  // Empty state component
-  const EmptyState = () => (
-    <View style={styles.emptyContainer}>
-      <MaterialIcons
-        name="chat-bubble-outline"
-        size={48}
-        color={theme.colors.neutral.textSecondary}
-      />
-      <Text style={styles.emptyText}>No conversations yet</Text>
-      <TouchableOpacity
-        style={styles.newConversationButton}
-        onPress={() => {
-          if (onNewConversation) {
-            handleNewConversation(onNewConversation, onClose);
-          }
-        }}>
-        <Text style={styles.newConversationButtonText}>Start a new conversation</Text>
-      </TouchableOpacity>
-    </View>
-  );
-
   return (
     <Animated.View style={[styles.container, sidebarAnimatedStyle]}>
       <View style={styles.header}>
@@ -357,7 +350,18 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
           <MaterialIcons name="search" size={20} color={theme.colors.neutral.textSecondary} />
-          <Text style={styles.searchPlaceholder}>Search conversations...</Text>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search conversations..."
+            placeholderTextColor={theme.colors.neutral.textSecondary}
+            value={searchTerm}
+            onChangeText={setSearchTerm}
+          />
+          {searchTerm.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchTerm('')} style={styles.clearSearch}>
+              <MaterialIcons name="close" size={20} color={theme.colors.neutral.textSecondary} />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -394,11 +398,33 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
               <Text style={styles.retryButtonText}>Retry</Text>
             </TouchableOpacity>
           </View>
-        ) : conversations.length === 0 ? (
-          <EmptyState />
+        ) : filteredConversations.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <MaterialIcons
+              name={searchTerm ? 'search-off' : 'chat-bubble-outline'}
+              size={48}
+              color={theme.colors.neutral.textSecondary}
+            />
+            <Text style={styles.emptyText}>
+              {searchTerm
+                ? `No conversations found matching "${searchTerm}"`
+                : 'No conversations yet'}
+            </Text>
+            {!searchTerm && (
+              <TouchableOpacity
+                style={styles.newConversationButton}
+                onPress={() => {
+                  if (onNewConversation) {
+                    handleNewConversation(onNewConversation, onClose);
+                  }
+                }}>
+                <Text style={styles.newConversationButtonText}>Start a new conversation</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         ) : (
           <FlatList
-            data={conversations}
+            data={filteredConversations}
             keyExtractor={(item) => item.id}
             renderItem={renderItem}
             contentContainerStyle={styles.listContent}
@@ -427,18 +453,18 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     bottom: 0,
-    width: '80%', // Slightly narrower for better mobile experience
+    width: '85%',
     backgroundColor: theme.colors.neutral.surface,
     borderRightWidth: 1,
-    borderRightColor: theme.colors.neutral.border,
+    borderRightColor: 'rgba(0, 0, 0, 0.1)',
     zIndex: 1000,
     elevation: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 4, height: 0 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    borderTopRightRadius: 16, // Increased rounded edges
-    borderBottomRightRadius: 16,
+    shadowOffset: { width: 6, height: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    borderTopRightRadius: 24,
+    borderBottomRightRadius: 24,
     overflow: 'hidden',
   },
   header: {
@@ -446,98 +472,126 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: theme.spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.neutral.border,
+    paddingVertical: theme.spacing.lg + 8,
     backgroundColor: theme.colors.primary.base,
-    paddingVertical: theme.spacing.lg + 4, // Extra vertical padding
+    borderBottomWidth: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: theme.fontSizes.h2,
+    fontSize: theme.fontSizes.h2 + 2,
     fontFamily: theme.fonts.bold,
     color: theme.colors.neutral.surface,
-    letterSpacing: 0.5,
+    letterSpacing: 0.7,
     marginLeft: theme.spacing.sm,
   },
   closeButton: {
     padding: theme.spacing.sm,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 20,
-    width: 40,
-    height: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 24,
+    width: 44,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
   },
   searchContainer: {
     padding: theme.spacing.md,
+    paddingVertical: theme.spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.neutral.border,
+    borderBottomColor: 'rgba(0, 0, 0, 0.06)',
+    backgroundColor: 'rgba(0, 0, 0, 0.02)',
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.neutral.gray.light,
-    borderRadius: theme.borderRadius.medium,
-    padding: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
+    backgroundColor: theme.colors.neutral.surface,
+    borderRadius: theme.borderRadius.large,
+    padding: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
   },
-  searchPlaceholder: {
-    color: theme.colors.neutral.textSecondary,
+  searchInput: {
+    flex: 1,
     marginLeft: theme.spacing.sm,
     fontSize: theme.fontSizes.body,
     fontFamily: theme.fonts.regular,
+    color: theme.colors.neutral.textPrimary,
+    padding: 0, // Remove default padding on Android
+  },
+  clearSearch: {
+    padding: theme.spacing.xs,
+    marginLeft: theme.spacing.sm,
   },
   conversationItem: {
     marginHorizontal: theme.spacing.md,
     marginVertical: theme.spacing.xs,
-    borderRadius: theme.borderRadius.medium,
+    borderRadius: theme.borderRadius.large,
     overflow: 'hidden',
     backgroundColor: theme.colors.neutral.surface,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.04)',
   },
   conversationItemSelected: {
-    backgroundColor: theme.colors.neutral.gray.light,
-    borderLeftWidth: 3,
+    backgroundColor: `${theme.colors.primary.base}10`,
+    borderLeftWidth: 4,
     borderLeftColor: theme.colors.primary.base,
+    transform: [{ scale: 1.02 }],
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
   },
   touchableItem: {
     width: '100%',
   },
   conversationContent: {
-    padding: theme.spacing.md,
+    padding: theme.spacing.lg,
   },
   conversationHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: theme.spacing.xs,
+    marginBottom: theme.spacing.sm,
   },
   iconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: theme.colors.primary.light,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: `${theme.colors.primary.base}15`,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: theme.spacing.sm,
+    marginRight: theme.spacing.md,
+    shadowColor: theme.colors.primary.base,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
   },
   iconText: {
-    fontSize: 16,
+    fontSize: 18,
   },
   titleContainer: {
     flex: 1,
   },
   conversationTitle: {
-    fontSize: theme.fontSizes.body,
+    fontSize: theme.fontSizes.body + 1,
     fontFamily: theme.fonts.medium,
     color: theme.colors.neutral.textPrimary,
-    marginBottom: theme.spacing.xs / 2,
+    marginBottom: theme.spacing.xs,
+    letterSpacing: 0.3,
   },
   unreadText: {
     fontFamily: theme.fonts.bold,
@@ -545,44 +599,57 @@ const styles = StyleSheet.create({
   },
   conversationDate: {
     fontSize: theme.fontSizes.caption,
-    fontFamily: theme.fonts.regular,
+    fontFamily: theme.fonts.medium,
     color: theme.colors.neutral.textSecondary,
+    opacity: 0.8,
   },
   conversationPreview: {
-    fontSize: theme.fontSizes.caption,
+    fontSize: theme.fontSizes.body - 1,
     fontFamily: theme.fonts.regular,
     color: theme.colors.neutral.textSecondary,
-    lineHeight: 18,
-    marginLeft: 36 + theme.spacing.sm, // Align with title
+    lineHeight: 20,
+    marginLeft: 42 + theme.spacing.md,
+    opacity: 0.9,
   },
   unreadIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: theme.colors.primary.base,
     marginLeft: theme.spacing.sm,
+    shadowColor: theme.colors.primary.base,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 2,
   },
   listContent: {
-    paddingVertical: theme.spacing.md,
+    paddingVertical: theme.spacing.lg,
   },
   footer: {
-    padding: theme.spacing.md,
+    padding: theme.spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: theme.colors.neutral.border,
+    borderTopColor: 'rgba(0, 0, 0, 0.06)',
+    backgroundColor: 'rgba(0, 0, 0, 0.02)',
   },
   newChatButton: {
     backgroundColor: theme.colors.primary.base,
-    borderRadius: theme.borderRadius.medium,
-    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.large,
+    padding: theme.spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: theme.colors.primary.base,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
   },
   newChatText: {
     color: theme.colors.neutral.surface,
     fontFamily: theme.fonts.medium,
     fontSize: theme.fontSizes.body,
     marginLeft: theme.spacing.sm,
+    letterSpacing: 0.5,
   },
   conversationsContainer: {
     flex: 1,
@@ -592,54 +659,77 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
   },
   loadingText: {
     color: theme.colors.neutral.textSecondary,
     fontSize: theme.fontSizes.body,
-    fontFamily: theme.fonts.regular,
-    marginTop: theme.spacing.sm,
+    fontFamily: theme.fonts.medium,
+    marginTop: theme.spacing.md,
+    letterSpacing: 0.3,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: theme.spacing.xl,
   },
   errorText: {
     color: theme.colors.primary.dark,
     fontSize: theme.fontSizes.body,
-    fontFamily: theme.fonts.regular,
-    marginBottom: theme.spacing.sm,
+    fontFamily: theme.fonts.medium,
+    marginBottom: theme.spacing.lg,
+    textAlign: 'center',
+    lineHeight: 24,
   },
   retryButton: {
     backgroundColor: theme.colors.primary.base,
-    borderRadius: theme.borderRadius.medium,
-    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.large,
+    padding: theme.spacing.md,
+    paddingHorizontal: theme.spacing.xl,
+    shadowColor: theme.colors.primary.base,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
   },
   retryButtonText: {
     color: theme.colors.neutral.surface,
     fontFamily: theme.fonts.medium,
     fontSize: theme.fontSizes.body,
+    letterSpacing: 0.5,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: theme.spacing.xl,
   },
   emptyText: {
     color: theme.colors.neutral.textSecondary,
-    fontSize: theme.fontSizes.body,
-    fontFamily: theme.fonts.regular,
-    marginBottom: theme.spacing.sm,
+    fontSize: theme.fontSizes.body + 1,
+    fontFamily: theme.fonts.medium,
+    marginVertical: theme.spacing.lg,
+    textAlign: 'center',
+    letterSpacing: 0.3,
+    lineHeight: 24,
   },
   newConversationButton: {
     backgroundColor: theme.colors.primary.base,
-    borderRadius: theme.borderRadius.medium,
-    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.large,
+    padding: theme.spacing.md,
+    paddingHorizontal: theme.spacing.xl,
+    shadowColor: theme.colors.primary.base,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
   },
   newConversationButtonText: {
     color: theme.colors.neutral.surface,
     fontFamily: theme.fonts.medium,
     fontSize: theme.fontSizes.body,
+    letterSpacing: 0.5,
   },
 });
 
