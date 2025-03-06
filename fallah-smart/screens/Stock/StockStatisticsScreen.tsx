@@ -164,18 +164,18 @@ const getCategoryIcon = (category: keyof StockData): MaterialCommunityIconName =
 
 // Update helper functions with proper types
 const getMonthName = (index: number): string => {
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+  const months = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو'];
   return months[index];
 };
 
 const formatNumber = (num: number): string => {
   if (typeof num !== 'number') return '0';
-  return num.toLocaleString();
+  return num.toLocaleString('fr-FR');
 };
 
 const formatCurrency = (value: number): string => {
-  if (typeof value !== 'number') return '$0.00';
-  return `$${value.toFixed(2)}`;
+  if (typeof value !== 'number') return '0 ريال';
+  return `${value.toFixed(2)} ريال`;
 };
 
 const calculateGrowthRate = (current: number, previous: number): number => {
@@ -194,9 +194,9 @@ const calculateStockEfficiency = (data: StockData): string => {
 
 const getStockHealthStatus = (data: StockData): { status: string; color: string; icon: MaterialCommunityIconName } => {
   const efficiency = parseFloat(calculateStockEfficiency(data));
-  if (efficiency >= 80) return { status: 'Good', color: '#00C853', icon: 'check-circle' };
-  if (efficiency >= 60) return { status: 'Warning', color: '#FFA500', icon: 'alert-circle' };
-  return { status: 'Critical', color: '#FF1744', icon: 'close-circle' };
+  if (efficiency >= 80) return { status: 'جيد', color: '#00C853', icon: 'check-circle' };
+  if (efficiency >= 60) return { status: 'تحذير', color: '#FFA500', icon: 'alert-circle' };
+  return { status: 'حرج', color: '#FF1744', icon: 'close-circle' };
 };
 
 const getInsights = (stockData: StockData): Insight[] => {
@@ -206,7 +206,7 @@ const getInsights = (stockData: StockData): Insight[] => {
   const healthStatus = getStockHealthStatus(stockData);
   insights.push({
     type: healthStatus.status as 'Critical' | 'Warning' | 'Good',
-    message: `Overall stock health is ${healthStatus.status}`,
+    message: `صحة المخزون العامة ${healthStatus.status}`,
     icon: healthStatus.icon
   });
 
@@ -220,7 +220,11 @@ const getInsights = (stockData: StockData): Insight[] => {
     if (monthlyGrowth < -10) {
       insights.push({
         type: 'Warning',
-        message: `${category.charAt(0).toUpperCase() + category.slice(1)} stock decreased by ${Math.abs(monthlyGrowth).toFixed(1)}%`,
+        message: `انخفض مخزون ${category === 'animals' ? 'الحيوانات' :
+                 category === 'pesticides' ? 'المبيدات' :
+                 category === 'seeds' ? 'البذور' :
+                 category === 'fertilizer' ? 'الأسمدة' :
+                 category === 'equipment' ? 'المعدات' : 'الأخرى'} بنسبة ${Math.abs(monthlyGrowth).toFixed(1)}%`,
         icon: 'trending-down'
       });
     }
@@ -230,7 +234,7 @@ const getInsights = (stockData: StockData): Insight[] => {
       if (expiredRatio > 0.1) {
         insights.push({
           type: 'Critical',
-          message: `High ratio of expired pesticides (${(expiredRatio * 100).toFixed(1)}%)`,
+          message: `نسبة عالية من المبيدات المنتهية الصلاحية (${(expiredRatio * 100).toFixed(1)}%)`,
           icon: 'alert'
         });
       }
@@ -246,13 +250,22 @@ const getRecommendations = (stockData: StockData): Recommendation[] => {
   
   // Check low stock items
   Object.entries(stockData).forEach(([category, data]) => {
-    const lowStockItems = data.items.filter((item: StockItem) => (item.quantity || 0) <= 5);
-    if (lowStockItems.length > 0) {
-      recommendations.push({
-        priority: 'High',
-        message: `Restock ${lowStockItems.length} ${category} items`,
-        action: 'Order inventory'
-      });
+    if (category !== 'other') {
+      const lowStockItems = data.items.filter((item: StockItem) => 
+        (item.quantity || 0) <= (item.minQuantity || 0)
+      );
+
+      if (lowStockItems.length > 0) {
+        recommendations.push({
+          priority: 'High',
+          message: `إعادة تعبئة ${lowStockItems.length} عنصر من ${category === 'animals' ? 'الحيوانات' :
+                   category === 'pesticides' ? 'المبيدات' :
+                   category === 'seeds' ? 'البذور' :
+                   category === 'fertilizer' ? 'الأسمدة' :
+                   category === 'equipment' ? 'المعدات' : 'الأخرى'}`,
+          action: 'إعادة التخزين'
+        });
+      }
     }
   });
 
@@ -262,8 +275,8 @@ const getRecommendations = (stockData: StockData): Recommendation[] => {
     if (expiringPesticides > 0) {
       recommendations.push({
         priority: 'Medium',
-        message: `${expiringPesticides} pesticides expiring soon`,
-        action: 'Plan usage or dispose'
+        message: `${expiringPesticides} مبيدات قريبة من تاريخ انتهاء الصلاحية`,
+        action: 'التخطيط للاستخدام أو التخلص'
       });
     }
   }
@@ -275,8 +288,12 @@ const getRecommendations = (stockData: StockData): Recommendation[] => {
     if (valueRatio > 0.4) {
       recommendations.push({
         priority: 'Low',
-        message: `High value concentration in ${category} (${(valueRatio * 100).toFixed(1)}%)`,
-        action: 'Diversify inventory'
+        message: `تركيز عالي للقيمة في ${category === 'animals' ? 'الحيوانات' :
+                 category === 'pesticides' ? 'المبيدات' :
+                 category === 'seeds' ? 'البذور' :
+                 category === 'fertilizer' ? 'الأسمدة' :
+                 category === 'equipment' ? 'المعدات' : 'الأخرى'} (${(valueRatio * 100).toFixed(1)}%)`,
+        action: 'تنويع المخزون'
       });
     }
   });
@@ -761,10 +778,10 @@ const baseStyles = StyleSheet.create({
 });
 
 // Update stock analysis functions with proper types
-const calculateStockTurnover = (category: keyof StockData, data: CategoryData): string => {
+const calculateStockTurnover = (category: keyof StockData, data: CategoryData): number => {
   const totalValue = data.value;
   const averageValue = totalValue / (data.count || 1);
-  return (totalValue / averageValue).toFixed(1);
+  return Number((totalValue / averageValue).toFixed(1));
 };
 
 const getCategoryPerformance = (category: keyof StockData, data: CategoryData): { growth: number; status: 'positive' | 'negative' | 'neutral' } => {
@@ -784,11 +801,11 @@ const renderStockHealthIndicator = (data: StockData) => {
 
   return (
     <View style={baseStyles.healthIndicatorContainer}>
-      <Text style={baseStyles.healthIndicatorTitle}>Stock Health Overview</Text>
+      <Text style={baseStyles.healthIndicatorTitle}>نظرة عامة على صحة المخزون</Text>
       <View style={baseStyles.healthIndicatorContent}>
         <View style={baseStyles.healthIndicatorMetric}>
           <Text style={baseStyles.healthIndicatorValue}>{efficiency}%</Text>
-          <Text style={baseStyles.healthIndicatorLabel}>Efficiency Rate</Text>
+          <Text style={baseStyles.healthIndicatorLabel}>معدل الكفاءة</Text>
         </View>
         <View style={baseStyles.healthIndicatorStatus}>
           <MaterialCommunityIcons 
@@ -814,6 +831,15 @@ const renderCategoryCard = (category: keyof StockData, data: CategoryData) => {
   const turnover = calculateStockTurnover(category, data);
   const categoryName = String(category);
 
+  const categoryTranslations: Record<keyof StockData, string> = {
+    animals: 'الحيوانات',
+    pesticides: 'المبيدات',
+    seeds: 'البذور',
+    fertilizer: 'الأسمدة',
+    equipment: 'المعدات',
+    other: 'أخرى'
+  };
+
   return (
     <View key={category} style={baseStyles.categoryCard}>
       <LinearGradient
@@ -827,7 +853,7 @@ const renderCategoryCard = (category: keyof StockData, data: CategoryData) => {
             color="#FFFFFF" 
           />
           <Text style={baseStyles.categoryCardTitle}>
-            {categoryName.charAt(0).toUpperCase() + categoryName.slice(1)}
+            {categoryTranslations[category]}
           </Text>
           <Text style={baseStyles.categoryCardValue}>
             {formatNumber(data.count)}
@@ -838,18 +864,18 @@ const renderCategoryCard = (category: keyof StockData, data: CategoryData) => {
           
           <View style={baseStyles.categoryCardMetrics}>
             <View style={baseStyles.metricItem}>
-              <Text style={baseStyles.metricLabel}>Turnover</Text>
-              <Text style={baseStyles.metricValue}>{turnover}x</Text>
+              <Text style={baseStyles.metricLabel}>معدل الدوران</Text>
+              <Text style={baseStyles.metricValue}>{formatNumber(turnover)}x</Text>
             </View>
             <View style={baseStyles.metricItem}>
-              <Text style={baseStyles.metricLabel}>Growth</Text>
+              <Text style={baseStyles.metricLabel}>النمو</Text>
               <Text style={[
                 baseStyles.metricValue,
                 performance.status === 'positive' ? baseStyles.positiveText :
                 performance.status === 'negative' ? baseStyles.negativeText :
                 { color: '#FFFFFF' }
               ]}>
-                {performance.growth.toFixed(1)}%
+                {performance.growth.toLocaleString('fr-FR', { maximumFractionDigits: 1 })}%
               </Text>
             </View>
           </View>
@@ -974,9 +1000,16 @@ const StockStatisticsScreen: React.FC = () => {
       other: 0
     };
 
+    const categoryTranslations = {
+      insecticide: 'مبيدات حشرية',
+      herbicide: 'مبيدات أعشاب',
+      fungicide: 'مبيدات فطرية',
+      other: 'أخرى'
+    };
+
     return (
       <View style={[baseStyles.detailsContainer, { marginTop: 16 }]}>
-        <Text style={[baseStyles.categoryTitle, { color: chartColors.pesticides.primary }]}>Pesticide Categories</Text>
+        <Text style={[baseStyles.categoryTitle, { color: chartColors.pesticides.primary }]}>فئات المبيدات</Text>
         <View style={baseStyles.categoriesContainer}>
           {Object.entries(categories).map(([category, count]) => (
             <View 
@@ -990,7 +1023,7 @@ const StockStatisticsScreen: React.FC = () => {
                 baseStyles.categoryPillText,
                 { color: chartColors.pesticides.primary }
               ]}>
-                {category.charAt(0).toUpperCase() + category.slice(1)}: {count.toString()}
+                {categoryTranslations[category as keyof typeof categoryTranslations]}: {count.toLocaleString('fr-FR')}
               </Text>
             </View>
           ))}
@@ -1009,18 +1042,18 @@ const StockStatisticsScreen: React.FC = () => {
 
     return (
       <View style={[baseStyles.detailsContainer, { marginTop: 16 }]}>
-        <Text style={[baseStyles.categoryTitle, { color: chartColors.pesticides.primary }]}>Expiry Status</Text>
+        <Text style={[baseStyles.categoryTitle, { color: chartColors.pesticides.primary }]}>حالة الصلاحية</Text>
         <View style={baseStyles.detailRow}>
-          <Text style={baseStyles.detailLabel}>Valid</Text>
-          <Text style={[baseStyles.detailValue, { color: '#00C853' }]}>{expiryStatus.valid.toString()}</Text>
+          <Text style={baseStyles.detailLabel}>صالح</Text>
+          <Text style={[baseStyles.detailValue, { color: '#00C853' }]}>{expiryStatus.valid.toLocaleString('fr-FR')}</Text>
         </View>
         <View style={baseStyles.detailRow}>
-          <Text style={baseStyles.detailLabel}>Expiring Soon</Text>
-          <Text style={[baseStyles.detailValue, { color: '#FFA500' }]}>{expiryStatus.expiringSoon.toString()}</Text>
+          <Text style={baseStyles.detailLabel}>قريب الانتهاء</Text>
+          <Text style={[baseStyles.detailValue, { color: '#FFA500' }]}>{expiryStatus.expiringSoon.toLocaleString('fr-FR')}</Text>
         </View>
         <View style={baseStyles.detailRow}>
-          <Text style={baseStyles.detailLabel}>Expired</Text>
-          <Text style={[baseStyles.detailValue, { color: '#FF1744' }]}>{expiryStatus.expired.toString()}</Text>
+          <Text style={baseStyles.detailLabel}>منتهي الصلاحية</Text>
+          <Text style={[baseStyles.detailValue, { color: '#FF1744' }]}>{expiryStatus.expired.toLocaleString('fr-FR')}</Text>
         </View>
       </View>
     );
@@ -1406,27 +1439,27 @@ const StockStatisticsScreen: React.FC = () => {
         <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
       }
     >
-      <Text style={[baseStyles.title, { color: COLORS.text }]}>Stock Analytics</Text>
+      <Text style={[baseStyles.title, { color: COLORS.text }]}>تحليلات المخزون</Text>
       
       {/* Stock Health Overview */}
       {renderStockHealthIndicator(stockData)}
       
       {/* Category Cards */}
-      <Text style={baseStyles.sectionHeader}>Category Overview</Text>
+      <Text style={baseStyles.sectionHeader}>نظرة عامة على الفئات</Text>
       {Object.entries(stockData).map(([category, data]) => 
         renderCategoryCard(category, data)
       )}
       
       {/* Insights and Recommendations */}
       <View style={baseStyles.insightsContainer}>
-        <Text style={baseStyles.sectionHeader}>Key Insights</Text>
+        <Text style={baseStyles.sectionHeader}>الرؤى الرئيسية</Text>
         {getInsights(stockData).map((insight, index) => 
           renderInsightCard(insight, index)
         )}
       </View>
 
       <View style={baseStyles.recommendationsContainer}>
-        <Text style={baseStyles.sectionHeader}>Recommendations</Text>
+        <Text style={baseStyles.sectionHeader}>التوصيات</Text>
         {getRecommendations(stockData).map((recommendation, index) => 
           renderRecommendationCard(recommendation, index)
         )}
@@ -1434,11 +1467,15 @@ const StockStatisticsScreen: React.FC = () => {
       
       {/* Detailed Statistics */}
       <View style={baseStyles.detailsContainer}>
-        <Text style={baseStyles.sectionHeader}>Detailed Statistics</Text>
+        <Text style={baseStyles.sectionHeader}>إحصائيات مفصلة</Text>
         {Object.entries(stockData).map(([category, data]) => (
           <View key={category} style={baseStyles.categoryDetails}>
             <Text style={[baseStyles.categoryTitle, { color: chartColors[category].primary }]}>
-              {category.charAt(0).toUpperCase() + category.slice(1)}
+              {category === 'animals' ? 'الحيوانات' :
+               category === 'pesticides' ? 'المبيدات' :
+               category === 'seeds' ? 'البذور' :
+               category === 'fertilizer' ? 'الأسمدة' :
+               category === 'equipment' ? 'المعدات' : 'أخرى'}
             </Text>
             <LineChart
               data={prepareChartData(category)}
@@ -1466,13 +1503,19 @@ const StockStatisticsScreen: React.FC = () => {
         <View style={[baseStyles.alertContainer, { backgroundColor: COLORS.error + '20' }]}>
           <View style={baseStyles.alertHeader}>
             <MaterialCommunityIcons name="alert" size={24} color={COLORS.error} />
-            <Text style={[baseStyles.alertTitle, { color: COLORS.error }]}>Low Stock Alert</Text>
+            <Text style={[baseStyles.alertTitle, { color: COLORS.error }]}>تنبيه المخزون المنخفض</Text>
           </View>
           {lowStockItems.map((item, index) => (
             <View key={item.id || index} style={baseStyles.alertItem}>
               <Text style={[baseStyles.alertItemName, { color: COLORS.text }]}>{item.name}</Text>
-              <Text style={[baseStyles.alertItemCategory, { color: COLORS.text }]}>{item.category}</Text>
-              <Text style={[baseStyles.alertItemQuantity, { color: COLORS.error }]}>Qty: {item.quantity}</Text>
+              <Text style={[baseStyles.alertItemCategory, { color: COLORS.text }]}>
+                {item.category === 'animals' ? 'حيوانات' :
+                 item.category === 'pesticides' ? 'مبيدات' :
+                 item.category === 'seeds' ? 'بذور' :
+                 item.category === 'fertilizer' ? 'أسمدة' :
+                 item.category === 'equipment' ? 'معدات' : 'أخرى'}
+              </Text>
+              <Text style={[baseStyles.alertItemQuantity, { color: COLORS.error }]}>الكمية: {item.quantity?.toLocaleString('fr-FR')}</Text>
             </View>
           ))}
         </View>

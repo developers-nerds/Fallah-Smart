@@ -2,15 +2,20 @@ require('dotenv').config();
 const express = require("express");
 const cors = require("cors");
 const path = require('path');
+
+// Route imports
+const animalGastonRoutes = require("./routes/animalGastonRoutes");
+const transactionRoutes = require("./routes/transactionRoutes");
 const userRoutes = require("./routes/userRoutes");
 const stockRoutes = require("./routes/stockRoutes");
-const animalGastonRoutes = require("./routes/animalGastonRoutes");
 const pesticideRoutes = require('./routes/pesticideRoutes');
 const blogRoutes = require("./routes/blogRoutes");
 const scanRoutes = require("./routes/scanRoutes");
 const conversationRoutes = require("./routes/conversationRoutes");
+const accountRoutes = require("./routes/accountRoutes");
 const cropRoutes = require("./routes/crops");
 const cropDetailsRoutes = require("./routes/cropsDetails");
+const animalRoutes = require("./routes/animalRoutes");
 const animalDetailsRoutes = require("./routes/animalsDetails");
 const animal = require("./routes/animal");
 const stockStatisticsRoutes = require("./routes/stockStatisticsRoutes");
@@ -27,6 +32,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Routes
+app.use("/api/transactions", transactionRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/stocks", stockRoutes);
 app.use("/api/animals", animalGastonRoutes);
@@ -34,6 +40,7 @@ app.use('/api/pesticides', pesticideRoutes);
 app.use("/api/blog", blogRoutes);
 app.use("/api/scans", scanRoutes);
 app.use("/api/conversations", conversationRoutes);
+app.use("/api/accounts", accountRoutes);
 app.use("/api/crops", cropRoutes);
 app.use("/api/cropsDetails", cropDetailsRoutes);
 app.use("/api/animalDetails", animalDetailsRoutes);
