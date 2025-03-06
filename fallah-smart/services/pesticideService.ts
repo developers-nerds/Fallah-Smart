@@ -9,6 +9,11 @@ export interface Pesticide {
   createdAt: string;
   updatedAt: string;
   userId: number;
+  lowStockThreshold: number;
+  target?: string;
+  waitingPeriod?: number;
+  safetyInstructions?: string;
+  applicationInstructions?: string;
 }
 
 export const pesticideService = {

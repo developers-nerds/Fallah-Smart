@@ -178,5 +178,27 @@ const animalApi = {
   },
 };
 
+// Stock Statistics API
+const stockStatisticsApi = {
+  getStatistics: async (params?: { startDate?: string; endDate?: string; category?: string }) => {
+    try {
+      // Build query string
+      const queryParams = new URLSearchParams();
+      if (params?.startDate) queryParams.append('startDate', params.startDate);
+      if (params?.endDate) queryParams.append('endDate', params.endDate);
+      if (params?.category) queryParams.append('category', params.category);
+      
+      const queryString = queryParams.toString();
+      const url = `/stock-statistics${queryString ? `?${queryString}` : ''}`;
+      
+      const response = await api.get(url);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch stock statistics:', error);
+      throw error;
+    }
+  }
+};
+
 // Export both the base API and specific methods
-export { api, stockApi, animalApi }; 
+export { api, stockApi, animalApi, stockStatisticsApi }; 

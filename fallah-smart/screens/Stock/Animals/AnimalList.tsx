@@ -41,13 +41,13 @@ const getHealthStatusColor = (status: HealthStatus, theme: any) => {
 const getHealthStatusLabel = (status: HealthStatus): string => {
   switch (status) {
     case 'excellent':
-      return 'Excellent';
+      return 'ممتاز';
     case 'good':
-      return 'Bon';
+      return 'جيد';
     case 'fair':
-      return 'Moyen';
+      return 'متوسط';
     case 'poor':
-      return 'Mauvais';
+      return 'سيء';
     default:
       return status;
   }
@@ -73,15 +73,15 @@ export const AnimalList = ({ navigation }: AnimalListProps) => {
 
   const handleDeleteAnimal = useCallback((id: string) => {
     Alert.alert(
-      'Supprimer l\'animal',
-      'Êtes-vous sûr de vouloir supprimer cet animal?',
+      'حذف الحيوان',
+      'هل أنت متأكد من حذف هذا الحيوان؟',
       [
         {
-          text: 'Annuler',
+          text: 'إلغاء',
           style: 'cancel',
         },
         {
-          text: 'Supprimer',
+          text: 'حذف',
           onPress: () => deleteAnimal(id),
           style: 'destructive',
         },
@@ -97,7 +97,7 @@ export const AnimalList = ({ navigation }: AnimalListProps) => {
         await removeAnimalQuantity(id, 1);
       }
     } catch (error) {
-      Alert.alert('Erreur', 'Une erreur est survenue lors de la modification de la quantité');
+      Alert.alert('خطأ', 'حدث خطأ أثناء تعديل الكمية');
     }
   }, [addAnimalQuantity, removeAnimalQuantity]);
 
@@ -140,7 +140,7 @@ export const AnimalList = ({ navigation }: AnimalListProps) => {
             <MaterialCommunityIcons name="cow" size={24} color={theme.colors.primary.base} />
             <View style={styles.animalInfo}>
               <Text style={[styles.animalType, { color: theme.colors.neutral.textPrimary }]}>
-                {item.type} ({item.gender === 'male' ? 'Mâle' : 'Femelle'})
+                {item.type} ({item.gender === 'male' ? 'ذكر' : 'أنثى'})
               </Text>
               <View style={styles.quantityControls}>
                 <TouchableOpacity
@@ -189,7 +189,7 @@ export const AnimalList = ({ navigation }: AnimalListProps) => {
           <View style={styles.cardContent}>
             <View style={styles.statusContainer}>
               <Text style={[styles.statusLabel, { color: theme.colors.neutral.textSecondary }]}>
-                Santé:
+                الحالة الصحية:
               </Text>
               <View style={[styles.statusBadge, { backgroundColor: getHealthStatusColor(item.healthStatus, theme) }]}>
                 <Text style={styles.statusText}>
@@ -199,22 +199,22 @@ export const AnimalList = ({ navigation }: AnimalListProps) => {
             </View>
 
             <Text style={[styles.infoText, { color: theme.colors.neutral.textPrimary }]}>
-              Alimentation: {item.feedingSchedule || 'Non spécifié'}
+              التغذية: {item.feedingSchedule || 'غير محدد'}
             </Text>
 
             {isExpanded && (
               <View style={styles.expandedDetails}>
-                {renderDetailItem('Alimentation détaillée', item.feeding)}
-                {renderDetailItem('Soins', item.care)}
-                {renderDetailItem('Santé', item.health)}
-                {renderDetailItem('Logement', item.housing)}
-                {renderDetailItem('Reproduction', item.breeding)}
-                {renderDetailItem('Maladies', item.diseases)}
-                {renderDetailItem('Médicaments', item.medications)}
-                {renderDetailItem('Comportement', item.behavior)}
-                {renderDetailItem('Économie', item.economics)}
-                {renderDetailItem('Vaccination', item.vaccination)}
-                {renderDetailItem('Notes', item.notes)}
+                {renderDetailItem('تفاصيل التغذية', item.feeding)}
+                {renderDetailItem('الرعاية', item.care)}
+                {renderDetailItem('الصحة', item.health)}
+                {renderDetailItem('السكن', item.housing)}
+                {renderDetailItem('التكاثر', item.breeding)}
+                {renderDetailItem('الأمراض', item.diseases)}
+                {renderDetailItem('الأدوية', item.medications)}
+                {renderDetailItem('السلوك', item.behavior)}
+                {renderDetailItem('الجوانب الاقتصادية', item.economics)}
+                {renderDetailItem('التطعيم', item.vaccination)}
+                {renderDetailItem('ملاحظات', item.notes)}
               </View>
             )}
 
@@ -250,9 +250,11 @@ export const AnimalList = ({ navigation }: AnimalListProps) => {
           size={64} 
           color={theme.colors.error} 
         />
-        <Text style={[styles.errorText, { color: theme.colors.error }]}>{error}</Text>
+        <Text style={[styles.errorText, { color: theme.colors.error }]}>
+          {searchQuery ? 'لم يتم العثور على حيوانات' : 'لا توجد حيوانات مسجلة'}
+        </Text>
         <CustomButton 
-          title="Réessayer" 
+          title="إعادة المحاولة" 
           onPress={refreshAnimals}
           variant="primary"
         />
@@ -283,7 +285,7 @@ export const AnimalList = ({ navigation }: AnimalListProps) => {
               color={theme.colors.neutral.textSecondary} 
             />
             <Text style={[styles.emptyText, { color: theme.colors.neutral.textSecondary }]}>
-              {searchQuery ? 'Aucun animal trouvé' : 'Aucun animal enregistré'}
+              {searchQuery ? 'لم يتم العثور على حيوانات' : 'لا توجد حيوانات مسجلة'}
             </Text>
           </View>
         }
