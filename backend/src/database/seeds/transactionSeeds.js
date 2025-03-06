@@ -1,5 +1,5 @@
 const { faker } = require('@faker-js/faker');
-const { Transactions, Accounts } = require('../assossiation');
+const { Transactions } = require('../assossiation');
 
 async function seedTransactions() {
   try {
@@ -7,15 +7,15 @@ async function seedTransactions() {
 
     const transactions = [
       {
-        amount: 999,
+        amount: 1200,
         type: "income",
-        date: new Date("2025-03-03"),
-        note: "chahreya",
+        date: new Date("2024-03-01"),
+        note: "Monthly Salary",
         categoryId: 1,
         accountId: 18
       },
       {
-        amount: 200,
+        amount: 400,
         type: "expense",
         date: new Date("2025-03-03"),
         note: "kaskrout",
@@ -23,15 +23,15 @@ async function seedTransactions() {
         accountId: 18
       },
       {
-        amount: 100,
+        amount: 75,
         type: "expense",
-        date: new Date("2025-03-03"),
-        note: "mekla",
+        date: new Date("2024-03-03"),
+        note: "Grocery Shopping",
         categoryId: 2,
         accountId: 18
       },
       {
-        amount: 100,
+        amount: 45,
         type: "expense",
         date: new Date("2025-03-03"),
         note: "pizza",
@@ -47,18 +47,18 @@ async function seedTransactions() {
         accountId: 18
       },
       {
-        amount: 30,
+        amount: 60,
         type: "expense",
-        date: new Date("2025-03-03"),
-        note: "micho",
+        date: new Date("2024-03-05"),
+        note: "Internet Bill",
         categoryId: 5,
         accountId: 18
       },
       {
-        amount: 100,
+        amount: 35,
         type: "expense",
-        date: new Date("2024-02-20"),
-        note: "talyatelyy",
+        date: new Date("2024-03-05"),
+        note: "Restaurant",
         categoryId: 2,
         accountId: 18
       },
@@ -79,7 +79,7 @@ async function seedTransactions() {
         accountId: 18
       },
       {
-        amount: 109,
+        amount: 150,
         type: "expense",
         date: new Date("2024-02-20"),
         note: "mazout",
@@ -88,10 +88,15 @@ async function seedTransactions() {
       }
     ];
 
-    await Transactions.bulkCreate(transactions);
-    console.log(`✅ Created ${transactions.length} transactions`);
+    // Bulk create with validation and error handling
+    const createdTransactions = await Transactions.bulkCreate(transactions, {
+      validate: true, // Validate each record before insertion
+      individualHooks: true // Run any model hooks if they exist
+    });
 
+    console.log(`✅ Created ${createdTransactions.length} transactions`);
     return true;
+
   } catch (error) {
     console.error("❌ Error seeding transactions:", error);
     throw error;
