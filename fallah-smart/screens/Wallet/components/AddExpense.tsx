@@ -47,11 +47,10 @@ export default function AddExpense() {
   const navigation = useNavigation()
 
   const API_BASE_URL = Platform.select({
-    web: process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api',
-    default: process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.13:5000/api'
+    web: process.env.WEB_PUBLIC_API,
+    default: process.env.EXPO_PUBLIC_API_URL 
   })
 
-  // Get user ID from token - copied from HomeScreen
   const getUserIdFromToken = async () => {
     try {
       const userStr = await AsyncStorage.getItem('@user')
@@ -69,7 +68,6 @@ export default function AddExpense() {
     }
   }
 
-  // Fetch accounts - adapted from HomeScreen
   const fetchAccounts = async () => {
     const token = await AsyncStorage.getItem('@access_token')
     const userId = await getUserIdFromToken()
@@ -85,7 +83,7 @@ export default function AddExpense() {
       console.log('Fetched accounts:', response.data)
       setAccounts(response.data)
       if (response.data.length > 0) {
-        setSelectedAccountId(response.data[0].id) // Set first account as default
+        setSelectedAccountId(response.data[0].id)
       }
     } catch (error) {
       setError('Error fetching accounts: ' + (error.response?.data?.message || error.message))
@@ -93,7 +91,7 @@ export default function AddExpense() {
   }
 
   useEffect(() => {
-    fetchAccounts() // Fetch accounts when component mounts
+    fetchAccounts()
 
     const fetchCategories = async () => {
       try {
@@ -123,7 +121,7 @@ export default function AddExpense() {
     }
   }, [showCategories])
 
-  const handleCreateTransaction = async () => {
+  const handleCreateTransaction = async (category: Category) => {
     try {
       setIsSubmitting(true)
       setSubmitError("")
@@ -136,13 +134,12 @@ export default function AddExpense() {
         return
       }
 
-      // Validation
       if (!selectedAccountId) {
         setSubmitError('No account selected. Please try again.')
         return
       }
 
-      if (!selectedCategory || !selectedCategory.id) {
+      if (!category || !category.id) {
         setSubmitError('Please select a category')
         return
       }
@@ -154,7 +151,7 @@ export default function AddExpense() {
 
       const transactionData = {
         accountId: selectedAccountId,
-        categoryId: selectedCategory.id,
+        categoryId: category.id,
         amount: parseFloat(amount),
         type: 'expense',
         note: note || "",
@@ -199,7 +196,6 @@ export default function AddExpense() {
 
   const handleOperatorPress = (operator) => {
     console.log("Operator pressed:", operator)
-    // Add operator handling if needed
   }
 
   const handleClear = () => {
@@ -245,8 +241,9 @@ export default function AddExpense() {
         onPress={() => {
           setSelectedCategory(item)
           setShowCategories(false)
-          handleCreateTransaction()
+          handleCreateTransaction(item) // Pass the item directly to ensure we have the latest value
         }}
+        disabled={isSubmitting}
       >
         <View style={[styles.iconContainer, { backgroundColor: `${item.color}20` }]}>
           {isCustomIcon ? (
@@ -406,7 +403,7 @@ export default function AddExpense() {
         onPress={() => setShowCategories(!showCategories)}
       >
         <Text style={styles.categoryButtonText}>
-          {selectedCategory ? selectedCategory.name : (showCategories ? 'HIDE CATEGORIES' : 'CHOOSE CATEGORY')}
+          {selectedCategory ? selectedCategory.name : 'CHOOSE CATEGORY'}
         </Text>
       </TouchableOpacity>
 
