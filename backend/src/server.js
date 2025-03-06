@@ -1,9 +1,8 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const path = require("path");
-
-// Route imports
+const path = require('path');
+const categoryRoutes = require('./routes/categoryRoutes');
 const transactionRoutes = require("./routes/transactionRoutes");
 const userRoutes = require("./routes/userRoutes");
 const stockRoutes = require("./routes/stockRoutes");
@@ -46,7 +45,7 @@ app.use("/api/animalDetails", animalDetailsRoutes);
 app.use("/api/animal", animal);
 // Uncomment if you want to use this route
 // app.use("/api/animals", animalRoutes);
-
+app.use('/api/categories', categoryRoutes);
 // Test image endpoint
 app.get("/test-image", (req, res) => {
   res.send(`
