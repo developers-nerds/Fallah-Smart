@@ -5,6 +5,7 @@ const path = require('path');
 
 // Route imports
 const animalGastonRoutes = require("./routes/animalGastonRoutes");
+const categoryRoutes = require('./routes/categoryRoutes');
 const transactionRoutes = require("./routes/transactionRoutes");
 const userRoutes = require("./routes/userRoutes");
 const stockRoutes = require("./routes/stockRoutes");
@@ -54,6 +55,10 @@ app.use((err, req, res, next) => {
 });
 
 // Test route for image serving
+// Uncomment if you want to use this route
+// app.use("/api/animals", animalRoutes);
+app.use('/api/categories', categoryRoutes);
+// Test image endpoint
 app.get('/test-image', (req, res) => {
   res.send(`
     <html>
