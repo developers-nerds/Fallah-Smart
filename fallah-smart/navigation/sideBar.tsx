@@ -7,7 +7,6 @@ import {
 } from '@react-navigation/drawer';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
-import { DrawerNavigationProp } from '@react-navigation/drawer';
 import Animated, {
   useAnimatedStyle,
   withSpring,
@@ -28,7 +27,7 @@ type MenuItemProps = {
   label: string;
   onPress: () => void;
   active?: boolean;
-  navigation: DrawerNavigationProp<DrawerParamList>;
+  navigation: any;
 };
 
 export type DrawerParamList = {
@@ -38,14 +37,7 @@ export type DrawerParamList = {
   Stock: undefined;
   Wallet: undefined;
   Dictionary: undefined;
-};
-
-type SideBarProps = {
-  navigation: DrawerNavigationProp<DrawerParamList>;
-  state: {
-    routeNames: string[];
-    index: number;
-  };
+  Education: undefined;
 };
 
 const MenuItem: React.FC<MenuItemProps> = ({ icon, label, onPress, active, navigation }) => {
@@ -133,6 +125,11 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
     );
   };
 
+  const navigateToTab = (tabName: string) => {
+    props.navigation.getParent()?.navigate(tabName);
+    props.navigation.closeDrawer();
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -195,6 +192,16 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
         active={currentRoute === 'Dictionary'}
         onPress={() => {
           props.navigation.navigate('Dictionary');
+          props.navigation.closeDrawer();
+        }}
+        navigation={props.navigation}
+      />
+      <MenuItem
+        icon="school"
+        label="Education"
+        active={currentRoute === 'Education'}
+        onPress={() => {
+          props.navigation.navigate('Education')
           props.navigation.closeDrawer();
         }}
         navigation={props.navigation}

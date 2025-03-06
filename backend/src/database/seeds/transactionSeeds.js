@@ -12,7 +12,7 @@ async function seedTransactions() {
         date: new Date("2025-03-03"),
         note: "chahreya",
         categoryId: 1,
-        accountId: 1
+        accountId: 18
       },
       {
         amount: 200,
@@ -20,7 +20,7 @@ async function seedTransactions() {
         date: new Date("2025-03-03"),
         note: "kaskrout",
         categoryId: 2,
-        accountId: 1
+        accountId: 18
       },
       {
         amount: 100,
@@ -28,7 +28,7 @@ async function seedTransactions() {
         date: new Date("2025-03-03"),
         note: "mekla",
         categoryId: 2,
-        accountId: 1
+        accountId: 18
       },
       {
         amount: 100,
@@ -36,7 +36,7 @@ async function seedTransactions() {
         date: new Date("2025-03-03"),
         note: "pizza",
         categoryId: 2,
-        accountId: 1
+        accountId: 18
       },
       {
         amount: 50,
@@ -44,7 +44,7 @@ async function seedTransactions() {
         date: new Date("2025-03-03"),
         note: "essence",
         categoryId: 4,
-        accountId: 1
+        accountId: 18
       },
       {
         amount: 30,
@@ -52,7 +52,7 @@ async function seedTransactions() {
         date: new Date("2025-03-03"),
         note: "micho",
         categoryId: 5,
-        accountId: 1
+        accountId: 18
       },
       {
         amount: 100,
@@ -60,7 +60,7 @@ async function seedTransactions() {
         date: new Date("2024-02-20"),
         note: "talyatelyy",
         categoryId: 2,
-        accountId: 1
+        accountId: 18
       },
       {
         amount: 100,
@@ -68,7 +68,7 @@ async function seedTransactions() {
         date: new Date("2024-02-20"),
         note: "bousta",
         categoryId: 1,
-        accountId: 1
+        accountId: 18
       },
       {
         amount: 1000,
@@ -76,7 +76,7 @@ async function seedTransactions() {
         date: new Date("2024-02-20"),
         note: "cha9a9a",
         categoryId: 1,
-        accountId: 1
+        accountId: 18
       },
       {
         amount: 109,
@@ -84,7 +84,7 @@ async function seedTransactions() {
         date: new Date("2024-02-20"),
         note: "mazout",
         categoryId: 4,
-        accountId: 1
+        accountId: 18
       }
     ];
 
@@ -97,5 +97,5 @@ async function seedTransactions() {
     throw error;
   }
 }
-
+seedTransactions()
 module.exports = seedTransactions;

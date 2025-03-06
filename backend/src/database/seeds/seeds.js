@@ -60,7 +60,7 @@ async function seedAll() {
     console.log("🌱 Seeding media...");
     // await seedConversations(); 
     // await seedAccounts();
-    // await seedTransactions();
+    await seedTransactions();
     // await seedRecurringTransactions();
     // await seedBackupSync();
     // await seedMessages();
