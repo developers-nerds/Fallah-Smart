@@ -1,12 +1,14 @@
-import "react-native-gesture-handler"
-import { ThemeProvider } from "./context/ThemeContext"
-import { NavigationContainer } from "@react-navigation/native"
-import { createStackNavigator } from "@react-navigation/stack"
-import { StockNavigator } from "./navigation/StockNavigator"
-import { StockProvider } from "./context/StockContext"
-import AddIncome from "./screens/Wallet/components/AddIncome"
-import AddExpense from "./screens/Wallet/components/AddExpense"
-const Stack = createStackNavigator()
+import React from 'react';
+import 'react-native-gesture-handler';
+import { NavigationContainer } from '@react-navigation/native';
+import { ThemeProvider } from './context/ThemeContext';
+import { StockProvider } from './context/StockContext';
+import { createStackNavigator } from '@react-navigation/stack';
+import { StockNavigator } from './navigation/StockNavigator';
+import AddIncome from './screens/Wallet/components/AddIncome';
+import AddExpense from './screens/Wallet/components/AddExpense';
+
+const Stack = createStackNavigator();
 
 const RootNavigator = () => {
   return (
@@ -21,22 +23,16 @@ const RootNavigator = () => {
       <Stack.Screen name="AddIncome" component={AddIncome} />
       <Stack.Screen name="AddExpense" component={AddExpense} />
     </Stack.Navigator>
-  )
-}
-
-const AppContent = () => {
-  return (
-    <NavigationContainer>
-      <RootNavigator />
-    </NavigationContainer>
-  )
-}
+  );
+};
 
 export default function App() {
   return (
     <ThemeProvider>
-      <AppContent />
+      <NavigationContainer>
+        <RootNavigator />
+      </NavigationContainer>
     </ThemeProvider>
-  )
+  );
 }
 
