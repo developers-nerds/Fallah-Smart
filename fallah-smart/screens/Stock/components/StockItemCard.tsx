@@ -49,16 +49,16 @@ const getQualityLabel = (quality: string | undefined): string => {
 
 const getCategoryIcon = (category: string): string => {
   const icons = {
-    seeds: 'seed',
-    fertilizer: 'watering-can',
-    harvest: 'sprout',
-    feed: 'food-variant',
-    pesticide: 'bug',
-    equipment: 'tractor',
-    tools: 'tools',
-    animals: 'cow'
+    seeds: '🌱',
+    fertilizer: '💩',
+    harvest: '🌾',
+    feed: '🌿',
+    pesticide: '🐛',
+    equipment: '🚜',
+    tools: '🔧',
+    animals: '🐄'
   };
-  return icons[category] || 'package-variant';
+  return icons[category] || '📦';
 };
 
 export const StockItemCard = ({ item, onPress }: StockItemCardProps) => {
@@ -82,12 +82,9 @@ export const StockItemCard = ({ item, onPress }: StockItemCardProps) => {
     >
       <View style={styles.header}>
         <View style={styles.titleContainer}>
-          <MaterialCommunityIcons
-            name={getCategoryIcon(item.category)}
-            size={32}
-            color={theme.colors.primary.base}
-            style={styles.categoryIcon}
-          />
+          <View style={styles.iconContainer}>
+            <Text style={styles.categoryIcon}>{getCategoryIcon(item.category)}</Text>
+          </View>
           <View style={styles.nameContainer}>
             <Text style={[styles.name, { color: theme.colors.neutral.textPrimary }]}>
               {item.name}
@@ -219,7 +216,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
-  categoryIcon: {
+  iconContainer: {
     marginRight: 12,
   },
   nameContainer: {
@@ -287,5 +284,8 @@ const styles = StyleSheet.create({
   },
   expiry: {
     fontSize: 14,
+  },
+  categoryIcon: {
+    fontSize: 32,
   },
 }); 
