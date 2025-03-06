@@ -23,13 +23,13 @@ import WalletScreen from '../Wallet/Wallet';
 import DictionaryScreen from '../dictionary/dictionary';
 import ChatScreen from '../Chat/Chat';
 import { DictionaryNavigator } from '../../navigation/DictionaryNavigator';
-
+import { WEATHER_CONFIG } from '../../api/apiConfig';
 
 const Drawer = createDrawerNavigator();
 
 // Weather API key and base URL
-const WEATHER_API_KEY = '797c405585b040e8be7162007252002';
-const WEATHER_API_URL = 'http://api.weatherapi.com/v1/forecast.json';
+const WEATHER_API_KEY = WEATHER_CONFIG.API_KEY;
+const WEATHER_API_URL = WEATHER_CONFIG.API_URL;
 
 export const HomeContent = ({ navigation }) => {
   const [weather, setWeather] = useState(null);
@@ -144,9 +144,7 @@ export const HomeContent = ({ navigation }) => {
                       : 'Please activate your GPS to receive weather information'}
                   </Text>
                 </View>
-                <TouchableOpacity style={styles.okButton}>
-                  <Text style={styles.okButtonText}>OK</Text>
-                </TouchableOpacity>
+                
               </>
             )}
           </View>

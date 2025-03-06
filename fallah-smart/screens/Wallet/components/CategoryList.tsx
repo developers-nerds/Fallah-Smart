@@ -53,18 +53,16 @@ const [expandedCategories, setExpandedCategories] = useState<number[]>([]);
     <View style={styles.container}>
       {categories.map((category) => (
         <View key={category.id}>
-          <TouchableOpacity style={styles.categoryItem}>
+          <TouchableOpacity 
+            style={styles.categoryItem}
+            onPress={() => toggleCategory(category.id)} // Move onPress here
+          >
             <View style={styles.leftContent}>
-              <TouchableOpacity 
-                style={styles.expandButton}
-                onPress={() => toggleCategory(category.id)}
-              >
-                <MaterialCommunityIcons 
-                  name={expandedCategories.includes(category.id) ? "chevron-up" : "chevron-down"} 
-                  size={24} 
-                  color="#BBBBBB" 
-                />
-              </TouchableOpacity>
+              <MaterialCommunityIcons 
+                name={expandedCategories.includes(category.id) ? "chevron-up" : "chevron-down"} 
+                size={24} 
+                color="#BBBBBB" 
+              />
               <View style={[styles.iconContainer, { backgroundColor: category.color + "20" }]}>
                 {category.type === "material-community" ? (
                   <MaterialCommunityIcons name={category.icon} size={24} color={category.color} />

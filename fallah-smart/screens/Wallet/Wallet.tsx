@@ -24,7 +24,7 @@ const HomeScreen = () => {
   const navigation = useNavigation()
 
   const API_BASE_URL = Platform.select({
-    web: process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api',
+    web: process.env.EXPO_PUBLIC_API_URL ,
     default: process.env.EXPO_PUBLIC_API_URL
   });
 
