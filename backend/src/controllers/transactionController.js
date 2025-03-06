@@ -55,8 +55,8 @@ const transactionController = {
   // Create new transaction
   createTransaction: async (req, res) => {
     try {
-      const { accountId, categoryId, amount, type, description, date } = req.body;
-
+      const { accountId, categoryId, amount, type, note, date } = req.body;  // Changed description to note
+      
       if (!accountId || !amount || !type || !categoryId) {
         return res.status(400).json({
           success: false,
@@ -94,7 +94,7 @@ const transactionController = {
         categoryId,
         amount,
         type,
-        description,
+        note,        // Changed description to note
         date: date || new Date(),
         userId: req.user.id
       });
@@ -141,7 +141,7 @@ const transactionController = {
   updateTransaction: async (req, res) => {
     try {
       const { transactionId } = req.params;
-      const { accountId, categoryId, amount, type, description, date } = req.body;
+      const { accountId, categoryId, amount, type, note, date } = req.body;  // Changed description to note
 
       const transaction = await Transactions.findOne({
         where: {
@@ -195,7 +195,7 @@ const transactionController = {
         categoryId: categoryId || transaction.categoryId,
         amount: amount || transaction.amount,
         type: type || transaction.type,
-        description: description || transaction.description,
+        note: note || transaction.note,    // Changed description to note
         date: date || transaction.date,
       });
 
