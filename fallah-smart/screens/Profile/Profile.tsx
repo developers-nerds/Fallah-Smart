@@ -86,7 +86,7 @@ const Profile = () => {
         console.log("Stored user profile picture:", storedUser.profilePicture);
       }
 
-      const response = await axios.get('http://192.168.104.18:5000/api/users/profile');
+      const response = await axios.get(`${process.env.EXPO_PUBLIC_API_URL}/users/profile`);
       if (response?.data) {
         console.log("Server response profile picture:", response.data.profilePicture);
         setProfile(response.data);
@@ -221,7 +221,7 @@ const Profile = () => {
                   source={{ 
                     uri: selectedImage?.uri || (profile?.profilePicture?.startsWith('http') 
                       ? profile?.profilePicture 
-                      : `http://192.168.104.24:5000${profile?.profilePicture}`) 
+                      : `${process.env.EXPO_PUBLIC_API}${profile?.profilePicture}`) 
                   }} 
                   style={styles.avatarImage} 
                   onLoad={() => console.log("Profile image loaded successfully")}
