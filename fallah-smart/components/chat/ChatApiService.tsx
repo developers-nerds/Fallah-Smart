@@ -16,7 +16,7 @@ export interface GeminiRequest {
   contents: Content[];
 }
 
-const API_URL = process.env.EXPO_PUBLIC_API_KEY;;
+const API_URL = process.env.EXPO_PUBLIC_API_KEY;
 const header = { 'Content-Type': 'application/json' };
 
 export const sendMessageToGemini = async (
@@ -71,9 +71,10 @@ export const sendMessageToGemini = async (
     });
 
     const responseData = await response.json();
+    console.log('responseData', responseData);
     const aiResponseText =
       (responseData as any).candidates?.[0]?.content?.parts?.[0]?.text || 'No response received, mate!';
-
+    console.log('aiResponseText', aiResponseText);
     return { success: true, text: aiResponseText };
   } catch (error) {
     if ((error as any).response) {

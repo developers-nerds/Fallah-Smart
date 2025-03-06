@@ -20,6 +20,7 @@ const Url = process.env.EXPO_PUBLIC_API_URL;
 // Function to fetch conversations from the API
 const getConversations = async () => {
   try {
+    console.log('before all conv');
     const response = await fetch(`${Url}/conversations/get`, {
       method: 'GET',
       headers: {
@@ -27,7 +28,7 @@ const getConversations = async () => {
         Authorization: `Bearer ${await getToken()}`,
       },
     });
-
+    console.log('after all conv');
     if (!response.ok) {
       throw new Error('Failed to fetch conversations');
     }
@@ -135,12 +136,15 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
   }, [isVisible]);
 
   useEffect(() => {
+    let animationGroup: Animated.CompositeAnimation | null = null;
+    let itemAnimationInstances: Animated.CompositeAnimation[] = [];
+
     if (isVisible) {
       // Opening animations
       setIsAnimationComplete(false);
 
       // Main sidebar animations
-      Animated.parallel([
+      animationGroup = Animated.parallel([
         Animated.spring(slideAnim, {
           toValue: 0,
           friction: 6,
@@ -159,23 +163,30 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
-      ]).start();
+      ]);
+
+      animationGroup.start();
 
       // Animate conversation items sequentially
       if (conversations.length > 0) {
         conversations.forEach((_, i) => {
-          Animated.timing(itemAnimations[i], {
-            toValue: 1,
-            duration: 200,
-            delay: 100 + i * 50,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-          }).start();
+          if (i < 20) {
+            // Limit to 20 animations for performance
+            const animation = Animated.timing(itemAnimations[i], {
+              toValue: 1,
+              duration: 200,
+              delay: 100 + i * 50,
+              easing: Easing.out(Easing.cubic),
+              useNativeDriver: true,
+            });
+            animation.start();
+            itemAnimationInstances.push(animation);
+          }
         });
       }
     } else {
       // Closing animations
-      Animated.sequence([
+      animationGroup = Animated.sequence([
         // First bounce slightly
         Animated.timing(bounceAnim, {
           toValue: 1,
@@ -204,11 +215,26 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
             useNativeDriver: true,
           }),
         ]),
-      ]).start(() => {
+      ]);
+
+      animationGroup.start(() => {
         // Mark animation as complete so component can be removed from DOM
         setIsAnimationComplete(true);
       });
     }
+
+    // Cleanup function
+    return () => {
+      if (animationGroup) {
+        animationGroup.stop();
+      }
+
+      itemAnimationInstances.forEach((animation) => {
+        if (animation) {
+          animation.stop();
+        }
+      });
+    };
   }, [isVisible, conversations.length]);
 
   // Don't render if not visible and animation is complete
@@ -246,17 +272,20 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
     };
 
     // Calculate item animation styles
+    // Check if the animation exists for this index, use a default value if not
+    const animValue = index < itemAnimations.length ? itemAnimations[index] : new Animated.Value(1);
+
     const itemAnimStyle = {
-      opacity: itemAnimations[index],
+      opacity: animValue,
       transform: [
         {
-          translateX: itemAnimations[index].interpolate({
+          translateX: animValue.interpolate({
             inputRange: [0, 1],
             outputRange: [-50, 0],
           }),
         },
         {
-          scale: itemAnimations[index].interpolate({
+          scale: animValue.interpolate({
             inputRange: [0, 1],
             outputRange: [0.8, 1],
           }),

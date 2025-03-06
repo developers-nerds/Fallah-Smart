@@ -24,6 +24,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 // Text processing utilities
 const processMessageText = (text: string) => {
+  // Handle data:image URLs by replacing them with [Image]
+  // This regex matches the entire data:image URL pattern
+  text = text.replace(/data:image\/[^;]+;base64,[a-zA-Z0-9+/=]+/g, '[Image]');
+
   // Remove any "||" characters
   text = text.replace(/\|\|/g, '');
 
