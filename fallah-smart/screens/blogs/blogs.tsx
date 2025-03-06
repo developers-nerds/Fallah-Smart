@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   View, 
   Text, 
@@ -18,9 +18,10 @@ import {
   StatusBar,
   Button,
   Dimensions,
-  Share
+  Share,
+  Animated
 } from 'react-native';
-import { FontAwesome, MaterialCommunityIcons, Feather, MaterialIcons, Ionicons } from '@expo/vector-icons';
+import { FontAwesome, MaterialCommunityIcons, Feather, MaterialIcons, Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { launchImageLibraryAsync, MediaTypeOptions } from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';
 import axios from 'axios';
@@ -33,11 +34,44 @@ const BASE_URL = process.env.EXPO_PUBLIC_API;
 const BLOG_URL = process.env.EXPO_PUBLIC_BlOG;
 const API_URL = `${BASE_URL}/api/blog`;
 
-// Post category options for creation only, not filtering
+// Define blog categories with farmer-friendly icons
 const CATEGORIES = [
-  { label: 'Questions', value: 'Question', icon: 'help-circle', iconType: 'feather' },
-  { label: 'Market', value: 'Market', icon: 'shopping', iconType: 'material' },
-  { label: 'News', value: 'News', icon: 'newspaper', iconType: 'material' }
+  { 
+    value: 'CROPS',
+    label: 'Crops',
+    icon: 'sprout',
+    iconType: 'material' 
+  },
+  { 
+    value: 'LIVESTOCK',
+    label: 'Livestock',
+    icon: 'cow',
+    iconType: 'material'
+  },
+  { 
+    value: 'EQUIPMENT',
+    label: 'Equipment',
+    icon: 'tractor',
+    iconType: 'fontawesome'
+  },
+  { 
+    value: 'WEATHER',
+    label: 'Weather',
+    icon: 'weather-sunny',
+    iconType: 'material'
+  },
+  { 
+    value: 'MARKET',
+    label: 'Market',
+    icon: 'store',
+    iconType: 'material'
+  },
+  { 
+    value: 'TIPS',
+    label: 'Tips & Tricks',
+    icon: 'lightbulb-outline',
+    iconType: 'material'
+  }
 ];
 
 // Update the image URL handling in the PostItem component
@@ -219,9 +253,61 @@ const PostItem = ({ item, navigation, handlePostLike, handleCommentAdded, timeAg
   );
 };
 
+const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
+
+// Add proper types at the top of the file
+interface Author {
+  firstName?: string;
+  lastName?: string;
+  username: string;
+  profilePicture?: string;
+}
+
+interface Post {
+  id: string;
+  title: string;
+  description?: string;
+  category: string;
+  author: Author;
+  media?: Array<{ url: string }>;
+  createdAt: string;
+  likesCount: number;
+  commentsCount: number;
+  userLiked: boolean;
+}
+
+// Update the SearchBar component to a simpler version
+const SearchBar = ({ searchTerm, setSearchTerm }) => {
+  return (
+    <View style={styles.searchContainer}>
+      <MaterialIcons 
+        name="search" 
+        size={24} 
+        color={theme.colors.neutral.textSecondary} 
+      />
+      <TextInput
+        style={styles.searchInput}
+        placeholder="Search posts..."
+        placeholderTextColor={theme.colors.neutral.textSecondary}
+        value={searchTerm}
+        onChangeText={setSearchTerm}
+      />
+      {searchTerm ? (
+        <TouchableOpacity onPress={() => setSearchTerm('')}>
+          <MaterialIcons 
+            name="close" 
+            size={20} 
+            color={theme.colors.neutral.textSecondary} 
+          />
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  );
+};
+
 const Blogs = () => {
   const navigation = useNavigation();
-  const [posts, setPosts] = useState([]);
+  const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -229,7 +315,7 @@ const Blogs = () => {
   const [newPost, setNewPost] = useState({
     title: '',
     description: '',
-    category: 'Question'
+    category: 'CROPS'
   });
   const [selectedImages, setSelectedImages] = useState([]);
   const [submitting, setSubmitting] = useState(false);
@@ -239,6 +325,12 @@ const Blogs = () => {
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
   const [postToReport, setPostToReport] = useState(null);
   const [customReason, setCustomReason] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const searchInputRef = useRef<TextInput>(null);
+  const searchDebounceTimeout = useRef<NodeJS.Timeout | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   
   // Add the report reasons array
   const reportReasons = [
@@ -481,7 +573,7 @@ const Blogs = () => {
       setNewPost({
         title: '',
         description: '',
-        category: 'Question'
+        category: 'CROPS'
       });
       setSelectedImages([]);
       setModalVisible(false);
@@ -510,15 +602,30 @@ const Blogs = () => {
 
   // Render category icon
   const renderCategoryIcon = (category) => {
-    if (!category) return null;
-    
     const categoryConfig = CATEGORIES.find(c => c.value === category);
     if (!categoryConfig) return null;
-    
-    if (categoryConfig.iconType === 'feather') {
-      return <Feather name={categoryConfig.icon} size={14} color={theme.colors.neutral.textSecondary} />;
-    } else {
-      return <MaterialCommunityIcons name={categoryConfig.icon} size={14} color={theme.colors.neutral.textSecondary} />;
+
+    switch (categoryConfig.iconType) {
+      case 'material':
+        return (
+          <MaterialCommunityIcons 
+            name={categoryConfig.icon} 
+            size={24} 
+            color={theme.colors.primary.base}
+            style={styles.categoryIcon} 
+          />
+        );
+      case 'fontawesome':
+        return (
+          <FontAwesome5 
+            name={categoryConfig.icon} 
+            size={20} 
+            color={theme.colors.primary.base}
+            style={styles.categoryIcon} 
+          />
+        );
+      default:
+        return null;
     }
   };
 
@@ -696,6 +803,98 @@ const handleSharePost = async (post) => {
   }
 };
 
+// Update filteredPosts to include search
+const filteredPosts = useMemo(() => {
+  if (!posts) return [];
+  
+  return posts.filter(post => {
+    // Category filter
+    const categoryMatch = selectedCategory === 'all' || post.category === selectedCategory;
+    
+    // Search filter
+    const searchMatch = !searchTerm || 
+      post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      post.description?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    return categoryMatch && searchMatch;
+  });
+}, [posts, selectedCategory, searchTerm]);
+
+// Add this category filter component
+const CategoryFilter = () => (
+  <Animated.View style={[
+    styles.categoryFilterContainer,
+    {
+      transform: [{
+        translateY: scrollY.interpolate({
+          inputRange: [-50, 0, 50],
+          outputRange: [0, 0, -100],
+          extrapolate: 'clamp'
+        })
+      }]
+    }
+  ]}>
+    <ScrollView 
+      horizontal 
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.categoryList}
+    >
+      <TouchableOpacity
+        style={[
+          styles.categoryChip,
+          selectedCategory === 'all' && styles.categoryChipSelected
+        ]}
+        onPress={() => setSelectedCategory('all')}
+      >
+        <Text style={[
+          styles.categoryChipText,
+          selectedCategory === 'all' && styles.categoryChipTextSelected
+        ]}>
+          All
+        </Text>
+      </TouchableOpacity>
+      {CATEGORIES.map(category => (
+        <TouchableOpacity
+          key={category.value}
+          style={[
+            styles.categoryChip,
+            selectedCategory === category.value && styles.categoryChipSelected
+          ]}
+          onPress={() => setSelectedCategory(category.value)}
+        >
+          {category.iconType === 'material' ? (
+            <MaterialCommunityIcons
+              name={category.icon}
+              size={18}
+              color={selectedCategory === category.value ? 
+                theme.colors.neutral.surface : 
+                theme.colors.primary.base
+              }
+              style={styles.categoryChipIcon}
+            />
+          ) : (
+            <FontAwesome5
+              name={category.icon}
+              size={16}
+              color={selectedCategory === category.value ? 
+                theme.colors.neutral.surface : 
+                theme.colors.primary.base
+              }
+              style={styles.categoryChipIcon}
+            />
+          )}
+          <Text style={[
+            styles.categoryChipText,
+            selectedCategory === category.value && styles.categoryChipTextSelected
+          ]}>
+            {category.label}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </ScrollView>
+  </Animated.View>
+);
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.neutral.background }}>
       <StatusBar backgroundColor={theme.colors.neutral.background} barStyle="dark-content" />
@@ -710,19 +909,50 @@ const handleSharePost = async (post) => {
           <Button title="Try Again" onPress={fetchPosts} style={{ marginTop: 16 }} />
         </View>
       ) : (
-        <FlatList
-          data={posts}
+        <AnimatedFlatList
+          data={filteredPosts}
           renderItem={renderPostItem}
-          keyExtractor={(item) => item.id.toString()}
+          keyExtractor={item => item.id.toString()}
           contentContainerStyle={styles.postsList}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="none"
+          ListHeaderComponent={
+            <>
+              <SearchBar searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+              <CategoryFilter />
+            </>
           }
+          refreshControl={
+            <RefreshControl
+              refreshing={loading}
+              onRefresh={fetchPosts}
+              colors={[theme.colors.primary.base]}
+            />
+          }
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+            { useNativeDriver: true }
+          )}
+          scrollEventThrottle={16}
           ListEmptyComponent={
-            <View style={styles.centerContainer}>
-              <Text style={styles.emptyText}>No posts yet.</Text>
-            </View>
+            !loading && (
+              <View style={styles.emptyContainer}>
+                <MaterialCommunityIcons 
+                  name={searchTerm ? "file-search-outline" : "post-outline"}
+                  size={48} 
+                  color={theme.colors.neutral.textSecondary} 
+                />
+                <Text style={styles.emptyTitle}>
+                  {searchTerm ? "No matching posts found" : "No posts yet"}
+                </Text>
+                <Text style={styles.emptyText}>
+                  {searchTerm 
+                    ? "Try adjusting your search or category filter"
+                    : "Be the first to share something with the community!"}
+                </Text>
+              </View>
+            )
           }
         />
       )}
@@ -970,22 +1200,21 @@ const styles = StyleSheet.create({
     color: theme.colors.neutral.textPrimary,
   },
   postCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
+    backgroundColor: theme.colors.neutral.surface,
+    borderRadius: 16,
+    padding: 16,
     marginBottom: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
     elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   postHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    paddingBottom: 8,
+    marginBottom: 12,
   },
   userInfoContainer: {
     flexDirection: 'row',
@@ -1010,10 +1239,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   userName: {
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 16,
+    fontFamily: theme.fonts.medium,
     color: theme.colors.neutral.textPrimary,
-    marginBottom: 2,
   },
   postTime: {
     fontSize: 13,
@@ -1022,27 +1250,25 @@ const styles = StyleSheet.create({
   categoryTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.neutral.gray.light,
+    backgroundColor: theme.colors.primary.surface,
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 6,
     borderRadius: 16,
   },
   categoryText: {
-    fontSize: 12,
-    marginLeft: 4,
-    color: theme.colors.neutral.textSecondary,
+    color: theme.colors.primary.base,
+    fontSize: 14,
+    fontFamily: theme.fonts.medium,
   },
   postTitle: {
-    fontSize: 17,
-    fontWeight: '600',
+    fontSize: 18,
+    fontFamily: theme.fonts.bold,
     color: theme.colors.neutral.textPrimary,
-    paddingHorizontal: 16,
-    paddingBottom: 8,
+    marginBottom: 8,
   },
   postDescription: {
     fontSize: 15,
     color: theme.colors.neutral.textPrimary,
-    paddingHorizontal: 16,
     paddingBottom: 12,
     lineHeight: 20,
   },
@@ -1243,23 +1469,17 @@ const styles = StyleSheet.create({
     paddingTop: theme.spacing.sm,
   },
   emptyContainer: {
-    padding: theme.spacing.xl,
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    padding: 32,
   },
-  emptyTitle: {
-    fontSize: theme.fontSizes.h2,
-    fontFamily: theme.fonts.medium,
-    color: theme.colors.neutral.textPrimary,
-    marginTop: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
-  },
-  emptyDescription: {
-    fontSize: theme.fontSizes.body,
-    fontFamily: theme.fonts.regular,
+  emptyText: {
+    marginTop: 16,
+    fontSize: 16,
     color: theme.colors.neutral.textSecondary,
     textAlign: 'center',
-    marginBottom: theme.spacing.lg,
+    fontFamily: theme.fonts.medium,
   },
   createPostButton: {
     backgroundColor: theme.colors.primary.base,
@@ -1277,11 +1497,6 @@ const styles = StyleSheet.create({
     fontSize: theme.fontSizes.body,
     fontFamily: theme.fonts.regular,
     marginBottom: theme.spacing.md,
-  },
-  emptyText: {
-    color: theme.colors.neutral.textSecondary,
-    fontSize: theme.fontSizes.body,
-    fontFamily: theme.fonts.regular,
   },
   modalOverlay: {
     flex: 1,
@@ -1386,6 +1601,94 @@ const styles = StyleSheet.create({
     marginLeft: 4,
     fontSize: theme.fontSizes.small,
     color: theme.colors.neutral.textSecondary,
+  },
+  categoryContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.primary.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  categoryIcon: {
+    marginRight: 6,
+  },
+  dateText: {
+    color: theme.colors.neutral.textSecondary,
+    fontSize: 12,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.neutral.border,
+    paddingTop: 12,
+  },
+  categoryFilterContainer: {
+    backgroundColor: theme.colors.neutral.surface,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.neutral.border,
+    zIndex: 1,
+  },
+  categoryList: {
+    paddingHorizontal: 16,
+  },
+  categoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.primary.fade,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.primary.fade,
+  },
+  categoryChipSelected: {
+    backgroundColor: theme.colors.primary.base,
+    borderColor: theme.colors.primary.base,
+  },
+  categoryChipIcon: {
+    marginRight: 6,
+  },
+  categoryChipText: {
+    color: theme.colors.primary.base,
+    fontSize: 14,
+    fontFamily: theme.fonts.medium,
+  },
+  categoryChipTextSelected: {
+    color: theme.colors.neutral.surface,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.neutral.textPrimary,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.neutral.surface,
+    borderRadius: theme.borderRadius.medium,
+    paddingHorizontal: 12,
+    margin: 16,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.neutral.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  searchInput: {
+    flex: 1,
+    padding: 10,
+    fontSize: 16,
+    color: theme.colors.neutral.textPrimary,
+    fontFamily: theme.fonts.regular,
   },
 });
 

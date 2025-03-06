@@ -56,8 +56,8 @@ const CropDetails: React.FC<Props> = ({ route }) => {
     try {
       setLoading(true);
       const [cropResponse, detailsResponse] = await Promise.all([
-        axios.get(`http://192.168.11.225:5000/api/crops/${id}`),
-        axios.get(`http://192.168.11.225:5000/api/cropsDetails/${id}`)
+        axios.get(`http://192.168.104.24:5000/api/crops/${id}`),
+        axios.get(`http://192.168.104.24:5000/api/cropsDetails/${id}`)
       ]);
       setCrop(cropResponse.data);
       setDetails(detailsResponse.data);

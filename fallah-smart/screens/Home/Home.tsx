@@ -9,7 +9,8 @@ import {
   ActivityIndicator, 
   SafeAreaView, 
   StatusBar,
-  Alert
+  Alert,
+  ImageBackground
 } from 'react-native';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { MaterialIcons, FontAwesome5, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -23,21 +24,55 @@ import WalletScreen from '../Wallet/Wallet';
 import DictionaryScreen from '../dictionary/dictionary';
 import ChatScreen from '../Chat/Chat';
 import { DictionaryNavigator } from '../../navigation/DictionaryNavigator';
+import { WEATHER_CONFIG } from '../../api/apiConfig';
 
 
 const Drawer = createDrawerNavigator();
 
-// Weather API key and base URL
-const WEATHER_API_KEY = '797c405585b040e8be7162007252002';
-const WEATHER_API_URL = 'http://api.weatherapi.com/v1/forecast.json';
+// Update the weather API configuration
+const WEATHER_API_KEY = WEATHER_CONFIG.API_KEY;
+const WEATHER_API_URL = WEATHER_CONFIG.API_URL;
+
+// Add this helper function at the top of the file
+const getTimeBasedWeatherIcon = () => {
+  const hour = new Date().getHours();
+  
+  if (hour >= 6 && hour < 18) {
+    return {
+      icon: 'weather-sunny',
+      color: '#FDB813',
+      backgroundColor: 'rgba(255, 255, 255, 0.15)', // More transparent
+      text: 'Day',
+      textColor: '#FFFFFF', // White text for better contrast
+      backgroundImage: require('../../assets/images/weather/sun.png')
+    };
+  } else {
+    return {
+      icon: 'weather-night',
+      color: '#FFFFFF', // White icon for night
+      backgroundColor: 'rgba(0, 0, 0, 0.2)', // Darker, more transparent overlay
+      text: 'Night',
+      textColor: '#FFFFFF',
+      backgroundImage: require('../../assets/images/weather/moon.png')
+    };
+  }
+};
 
 export const HomeContent = ({ navigation }) => {
   const [weather, setWeather] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [timeIcon, setTimeIcon] = useState(getTimeBasedWeatherIcon());
 
   useEffect(() => {
     fetchWeatherData();
+    
+    // Update time icon every minute
+    const interval = setInterval(() => {
+      setTimeIcon(getTimeBasedWeatherIcon());
+    }, 60000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   // Fetch weather data from API
@@ -120,36 +155,58 @@ export const HomeContent = ({ navigation }) => {
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* Weather Card */}
         <View style={styles.weatherSection}>
-          <View style={styles.weatherCard}>
-            {loading ? (
-              <ActivityIndicator size="large" color={theme.colors.primary.base} />
-            ) : error ? (
-              <Text style={styles.errorText}>{error}</Text>
-            ) : (
-              <>
-                <View style={styles.weatherHeader}>
-                  <View>
-                    <Text style={styles.weatherDate}>{formatDate()}</Text>
-                    <Text style={styles.weatherCondition}>
-                      {weather?.current?.condition?.text || 'Clear'} • {Math.round(weather?.current?.temp_c || 24)}°C / {Math.round(weather?.forecast?.forecastday?.[0]?.day?.mintemp_c || 20)}°C
+          <ImageBackground
+            source={timeIcon.backgroundImage}
+            style={styles.weatherCard}
+            imageStyle={styles.weatherCardImage}
+            resizeMode="cover"
+          >
+            <View style={[styles.weatherCardOverlay, { backgroundColor: timeIcon.backgroundColor }]}>
+              {loading ? (
+                <ActivityIndicator size="large" color={theme.colors.primary.base} />
+              ) : error ? (
+                <Text style={styles.errorText}>{error}</Text>
+              ) : (
+                <>
+                  <View style={styles.weatherHeader}>
+                    <View style={styles.weatherInfo}>
+                      <View style={styles.timeIconContainer}>
+                        <MaterialCommunityIcons 
+                          name={timeIcon.icon} 
+                          size={24} 
+                          color={timeIcon.color}
+                        />
+                        <Text style={[styles.weatherTime, { color: timeIcon.textColor }]}>
+                          {timeIcon.text}
+                        </Text>
+                      </View>
+                      <Text style={[styles.weatherDate, { color: timeIcon.textColor }]}>
+                        {formatDate()}
+                      </Text>
+                      <Text style={[styles.weatherCondition, { color: timeIcon.textColor }]}>
+                        {weather?.current?.condition?.text || 'Clear'} • {Math.round(weather?.current?.temp_c || 24)}°C / {Math.round(weather?.forecast?.forecastday?.[0]?.day?.mintemp_c || 20)}°C
+                      </Text>
+                    </View>
+                    <Text style={[styles.weatherTemp, { color: timeIcon.textColor }]}>
+                      {Math.round(weather?.current?.temp_c || 24)}°C
                     </Text>
                   </View>
-                  <Text style={styles.weatherTemp}>{Math.round(weather?.current?.temp_c || 24)}°C</Text>
-                </View>
-                <View style={styles.locationInfo}>
-                  <MaterialIcons name="location-on" size={18} color={theme.colors.primary.base} />
-                  <Text style={styles.locationText}>
-                    {weather?.location?.name 
-                      ? `${weather.location.name}, ${weather.location.country}` 
-                      : 'Please activate your GPS to receive weather information'}
-                  </Text>
-                </View>
-                <TouchableOpacity style={styles.okButton}>
-                  <Text style={styles.okButtonText}>OK</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
+                  <View style={styles.locationInfo}>
+                    <MaterialIcons 
+                      name="location-on" 
+                      size={14} 
+                      color="#FFFFFF"
+                    />
+                    <Text style={[styles.locationText, { color: timeIcon.textColor }]}>
+                      {weather?.location?.name 
+                        ? `${weather.location.name}, ${weather.location.country}` 
+                        : 'Please activate your GPS to receive weather information'}
+                    </Text>
+                  </View>
+                </>
+              )}
+            </View>
+          </ImageBackground>
         </View>
 
         {/* Heal your crop section */}
@@ -259,54 +316,102 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   weatherSection: {
-    marginVertical: 16,
-  },
-  weatherCard: {
-    backgroundColor: theme.colors.neutral.surface,
+    marginVertical: 12,
     borderRadius: 16,
-    padding: 16,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  weatherCard: {
+    height: 160,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  weatherCardImage: {
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+    opacity: 1, // Full opacity for the image
+  },
+  weatherCardOverlay: {
+    padding: 14,
+    flex: 1,
+    borderRadius: 16,
+    background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.4) 100%)',
   },
   weatherHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 10,
+    marginBottom: 12,
+  },
+  weatherInfo: {
+    flex: 1,
+  },
+  timeIconContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    padding: 6,
+    borderRadius: 10,
+    alignSelf: 'flex-start',
+  },
+  weatherTime: {
+    marginLeft: 6,
+    fontSize: 14,
+    fontFamily: theme.fonts.semiBold,
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
   },
   weatherDate: {
     fontSize: 18,
     fontFamily: theme.fonts.bold,
-    color: theme.colors.neutral.textPrimary,
-    marginBottom: 4,
+    marginBottom: 6,
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
   },
   weatherCondition: {
     fontSize: 14,
-    fontFamily: theme.fonts.regular,
-    color: theme.colors.neutral.textSecondary,
+    fontFamily: theme.fonts.medium,
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
+    opacity: 0.9,
   },
   weatherTemp: {
-    fontSize: 24,
+    fontSize: 28,
     fontFamily: theme.fonts.bold,
-    color: theme.colors.neutral.textPrimary,
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 4,
   },
   locationInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF9E6',
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 10,
+    marginTop: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    padding: 6,
+    borderRadius: 10,
+    alignSelf: 'flex-start',
   },
   locationText: {
-    flex: 1,
-    marginLeft: 8,
-    fontSize: 14,
+    marginLeft: 4,
+    fontSize: 12,
     fontFamily: theme.fonts.medium,
-    color: theme.colors.neutral.textPrimary,
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
   },
   okButton: {
     alignSelf: 'flex-end',

@@ -8,35 +8,33 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// Configure multer storage
+// Configure multer for file upload
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, uploadDir);
+    cb(null, path.join(__dirname, '../../uploads')); // Make sure this directory exists
   },
   filename: function (req, file, cb) {
+    // Create unique filename
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     cb(null, 'profile-' + uniqueSuffix + path.extname(file.originalname));
   }
 });
 
-// File filter to accept only images
+// File filter
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
-  
-  if (allowedTypes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error('Invalid file type. Only JPEG, JPG and PNG files are allowed.'), false);
+  // Accept images only
+  if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) {
+    return cb(new Error('Only image files are allowed!'), false);
   }
+  cb(null, true);
 };
 
-// Create multer upload instance
-const upload = multer({
+const upload = multer({ 
   storage: storage,
+  fileFilter: fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB file size limit
-  },
-  fileFilter: fileFilter
+    fileSize: 5 * 1024 * 1024 // 5MB max file size
+  }
 });
 
 module.exports = upload; 

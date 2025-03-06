@@ -226,7 +226,7 @@ const userController = {
   // Update profile
   updateProfile: async (req, res) => {
     try {
-      const userId = req.user.id; // Get user ID from auth middleware
+      const userId = req.user.id;
       const user = await Users.findByPk(userId);
 
       if (!user) {
@@ -266,6 +266,7 @@ const userController = {
         profilePicture: updatedUser.profilePicture
       };
 
+      console.log("Updated user response:", userResponse);
       res.json(userResponse);
 
     } catch (error) {
