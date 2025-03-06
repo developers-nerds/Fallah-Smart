@@ -2,7 +2,6 @@ require('dotenv').config();
 const express = require("express");
 const cors = require("cors");
 const path = require('path');
-const multer = require('multer');
 
 // Route imports
 const transactionRoutes = require("./routes/transactionRoutes");
@@ -45,20 +44,6 @@ app.use("/api/animalDetails", animalDetailsRoutes);
 app.use("/api/animal", animal);
 // Uncomment if you want to use this route
 // app.use("/api/animals", animalRoutes);
-
-// Serve static files from uploads directory
-app.use('/api/uploads', express.static(path.join(__dirname, '../uploads')));
-
-// Add this middleware to handle file upload errors
-app.use((err, req, res, next) => {
-  if (err instanceof multer.MulterError) {
-    return res.status(400).json({
-      message: 'File upload error',
-      error: err.message
-    });
-  }
-  next(err);
-});
 
 // Test image endpoint
 app.get('/test-image', (req, res) => {
