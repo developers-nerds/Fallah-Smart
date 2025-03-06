@@ -46,8 +46,8 @@ const AnimalDetails: React.FC<Props> = ({ route }) => {
     try {
       setLoading(true);
       const [animalResponse, detailsResponse] = await Promise.all([
-        axios.get(`http://192.168.11.225:5000/api/animal/get/${id}`),
-        axios.get(`http://192.168.11.225:5000/api/animalDetails/get/${id}`)
+        axios.get(`http://192.168.104.24:5000/api/animal/get/${id}`),
+        axios.get(`http://192.168.104.24:5000/api/animalDetails/get/${id}`)
       ]);
       setAnimal(animalResponse.data);
       setDetails(detailsResponse.data);

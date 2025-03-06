@@ -38,6 +38,20 @@ type UserProfile = {
 const GENDER_OPTIONS = ['Male', 'Female'];
 const API_URL = 'http://192.168.104.24:5000/api';
 
+// Add this helper function at the top of the file
+const getImageUrl = (imageUrl: string | undefined) => {
+  if (!imageUrl) return null;
+  
+  // If it's already a full URL, return it
+  if (imageUrl.startsWith('http')) {
+    return imageUrl;
+  }
+  
+  // Otherwise, construct the full URL
+  // Note: imageUrl already includes '/uploads/'
+  return `${API_URL}${imageUrl}`;
+};
+
 // Add image picker function
 const pickImage = async () => {
   try {
@@ -84,12 +98,12 @@ const Profile = () => {
       const storedUser = await storage.getUser();
       if (storedUser) {
         setProfile(storedUser);
-        console.log("Stored user profile picture:", storedUser.profilePicture);
+        console.log("Complete profile picture URL:", getImageUrl(storedUser.profilePicture));
       }
 
       const response = await axios.get(`${API_URL}/users/profile`);
       if (response?.data) {
-        console.log("Server response profile picture:", response.data.profilePicture);
+        console.log("Complete server profile picture URL:", getImageUrl(response.data.profilePicture));
         setProfile(response.data);
         setEditedProfile(response.data);
         await storage.setUser(response.data);
@@ -110,7 +124,7 @@ const Profile = () => {
     }
   };
 
-  // Update the profile update function with retry logic and better error handling
+  // Update the profile update function
   const updateProfile = async () => {
     if (!editedProfile) return;
     
@@ -130,50 +144,57 @@ const Profile = () => {
       // Handle image upload if there's a selected image
       if (selectedImage) {
         const fileExtension = selectedImage.uri.split('.').pop() || 'jpg';
-        const fileName = `profile_${Date.now()}.${fileExtension}`;
-        const mimeType = fileExtension.toLowerCase() === 'png' ? 'image/png' : 'image/jpeg';
+        const fileName = `profile-${Date.now()}.${fileExtension}`;
         
         formData.append('profileImage', {
           uri: Platform.OS === 'android' ? selectedImage.uri : selectedImage.uri.replace('file://', ''),
+          type: `image/${fileExtension}`,
           name: fileName,
-          type: mimeType
         } as any);
+
+        console.log('Uploading image:', {
+          uri: selectedImage.uri,
+          type: `image/${fileExtension}`,
+          name: fileName
+        });
       }
       
-      // Make the API request
+      // Make the API request with proper headers
       const response = await axios.put(
         `${API_URL}/users/profile`,
         formData,
         {
           headers: {
+            'Accept': 'application/json',
             'Content-Type': 'multipart/form-data',
-            'Accept': 'application/json'
           },
-          timeout: 10000 // 10 second timeout
+          transformRequest: (data, headers) => {
+            return formData; // Return FormData directly
+          },
         }
       );
       
       // Handle successful response
       if (response.data) {
+        console.log('Profile update response:', response.data);
         setProfile(response.data);
         setEditedProfile(response.data);
         await storage.setUser(response.data);
         setIsEditing(false);
+        setSelectedImage(null); // Clear selected image after successful upload
         Alert.alert('Success', 'Profile updated successfully!');
       }
       
     } catch (error) {
-      // Handle errors
       console.error('Profile update error:', error);
+      console.error('Error response:', error.response?.data);
       
       if (error.response) {
-        // Server returned an error
         Alert.alert(
           'Update Failed',
           error.response.data?.message || 'Server error occurred'
         );
       } else if (error.request) {
-        // No response received
         Alert.alert(
           'Connection Error',
           'Unable to connect to the server. Please check your internet connection.',
@@ -186,7 +207,6 @@ const Profile = () => {
           ]
         );
       } else {
-        // Other errors
         Alert.alert(
           'Error',
           'An unexpected error occurred. Please try again.'
@@ -217,23 +237,17 @@ const Profile = () => {
           {/* Profile avatar */}
           <View style={styles.avatarContainer}>
             <View style={styles.avatar}>
-              {selectedImage?.uri || profile?.profilePicture ? (
+              {profile?.profilePicture ? (
                 <Image 
                   source={{ 
-                    uri: selectedImage?.uri || (profile?.profilePicture?.startsWith('http') 
-                      ? profile?.profilePicture 
-                      : `${API_URL}${profile?.profilePicture}`) 
+                    uri: getImageUrl(profile.profilePicture)
                   }} 
-                  style={styles.avatarImage} 
-                  onLoad={() => console.log("Profile image loaded successfully")}
-                  onError={(error) => console.error("Profile image error:", error.nativeEvent.error)}
+                  style={styles.profileImage}
                 />
               ) : (
-                <FontAwesome 
-                  name="user-circle" 
-                  size={84} 
-                  color={theme.colors.primary.base} 
-                />
+                <View style={[styles.profileImage, styles.profileImagePlaceholder]}>
+                  <FontAwesome name="user" size={60} color="#cccccc" />
+                </View>
               )}
             </View>
           </View>
@@ -417,9 +431,7 @@ const Profile = () => {
                       <View style={styles.selectedImageContainer}>
                         <Image 
                           source={{ 
-                            uri: profile.profilePicture.startsWith('http') 
-                              ? profile.profilePicture 
-                              : `${API_URL}${profile.profilePicture}` 
+                            uri: getImageUrl(profile.profilePicture)
                           }} 
                           style={styles.selectedImage} 
                         />
@@ -508,7 +520,7 @@ const styles = StyleSheet.create({
     elevation: 5,
     overflow: 'hidden',
   },
-  avatarImage: {
+  profileImage: {
     width: '100%',
     height: '100%',
     resizeMode: 'cover',

@@ -17,7 +17,6 @@ import axios from 'axios';
 import { theme } from '../../theme/theme';
 import { storage } from '../../utils/storage';
 import { RootStackParamList } from '../../navigation/types';
-import { useAuth } from '../../contexts/AuthContext';
 
 const Login = () => {
   const navigation = useNavigation<LoginScreenNavigationProp>();
@@ -27,23 +26,23 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const API_URL = process.env.EXPO_PUBLIC_API_URL;
-  const { login } = useAuth();
 
-    const handleLogin = async () => {
-      try {
-        // Remove any existing authorization header
-        delete axios.defaults.headers.common['Authorization'];
-        
-        // Input validation
-        if (!email || !password) {
-          Alert.alert('Validation Error', 'Please enter both email and password');
-          return;
-        }
 
-        if (!API_URL) {
-          Alert.alert('Configuration Error', 'API URL is not configured');
-          return;
-        }
+  const handleLogin = async () => {
+    try {
+      // Remove any existing authorization header
+      delete axios.defaults.headers.common['Authorization'];
+      
+      // Input validation
+      if (!email || !password) {
+        Alert.alert('Validation Error', 'Please enter both email and password');
+        return;
+      }
+
+      if (!API_URL) {
+        Alert.alert('Configuration Error', 'API URL is not configured');
+        return;
+      }
 
       setIsLoading(true);
       setError('');
@@ -59,8 +58,10 @@ const Login = () => {
         throw new Error('Invalid response from server');
       }
   
-      // Use the auth context login function
-      await login(user, tokens);
+      await Promise.all([
+        storage.setUser(user),
+        storage.setTokens(tokens.access.token, tokens.refresh.token)
+      ]);
   
       // Set the authorization header for subsequent requests
       axios.defaults.headers.common['Authorization'] = `Bearer ${tokens.access.token}`;
@@ -82,78 +83,83 @@ const Login = () => {
         errorMessage = err.message;
       }
 
-        setError(errorMessage);
-        Alert.alert('Login Error', errorMessage);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
+      setError(errorMessage);
+      Alert.alert('Login Error', errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    return (
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}
-      >
-        <View style={styles.logoContainer}>
-          <MaterialCommunityIcons 
-            name="leaf" 
-            size={80} 
-            color={theme.colors.primary.base}
-            style={styles.logo}
+  const handleRegisterPress = () => {
+    navigation.navigate('Register');
+  };
+
+  return (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}
+    >
+      <View style={styles.logoContainer}>
+        <MaterialCommunityIcons 
+          name="leaf" 
+          size={80} 
+          color={theme.colors.primary.base}
+          style={styles.logo}
+        />
+        <Text style={[styles.title, { color: theme.colors.neutral.textPrimary }]}>Welcome Back!</Text>
+        <Text style={[styles.subtitle, { color: theme.colors.neutral.textSecondary }]}>Sign in to continue</Text>
+      </View>
+
+      <View style={styles.formContainer}>
+        <View style={[styles.inputContainer, { backgroundColor: theme.colors.neutral.surface }]}>
+          <Ionicons 
+            name="mail-outline" 
+            size={20} 
+            color={theme.colors.neutral.textSecondary} 
+            style={styles.inputIcon} 
           />
-          <Text style={[styles.title, { color: theme.colors.neutral.textPrimary }]}>Welcome Back!</Text>
-          <Text style={[styles.subtitle, { color: theme.colors.neutral.textSecondary }]}>Sign in to continue</Text>
+          <TextInput
+            style={[styles.input, { color: theme.colors.neutral.textPrimary }]}
+            placeholder="Email"
+            placeholderTextColor={theme.colors.neutral.textSecondary}
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoComplete="email"
+          />
         </View>
 
-        <View style={styles.formContainer}>
-          <View style={[styles.inputContainer, { backgroundColor: theme.colors.neutral.surface }]}>
-            <Ionicons 
-              name="mail-outline" 
-              size={20} 
-              color={theme.colors.neutral.textSecondary} 
-              style={styles.inputIcon} 
+        <View style={[styles.inputContainer, { backgroundColor: theme.colors.neutral.surface }]}>
+          <Ionicons 
+            name="lock-closed-outline" 
+            size={20} 
+            color={theme.colors.neutral.textSecondary} 
+            style={styles.inputIcon} 
+          />
+          <TextInput
+            style={[styles.input, { color: theme.colors.neutral.textPrimary }]}
+            placeholder="Password"
+            placeholderTextColor={theme.colors.neutral.textSecondary}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+            autoComplete="password"
+          />
+          <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
+            <Ionicons
+              name={showPassword ? 'eye-outline' : 'eye-off-outline'}
+              size={20}
+              color={theme.colors.neutral.textSecondary}
             />
-            <TextInput
-              style={[styles.input, { color: theme.colors.neutral.textPrimary }]}
-              placeholder="Email"
-              placeholderTextColor={theme.colors.neutral.textSecondary}
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-          </View>
-
-          <View style={[styles.inputContainer, { backgroundColor: theme.colors.neutral.surface }]}>
-            <Ionicons 
-              name="lock-closed-outline" 
-              size={20} 
-              color={theme.colors.neutral.textSecondary} 
-              style={styles.inputIcon} 
-            />
-            <TextInput
-              style={[styles.input, { color: theme.colors.neutral.textPrimary }]}
-              placeholder="Password"
-              placeholderTextColor={theme.colors.neutral.textSecondary}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-            />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-              <Ionicons
-                name={showPassword ? 'eye-outline' : 'eye-off-outline'}
-                size={20}
-                color={theme.colors.neutral.textSecondary}
-              />
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity style={styles.forgotPassword}>
-            <Text style={[styles.forgotPasswordText, { color: theme.colors.neutral.textSecondary }]}>
-              Forgot Password?
-            </Text>
           </TouchableOpacity>
+        </View>
+
+        {error ? (
+          <Text style={[styles.errorText, { color: theme.colors.error }]}>
+            {error}
+          </Text>
+        ) : null}
 
         <TouchableOpacity
           style={[
@@ -177,24 +183,20 @@ const Login = () => {
           <View style={[styles.divider, { backgroundColor: theme.colors.neutral.border }]} />
         </View>
 
-          <View style={styles.registerContainer}>
-            <Text style={[styles.registerText, { color: theme.colors.neutral.textSecondary }]}>
-              Don't have an account?{' '}
+        <View style={styles.registerContainer}>
+          <Text style={[styles.registerText, { color: theme.colors.neutral.textSecondary }]}>
+            Don't have an account?{' '}
+          </Text>
+          <TouchableOpacity onPress={handleRegisterPress}>
+            <Text style={[styles.registerLink, { color: theme.colors.primary.base }]}>
+              Register
             </Text>
-            <TouchableOpacity 
-              onPress={() => {
-                navigation.navigate('Register');
-              }}
-            >
-              <Text style={[styles.registerLink, { color: theme.colors.primary.base }]}>
-                Register
-              </Text>
-            </TouchableOpacity>
-          </View>
+          </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
-    );
-  };
+      </View>
+    </KeyboardAvoidingView>
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -288,4 +290,4 @@ const styles = StyleSheet.create({
   },
 });
 
-  export default Login;
+export default Login;
