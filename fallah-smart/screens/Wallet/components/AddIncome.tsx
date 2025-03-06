@@ -1,35 +1,197 @@
 "use client"
 
-import { useState } from "react"
-import { View, Text, StyleSheet, TouchableOpacity, TextInput } from "react-native"
+import { useState, useEffect } from "react"
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, ActivityIndicator, Platform } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useNavigation } from "@react-navigation/native"
 import Icon from "react-native-vector-icons/MaterialIcons"
-import FontAwesome5 from "react-native-vector-icons/FontAwesome5"
-import DateTimePicker from "@react-native-community/datetimepicker"
+import { FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons"
 import { theme } from "../../../theme/theme"
+import DateTimePicker from "@react-native-community/datetimepicker"
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import axios from 'axios'
+
+interface Category {
+  id: number
+  name: string
+  icon: string
+  type: string
+  color: string
+  amount?: number
+  count?: number
+  isIncome?: boolean
+}
 
 export default function AddIncome() {
-  const [amount, setAmount] = useState("1000")
-  const [note, setNote] = useState("Add moneys")
+  const [showCategories, setShowCategories] = useState(false)
+  const [categories, setCategories] = useState<Category[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
+  const [amount, setAmount] = useState("")
+  const [note, setNote] = useState("Add income")
   const [currentDate, setCurrentDate] = useState(() => {
     const date = new Date()
     const options = { weekday: "long", day: "numeric", month: "long", year: "numeric" }
     return date.toLocaleDateString("en-US", options)
   })
-  const [date, setDate] = useState(new Date()) // State for the DateTimePicker
+  const [date, setDate] = useState(new Date())
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [isManualDateInput, setIsManualDateInput] = useState(false)
   const [manualDate, setManualDate] = useState("")
-
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState("")
+  const [accounts, setAccounts] = useState([])
+  const [selectedAccountId, setSelectedAccountId] = useState(null)
+  
   const navigation = useNavigation()
 
-  const handleNumberPress = (num:Number) => {
-    if (amount === "0") {
-      setAmount(num.toString())
-    } else {
-      setAmount((prev) => prev + num.toString())
+  const API_BASE_URL = Platform.select({
+    web: process.env.WEB_PUBLIC_API,
+    default: process.env.EXPO_PUBLIC_API_URL 
+  })
+
+  const getUserIdFromToken = async () => {
+    try {
+      const userStr = await AsyncStorage.getItem('@user')
+      if (!userStr) {
+        setError('No user data found. Please log in.')
+        setLoading(false)
+        return null
+      }
+      const userData = JSON.parse(userStr)
+      return userData.id
+    } catch (error) {
+      setError('Invalid user data. Please log in again.')
+      setLoading(false)
+      return null
     }
+  }
+
+  const fetchAccounts = async () => {
+    const token = await AsyncStorage.getItem('@access_token')
+    const userId = await getUserIdFromToken()
+    if (!userId || !token) return
+
+    try {
+      const response = await axios.get(`${API_BASE_URL}/accounts`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      console.log('Fetched accounts:', response.data)
+      setAccounts(response.data)
+      if (response.data.length > 0) {
+        setSelectedAccountId(response.data[0].id)
+      }
+    } catch (error) {
+      setError('Error fetching accounts: ' + (error.response?.data?.message || error.message))
+    }
+  }
+
+  useEffect(() => {
+    fetchAccounts()
+
+    const fetchCategories = async () => {
+      try {
+        setLoading(true)
+        const token = await AsyncStorage.getItem('@access_token')
+        if (!token) {
+          setError("No authentication token found")
+          return
+        }
+        const response = await axios.get(`${API_BASE_URL}/categories/type/Income`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+        setCategories(response.data)
+      } catch (err) {
+        setError("Failed to fetch categories: " + err.message)
+        console.error("Error fetching categories:", err)
+        setCategories([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (showCategories) {
+      fetchCategories()
+    }
+  }, [showCategories])
+
+  const handleCreateTransaction = async (category: Category) => {
+    try {
+      setIsSubmitting(true)
+      setSubmitError("")
+
+      const token = await AsyncStorage.getItem('@access_token')
+      const userStr = await AsyncStorage.getItem('@user')
+      
+      if (!token || !userStr) {
+        setSubmitError('Please login first')
+        return
+      }
+
+      if (!selectedAccountId) {
+        setSubmitError('No account selected. Please try again.')
+        return
+      }
+
+      if (!category || !category.id) {
+        setSubmitError('Please select a category')
+        return
+      }
+
+      if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
+        setSubmitError('Please enter a valid amount')
+        return
+      }
+
+      const transactionData = {
+        accountId: selectedAccountId,
+        categoryId: category.id,
+        amount: parseFloat(amount),
+        type: 'income',
+        note: note || "",
+        date: date.toISOString()
+      }
+
+      console.log('Sending transaction data:', transactionData)
+
+      const response = await axios.post(
+        `${API_BASE_URL}/transactions`,
+        transactionData,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      )
+
+      console.log('Transaction response:', response.data)
+
+      if (response.data.success) {
+        setAmount("")
+        setNote("Add income")
+        setSelectedCategory(null)
+        setShowCategories(false)
+        navigation.goBack()
+      } else {
+        setSubmitError(response.data.message || 'Failed to create transaction')
+      }
+    } catch (error) {
+      console.error('Error creating transaction:', error)
+      setSubmitError(error.response?.data?.message || 'Failed to create transaction: ' + error.message)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleNumberPress = (num) => {
+    setAmount((prev) => prev + num.toString())
   }
 
   const handleOperatorPress = (operator) => {
@@ -37,67 +199,101 @@ export default function AddIncome() {
   }
 
   const handleClear = () => {
-    setAmount("0")
+    setAmount("")
   }
 
   const goBack = () => {
     navigation.goBack()
   }
 
-  // Handle date selection from the picker
   const onDateChange = (event, selectedDate) => {
     const currentDate = selectedDate || date
-    setShowDatePicker(false) // Hide picker after selection
+    setShowDatePicker(false)
     setDate(currentDate)
     const options = { weekday: "long", day: "numeric", month: "long", year: "numeric" }
     setCurrentDate(currentDate.toLocaleDateString("en-US", options))
-    setManualDate(currentDate.toLocaleDateString("en-US", options)) // Sync manual input if needed
+    setManualDate(currentDate.toLocaleDateString("en-US", options))
   }
 
-  // Handle manual date input
   const handleManualDateChange = (text) => {
     setManualDate(text)
-    // Basic date parsing (you can enhance this with a library like date-fns or moment.js)
-    setCurrentDate(text) // Update displayed date
+    setCurrentDate(text)
   }
 
-  // Toggle manual date input
   const toggleManualDateInput = () => {
     setIsManualDateInput(!isManualDateInput)
     if (!isManualDateInput) {
-      setManualDate(currentDate) // Pre-fill with current date
+      setManualDate(currentDate)
     }
+  }
+
+  const renderCategoryItem = ({ item }) => {
+    const isCustomIcon = item.icon.includes('-alt') || 
+                        item.icon === 'shopping-basket' ||
+                        item.icon === 'glass-martini-alt'
+
+    return (
+      <TouchableOpacity
+        style={[
+          styles.categoryCard,
+          selectedCategory?.id === item.id && styles.selectedCategoryCard
+        ]}
+        onPress={() => {
+          setSelectedCategory(item)
+          setShowCategories(false)
+          handleCreateTransaction(item)
+        }}
+        disabled={isSubmitting}
+      >
+        <View style={[styles.iconContainer, { backgroundColor: `${item.color}20` }]}>
+          {isCustomIcon ? (
+            <FontAwesome5 
+              name={item.icon.replace('-alt', '')}
+              size={24} 
+              color={item.color} 
+              style={styles.categoryIcon}
+            />
+          ) : (
+            <MaterialCommunityIcons 
+              name={item.icon} 
+              size={24} 
+              color={item.color} 
+              style={styles.categoryIcon}
+            />
+          )}
+        </View>
+        <Text style={styles.categoryCardText}>{item.name}</Text>
+      </TouchableOpacity>
+    )
   }
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={goBack} style={styles.backButton}>
-          <Icon name="arrow-back" color="white" size={24} />
+          <Icon name="arrow-back" color={theme.colors.neutral.surface} size={24} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>New income</Text>
         <TouchableOpacity style={styles.refreshButton}>
-          <Icon name="refresh" color="white" size={24} />
+          <Icon name="refresh" color={theme.colors.neutral.surface} size={24} />
         </TouchableOpacity>
       </View>
 
-      {/* Date Display with Calendar and Pen Icon */}
       <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.dateContainer}>
-        <Icon name="calendar-today" size={20} color={theme.colors.success} style={styles.calendarIcon} />
+        <Icon name="calendar-today" size={20} color={theme.colors.neutral.textSecondary} style={styles.calendarIcon} />
         <Text style={styles.dateText}>{currentDate}</Text>
         <TouchableOpacity onPress={toggleManualDateInput} style={styles.penButton}>
-          <Icon name="edit" size={20} color="#7BC29A" />
+          <Icon name="edit" size={20} color={theme.colors.success} />
         </TouchableOpacity>
       </TouchableOpacity>
 
-      {/* Manual Date Input (Shown when pen is clicked) */}
       {isManualDateInput && (
         <View style={styles.manualDateContainer}>
           <TextInput
             style={styles.manualDateInput}
             value={manualDate}
             onChangeText={handleManualDateChange}
-            placeholder="Enter date (e.g., March 2, 2025)"
+            placeholder="Enter date (e.g., March 5, 2025)"
             keyboardType="default"
           />
           <TouchableOpacity onPress={toggleManualDateInput} style={styles.doneButton}>
@@ -106,28 +302,39 @@ export default function AddIncome() {
         </View>
       )}
 
-      {/* Amount Input */}
+      {showDatePicker && (
+        <DateTimePicker
+          value={date}
+          mode="date"
+          display="default"
+          onChange={onDateChange}
+        />
+      )}
+
       <View style={styles.amountContainer}>
         <View style={styles.currencyContainer}>
-          <FontAwesome5 name="money-bill" size={24} color="#555" style={styles.moneyIcon} />
+          <FontAwesome5 name="money-bill" size={24} color={theme.colors.neutral.textSecondary} style={styles.moneyIcon} />
           <Text style={styles.currencyText}>USD</Text>
         </View>
-        <Text style={styles.amountText}>{amount}</Text>
+        <Text style={styles.amountText}>{amount || "0"}</Text>
         <TouchableOpacity style={styles.clearButton} onPress={handleClear}>
-          <Icon name="clear" size={24} color="#555" />
+          <Icon name="clear" size={24} color={theme.colors.neutral.textSecondary} />
         </TouchableOpacity>
       </View>
 
-      {/* Note Input */}
       <View style={styles.noteContainer}>
         <Text style={styles.noteLabel}>Note</Text>
         <View style={styles.noteInputContainer}>
-          <Icon name="edit" size={20} color="#7BC29A" style={styles.editIcon} />
-          <TextInput style={styles.noteInput} value={note} onChangeText={setNote} placeholder="Add note" />
+          <Icon name="edit" size={20} color={theme.colors.success} style={styles.editIcon} />
+          <TextInput 
+            style={styles.noteInput} 
+            value={note} 
+            onChangeText={setNote} 
+            placeholder="Add note" 
+          />
         </View>
       </View>
 
-      {/* Calculator Keypad */}
       <View style={styles.keypadContainer}>
         <View style={styles.keypadRow}>
           <TouchableOpacity style={styles.keypadButton} onPress={() => handleNumberPress(1)}>
@@ -187,21 +394,44 @@ export default function AddIncome() {
         </View>
       </View>
 
-      {/* Category Button */}
-      <TouchableOpacity style={styles.categoryButton}>
-        <Text style={styles.categoryButtonText}>CHOOSE CATEGORY</Text>
+      {submitError ? (
+        <Text style={styles.errorText}>{submitError}</Text>
+      ) : null}
+
+      <TouchableOpacity 
+        style={styles.categoryButton}
+        onPress={() => setShowCategories(!showCategories)}
+      >
+        <Text style={styles.categoryButtonText}>
+          {selectedCategory ? selectedCategory.name : 'CHOOSE CATEGORY'}
+        </Text>
       </TouchableOpacity>
 
-      {/* Date Picker (Native) */}
-      {showDatePicker && (
-        <DateTimePicker
-          value={date}
-          mode="date"
-          display="calendar" // Use 'calendar' for a grid calendar view
-          onChange={onDateChange}
-          maximumDate={new Date(2030, 12, 31)} // Optional: Limit future dates
-          minimumDate={new Date(2020, 1, 1)} // Optional: Limit past dates
-        />
+      {showCategories && (
+        <View style={styles.categoriesContainer}>
+          {loading ? (
+            <Text style={styles.messageText}>Loading categories...</Text>
+          ) : error ? (
+            <Text style={styles.errorText}>{error}</Text>
+          ) : categories.length === 0 ? (
+            <Text style={styles.messageText}>No categories found</Text>
+          ) : (
+            <FlatList
+              data={categories}
+              renderItem={renderCategoryItem}
+              keyExtractor={(item) => item.id.toString()}
+              numColumns={3}
+              contentContainerStyle={styles.categoryGrid}
+              showsVerticalScrollIndicator={true}
+            />
+          )}
+        </View>
+      )}
+
+      {isSubmitting && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color={theme.colors.success} />
+        </View>
       )}
     </SafeAreaView>
   )
@@ -369,5 +599,72 @@ const styles = StyleSheet.create({
     fontSize: theme.fontSizes.button,
     color: theme.colors.neutral.textSecondary,
     fontWeight: "500",
+  },
+  categoriesContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '60%',
+    backgroundColor: theme.colors.neutral.surface,
+    borderTopLeftRadius: theme.borderRadius.large,
+    borderTopRightRadius: theme.borderRadius.large,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  messageText: {
+    textAlign: 'center',
+    padding: theme.spacing.md,
+    color: theme.colors.neutral.textSecondary,
+  },
+  errorText: {
+    textAlign: 'center',
+    padding: theme.spacing.md,
+    color: theme.colors.error,
+  },
+  categoryGrid: {
+    paddingVertical: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.md,
+  },
+  categoryCard: {
+    width: '31%',
+    height: 90,
+    backgroundColor: theme.colors.neutral.surface,
+    borderRadius: theme.borderRadius.small,
+    margin: '1%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#EEEEEE',
+    padding: theme.spacing.sm,
+  },
+  selectedCategoryCard: {
+    borderColor: theme.colors.success,
+    borderWidth: 2,
+  },
+  iconContainer: {
+    borderRadius: theme.borderRadius.small,
+    padding: theme.spacing.xs,
+  },
+  categoryIcon: {
+    marginBottom: 8,
+  },
+  categoryCardText: {
+    fontSize: 14,
+    color: theme.colors.neutral.textPrimary,
+    textAlign: 'center',
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 })

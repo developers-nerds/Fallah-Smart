@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create axios instance with proper defaults
 const axiosInstance = axios.create({
-  // baseURL: 'http://192.168.11.112:5000', // Make sure this is correct
+  baseURL: process.env.EXPO_PUBLIC_API, // Using environment variable
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
@@ -21,4 +21,8 @@ axiosInstance.interceptors.response.use(
   }
 );
 
-export default axiosInstance; 
+export default axiosInstance;
+export const WEATHER_CONFIG = {
+  API_KEY: '49b109a541db459ab2885035250603',
+  API_URL: 'http://api.weatherapi.com/v1/forecast.json'
+};
