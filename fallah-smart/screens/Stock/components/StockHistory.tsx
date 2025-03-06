@@ -13,18 +13,34 @@ interface StockHistoryComponentProps {
 const ITEMS_PER_PAGE = 5;
 
 const getTypeInfo = (type: string) => {
-  switch (type) {
-    case 'add':
-      return { icon: 'plus-circle', label: 'Ajout', color: '#4CAF50' };
-    case 'remove':
-      return { icon: 'minus-circle', label: 'Retrait', color: '#F44336' };
-    case 'expired':
-      return { icon: 'alert-circle', label: 'Expiré', color: '#FF9800' };
-    case 'damaged':
-      return { icon: 'alert-octagon', label: 'Endommagé', color: '#F44336' };
-    default:
-      return { icon: 'activity', label: 'Modification', color: '#2196F3' };
-  }
+  const theme = useTheme();
+  const types = {
+    add: {
+      icon: 'plus-circle',
+      label: 'إضافة',
+      color: theme.colors.success
+    },
+    remove: {
+      icon: 'minus-circle',
+      label: 'إزالة',
+      color: theme.colors.error
+    },
+    expired: {
+      icon: 'alert-circle',
+      label: 'منتهي الصلاحية',
+      color: theme.colors.warning
+    },
+    damaged: {
+      icon: 'x-circle',
+      label: 'تالف',
+      color: theme.colors.error
+    }
+  };
+  return types[type] || {
+    icon: 'circle',
+    label: type,
+    color: theme.colors.neutral.textSecondary
+  };
 };
 
 export const StockHistoryComponent: React.FC<StockHistoryComponentProps> = ({ history, unit, loading }) => {
@@ -36,20 +52,12 @@ export const StockHistoryComponent: React.FC<StockHistoryComponentProps> = ({ hi
   const endIndex = startIndex + ITEMS_PER_PAGE;
   const currentItems = history.slice(startIndex, endIndex);
 
-  const formatDate = (date: Date | string) => {
-    try {
-      const dateObj = typeof date === 'string' ? new Date(date) : date;
-      return dateObj.toLocaleDateString('fr-FR', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    } catch (error) {
-      console.error('Error formatting date:', error);
-      return typeof date === 'string' ? date : date.toISOString();
-    }
+  const formatDate = (date: Date) => {
+    return new Date(date).toLocaleDateString('ar-SA', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
   };
 
   const handlePreviousPage = () => {
@@ -81,7 +89,7 @@ export const StockHistoryComponent: React.FC<StockHistoryComponentProps> = ({ hi
           color={theme.colors.neutral.textSecondary} 
         />
         <Text style={[styles.emptyText, { color: theme.colors.neutral.textSecondary }]}>
-          Aucun historique disponible
+          لا يوجد سجل للمخزون
         </Text>
       </View>
     );
@@ -109,7 +117,7 @@ export const StockHistoryComponent: React.FC<StockHistoryComponentProps> = ({ hi
             
             <View style={styles.detailsContainer}>
               <Text style={[styles.quantityText, { color: theme.colors.neutral.textPrimary }]}>
-                {item.type === 'add' ? '+' : '-'} {item.quantity} {unit}
+                {item.type === 'add' ? '+' : '-'} {item.quantity.toLocaleString('en-US')} {unit}
               </Text>
               {item.notes && (
                 <Text style={[styles.notesText, { color: theme.colors.neutral.textSecondary }]}>
@@ -140,7 +148,7 @@ export const StockHistoryComponent: React.FC<StockHistoryComponentProps> = ({ hi
           </TouchableOpacity>
 
           <Text style={[styles.paginationText, { color: theme.colors.neutral.textPrimary }]}>
-            {currentPage} / {totalPages}
+            {currentPage.toLocaleString('en-US')} / {totalPages.toLocaleString('en-US')}
           </Text>
 
           <TouchableOpacity

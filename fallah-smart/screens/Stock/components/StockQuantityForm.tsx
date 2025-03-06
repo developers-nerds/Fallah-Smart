@@ -25,12 +25,12 @@ export const StockQuantityForm = ({ stock, type, onSubmit, onCancel }: StockQuan
   return (
     <View style={styles.container}>
       <Text style={[styles.title, { color: theme.colors.neutral.textPrimary }]}>
-        {type === 'add' ? 'Add to Stock' : 'Remove from Stock'}
+        {type === 'add' ? 'إضافة للمخزون' : 'سحب من المخزون'}
       </Text>
       
       <View style={styles.info}>
         <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-          Product:
+          المنتج:
         </Text>
         <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
           {stock.name}
@@ -39,16 +39,16 @@ export const StockQuantityForm = ({ stock, type, onSubmit, onCancel }: StockQuan
 
       <View style={styles.info}>
         <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-          Current Stock:
+          المخزون الحالي:
         </Text>
         <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-          {stock.quantity} {stock.unit}
+          {stock.quantity.toLocaleString('en-US')} {stock.unit}
         </Text>
       </View>
 
       <View style={styles.field}>
         <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
-          Quantity to {type === 'add' ? 'Add' : 'Remove'}:
+          الكمية {type === 'add' ? 'للإضافة' : 'للسحب'}:
         </Text>
         <TextInput
           style={[styles.input, { 
@@ -58,20 +58,20 @@ export const StockQuantityForm = ({ stock, type, onSubmit, onCancel }: StockQuan
           value={quantity}
           onChangeText={setQuantity}
           keyboardType="numeric"
-          placeholder={`Enter quantity in ${stock.unit}`}
+          placeholder={`أدخل الكمية بـ ${stock.unit}`}
           placeholderTextColor={theme.colors.neutral.textSecondary}
         />
       </View>
 
       <View style={styles.buttons}>
         <Button
-          title="Cancel"
+          title="إلغاء"
           onPress={onCancel}
           variant="outline"
           style={styles.button}
         />
         <Button
-          title={type === 'add' ? 'Add' : 'Remove'}
+          title={type === 'add' ? 'إضافة' : 'سحب'}
           onPress={handleSubmit}
           variant={type === 'add' ? 'primary' : 'secondary'}
           style={styles.button}
