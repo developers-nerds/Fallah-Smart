@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, ActivityIndicator, Platform, Dimensions } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
-import { useNavigation } from "@react-navigation/native"
+import { useNavigation, useRoute } from "@react-navigation/native"
 import Icon from "react-native-vector-icons/MaterialIcons"
 import { FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons"
 import { theme } from "../../../theme/theme"
@@ -25,18 +25,24 @@ interface Category {
   isIncome?: boolean
 }
 
-export default function AddIncome() {
+interface Transaction {
+  id: number
+  accountId: number
+  amount: number
+  note: string
+  date: string
+  type: string
+  category: Category
+}
+
+export default function EditExpense() {
   const [showCategories, setShowCategories] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [amount, setAmount] = useState("")
-  const [note, setNote] = useState("Add income")
-  const [currentDate, setCurrentDate] = useState(() => {
-    const date = new Date()
-    const options = { weekday: "long", day: "numeric", month: "long", year: "numeric" }
-    return date.toLocaleDateString("en-US", options)
-  })
+  const [note, setNote] = useState("")
+  const [currentDate, setCurrentDate] = useState("")
   const [date, setDate] = useState(new Date())
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [isManualDateInput, setIsManualDateInput] = useState(false)
@@ -45,14 +51,42 @@ export default function AddIncome() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState("")
   const [accounts, setAccounts] = useState([])
-  const [selectedAccountId, setSelectedAccountId] = useState(null)
+  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null)
   
   const navigation = useNavigation()
+  const route = useRoute()
+  const { transaction } = route.params as { transaction: Transaction } // Type the route params
 
   const API_BASE_URL = Platform.select({
     web: process.env.WEB_PUBLIC_API,
     default: process.env.EXPO_PUBLIC_API_URL 
   })
+
+  useEffect(() => {
+    // Initialize with transaction data
+    if (transaction) {
+      setAmount(transaction.amount.toString())
+      setNote(transaction.note || "Add expense")
+      setSelectedCategory({
+        id: transaction.category.id,
+        name: transaction.category.name,
+        icon: transaction.category.icon,
+        type: transaction.category.type,
+        color: transaction.category.color
+      })
+      setSelectedAccountId(transaction.accountId)
+      const transDate = new Date(transaction.date)
+      setDate(transDate)
+      setCurrentDate(transDate.toLocaleDateString("en-US", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric"
+      }))
+    }
+    fetchAccounts()
+    fetchCategories()
+  }, [transaction])
 
   const getUserIdFromToken = async () => {
     try {
@@ -84,45 +118,34 @@ export default function AddIncome() {
         }
       })
       setAccounts(response.data)
-      if (response.data.length > 0) {
-        setSelectedAccountId(response.data[0].id)
-      }
     } catch (error) {
       setError('Error fetching accounts: ' + (error.response?.data?.message || error.message))
     }
   }
 
-  useEffect(() => {
-    fetchAccounts()
-
-    const fetchCategories = async () => {
-      try {
-        setLoading(true)
-        const token = await AsyncStorage.getItem('@access_token')
-        if (!token) {
-          setError("No authentication token found")
-          return
-        }
-        const response = await axios.get(`${API_BASE_URL}/categories/type/Income`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        })
-        setCategories(response.data)
-      } catch (err) {
-        setError("Failed to fetch categories: " + err.message)
-        setCategories([])
-      } finally {
-        setLoading(false)
+  const fetchCategories = async () => {
+    try {
+      setLoading(true)
+      const token = await AsyncStorage.getItem('@access_token')
+      if (!token) {
+        setError("No authentication token found")
+        return
       }
+      const response = await axios.get(`${API_BASE_URL}/categories/type/Expense`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      setCategories(response.data)
+    } catch (err) {
+      setError("Failed to fetch categories: " + err.message)
+      setCategories([])
+    } finally {
+      setLoading(false)
     }
+  }
 
-    if (showCategories) {
-      fetchCategories()
-    }
-  }, [showCategories])
-
-  const handleCreateTransaction = async (category: Category) => {
+  const handleUpdateTransaction = async (category: Category) => {
     try {
       setIsSubmitting(true)
       setSubmitError("")
@@ -154,13 +177,13 @@ export default function AddIncome() {
         accountId: selectedAccountId,
         categoryId: category.id,
         amount: parseFloat(amount),
-        type: 'income',
+        type: 'expense',
         note: note || "",
         date: date.toISOString()
       }
 
-      const response = await axios.post(
-        `${API_BASE_URL}/transactions`,
+      const response = await axios.put(
+        `${API_BASE_URL}/transactions/${transaction.id}`,
         transactionData,
         {
           headers: {
@@ -171,27 +194,40 @@ export default function AddIncome() {
       )
 
       if (response.data.success) {
-        setAmount("")
-        setNote("Add income")
-        setSelectedCategory(null)
-        setShowCategories(false)
-        // Use goBack() instead of navigate
         navigation.goBack()
       } else {
-        setSubmitError(response.data.message || 'Failed to create transaction')
+        setSubmitError(response.data.message || 'Failed to update transaction')
       }
     } catch (error) {
-      setSubmitError(error.response?.data?.message || 'Failed to create transaction: ' + error.message)
+      setSubmitError(error.response?.data?.message || 'Failed to update transaction: ' + error.message)
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const handleNumberPress = (num) => {
+  const handleDeleteTransaction = async () => {
+    try {
+      setIsSubmitting(true)
+      const token = await AsyncStorage.getItem('@access_token')
+      
+      await axios.delete(`${API_BASE_URL}/transactions/${transaction.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      navigation.goBack()
+    } catch (error) {
+      setSubmitError(error.response?.data?.message || 'Failed to delete transaction')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleNumberPress = (num: number) => {
     setAmount((prev) => prev + num.toString())
   }
 
-  const handleOperatorPress = (operator) => {
+  const handleOperatorPress = (operator: string) => {
     console.log("Operator pressed:", operator)
   }
 
@@ -203,7 +239,7 @@ export default function AddIncome() {
     navigation.goBack()
   }
 
-  const onDateChange = (event, selectedDate) => {
+  const onDateChange = (event: any, selectedDate?: Date) => {
     const currentDate = selectedDate || date
     setShowDatePicker(false)
     setDate(currentDate)
@@ -212,7 +248,7 @@ export default function AddIncome() {
     setManualDate(currentDate.toLocaleDateString("en-US", options))
   }
 
-  const handleManualDateChange = (text) => {
+  const handleManualDateChange = (text: string) => {
     setManualDate(text)
     setCurrentDate(text)
   }
@@ -224,7 +260,7 @@ export default function AddIncome() {
     }
   }
 
-  const renderCategoryItem = ({ item }) => {
+  const renderCategoryItem = ({ item }: { item: Category }) => {
     const isCustomIcon = item.icon.includes('-alt') || 
                         item.icon === 'shopping-basket' ||
                         item.icon === 'glass-martini-alt'
@@ -238,7 +274,7 @@ export default function AddIncome() {
         onPress={() => {
           setSelectedCategory(item)
           setShowCategories(false)
-          handleCreateTransaction(item)
+          handleUpdateTransaction(item) // Trigger update when category is selected
         }}
         disabled={isSubmitting}
       >
@@ -246,7 +282,7 @@ export default function AddIncome() {
           {isCustomIcon ? (
             <FontAwesome5 
               name={item.icon.replace('-alt', '')}
-              size={width * 0.06} // Responsive icon size
+              size={width * 0.06}
               color={item.color} 
               style={styles.categoryIcon}
             />
@@ -270,9 +306,9 @@ export default function AddIncome() {
         <TouchableOpacity onPress={goBack} style={styles.backButton}>
           <Icon name="arrow-back" color={theme.colors.neutral.surface} size={width * 0.06} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>New income</Text>
-        <TouchableOpacity style={styles.refreshButton}>
-          <Icon name="refresh" color={theme.colors.neutral.surface} size={width * 0.06} />
+        <Text style={styles.headerTitle}>Edit Expense</Text>
+        <TouchableOpacity onPress={handleDeleteTransaction} style={styles.deleteButton}>
+          <Icon name="delete" color={theme.colors.neutral.surface} size={width * 0.06} />
         </TouchableOpacity>
       </View>
 
@@ -405,7 +441,7 @@ export default function AddIncome() {
               data={categories}
               renderItem={renderCategoryItem}
               keyExtractor={(item) => item.id.toString()}
-              numColumns={Math.floor(width / 120)} // Dynamic column count based on screen width
+              numColumns={Math.floor(width / 120)}
               contentContainerStyle={styles.categoryGrid}
               showsVerticalScrollIndicator={true}
             />
@@ -428,22 +464,22 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.neutral.background,
   },
   header: {
-    height: height * 0.08, // 8% of screen height
+    height: height * 0.08,
     backgroundColor: theme.colors.success,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: width * 0.04, // 4% of screen width
+    paddingHorizontal: width * 0.04,
   },
   backButton: {
     padding: width * 0.02,
   },
   headerTitle: {
     color: theme.colors.neutral.surface,
-    fontSize: width * 0.05, // Responsive font size
+    fontSize: width * 0.05,
     fontWeight: "500",
   },
-  refreshButton: {
+  deleteButton: {
     padding: width * 0.02,
   },
   dateContainer: {
@@ -508,7 +544,7 @@ const styles = StyleSheet.create({
   },
   amountText: {
     flex: 1,
-    fontSize: width * 0.1, // Responsive amount text size
+    fontSize: width * 0.1,
     color: theme.colors.neutral.surface,
     textAlign: "center",
   },
@@ -557,7 +593,7 @@ const styles = StyleSheet.create({
   },
   keypadButton: {
     flex: 1,
-    height: height * 0.08, // Responsive keypad height
+    height: height * 0.08,
     backgroundColor: theme.colors.neutral.surface,
     borderRadius: theme.borderRadius.small,
     justifyContent: "center",
@@ -567,7 +603,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.neutral.border,
   },
   keypadText: {
-    fontSize: width * 0.06, // Responsive keypad text
+    fontSize: width * 0.06,
     color: theme.colors.neutral.textPrimary,
   },
   categoryButton: {
@@ -590,7 +626,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: height * 0.6, // 60% of screen height
+    height: height * 0.6,
     backgroundColor: theme.colors.neutral.surface,
     borderTopLeftRadius: theme.borderRadius.large,
     borderTopRightRadius: theme.borderRadius.large,
@@ -617,8 +653,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: width * 0.03,
   },
   categoryCard: {
-    width: width * 0.28, // Responsive width (slightly less than 1/3 of screen)
-    height: height * 0.12, // Responsive height
+    width: width * 0.28,
+    height: height * 0.12,
     backgroundColor: theme.colors.neutral.surface,
     borderRadius: theme.borderRadius.small,
     margin: width * 0.01,
@@ -640,7 +676,7 @@ const styles = StyleSheet.create({
     marginBottom: height * 0.01,
   },
   categoryCardText: {
-    fontSize: width * 0.035, // Responsive category text
+    fontSize: width * 0.035,
     color: theme.colors.neutral.textPrimary,
     textAlign: 'center',
   },

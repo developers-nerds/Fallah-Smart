@@ -140,14 +140,19 @@ const transactionController = {
   // Update transaction
   updateTransaction: async (req, res) => {
     try {
-      const { transactionId } = req.params;
-      const { accountId, categoryId, amount, type, note, date } = req.body;  // Changed description to note
+      const { id } = req.params;
+      const { accountId, categoryId, amount, type, note, date } = req.body;
 
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          message: 'Transaction ID is required'
+        });
+      }
+
+      // Find transaction through account association instead of direct userId
       const transaction = await Transactions.findOne({
-        where: {
-          id: transactionId,
-          userId: req.user.id,
-        },
+        where: { id: id },
         include: [{ 
           model: Accounts, 
           as: 'account',
@@ -162,9 +167,15 @@ const transactionController = {
         });
       }
 
+      // Store original values for balance calculation
+      const originalAmount = transaction.amount;
+      const originalType = transaction.type;
+      const originalAccountId = transaction.accountId;
+
       // Verify new accountId if provided
+      let newAccount = transaction.account;
       if (accountId && accountId !== transaction.accountId) {
-        const account = await Accounts.findOne({
+        newAccount = await Accounts.findOne({
           where: {
             id: accountId,
             userId: req.user.id,
@@ -189,14 +200,34 @@ const transactionController = {
         }
       }
 
+      // Revert the effect of the original transaction
+      const originalBalanceAdjustment = originalType === 'income' 
+        ? -originalAmount 
+        : originalAmount;
+      
+      await transaction.account.update({
+        balance: transaction.account.balance + originalBalanceAdjustment
+      });
+
       // Update transaction
       await transaction.update({
         accountId: accountId || transaction.accountId,
         categoryId: categoryId || transaction.categoryId,
         amount: amount || transaction.amount,
         type: type || transaction.type,
-        note: note || transaction.note,    // Changed description to note
+        note: note || transaction.note,
         date: date || transaction.date,
+      });
+
+      // Apply the effect of the new transaction
+      const newAmount = amount || originalAmount;
+      const newType = type || originalType;
+      const newBalanceAdjustment = newType === 'income' 
+        ? newAmount 
+        : -newAmount;
+
+      await newAccount.update({
+        balance: newAccount.balance + newBalanceAdjustment
       });
 
       // Fetch updated transaction with associations

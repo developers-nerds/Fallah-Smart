@@ -12,6 +12,9 @@ router.get('/:accountId', transactionController.getAllTransactions);
 // Create new transaction
 router.post('/', transactionController.createTransaction);
 
+// Add this new route for updating transactions
+router.put('/:id', transactionController.updateTransaction);
+
 // Delete transaction
 router.delete('/:id', transactionController.deleteTransaction);
 

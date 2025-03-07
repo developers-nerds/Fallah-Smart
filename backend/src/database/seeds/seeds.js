@@ -3,7 +3,7 @@ const { faker } = require('@faker-js/faker');
 // Remove duplicate import if it exists
 const seedCategories = require('./categoriesSeeds');
 const seedUsers = require('./userSeeds');
-const seedAccounts = require('./accountSeeds');
+// const seedAccounts = require('./accountSeeds');
 const seedCrops = require('./cropSeeds');  // Keep only one import
 const seedCropDetails = require('./cropDetailsSeeds');
 const seedAnimalDocs = require('./animalDocSeeds');
@@ -21,7 +21,7 @@ const seedBackupSync = require('./backupSyncSeeds');
 const seedNotifications = require('./notificationSeeds');
 const seedMedia = require('./mediaSeeds');
 const seedRecurringTransactions = require('./recurringTransactionSeeds');
-const seedTransactions = require('./transactionSeeds');
+// const seedTransactions = require('./transactionSeeds');
 const seedScans = require('./scanSeeds');
 const initializeDatabase = require('../dbInit');
 
@@ -59,8 +59,8 @@ async function seedAll() {
     await seedMedia();
     console.log("🌱 Seeding media...");
     // await seedConversations(); 
-    await seedAccounts();
-    await seedTransactions();
+    // await seedAccounts();
+    // await seedTransactions();
     // await seedRecurringTransactions();
     // await seedBackupSync();
     // await seedMessages();
