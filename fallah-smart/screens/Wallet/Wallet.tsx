@@ -54,6 +54,7 @@ interface Account {
 const HomeScreen: React.FC = () => {
   const [showList, setShowList] = useState(false)
   const [fadeAnim] = useState(new Animated.Value(1))
+  const [sidebarVisible, setSidebarVisible] = useState(false) // State for sidebar visibility
   const [accounts, setAccounts] = useState<Account[]>([])
   const [selectedAccountId, setSelectedAccountId] = useState<number>(0)
   const [transactions, setTransactions] = useState<Transaction[]>([])
@@ -198,6 +199,10 @@ const HomeScreen: React.FC = () => {
     setShowList(!showList)
   }
 
+  const toggleSidebar = () => {
+    setSidebarVisible(!sidebarVisible)
+  }
+
   const navigateToAddIncome = () => navigation.navigate("AddIncome")
   const navigateToAddExpense = () => navigation.navigate("AddExpense")
 
@@ -239,12 +244,13 @@ const HomeScreen: React.FC = () => {
   const buttonSize = screenWidth * 0.2
   const balanceWidth = screenWidth * 0.45
   const fontSize = screenWidth * 0.09
+  const sidebarWidth = screenWidth * 0.4 // Adjust sidebar width as needed
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar backgroundColor={theme.colors.primary.base} barStyle="light-content" />
       <View style={styles.header}>
-        <TouchableOpacity style={styles.menuButton}>
+        <TouchableOpacity style={styles.menuButton} onPress={toggleSidebar}>
           <Icon name="menu" color="white" size={28} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>your wallet</Text>
@@ -257,6 +263,29 @@ const HomeScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
       </View>
+
+      {sidebarVisible && (
+        <View style={[styles.sidebar, { width: sidebarWidth }]}>
+          <TouchableOpacity style={styles.sidebarItem}>
+            <Text style={styles.sidebarText}>Choose date</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.sidebarItem}>
+            <Text style={styles.sidebarText}>Week</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.sidebarItem}>
+            <Text style={styles.sidebarText}>Month</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.sidebarItem}>
+            <Text style={styles.sidebarText}>Year</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.sidebarItem}>
+            <Text style={styles.sidebarText}>All</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.sidebarItem}>
+            <Text style={styles.sidebarText}>Interval</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <ScrollView style={styles.scrollView}>
         <View style={styles.monthContainer}>
@@ -330,6 +359,27 @@ const styles = StyleSheet.create({
   incomeButton: { backgroundColor: theme.colors.success, borderWidth: 5, borderColor: theme.colors.neutral.surface },
   actionButtonText: { fontWeight: "bold", color: theme.colors.neutral.surface },
   balanceBoxList: { marginLeft: "auto", marginRight: "auto", marginBottom: theme.spacing.md, alignSelf: "center" },
+  // Sidebar styles
+  sidebar: {
+    position: "absolute",
+    top: 60, // Below the header
+    left: 0,
+    bottom: 0,
+    backgroundColor: theme.colors.primary.base, // Match the header color
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.sm,
+    zIndex: 10,
+  },
+  sidebarItem: {
+    paddingVertical: theme.spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.neutral.surface,
+  },
+  sidebarText: {
+    color: theme.colors.neutral.surface,
+    fontSize: theme.fontSizes.body,
+    textAlign: "center",
+  },
 })
 
 export default HomeScreen
