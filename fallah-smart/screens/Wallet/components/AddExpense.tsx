@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, ActivityIndicator, Platform } from "react-native"
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, ActivityIndicator, Platform, Dimensions } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useNavigation } from "@react-navigation/native"
 import Icon from "react-native-vector-icons/MaterialIcons"
@@ -10,6 +10,9 @@ import { theme } from "../../../theme/theme"
 import DateTimePicker from "@react-native-community/datetimepicker"
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import axios from 'axios'
+
+// Get screen dimensions
+const { width, height } = Dimensions.get('window')
 
 interface Category {
   id: number
@@ -80,7 +83,6 @@ export default function AddExpense() {
           'Authorization': `Bearer ${token}`
         }
       })
-      console.log('Fetched accounts:', response.data)
       setAccounts(response.data)
       if (response.data.length > 0) {
         setSelectedAccountId(response.data[0].id)
@@ -109,7 +111,6 @@ export default function AddExpense() {
         setCategories(response.data)
       } catch (err) {
         setError("Failed to fetch categories: " + err.message)
-        console.error("Error fetching categories:", err)
         setCategories([])
       } finally {
         setLoading(false)
@@ -158,8 +159,6 @@ export default function AddExpense() {
         date: date.toISOString()
       }
 
-      console.log('Sending transaction data:', transactionData)
-
       const response = await axios.post(
         `${API_BASE_URL}/transactions`,
         transactionData,
@@ -171,19 +170,17 @@ export default function AddExpense() {
         }
       )
 
-      console.log('Transaction response:', response.data)
-
       if (response.data.success) {
         setAmount("")
         setNote("Add expense")
         setSelectedCategory(null)
         setShowCategories(false)
+        // Use goBack() instead of navigate
         navigation.goBack()
       } else {
         setSubmitError(response.data.message || 'Failed to create transaction')
       }
     } catch (error) {
-      console.error('Error creating transaction:', error)
       setSubmitError(error.response?.data?.message || 'Failed to create transaction: ' + error.message)
     } finally {
       setIsSubmitting(false)
@@ -241,7 +238,7 @@ export default function AddExpense() {
         onPress={() => {
           setSelectedCategory(item)
           setShowCategories(false)
-          handleCreateTransaction(item) // Pass the item directly to ensure we have the latest value
+          handleCreateTransaction(item)
         }}
         disabled={isSubmitting}
       >
@@ -249,14 +246,14 @@ export default function AddExpense() {
           {isCustomIcon ? (
             <FontAwesome5 
               name={item.icon.replace('-alt', '')}
-              size={24} 
+              size={width * 0.06} // Responsive icon size
               color={item.color} 
               style={styles.categoryIcon}
             />
           ) : (
             <MaterialCommunityIcons 
               name={item.icon} 
-              size={24} 
+              size={width * 0.06}
               color={item.color} 
               style={styles.categoryIcon}
             />
@@ -271,19 +268,19 @@ export default function AddExpense() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={goBack} style={styles.backButton}>
-          <Icon name="arrow-back" color={theme.colors.neutral.surface} size={24} />
+          <Icon name="arrow-back" color={theme.colors.neutral.surface} size={width * 0.06} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>New expense</Text>
         <TouchableOpacity style={styles.refreshButton}>
-          <Icon name="refresh" color={theme.colors.neutral.surface} size={24} />
+          <Icon name="refresh" color={theme.colors.neutral.surface} size={width * 0.06} />
         </TouchableOpacity>
       </View>
 
       <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.dateContainer}>
-        <Icon name="calendar-today" size={20} color={theme.colors.neutral.textSecondary} style={styles.calendarIcon} />
+        <Icon name="calendar-today" size={width * 0.05} color={theme.colors.neutral.textSecondary} style={styles.calendarIcon} />
         <Text style={styles.dateText}>{currentDate}</Text>
         <TouchableOpacity onPress={toggleManualDateInput} style={styles.penButton}>
-          <Icon name="edit" size={20} color={theme.colors.success} />
+          <Icon name="edit" size={width * 0.05} color={theme.colors.success} />
         </TouchableOpacity>
       </TouchableOpacity>
 
@@ -313,19 +310,19 @@ export default function AddExpense() {
 
       <View style={styles.amountContainer}>
         <View style={styles.currencyContainer}>
-          <FontAwesome5 name="money-bill" size={24} color={theme.colors.neutral.textSecondary} style={styles.moneyIcon} />
+          <FontAwesome5 name="money-bill" size={width * 0.06} color={theme.colors.neutral.textSecondary} style={styles.moneyIcon} />
           <Text style={styles.currencyText}>USD</Text>
         </View>
         <Text style={styles.amountText}>{amount || "0"}</Text>
         <TouchableOpacity style={styles.clearButton} onPress={handleClear}>
-          <Icon name="clear" size={24} color={theme.colors.neutral.textSecondary} />
+          <Icon name="clear" size={width * 0.06} color={theme.colors.neutral.textSecondary} />
         </TouchableOpacity>
       </View>
 
       <View style={styles.noteContainer}>
         <Text style={styles.noteLabel}>Note</Text>
         <View style={styles.noteInputContainer}>
-          <Icon name="edit" size={20} color={theme.colors.success} style={styles.editIcon} />
+          <Icon name="edit" size={width * 0.05} color={theme.colors.success} style={styles.editIcon} />
           <TextInput 
             style={styles.noteInput} 
             value={note} 
@@ -337,60 +334,48 @@ export default function AddExpense() {
 
       <View style={styles.keypadContainer}>
         <View style={styles.keypadRow}>
-          <TouchableOpacity style={styles.keypadButton} onPress={() => handleNumberPress(1)}>
-            <Text style={styles.keypadText}>1</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.keypadButton} onPress={() => handleNumberPress(2)}>
-            <Text style={styles.keypadText}>2</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.keypadButton} onPress={() => handleNumberPress(3)}>
-            <Text style={styles.keypadText}>3</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.keypadButton} onPress={() => handleOperatorPress("+")}>
-            <Text style={styles.keypadText}>+</Text>
-          </TouchableOpacity>
+          {[1, 2, 3, "+"].map((item) => (
+            <TouchableOpacity 
+              key={item} 
+              style={styles.keypadButton} 
+              onPress={() => typeof item === "number" ? handleNumberPress(item) : handleOperatorPress(item)}
+            >
+              <Text style={styles.keypadText}>{item}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
         <View style={styles.keypadRow}>
-          <TouchableOpacity style={styles.keypadButton} onPress={() => handleNumberPress(4)}>
-            <Text style={styles.keypadText}>4</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.keypadButton} onPress={() => handleNumberPress(5)}>
-            <Text style={styles.keypadText}>5</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.keypadButton} onPress={() => handleNumberPress(6)}>
-            <Text style={styles.keypadText}>6</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.keypadButton} onPress={() => handleOperatorPress("-")}>
-            <Text style={styles.keypadText}>-</Text>
-          </TouchableOpacity>
+          {[4, 5, 6, "-"].map((item) => (
+            <TouchableOpacity 
+              key={item} 
+              style={styles.keypadButton} 
+              onPress={() => typeof item === "number" ? handleNumberPress(item) : handleOperatorPress(item)}
+            >
+              <Text style={styles.keypadText}>{item}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
         <View style={styles.keypadRow}>
-          <TouchableOpacity style={styles.keypadButton} onPress={() => handleNumberPress(7)}>
-            <Text style={styles.keypadText}>7</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.keypadButton} onPress={() => handleNumberPress(8)}>
-            <Text style={styles.keypadText}>8</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.keypadButton} onPress={() => handleNumberPress(9)}>
-            <Text style={styles.keypadText}>9</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.keypadButton} onPress={() => handleOperatorPress("×")}>
-            <Text style={styles.keypadText}>×</Text>
-          </TouchableOpacity>
+          {[7, 8, 9, "×"].map((item) => (
+            <TouchableOpacity 
+              key={item} 
+              style={styles.keypadButton} 
+              onPress={() => typeof item === "number" ? handleNumberPress(item) : handleOperatorPress(item)}
+            >
+              <Text style={styles.keypadText}>{item}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
         <View style={styles.keypadRow}>
-          <TouchableOpacity style={styles.keypadButton} onPress={() => handleOperatorPress(".")}>
-            <Text style={styles.keypadText}>.</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.keypadButton} onPress={() => handleNumberPress(0)}>
-            <Text style={styles.keypadText}>0</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.keypadButton} onPress={() => handleOperatorPress("=")}>
-            <Text style={styles.keypadText}>=</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.keypadButton} onPress={() => handleOperatorPress("÷")}>
-            <Text style={styles.keypadText}>÷</Text>
-          </TouchableOpacity>
+          {[".", 0, "=", "÷"].map((item) => (
+            <TouchableOpacity 
+              key={item} 
+              style={styles.keypadButton} 
+              onPress={() => typeof item === "number" ? handleNumberPress(item) : handleOperatorPress(item)}
+            >
+              <Text style={styles.keypadText}>{item}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
       </View>
 
@@ -420,7 +405,7 @@ export default function AddExpense() {
               data={categories}
               renderItem={renderCategoryItem}
               keyExtractor={(item) => item.id.toString()}
-              numColumns={3}
+              numColumns={Math.floor(width / 120)} // Dynamic column count based on screen width
               contentContainerStyle={styles.categoryGrid}
               showsVerticalScrollIndicator={true}
             />
@@ -443,152 +428,152 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.neutral.background,
   },
   header: {
-    height: 60,
+    height: height * 0.08, // 8% of screen height
     backgroundColor: theme.colors.success,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: theme.spacing.md,
+    paddingHorizontal: width * 0.04, // 4% of screen width
   },
   backButton: {
-    padding: theme.spacing.xs,
+    padding: width * 0.02,
   },
   headerTitle: {
     color: theme.colors.neutral.surface,
-    fontSize: theme.fontSizes.h2,
+    fontSize: width * 0.05, // Responsive font size
     fontWeight: "500",
   },
   refreshButton: {
-    padding: theme.spacing.xs,
+    padding: width * 0.02,
   },
   dateContainer: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: theme.spacing.lg,
+    paddingVertical: height * 0.02,
   },
   calendarIcon: {
-    marginRight: theme.spacing.sm,
+    marginRight: width * 0.02,
   },
   dateText: {
-    fontSize: theme.fontSizes.h2,
+    fontSize: width * 0.045,
     color: theme.colors.neutral.textPrimary,
   },
   penButton: {
-    marginLeft: theme.spacing.md,
-    padding: theme.spacing.xs,
+    marginLeft: width * 0.03,
+    padding: width * 0.02,
   },
   manualDateContainer: {
-    paddingHorizontal: theme.spacing.lg,
-    marginTop: theme.spacing.sm,
+    paddingHorizontal: width * 0.05,
+    marginTop: height * 0.01,
   },
   manualDateInput: {
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.success,
-    fontSize: theme.fontSizes.button,
+    fontSize: width * 0.04,
     color: theme.colors.neutral.textPrimary,
-    paddingVertical: theme.spacing.xs,
+    paddingVertical: height * 0.01,
   },
   doneButton: {
-    marginTop: theme.spacing.sm,
-    padding: theme.spacing.md,
+    marginTop: height * 0.01,
+    padding: width * 0.04,
     backgroundColor: theme.colors.success,
     borderRadius: theme.borderRadius.small,
     alignItems: "center",
   },
   doneButtonText: {
     color: theme.colors.neutral.surface,
-    fontSize: theme.fontSizes.button,
+    fontSize: width * 0.04,
     fontWeight: "500",
   },
   amountContainer: {
     flexDirection: "row",
     backgroundColor: theme.colors.success,
-    margin: theme.spacing.md,
+    margin: width * 0.04,
     borderRadius: theme.borderRadius.medium,
-    padding: theme.spacing.md,
+    padding: width * 0.04,
     alignItems: "center",
   },
   currencyContainer: {
     flexDirection: "row",
     alignItems: "center",
-    width: 80,
+    width: width * 0.2,
   },
   moneyIcon: {
-    marginRight: theme.spacing.xs,
+    marginRight: width * 0.02,
   },
   currencyText: {
-    fontSize: theme.fontSizes.h2,
+    fontSize: width * 0.05,
     color: theme.colors.neutral.textPrimary,
   },
   amountText: {
     flex: 1,
-    fontSize: 40,
+    fontSize: width * 0.1, // Responsive amount text size
     color: theme.colors.neutral.surface,
     textAlign: "center",
   },
   clearButton: {
-    padding: theme.spacing.xs,
+    padding: width * 0.02,
     backgroundColor: theme.colors.neutral.surface,
-    borderRadius: 20,
-    width: 40,
-    height: 40,
+    borderRadius: width * 0.05,
+    width: width * 0.1,
+    height: width * 0.1,
     alignItems: "center",
     justifyContent: "center",
   },
   noteContainer: {
-    paddingHorizontal: theme.spacing.lg,
-    marginTop: theme.spacing.sm,
+    paddingHorizontal: width * 0.05,
+    marginTop: height * 0.01,
   },
   noteLabel: {
-    fontSize: theme.fontSizes.button,
+    fontSize: width * 0.04,
     color: theme.colors.neutral.textSecondary,
-    marginBottom: theme.spacing.xs,
+    marginBottom: height * 0.005,
   },
   noteInputContainer: {
     flexDirection: "row",
     alignItems: "center",
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.success,
-    paddingBottom: theme.spacing.xs,
+    paddingBottom: height * 0.01,
   },
   editIcon: {
-    marginRight: theme.spacing.sm,
+    marginRight: width * 0.03,
   },
   noteInput: {
     flex: 1,
-    fontSize: theme.fontSizes.button,
+    fontSize: width * 0.04,
     color: theme.colors.neutral.textPrimary,
   },
   keypadContainer: {
     flex: 1,
-    marginTop: theme.spacing.lg,
-    paddingHorizontal: theme.spacing.sm,
+    marginTop: height * 0.02,
+    paddingHorizontal: width * 0.02,
   },
   keypadRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: theme.spacing.sm,
+    marginBottom: height * 0.015,
   },
   keypadButton: {
     flex: 1,
-    height: 60,
+    height: height * 0.08, // Responsive keypad height
     backgroundColor: theme.colors.neutral.surface,
     borderRadius: theme.borderRadius.small,
     justifyContent: "center",
     alignItems: "center",
-    marginHorizontal: theme.spacing.xs,
+    marginHorizontal: width * 0.01,
     borderWidth: 1,
     borderColor: theme.colors.neutral.border,
   },
   keypadText: {
-    fontSize: theme.fontSizes.h1,
+    fontSize: width * 0.06, // Responsive keypad text
     color: theme.colors.neutral.textPrimary,
   },
   categoryButton: {
     backgroundColor: theme.colors.neutral.surface,
-    margin: theme.spacing.md,
-    padding: theme.spacing.md,
+    margin: width * 0.04,
+    padding: width * 0.04,
     borderRadius: theme.borderRadius.small,
     alignItems: "center",
     justifyContent: "center",
@@ -596,7 +581,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.neutral.border,
   },
   categoryButtonText: {
-    fontSize: theme.fontSizes.button,
+    fontSize: width * 0.04,
     color: theme.colors.neutral.textSecondary,
     fontWeight: "500",
   },
@@ -605,7 +590,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: '60%',
+    height: height * 0.6, // 60% of screen height
     backgroundColor: theme.colors.neutral.surface,
     borderTopLeftRadius: theme.borderRadius.large,
     borderTopRightRadius: theme.borderRadius.large,
@@ -617,29 +602,31 @@ const styles = StyleSheet.create({
   },
   messageText: {
     textAlign: 'center',
-    padding: theme.spacing.md,
+    padding: width * 0.04,
     color: theme.colors.neutral.textSecondary,
+    fontSize: width * 0.04,
   },
   errorText: {
     textAlign: 'center',
-    padding: theme.spacing.md,
+    padding: width * 0.04,
     color: theme.colors.error,
+    fontSize: width * 0.04,
   },
   categoryGrid: {
-    paddingVertical: theme.spacing.lg,
-    paddingHorizontal: theme.spacing.md,
+    paddingVertical: height * 0.02,
+    paddingHorizontal: width * 0.03,
   },
   categoryCard: {
-    width: '31%',
-    height: 90,
+    width: width * 0.28, // Responsive width (slightly less than 1/3 of screen)
+    height: height * 0.12, // Responsive height
     backgroundColor: theme.colors.neutral.surface,
     borderRadius: theme.borderRadius.small,
-    margin: '1%',
+    margin: width * 0.01,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#EEEEEE',
-    padding: theme.spacing.sm,
+    padding: width * 0.02,
   },
   selectedCategoryCard: {
     borderColor: theme.colors.success,
@@ -647,13 +634,13 @@ const styles = StyleSheet.create({
   },
   iconContainer: {
     borderRadius: theme.borderRadius.small,
-    padding: theme.spacing.xs,
+    padding: width * 0.02,
   },
   categoryIcon: {
-    marginBottom: 8,
+    marginBottom: height * 0.01,
   },
   categoryCardText: {
-    fontSize: 14,
+    fontSize: width * 0.035, // Responsive category text
     color: theme.colors.neutral.textPrimary,
     textAlign: 'center',
   },

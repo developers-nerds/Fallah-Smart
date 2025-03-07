@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import {
   Dimensions,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
-import { useNavigation } from "@react-navigation/native"
+import { useNavigation, NavigationProp as NavProp } from "@react-navigation/native"
 import Icon from "react-native-vector-icons/MaterialIcons"
 import { ChartView } from "./components/ChartView"
 import { CategoryList } from "./components/CategoryList"
@@ -21,36 +21,62 @@ import AsyncStorage from "@react-native-async-storage/async-storage"
 import axios from "axios"
 import { Platform } from "react-native"
 import { theme } from "../../theme/theme"
+import { useFocusEffect } from '@react-navigation/native'
+import { RootStackParamList } from '../../../App' // Adjust path based on your project structure
 
-const HomeScreen = () => {
+// Define interfaces
+interface Transaction {
+  id: number
+  accountId: number
+  amount: number
+  note: string
+  date: string
+  type: string
+  category: Category
+}
+
+interface Category {
+  id: number
+  name: string
+  icon: string
+  type: string
+  color: string
+  amount: number
+  count: number
+  isIncome: boolean
+}
+
+interface Account {
+  id: number
+  balance: number
+}
+
+const HomeScreen: React.FC = () => {
   const [showList, setShowList] = useState(false)
   const [fadeAnim] = useState(new Animated.Value(1))
-  const [accounts, setAccounts] = useState([])
-  const [selectedAccountId, setSelectedAccountId] = useState(0)
-  const [transactions, setTransactions] = useState([])
-  const [error, setError] = useState(null)
+  const [accounts, setAccounts] = useState<Account[]>([])
+  const [selectedAccountId, setSelectedAccountId] = useState<number>(0)
+  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [screenWidth, setScreenWidth] = useState(Dimensions.get("window").width)
 
-  const navigation = useNavigation()
+  const navigation = useNavigation<NavProp<RootStackParamList>>()
 
   // Listen for dimension changes
   useEffect(() => {
     const dimensionsHandler = Dimensions.addEventListener("change", ({ window }) => {
       setScreenWidth(window.width)
     })
-
-    return () => {
-      dimensionsHandler.remove()
-    }
+    return () => dimensionsHandler.remove()
   }, [])
 
   const API_BASE_URL = Platform.select({
-    web: process.env.EXPO_PUBLIC_API_URL,
+    web: process.env.EXPO_PUBLIC_API_WEB,
     default: process.env.EXPO_PUBLIC_API_URL,
   })
 
-  const getUserIdFromToken = async () => {
+  const getUserIdFromToken = async (): Promise<number | null> => {
     try {
       const userStr = await AsyncStorage.getItem("@user")
       if (!userStr) {
@@ -92,7 +118,7 @@ const HomeScreen = () => {
     }
   }
 
-  const fetchTransactions = async (accountId) => {
+  const fetchTransactions = async (accountId: number) => {
     const userStr = await AsyncStorage.getItem("@access_token")
     try {
       const response = await axios.get(`${API_BASE_URL}/transactions/${accountId}`, {
@@ -113,7 +139,7 @@ const HomeScreen = () => {
     }
   }
 
-  const calculateAndUpdateBalance = async (transactions) => {
+  const calculateAndUpdateBalance = async (transactions: Transaction[]) => {
     try {
       const totalIncome = transactions
         .filter((transaction) => transaction.category.type === "Income")
@@ -139,15 +165,14 @@ const HomeScreen = () => {
               "Content-Type": "application/json",
               Authorization: `Bearer ${userStr}`,
             },
-          },
+          }
         )
         console.log("Backend update response:", response.data)
-
         if (response.data.success) {
           setAccounts((prevAccounts) =>
             prevAccounts.map((account) =>
-              account.id === selectedAccountId ? { ...account, balance: response.data.balance } : account,
-            ),
+              account.id === selectedAccountId ? { ...account, balance: response.data.balance } : account
+            )
           )
         }
       }
@@ -158,22 +183,17 @@ const HomeScreen = () => {
     }
   }
 
-  useEffect(() => {
-    fetchAccounts()
-  }, [selectedAccountId])
+  // Refresh data when screen is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchAccounts()
+    }, [])
+  )
 
   const toggleView = () => {
     Animated.sequence([
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: true,
-      }),
+      Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+      Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
     ]).start()
     setShowList(!showList)
   }
@@ -183,15 +203,11 @@ const HomeScreen = () => {
 
   const getCurrentDate = () => {
     const date = new Date()
-    return date.toLocaleDateString("en-US", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-    })
+    return date.toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long" })
   }
 
-  const processTransactionsIntoCategories = () => {
-    const categoryMap = new Map()
+  const processTransactionsIntoCategories = (): Category[] => {
+    const categoryMap = new Map<number, Category>()
     transactions.forEach((transaction) => {
       const category = transaction.category
       if (!categoryMap.has(category.id)) {
@@ -206,7 +222,7 @@ const HomeScreen = () => {
           isIncome: category.type === "Income",
         })
       }
-      const categoryData = categoryMap.get(category.id)
+      const categoryData = categoryMap.get(category.id)!
       categoryData.amount += transaction.amount
       categoryData.count += 1
     })
@@ -220,9 +236,9 @@ const HomeScreen = () => {
   const displayedBalance = currentAccount?.balance?.toFixed(2) || "0.00"
 
   // Calculate responsive sizes based on screen width
-  const buttonSize = screenWidth * 0.2 // 20% of screen width
-  const balanceWidth = screenWidth * 0.45 // 45% of screen width
-  const fontSize = screenWidth * 0.09 // Responsive font size for buttons
+  const buttonSize = screenWidth * 0.2
+  const balanceWidth = screenWidth * 0.45
+  const fontSize = screenWidth * 0.09
 
   return (
     <SafeAreaView style={styles.container}>
@@ -231,7 +247,7 @@ const HomeScreen = () => {
         <TouchableOpacity style={styles.menuButton}>
           <Icon name="menu" color="white" size={28} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>wallet</Text>
+        <Text style={styles.headerTitle}>your wallet</Text>
         <View style={styles.headerRight}>
           <TouchableOpacity style={styles.iconButton}>
             <Icon name="search" color="white" size={28} />
@@ -269,51 +285,25 @@ const HomeScreen = () => {
 
         <View style={styles.actionButtons}>
           <TouchableOpacity
-            style={[
-              styles.actionButton,
-              styles.expenseButton,
-              {
-                width: buttonSize,
-                height: buttonSize,
-                borderRadius: buttonSize / 2,
-                marginRight: screenWidth * 0.04,
-              },
-            ]}
+            style={[styles.actionButton, styles.expenseButton, { width: buttonSize, height: buttonSize, borderRadius: buttonSize / 2, marginRight: screenWidth * 0.04 }]}
             onPress={navigateToAddExpense}
           >
-            <Text style={[styles.actionButtonText, { fontSize: fontSize }]}>−</Text>
+            <Text style={[styles.actionButtonText, { fontSize }]}>−</Text>
           </TouchableOpacity>
 
           {!showList && (
             <TouchableOpacity onPress={toggleView}>
-              <View
-                style={[
-                  styles.balanceBox,
-                  {
-                    marginHorizontal: screenWidth * 0.01,
-                    width: balanceWidth,
-                  },
-                ]}
-              >
+              <View style={[styles.balanceBox, { marginHorizontal: screenWidth * 0.01, width: balanceWidth }]}>
                 <Text style={styles.balanceText}>Balance {displayedBalance} DT</Text>
               </View>
             </TouchableOpacity>
           )}
 
           <TouchableOpacity
-            style={[
-              styles.actionButton,
-              styles.incomeButton,
-              {
-                width: buttonSize,
-                height: buttonSize,
-                borderRadius: buttonSize / 2,
-                marginLeft: screenWidth * 0.04,
-              },
-            ]}
+            style={[styles.actionButton, styles.incomeButton, { width: buttonSize, height: buttonSize, borderRadius: buttonSize / 2, marginLeft: screenWidth * 0.04 }]}
             onPress={navigateToAddIncome}
           >
-            <Text style={[styles.actionButtonText, { fontSize: fontSize }]}>+</Text>
+            <Text style={[styles.actionButtonText, { fontSize }]}>+</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -322,95 +312,24 @@ const HomeScreen = () => {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.neutral.background,
-  },
-  header: {
-    height: 60,
-    backgroundColor: theme.colors.primary.base,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: theme.spacing.md,
-  },
-  menuButton: {
-    padding: theme.spacing.xs,
-  },
-  headerTitle: {
-    color: theme.colors.neutral.surface,
-    fontSize: theme.fontSizes.h1,
-    fontWeight: "bold",
-    fontStyle: "italic",
-  },
-  headerRight: {
-    flexDirection: "row",
-  },
-  iconButton: {
-    padding: theme.spacing.xs,
-    marginLeft: theme.spacing.sm,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  monthContainer: {
-    alignItems: "center",
-    paddingVertical: theme.spacing.md,
-  },
-  monthText: {
-    fontSize: theme.fontSizes.h2,
-    color: theme.colors.primary.base,
-  },
-  contentContainer: {
-    flex: 1,
-    marginVertical: theme.spacing.lg,
-  },
-  balanceBox: {
-    backgroundColor: theme.colors.primary.base,
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.borderRadius.small,
-    alignItems: "center",
-    justifyContent: "center",
-    marginHorizontal: theme.spacing.sm,
-  },
-  balanceText: {
-    color: theme.colors.neutral.surface,
-    fontSize: theme.fontSizes.button,
-    fontWeight: "bold",
-  },
-  actionButtons: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    marginVertical: theme.spacing.lg,
-    paddingHorizontal: theme.spacing.lg,
-  },
-  actionButton: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  expenseButton: {
-    backgroundColor: theme.colors.error,
-    borderWidth: 5,
-    borderColor: theme.colors.neutral.surface,
-  },
-  incomeButton: {
-    backgroundColor: theme.colors.success,
-    borderWidth: 5,
-    borderColor: theme.colors.neutral.surface,
-  },
-  actionButtonText: {
-    fontWeight: "bold",
-    color: theme.colors.neutral.surface,
-  },
-  balanceBoxList: {
-    marginLeft: "auto",
-    marginRight: "auto",
-    marginBottom: theme.spacing.md,
-    alignSelf: "center",
-  },
+  container: { flex: 1, backgroundColor: theme.colors.neutral.background },
+  header: { height: 60, backgroundColor: theme.colors.primary.base, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: theme.spacing.md },
+  menuButton: { padding: theme.spacing.xs },
+  headerTitle: { color: theme.colors.neutral.surface, fontSize: theme.fontSizes.h1, fontWeight: "bold", fontStyle: "italic" },
+  headerRight: { flexDirection: "row" },
+  iconButton: { padding: theme.spacing.xs, marginLeft: theme.spacing.sm },
+  scrollView: { flex: 1 },
+  monthContainer: { alignItems: "center", paddingVertical: theme.spacing.md },
+  monthText: { fontSize: theme.fontSizes.h2, color: theme.colors.primary.base },
+  contentContainer: { flex: 1, marginVertical: theme.spacing.lg },
+  balanceBox: { backgroundColor: theme.colors.primary.base, paddingVertical: theme.spacing.sm, paddingHorizontal: theme.spacing.md, borderRadius: theme.borderRadius.small, alignItems: "center", justifyContent: "center", marginHorizontal: theme.spacing.sm },
+  balanceText: { color: theme.colors.neutral.surface, fontSize: theme.fontSizes.button, fontWeight: "bold" },
+  actionButtons: { flexDirection: "row", justifyContent: "center", alignItems: "center", marginVertical: theme.spacing.lg, paddingHorizontal: theme.spacing.lg },
+  actionButton: { alignItems: "center", justifyContent: "center" },
+  expenseButton: { backgroundColor: theme.colors.error, borderWidth: 5, borderColor: theme.colors.neutral.surface },
+  incomeButton: { backgroundColor: theme.colors.success, borderWidth: 5, borderColor: theme.colors.neutral.surface },
+  actionButtonText: { fontWeight: "bold", color: theme.colors.neutral.surface },
+  balanceBoxList: { marginLeft: "auto", marginRight: "auto", marginBottom: theme.spacing.md, alignSelf: "center" },
 })
 
 export default HomeScreen
-
