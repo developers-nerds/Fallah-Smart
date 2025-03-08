@@ -131,12 +131,24 @@ export default function EditIncome() {
         setError("No authentication token found")
         return
       }
-      const response = await axios.get(`${API_BASE_URL}/categories/type/Income`, { // Changed to Income
+      const response = await axios.get(`${API_BASE_URL}/categories/type/Income`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       })
-      setCategories(response.data)
+      console.log("Fetched categories response (EditIncome):", response.data) // Debug the response
+      if (Array.isArray(response.data)) {
+        const validCategories = response.data.filter(
+          (category: any) => category && typeof category === 'object' && category.id && category.name
+        )
+        setCategories(validCategories)
+        if (validCategories.length === 0) {
+          setError("No valid categories found")
+        }
+      } else {
+        setError("Invalid response format: Categories data is not an array")
+        setCategories([])
+      }
     } catch (err) {
       setError("Failed to fetch categories: " + err.message)
       setCategories([])
@@ -177,7 +189,7 @@ export default function EditIncome() {
         accountId: selectedAccountId,
         categoryId: category.id,
         amount: parseFloat(amount),
-        type: 'income', // Changed to income
+        type: 'income',
         note: note || "",
         date: date.toISOString()
       }
@@ -274,7 +286,7 @@ export default function EditIncome() {
         onPress={() => {
           setSelectedCategory(item)
           setShowCategories(false)
-          handleUpdateTransaction(item) // Trigger update when category is selected
+          handleUpdateTransaction(item)
         }}
         disabled={isSubmitting}
       >
@@ -440,10 +452,11 @@ export default function EditIncome() {
             <FlatList
               data={categories}
               renderItem={renderCategoryItem}
-              keyExtractor={(item) => item.id.toString()}
+              keyExtractor={(item, index) => (item && item.id ? item.id.toString() : index.toString())}
               numColumns={Math.floor(width / 120)}
               contentContainerStyle={styles.categoryGrid}
               showsVerticalScrollIndicator={true}
+              ListEmptyComponent={<Text style={styles.messageText}>No valid categories to display</Text>}
             />
           )}
         </View>

@@ -55,7 +55,7 @@ export default function EditExpense() {
   
   const navigation = useNavigation()
   const route = useRoute()
-  const { transaction } = route.params as { transaction: Transaction } // Type the route params
+  const { transaction } = route.params as { transaction: Transaction }
 
   const API_BASE_URL = Platform.select({
     web: process.env.WEB_PUBLIC_API,
@@ -63,7 +63,6 @@ export default function EditExpense() {
   })
 
   useEffect(() => {
-    // Initialize with transaction data
     if (transaction) {
       setAmount(transaction.amount.toString())
       setNote(transaction.note || "Add expense")
@@ -136,7 +135,19 @@ export default function EditExpense() {
           'Authorization': `Bearer ${token}`
         }
       })
-      setCategories(response.data)
+      console.log("Fetched categories response (EditExpense):", response.data)
+      if (Array.isArray(response.data)) {
+        const validCategories = response.data.filter(
+          (category: any) => category && typeof category === 'object' && category.id && category.name
+        )
+        setCategories(validCategories)
+        if (validCategories.length === 0) {
+          setError("No valid categories found")
+        }
+      } else {
+        setError("Invalid response format: Categories data is not an array")
+        setCategories([])
+      }
     } catch (err) {
       setError("Failed to fetch categories: " + err.message)
       setCategories([])
@@ -274,7 +285,7 @@ export default function EditExpense() {
         onPress={() => {
           setSelectedCategory(item)
           setShowCategories(false)
-          handleUpdateTransaction(item) // Trigger update when category is selected
+          handleUpdateTransaction(item)
         }}
         disabled={isSubmitting}
       >
@@ -440,10 +451,11 @@ export default function EditExpense() {
             <FlatList
               data={categories}
               renderItem={renderCategoryItem}
-              keyExtractor={(item) => item.id.toString()}
+              keyExtractor={(item, index) => (item && item.id ? item.id.toString() : index.toString())}
               numColumns={Math.floor(width / 120)}
               contentContainerStyle={styles.categoryGrid}
               showsVerticalScrollIndicator={true}
+              ListEmptyComponent={<Text style={styles.messageText}>No valid categories to display</Text>}
             />
           )}
         </View>

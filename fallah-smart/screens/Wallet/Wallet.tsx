@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useCallback } from "react"
 import {
   View,
   Text,
@@ -11,17 +11,18 @@ import {
   Animated,
   ActivityIndicator,
   Dimensions,
+  Platform,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
-import { useNavigation, NavigationProp as NavProp } from "@react-navigation/native"
+import { useNavigation, NavigationProp as NavProp, useFocusEffect } from "@react-navigation/native"
 import Icon from "react-native-vector-icons/MaterialIcons"
+import { FontAwesome5 } from "@expo/vector-icons"
+import DateTimePicker from "@react-native-community/datetimepicker"
 import { ChartView } from "./components/ChartView"
 import { CategoryList } from "./components/CategoryList"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import axios from "axios"
-import { Platform } from "react-native"
 import { theme } from "../../theme/theme"
-import { useFocusEffect } from '@react-navigation/native'
 import { RootStackParamList } from '../../../App' // Adjust path based on your project structure
 
 // Define interfaces
@@ -54,13 +55,22 @@ interface Account {
 const HomeScreen: React.FC = () => {
   const [showList, setShowList] = useState(false)
   const [fadeAnim] = useState(new Animated.Value(1))
-  const [sidebarVisible, setSidebarVisible] = useState(false) // State for sidebar visibility
+  const [sidebarVisible, setSidebarVisible] = useState(false)
   const [accounts, setAccounts] = useState<Account[]>([])
   const [selectedAccountId, setSelectedAccountId] = useState<number>(0)
   const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [allTransactions, setAllTransactions] = useState<Transaction[]>([])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [screenWidth, setScreenWidth] = useState(Dimensions.get("window").width)
+  const [filter, setFilter] = useState<"Daily" | "Weekly" | "Monthly" | "Yearly" | "All" | "Interval">("Monthly")
+  const [startDate, setStartDate] = useState<Date | null>(null)
+  const [endDate, setEndDate] = useState<Date | null>(null)
+  const [dateDisplay, setDateDisplay] = useState("")
+  const [showMonthPicker, setShowMonthPicker] = useState(false)
+  const [showYearPicker, setShowYearPicker] = useState(false)
+  const [selectedMonthDate, setSelectedMonthDate] = useState(new Date())
+  const [selectedYearDate, setSelectedYearDate] = useState(new Date())
 
   const navigation = useNavigation<NavProp<RootStackParamList>>()
 
@@ -73,7 +83,7 @@ const HomeScreen: React.FC = () => {
   }, [])
 
   const API_BASE_URL = Platform.select({
-    web: process.env.EXPO_PUBLIC_API_WEB,
+    web: process.env.EXPO_PUBLIC_API,
     default: process.env.EXPO_PUBLIC_API_URL,
   })
 
@@ -106,11 +116,10 @@ const HomeScreen: React.FC = () => {
           Authorization: `Bearer ${userStr}`,
         },
       })
-      console.log("Fetched accounts:", response.data)
       setAccounts(response.data)
       if (response.data.length > 0) {
         setSelectedAccountId(response.data[0].id)
-        fetchTransactions(response.data[0].id)
+        await fetchAllTransactions(response.data[0].id)
       }
     } catch (error) {
       setError("Error fetching accounts: " + (error.response?.data?.message || error.message))
@@ -119,7 +128,7 @@ const HomeScreen: React.FC = () => {
     }
   }
 
-  const fetchTransactions = async (accountId: number) => {
+  const fetchAllTransactions = async (accountId: number) => {
     const userStr = await AsyncStorage.getItem("@access_token")
     try {
       const response = await axios.get(`${API_BASE_URL}/transactions/${accountId}`, {
@@ -127,11 +136,32 @@ const HomeScreen: React.FC = () => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${userStr}`,
         },
+        params: { interval: 'all' },
       })
-      console.log("Fetched transactions for account", accountId, ":", response.data.data)
       if (response.data.success) {
+        setAllTransactions(response.data.data)
         setTransactions(response.data.data)
         await calculateAndUpdateBalance(response.data.data)
+      } else {
+        setError("Error fetching all transactions: " + response.data.message)
+      }
+    } catch (error) {
+      setError("Network error: " + (error.response?.data?.message || error.message))
+    }
+  }
+
+  const fetchTransactions = async (accountId: number, filterType: string = 'month', startDate?: string, endDate?: string) => {
+    const userStr = await AsyncStorage.getItem("@access_token")
+    try {
+      const response = await axios.get(`${API_BASE_URL}/transactions/${accountId}`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${userStr}`,
+        },
+        params: { interval: filterType, startDate, endDate },
+      })
+      if (response.data.success) {
+        setTransactions(response.data.data)
       } else {
         setError("Error fetching transactions: " + response.data.message)
       }
@@ -150,8 +180,6 @@ const HomeScreen: React.FC = () => {
         .reduce((sum, transaction) => sum + transaction.amount, 0)
       const newBalance = totalIncome - totalExpense
 
-      console.log("Total Income:", totalIncome, "Total Expense:", totalExpense, "Calculated Balance:", newBalance)
-
       const userStr = await AsyncStorage.getItem("@access_token")
       if (selectedAccountId && userStr) {
         const response = await axios.put(
@@ -168,7 +196,6 @@ const HomeScreen: React.FC = () => {
             },
           }
         )
-        console.log("Backend update response:", response.data)
         if (response.data.success) {
           setAccounts((prevAccounts) =>
             prevAccounts.map((account) =>
@@ -179,15 +206,131 @@ const HomeScreen: React.FC = () => {
       }
       return newBalance
     } catch (error) {
-      console.error("Error updating balance:", error)
       setError("Error updating balance: " + (error.response?.data?.message || error.message))
+    }
+  }
+
+  const setDateRange = (filterType: "Daily" | "Weekly" | "Monthly" | "Yearly" | "All" | "Interval") => {
+    const today = new Date()
+    let newStartDate: Date | null = null
+    let newEndDate: Date | null = null
+    let displayText = ""
+
+    if (filterType === "Daily") {
+      newStartDate = new Date(today)
+      newEndDate = new Date(today)
+      displayText = today.toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    } else if (filterType === "Weekly") {
+      newStartDate = new Date(today)
+      newStartDate.setDate(today.getDate() - 7)
+      newEndDate = today
+      displayText = `${newStartDate.toLocaleDateString("en-US", {
+        // weekday: "short",
+        month: "short",
+        day: "numeric",
+        // year: "numeric",
+      })} - ${newEndDate.toLocaleDateString("en-US", {
+        // weekday: "short",
+        month: "short",
+        day: "numeric",
+        // year: "numeric",
+      })}`
+    } else if (filterType === "Monthly") {
+      newStartDate = new Date(today.getFullYear(), today.getMonth(), 1)
+      newEndDate = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+      setSelectedMonthDate(newStartDate)
+      displayText = newStartDate.toLocaleDateString("en-US", {
+        month: "long",
+        // year: "numeric",
+      })
+    } else if (filterType === "Yearly") {
+      newStartDate = new Date(today.getFullYear(), 0, 1)
+      newEndDate = new Date(today.getFullYear(), 11, 31)
+      setSelectedYearDate(newStartDate)
+      displayText = newStartDate.getFullYear().toString()
+    } else if (filterType === "All") {
+      newStartDate = null
+      newEndDate = null
+      displayText = "All"
+    } else if (filterType === "Interval") {
+      // Custom interval handled separately
+      return
+    }
+
+    setStartDate(newStartDate)
+    setEndDate(newEndDate)
+    setDateDisplay(displayText)
+    if (selectedAccountId) {
+      fetchTransactions(
+        selectedAccountId,
+        filterType.toLowerCase(),
+        newStartDate?.toISOString(),
+        newEndDate?.toISOString()
+      )
+    }
+  }
+
+  const handleFilterSelect = (filterType: "Daily" | "Weekly" | "Monthly" | "Yearly" | "All" | "Interval") => {
+    setFilter(filterType)
+    if (filterType !== "Interval") {
+      setDateRange(filterType)
+    }
+    setSidebarVisible(false)
+  }
+
+  const onMonthChange = (event: any, selectedDate?: Date) => {
+    setShowMonthPicker(false)
+    if (selectedDate) {
+      setSelectedMonthDate(selectedDate)
+      const newStartDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1)
+      const newEndDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0)
+      setStartDate(newStartDate)
+      setEndDate(newEndDate)
+      setDateDisplay(newStartDate.toLocaleDateString("en-US", {
+        month: "long",
+        year: "numeric",
+      }))
+      if (selectedAccountId) {
+        fetchTransactions(
+          selectedAccountId,
+          "monthly",
+          newStartDate.toISOString(),
+          newEndDate.toISOString()
+        )
+      }
+    }
+  }
+
+  const onYearChange = (event: any, selectedDate?: Date) => {
+    setShowYearPicker(false)
+    if (selectedDate) {
+      setSelectedYearDate(selectedDate)
+      const newStartDate = new Date(selectedDate.getFullYear(), 0, 1)
+      const newEndDate = new Date(selectedDate.getFullYear(), 11, 31)
+      setStartDate(newStartDate)
+      setEndDate(newEndDate)
+      setDateDisplay(newStartDate.getFullYear().toString())
+      if (selectedAccountId) {
+        fetchTransactions(
+          selectedAccountId,
+          "yearly",
+          newStartDate.toISOString(),
+          newEndDate.toISOString()
+        )
+      }
     }
   }
 
   // Refresh data when screen is focused
   useFocusEffect(
-    React.useCallback(() => {
+    useCallback(() => {
       fetchAccounts()
+      setDateRange("Monthly") // Set default filter to Monthly
     }, [])
   )
 
@@ -214,22 +357,26 @@ const HomeScreen: React.FC = () => {
   const processTransactionsIntoCategories = (): Category[] => {
     const categoryMap = new Map<number, Category>()
     transactions.forEach((transaction) => {
-      const category = transaction.category
-      if (!categoryMap.has(category.id)) {
-        categoryMap.set(category.id, {
-          id: category.id,
-          name: category.name,
-          icon: category.icon || "question-mark",
-          type: category.type || "font-awesome-5",
-          color: category.color || "#7BC29A",
-          amount: 0,
-          count: 0,
-          isIncome: category.type === "Income",
-        })
+      if (transaction.category && transaction.category.id) {
+        const category = transaction.category
+        if (!categoryMap.has(category.id)) {
+          categoryMap.set(category.id, {
+            id: category.id,
+            name: category.name || "Unknown",
+            icon: category.icon || "question-mark",
+            type: category.type || "font-awesome-5",
+            color: category.color || "#7BC29A",
+            amount: 0,
+            count: 0,
+            isIncome: category.type === "Income",
+          })
+        }
+        const categoryData = categoryMap.get(category.id)!
+        categoryData.amount += transaction.amount
+        categoryData.count += 1
+      } else {
+        console.warn("Transaction missing category or category.id:", transaction)
       }
-      const categoryData = categoryMap.get(category.id)!
-      categoryData.amount += transaction.amount
-      categoryData.count += 1
     })
     return Array.from(categoryMap.values()).sort((a, b) => {
       if (a.isIncome === b.isIncome) return b.amount - a.amount
@@ -239,12 +386,15 @@ const HomeScreen: React.FC = () => {
 
   const currentAccount = accounts.find((acc) => acc.id === selectedAccountId)
   const displayedBalance = currentAccount?.balance?.toFixed(2) || "0.00"
+  const filteredBalance = allTransactions
+    .filter((t) => transactions.some((ft) => ft.id === t.id))
+    .reduce((sum, t) => t.category.type === "Income" ? sum + t.amount : sum - t.amount, 0)
+    .toFixed(2) || "0.00"
 
-  // Calculate responsive sizes based on screen width
   const buttonSize = screenWidth * 0.2
   const balanceWidth = screenWidth * 0.45
   const fontSize = screenWidth * 0.09
-  const sidebarWidth = screenWidth * 0.4 // Adjust sidebar width as needed
+  const sidebarWidth = screenWidth * 0.4
 
   return (
     <SafeAreaView style={styles.container}>
@@ -266,37 +416,63 @@ const HomeScreen: React.FC = () => {
 
       {sidebarVisible && (
         <View style={[styles.sidebar, { width: sidebarWidth }]}>
-          <TouchableOpacity style={styles.sidebarItem}>
-            <Text style={styles.sidebarText}>Choose date</Text>
+          <TouchableOpacity style={styles.sidebarItem} onPress={() => handleFilterSelect("Daily")}>
+            <Text style={styles.sidebarText}>Daily</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.sidebarItem}>
-            <Text style={styles.sidebarText}>Week</Text>
+          <TouchableOpacity style={styles.sidebarItem} onPress={() => handleFilterSelect("Weekly")}>
+            <Text style={styles.sidebarText}>Weekly</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.sidebarItem}>
-            <Text style={styles.sidebarText}>Month</Text>
+          <TouchableOpacity style={styles.sidebarItem} onPress={() => handleFilterSelect("Monthly")}>
+            <Text style={styles.sidebarText}>Monthly</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.sidebarItem}>
-            <Text style={styles.sidebarText}>Year</Text>
+          <TouchableOpacity style={styles.sidebarItem} onPress={() => handleFilterSelect("Yearly")}>
+            <Text style={styles.sidebarText}>Yearly</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.sidebarItem}>
+          <TouchableOpacity style={styles.sidebarItem} onPress={() => handleFilterSelect("All")}>
             <Text style={styles.sidebarText}>All</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.sidebarItem}>
-            <Text style={styles.sidebarText}>Interval</Text>
+          <TouchableOpacity style={styles.sidebarItem} onPress={() => handleFilterSelect("Interval")}>
+            <Text style={styles.sidebarText}>Custom Interval</Text>
           </TouchableOpacity>
         </View>
       )}
 
       <ScrollView style={styles.scrollView}>
         <View style={styles.monthContainer}>
-          <Text style={styles.monthText}>{getCurrentDate()}</Text>
+          <TouchableOpacity
+            onPress={() => {
+              if (filter === "Monthly") setShowMonthPicker(true)
+              if (filter === "Yearly") setShowYearPicker(true)
+            }}
+            disabled={filter !== "Monthly" && filter !== "Yearly"}
+          >
+            <Text style={styles.monthText}>{dateDisplay || getCurrentDate()}</Text>
+          </TouchableOpacity>
         </View>
+
+        {showMonthPicker && (
+          <DateTimePicker
+            value={selectedMonthDate}
+            mode="date"
+            display="default"
+            onChange={onMonthChange}
+          />
+        )}
+
+        {showYearPicker && (
+          <DateTimePicker
+            value={selectedYearDate}
+            mode="date"
+            display="default"
+            onChange={onYearChange}
+          />
+        )}
 
         {showList && (
           <View style={{ alignItems: "center" }}>
             <TouchableOpacity onPress={toggleView}>
               <View style={[styles.balanceBox, styles.balanceBoxList, { width: balanceWidth }]}>
-                <Text style={styles.balanceText}>Balance {displayedBalance} DT</Text>
+                <Text style={styles.balanceText}>Balance {filteredBalance} DT </Text>
               </View>
             </TouchableOpacity>
           </View>
@@ -310,6 +486,7 @@ const HomeScreen: React.FC = () => {
           ) : (
             <ChartView categories={processTransactionsIntoCategories()} />
           )}
+          {error && <Text style={styles.errorText}>{error}</Text>}
         </Animated.View>
 
         <View style={styles.actionButtons}>
@@ -323,7 +500,7 @@ const HomeScreen: React.FC = () => {
           {!showList && (
             <TouchableOpacity onPress={toggleView}>
               <View style={[styles.balanceBox, { marginHorizontal: screenWidth * 0.01, width: balanceWidth }]}>
-                <Text style={styles.balanceText}>Balance {displayedBalance} DT</Text>
+                <Text style={styles.balanceText}>Balance {filteredBalance} DT</Text>
               </View>
             </TouchableOpacity>
           )}
@@ -349,7 +526,7 @@ const styles = StyleSheet.create({
   iconButton: { padding: theme.spacing.xs, marginLeft: theme.spacing.sm },
   scrollView: { flex: 1 },
   monthContainer: { alignItems: "center", paddingVertical: theme.spacing.md },
-  monthText: { fontSize: theme.fontSizes.h2, color: theme.colors.primary.base },
+  monthText: { fontSize: theme.fontSizes.h2, color: theme.colors.primary.base, textDecorationLine: "underline" },
   contentContainer: { flex: 1, marginVertical: theme.spacing.lg },
   balanceBox: { backgroundColor: theme.colors.primary.base, paddingVertical: theme.spacing.sm, paddingHorizontal: theme.spacing.md, borderRadius: theme.borderRadius.small, alignItems: "center", justifyContent: "center", marginHorizontal: theme.spacing.sm },
   balanceText: { color: theme.colors.neutral.surface, fontSize: theme.fontSizes.button, fontWeight: "bold" },
@@ -359,13 +536,12 @@ const styles = StyleSheet.create({
   incomeButton: { backgroundColor: theme.colors.success, borderWidth: 5, borderColor: theme.colors.neutral.surface },
   actionButtonText: { fontWeight: "bold", color: theme.colors.neutral.surface },
   balanceBoxList: { marginLeft: "auto", marginRight: "auto", marginBottom: theme.spacing.md, alignSelf: "center" },
-  // Sidebar styles
   sidebar: {
     position: "absolute",
-    top: 60, // Below the header
+    top: 60,
     left: 0,
     bottom: 0,
-    backgroundColor: theme.colors.primary.base, // Match the header color
+    backgroundColor: theme.colors.primary.base,
     paddingVertical: theme.spacing.md,
     paddingHorizontal: theme.spacing.sm,
     zIndex: 10,
@@ -379,6 +555,11 @@ const styles = StyleSheet.create({
     color: theme.colors.neutral.surface,
     fontSize: theme.fontSizes.body,
     textAlign: "center",
+  },
+  errorText: {
+    color: theme.colors.error,
+    textAlign: "center",
+    marginTop: theme.spacing.md,
   },
 })
 

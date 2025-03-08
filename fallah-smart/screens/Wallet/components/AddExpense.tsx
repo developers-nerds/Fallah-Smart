@@ -45,7 +45,7 @@ export default function AddExpense() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState("")
   const [accounts, setAccounts] = useState([])
-  const [selectedAccountId, setSelectedAccountId] = useState(null)
+  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null)
   
   const navigation = useNavigation()
 
@@ -95,6 +95,8 @@ export default function AddExpense() {
   useEffect(() => {
     fetchAccounts()
 
+    let isMounted = true
+
     const fetchCategories = async () => {
       try {
         setLoading(true)
@@ -108,17 +110,39 @@ export default function AddExpense() {
             'Authorization': `Bearer ${token}`
           }
         })
-        setCategories(response.data)
+        console.log("Fetched categories response (AddExpense):", response.data)
+        if (isMounted) {
+          if (Array.isArray(response.data)) {
+            const validCategories = response.data.filter(
+              (category: any) => category && typeof category === 'object' && category.id && category.name
+            )
+            setCategories(validCategories)
+            if (validCategories.length === 0) {
+              setError("No valid categories found")
+            }
+          } else {
+            setError("Invalid response format: Categories data is not an array")
+            setCategories([])
+          }
+        }
       } catch (err) {
-        setError("Failed to fetch categories: " + err.message)
-        setCategories([])
+        if (isMounted) {
+          setError("Failed to fetch categories: " + err.message)
+          setCategories([])
+        }
       } finally {
-        setLoading(false)
+        if (isMounted) {
+          setLoading(false)
+        }
       }
     }
 
     if (showCategories) {
       fetchCategories()
+    }
+
+    return () => {
+      isMounted = false
     }
   }, [showCategories])
 
@@ -175,7 +199,6 @@ export default function AddExpense() {
         setNote("Add expense")
         setSelectedCategory(null)
         setShowCategories(false)
-        // Use goBack() instead of navigate
         navigation.goBack()
       } else {
         setSubmitError(response.data.message || 'Failed to create transaction')
@@ -187,11 +210,11 @@ export default function AddExpense() {
     }
   }
 
-  const handleNumberPress = (num) => {
+  const handleNumberPress = (num: number) => {
     setAmount((prev) => prev + num.toString())
   }
 
-  const handleOperatorPress = (operator) => {
+  const handleOperatorPress = (operator: string) => {
     console.log("Operator pressed:", operator)
   }
 
@@ -203,7 +226,7 @@ export default function AddExpense() {
     navigation.goBack()
   }
 
-  const onDateChange = (event, selectedDate) => {
+  const onDateChange = (event: any, selectedDate?: Date) => {
     const currentDate = selectedDate || date
     setShowDatePicker(false)
     setDate(currentDate)
@@ -212,7 +235,7 @@ export default function AddExpense() {
     setManualDate(currentDate.toLocaleDateString("en-US", options))
   }
 
-  const handleManualDateChange = (text) => {
+  const handleManualDateChange = (text: string) => {
     setManualDate(text)
     setCurrentDate(text)
   }
@@ -224,7 +247,7 @@ export default function AddExpense() {
     }
   }
 
-  const renderCategoryItem = ({ item }) => {
+  const renderCategoryItem = ({ item }: { item: Category }) => {
     const isCustomIcon = item.icon.includes('-alt') || 
                         item.icon === 'shopping-basket' ||
                         item.icon === 'glass-martini-alt'
@@ -246,7 +269,7 @@ export default function AddExpense() {
           {isCustomIcon ? (
             <FontAwesome5 
               name={item.icon.replace('-alt', '')}
-              size={width * 0.06} // Responsive icon size
+              size={width * 0.06}
               color={item.color} 
               style={styles.categoryIcon}
             />
@@ -404,10 +427,11 @@ export default function AddExpense() {
             <FlatList
               data={categories}
               renderItem={renderCategoryItem}
-              keyExtractor={(item) => item.id.toString()}
-              numColumns={Math.floor(width / 120)} // Dynamic column count based on screen width
+              keyExtractor={(item, index) => (item && item.id ? item.id.toString() : index.toString())}
+              numColumns={Math.floor(width / 120)}
               contentContainerStyle={styles.categoryGrid}
               showsVerticalScrollIndicator={true}
+              ListEmptyComponent={<Text style={styles.messageText}>No valid categories to display</Text>}
             />
           )}
         </View>
@@ -428,19 +452,19 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.neutral.background,
   },
   header: {
-    height: height * 0.08, // 8% of screen height
+    height: height * 0.08,
     backgroundColor: theme.colors.success,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: width * 0.04, // 4% of screen width
+    paddingHorizontal: width * 0.04,
   },
   backButton: {
     padding: width * 0.02,
   },
   headerTitle: {
     color: theme.colors.neutral.surface,
-    fontSize: width * 0.05, // Responsive font size
+    fontSize: width * 0.05,
     fontWeight: "500",
   },
   refreshButton: {
@@ -508,7 +532,7 @@ const styles = StyleSheet.create({
   },
   amountText: {
     flex: 1,
-    fontSize: width * 0.1, // Responsive amount text size
+    fontSize: width * 0.1,
     color: theme.colors.neutral.surface,
     textAlign: "center",
   },
@@ -557,7 +581,7 @@ const styles = StyleSheet.create({
   },
   keypadButton: {
     flex: 1,
-    height: height * 0.08, // Responsive keypad height
+    height: height * 0.08,
     backgroundColor: theme.colors.neutral.surface,
     borderRadius: theme.borderRadius.small,
     justifyContent: "center",
@@ -567,7 +591,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.neutral.border,
   },
   keypadText: {
-    fontSize: width * 0.06, // Responsive keypad text
+    fontSize: width * 0.06,
     color: theme.colors.neutral.textPrimary,
   },
   categoryButton: {
@@ -590,7 +614,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: height * 0.6, // 60% of screen height
+    height: height * 0.6,
     backgroundColor: theme.colors.neutral.surface,
     borderTopLeftRadius: theme.borderRadius.large,
     borderTopRightRadius: theme.borderRadius.large,
@@ -617,8 +641,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: width * 0.03,
   },
   categoryCard: {
-    width: width * 0.28, // Responsive width (slightly less than 1/3 of screen)
-    height: height * 0.12, // Responsive height
+    width: width * 0.28,
+    height: height * 0.12,
     backgroundColor: theme.colors.neutral.surface,
     borderRadius: theme.borderRadius.small,
     margin: width * 0.01,
@@ -640,7 +664,7 @@ const styles = StyleSheet.create({
     marginBottom: height * 0.01,
   },
   categoryCardText: {
-    fontSize: width * 0.035, // Responsive category text
+    fontSize: width * 0.035,
     color: theme.colors.neutral.textPrimary,
     textAlign: 'center',
   },
