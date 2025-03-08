@@ -1,10 +1,12 @@
 const { Transactions, Accounts, Category } = require('../database/assossiation');
+const { Op } = require('sequelize'); // Added for date range operators
 
 const transactionController = {
-  // Get all transactions for an account
+  // Get transactions by account and time interval
   getAllTransactions: async (req, res) => {
     try {
       const { accountId } = req.params;
+      const { interval = 'month', startDate, endDate } = req.query; // Default to 'month' if no interval provided
 
       // Verify account exists and belongs to user
       const account = await Accounts.findOne({
@@ -21,21 +23,74 @@ const transactionController = {
         });
       }
 
+      // Construct date range based on interval
+      let whereClause = { accountId };
+      const now = new Date();
+
+      switch (interval.toLowerCase()) {
+        case 'daily':
+          whereClause.date = {
+            [Op.gte]: new Date(now.setHours(0, 0, 0, 0)),
+            [Op.lte]: new Date(now.setHours(23, 59, 59, 999)),
+          };
+          break;
+        case 'weekly':
+          const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+          whereClause.date = {
+            [Op.gte]: new Date(startOfWeek.setHours(0, 0, 0, 0)),
+            [Op.lte]: new Date(startOfWeek.setDate(startOfWeek.getDate() + 6)).setHours(23, 59, 59, 999),
+          };
+          break;
+        case 'monthly':
+          whereClause.date = {
+            [Op.gte]: new Date(now.getFullYear(), now.getMonth(), 1),
+            [Op.lte]: new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999),
+          };
+          break;
+        case 'yearly':
+          whereClause.date = {
+            [Op.gte]: new Date(now.getFullYear(), 0, 1),
+            [Op.lte]: new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999),
+          };
+          break;
+        case 'all':
+          whereClause.date = { [Op.gte]: new Date(0) }; // From the beginning of time
+          break;
+        case 'interval':
+          if (!startDate || !endDate) {
+            return res.status(400).json({
+              success: false,
+              message: 'startDate and endDate are required for interval',
+            });
+          }
+          whereClause.date = {
+            [Op.gte]: new Date(startDate),
+            [Op.lte]: new Date(endDate),
+          };
+          break;
+        default:
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid interval',
+          });
+      }
+
+      // Fetch transactions with associated categories and accounts
       const transactions = await Transactions.findAll({
-        where: { accountId },
+        where: whereClause,
         include: [
           {
             model: Category,
             as: 'category',
-            attributes: ['id', 'name','type','icon','color']
+            attributes: ['id', 'name', 'type', 'icon', 'color'],
           },
           {
             model: Accounts,
             as: 'account',
-            attributes: ['id', 'Methods', 'balance', 'currency']
-          }
+            attributes: ['id', 'Methods', 'balance', 'currency'],
+          },
         ],
-        order: [['date', 'DESC']]
+        order: [['date', 'DESC']],
       });
 
       return res.status(200).json({
@@ -47,7 +102,7 @@ const transactionController = {
       return res.status(500).json({
         success: false,
         message: 'Internal server error',
-        error: error.message
+        error: error.message,
       });
     }
   },
@@ -309,7 +364,7 @@ const transactionController = {
         error: error.message
       });
     }
-  }
+  },
 };
 
 module.exports = transactionController;
