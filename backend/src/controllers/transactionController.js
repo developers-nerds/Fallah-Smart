@@ -1,10 +1,12 @@
 const { Transactions, Accounts, Category } = require('../database/assossiation');
+const { Op } = require('sequelize'); // Added for date range operators
 
 const transactionController = {
-  // Get all transactions for an account
+  // Get transactions by account and time interval
   getAllTransactions: async (req, res) => {
     try {
       const { accountId } = req.params;
+      const { interval = 'month', startDate, endDate } = req.query; // Default to 'month' if no interval provided
 
       // Verify account exists and belongs to user
       const account = await Accounts.findOne({
@@ -21,21 +23,74 @@ const transactionController = {
         });
       }
 
+      // Construct date range based on interval
+      let whereClause = { accountId };
+      const now = new Date();
+
+      switch (interval.toLowerCase()) {
+        case 'daily':
+          whereClause.date = {
+            [Op.gte]: new Date(now.setHours(0, 0, 0, 0)),
+            [Op.lte]: new Date(now.setHours(23, 59, 59, 999)),
+          };
+          break;
+        case 'weekly':
+          const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+          whereClause.date = {
+            [Op.gte]: new Date(startOfWeek.setHours(0, 0, 0, 0)),
+            [Op.lte]: new Date(startOfWeek.setDate(startOfWeek.getDate() + 6)).setHours(23, 59, 59, 999),
+          };
+          break;
+        case 'monthly':
+          whereClause.date = {
+            [Op.gte]: new Date(now.getFullYear(), now.getMonth(), 1),
+            [Op.lte]: new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999),
+          };
+          break;
+        case 'yearly':
+          whereClause.date = {
+            [Op.gte]: new Date(now.getFullYear(), 0, 1),
+            [Op.lte]: new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999),
+          };
+          break;
+        case 'all':
+          whereClause.date = { [Op.gte]: new Date(0) }; // From the beginning of time
+          break;
+        case 'interval':
+          if (!startDate || !endDate) {
+            return res.status(400).json({
+              success: false,
+              message: 'startDate and endDate are required for interval',
+            });
+          }
+          whereClause.date = {
+            [Op.gte]: new Date(startDate),
+            [Op.lte]: new Date(endDate),
+          };
+          break;
+        default:
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid interval',
+          });
+      }
+
+      // Fetch transactions with associated categories and accounts
       const transactions = await Transactions.findAll({
-        where: { accountId },
+        where: whereClause,
         include: [
           {
             model: Category,
             as: 'category',
-            attributes: ['id', 'name','type','icon','color']
+            attributes: ['id', 'name', 'type', 'icon', 'color'],
           },
           {
             model: Accounts,
             as: 'account',
-            attributes: ['id', 'Methods', 'balance', 'currency']
-          }
+            attributes: ['id', 'Methods', 'balance', 'currency'],
+          },
         ],
-        order: [['date', 'DESC']]
+        order: [['date', 'DESC']],
       });
 
       return res.status(200).json({
@@ -47,7 +102,7 @@ const transactionController = {
       return res.status(500).json({
         success: false,
         message: 'Internal server error',
-        error: error.message
+        error: error.message,
       });
     }
   },
@@ -140,14 +195,19 @@ const transactionController = {
   // Update transaction
   updateTransaction: async (req, res) => {
     try {
-      const { transactionId } = req.params;
-      const { accountId, categoryId, amount, type, note, date } = req.body;  // Changed description to note
+      const { id } = req.params;
+      const { accountId, categoryId, amount, type, note, date } = req.body;
 
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          message: 'Transaction ID is required'
+        });
+      }
+
+      // Find transaction through account association instead of direct userId
       const transaction = await Transactions.findOne({
-        where: {
-          id: transactionId,
-          userId: req.user.id,
-        },
+        where: { id: id },
         include: [{ 
           model: Accounts, 
           as: 'account',
@@ -162,9 +222,15 @@ const transactionController = {
         });
       }
 
+      // Store original values for balance calculation
+      const originalAmount = transaction.amount;
+      const originalType = transaction.type;
+      const originalAccountId = transaction.accountId;
+
       // Verify new accountId if provided
+      let newAccount = transaction.account;
       if (accountId && accountId !== transaction.accountId) {
-        const account = await Accounts.findOne({
+        newAccount = await Accounts.findOne({
           where: {
             id: accountId,
             userId: req.user.id,
@@ -189,14 +255,34 @@ const transactionController = {
         }
       }
 
+      // Revert the effect of the original transaction
+      const originalBalanceAdjustment = originalType === 'income' 
+        ? -originalAmount 
+        : originalAmount;
+      
+      await transaction.account.update({
+        balance: transaction.account.balance + originalBalanceAdjustment
+      });
+
       // Update transaction
       await transaction.update({
         accountId: accountId || transaction.accountId,
         categoryId: categoryId || transaction.categoryId,
         amount: amount || transaction.amount,
         type: type || transaction.type,
-        note: note || transaction.note,    // Changed description to note
+        note: note || transaction.note,
         date: date || transaction.date,
+      });
+
+      // Apply the effect of the new transaction
+      const newAmount = amount || originalAmount;
+      const newType = type || originalType;
+      const newBalanceAdjustment = newType === 'income' 
+        ? newAmount 
+        : -newAmount;
+
+      await newAccount.update({
+        balance: newAccount.balance + newBalanceAdjustment
       });
 
       // Fetch updated transaction with associations
@@ -278,7 +364,7 @@ const transactionController = {
         error: error.message
       });
     }
-  }
+  },
 };
 
 module.exports = transactionController;

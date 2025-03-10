@@ -55,6 +55,7 @@ app.use("/api/cropsDetails", cropDetailsRoutes);
 app.use("/api/animalDetails", animalDetailsRoutes);
 app.use("/api/animal", animal);
 app.use("/api/stock-statistics", stockStatisticsRoutes);
+app.use("/api/categories", categoryRoutes);
 
 // New stock management routes
 app.use("/api/stock/feed", stockFeedRoutes);
@@ -71,10 +72,6 @@ app.use((err, req, res, next) => {
 });
 
 // Test route for image serving
-// Uncomment if you want to use this route
-// app.use("/api/animals", animalRoutes);
-app.use('/api/categories', categoryRoutes);
-// Test image endpoint
 app.get('/test-image', (req, res) => {
   res.send(`
     <html>
