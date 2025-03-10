@@ -74,6 +74,7 @@ app.use("/api/cropsDetails", cropDetailsRoutes);
 app.use("/api/animalDetails", animalDetailsRoutes);
 app.use("/api/animal", animal);
 app.use("/api/stock-statistics", stockStatisticsRoutes);
+app.use("/api/categories", categoryRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -82,10 +83,6 @@ app.use((err, req, res, next) => {
 });
 
 // Test route for image serving
-// Uncomment if you want to use this route
-// app.use("/api/animals", animalRoutes);
-
-// Test image endpoint
 app.get('/test-image', (req, res) => {
   res.send(`
     <html>
