@@ -3,6 +3,7 @@ const { DataTypes } = require("sequelize");
 //importing models
 const Accounts = require("./models/Accounts")(sequelize, DataTypes);
 const Animal_doc = require("./models/Animal _doc")(sequelize, DataTypes);
+const AnimalDetails = require("./models/AnimalDetails")(sequelize, DataTypes);
 const AnimalGaston = require("./models/AnimalGaston")(sequelize, DataTypes);
 const BackupSync = require("./models/BackupSync")(sequelize, DataTypes);
 const Category = require("./models/Categories")(sequelize, DataTypes);
@@ -572,6 +573,7 @@ module.exports = {
   Crop,
   CropDetails,
   Animal_doc,
+  AnimalDetails,
   AnimalGaston,
   Category,
   Pesticide,
