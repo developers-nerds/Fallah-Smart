@@ -16,6 +16,16 @@ const Messages = require("./models/Messages")(sequelize, DataTypes);
 const Notification = require("./models/notification")(sequelize, DataTypes);
 const Pesticide = require("./models/Pesticide")(sequelize, DataTypes);
 const Posts = require("./models/Posts")(sequelize, DataTypes);
+const Suppliers = require("./models/Suppliers")(sequelize, DataTypes);
+const CropOrders = require("./models/CropOrders")(sequelize, DataTypes);
+const CropListings = require("./models/CropListings")(sequelize, DataTypes);
+const AuctionBids = require("./models/AuctionBids")(sequelize, DataTypes);
+const Auctions = require("./models/Auctions")(sequelize, DataTypes);
+const TradingCategories = require("./models/TradingCategoreies")(
+  sequelize,
+  DataTypes
+);
+const Location = require("./models/location")(sequelize, DataTypes);
 const Recurring_Transactions = require("./models/Recurring_Transactions")(
   sequelize,
   DataTypes
@@ -61,12 +71,127 @@ AnimalGaston.belongsTo(Users, {
   foreignKey: "userId",
   as: "user",
 });
-
+Users.hasOne(Suppliers, {
+  foreignKey: "userId",
+  as: "supplier",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+Suppliers.belongsTo(Users, {
+  foreignKey: "userId",
+  as: "user",
+});
 // For scans
 Scans.belongsTo(Users, {
   foreignKey: "userId",
   as: "user",
 });
+
+Suppliers.hasMany(CropListings, {
+  foreignKey: "supplierId",
+  as: "cropListings",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+CropListings.belongsTo(Suppliers, {
+  foreignKey: "supplierId",
+  as: "supplier",
+});
+
+Users.hasMany(CropOrders, {
+  foreignKey: "userId",
+  as: "cropOrders",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+CropOrders.belongsTo(Users, {
+  foreignKey: "userId",
+  as: "user",
+});
+
+Suppliers.hasMany(CropOrders, {
+  foreignKey: "supplierId",
+  as: "supplierOrders",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+CropOrders.belongsTo(Suppliers, {
+  foreignKey: "supplierId",
+  as: "supplier",
+});
+
+// 4. CropListings one-to-many with Auctions
+CropListings.hasMany(Auctions, {
+  foreignKey: "cropListingId",
+  as: "auctions",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+Auctions.belongsTo(CropListings, {
+  foreignKey: "cropListingId",
+  as: "cropListing",
+});
+
+// 5. Auctions one-to-many with AuctionBids
+Auctions.hasMany(AuctionBids, {
+  foreignKey: "auctionId",
+  as: "bids",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+AuctionBids.belongsTo(Auctions, {
+  foreignKey: "auctionId",
+  as: "auction",
+});
+
+// 6. TradingCategories one-to-many with CropListings (assuming this is what you meant instead of TradingCategories with itself)
+TradingCategories.hasMany(CropListings, {
+  foreignKey: "categoryId",
+  as: "cropListings",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+CropListings.belongsTo(TradingCategories, {
+  foreignKey: "categoryId",
+  as: "category",
+});
+
+// 7. User one-to-one with Location
+Users.hasOne(Location, {
+  foreignKey: "userId",
+  as: "location",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+Location.belongsTo(Users, {
+  foreignKey: "userId",
+  as: "user",
+});
+
+// 8. Suppliers one-to-many with Location
+Suppliers.hasMany(Location, {
+  foreignKey: "supplierId",
+  as: "locations",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+Location.belongsTo(Suppliers, {
+  foreignKey: "supplierId",
+  as: "supplier",
+});
+
+// Additional associations to complete the relationships
+AuctionBids.belongsTo(Users, {
+  foreignKey: "userId",
+  as: "bidder",
+});
+Users.hasMany(AuctionBids, {
+  foreignKey: "userId",
+  as: "auctionBids",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+
 // ... existing imports and associations ...
 // Update User and Accounts association to Many-to-One with unique alias
 Users.hasMany(Accounts, {
@@ -131,10 +256,6 @@ Media.belongsTo(Animal_doc, {
   foreignKey: "animalDocId",
   as: "animalDoc",
 });
-
-
-
-
 
 Category.hasMany(Media, {
   foreignKey: "categoryId",
@@ -427,7 +548,7 @@ Stock.belongsTo(Users, {
   as: "user",
 });
 
-// Sync all models with the database
+//Sync all models with the database
 // async function syncModels() {
 //   try {
 //     // Use { force: true } for production to safely update schema
@@ -460,6 +581,12 @@ module.exports = {
   Likes,
   Comments,
   Accounts,
+  Suppliers,
+  CropOrders,
+  CropListings,
+  AuctionBids,
+  Auctions,
+  TradingCategories,
   BackupSync,
   Media,
   Notification,
