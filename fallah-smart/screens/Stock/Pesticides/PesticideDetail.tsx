@@ -92,19 +92,20 @@ const QuantityModal = ({
         <BlurView intensity={80} tint="dark" style={styles.modalBlur}>
           <View style={[styles.modalContent, { backgroundColor: theme.colors.neutral.surface }]}>
             <Text style={[styles.modalTitle, { color: theme.colors.neutral.textPrimary }]}>
-              {type === 'add' ? 'Ajouter au stock' : 'Retirer du stock'}
+              {type === 'add' ? 'إضافة للمخزون' : 'سحب من المخزون'}
             </Text>
 
             <View style={styles.modalInputContainer}>
               <TextInput
                 style={[styles.modalInput, { 
                   backgroundColor: theme.colors.neutral.background,
-                  color: theme.colors.neutral.textPrimary 
+                  color: theme.colors.neutral.textPrimary,
+                  textAlign: 'right'
                 }]}
                 value={quantity}
                 onChangeText={setQuantity}
                 keyboardType="numeric"
-                placeholder={`Quantité en ${unit}`}
+                placeholder={`الكمية بـ ${unit}`}
                 placeholderTextColor={theme.colors.neutral.textSecondary}
                 editable={!loading}
               />
@@ -114,11 +115,12 @@ const QuantityModal = ({
                   backgroundColor: theme.colors.neutral.background,
                   color: theme.colors.neutral.textPrimary,
                   height: 100,
-                  textAlignVertical: 'top'
+                  textAlignVertical: 'top',
+                  textAlign: 'right'
                 }]}
                 value={notes}
                 onChangeText={setNotes}
-                placeholder="Notes (optionnel)"
+                placeholder="ملاحظات (اختياري)"
                 placeholderTextColor={theme.colors.neutral.textSecondary}
                 multiline
                 numberOfLines={4}
@@ -133,7 +135,7 @@ const QuantityModal = ({
                 disabled={loading}
               >
                 <Text style={[styles.buttonText, { color: theme.colors.neutral.textPrimary }]}>
-                  Annuler
+                  إلغاء
                 </Text>
               </TouchableOpacity>
 
@@ -150,7 +152,7 @@ const QuantityModal = ({
                 {loading ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <Text style={[styles.buttonText, { color: '#fff' }]}>Confirmer</Text>
+                  <Text style={[styles.buttonText, { color: '#fff' }]}>تأكيد</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -249,10 +251,10 @@ export const PesticideDetail = ({ route, navigation }: PesticideDetailProps) => 
           size={64} 
           color={theme.colors.error} 
         />
-        <Text style={[styles.errorText, { color: theme.colors.error }]}>{error}</Text>
+        <Text style={[styles.errorText, { color: theme.colors.error }]}>لم يتم العثور على المبيد</Text>
         <CustomButton 
-          title="Réessayer" 
-          onPress={refreshPesticides}
+          title="رجوع" 
+          onPress={() => navigation.goBack()}
           variant="primary"
         />
       </View>
@@ -267,9 +269,9 @@ export const PesticideDetail = ({ route, navigation }: PesticideDetailProps) => 
           size={64} 
           color={theme.colors.error} 
         />
-        <Text style={[styles.errorText, { color: theme.colors.error }]}>Pesticide non trouvé</Text>
+        <Text style={[styles.errorText, { color: theme.colors.error }]}>لم يتم العثور على المبيد</Text>
         <CustomButton 
-          title="Retour" 
+          title="رجوع" 
           onPress={() => navigation.goBack()}
           variant="primary"
         />
@@ -287,7 +289,7 @@ export const PesticideDetail = ({ route, navigation }: PesticideDetailProps) => 
           <Feather name="arrow-left" size={24} color={theme.colors.neutral.textPrimary} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.colors.neutral.textPrimary }]}>
-          Détails du Pesticide
+          تفاصيل المبيد
         </Text>
       </Animated.View>
 
@@ -305,26 +307,91 @@ export const PesticideDetail = ({ route, navigation }: PesticideDetailProps) => 
         }
       >
         <View style={[styles.card, { backgroundColor: theme.colors.neutral.surface }]}>
-          <View style={styles.cardHeader}>
-            <View style={styles.titleContainer}>
+          <View style={styles.titleContainer}>
+            <View style={styles.titleContent}>
+              <MaterialCommunityIcons
+                name="flask-outline"
+                size={32}
+                color={pesticide.isNatural ? theme.colors.success : theme.colors.accent.base}
+              />
               <Text style={[styles.name, { color: theme.colors.neutral.textPrimary }]}>
                 {pesticide.name}
               </Text>
-              {pesticide.isNatural && (
-                <View style={[styles.naturalBadge, { backgroundColor: theme.colors.success }]}>
-                  <Feather name="leaf" size={12} color="#FFF" />
-                  <Text style={styles.naturalText}>Naturel</Text>
-                </View>
-              )}
             </View>
+            {pesticide.isNatural && (
+              <View style={[styles.naturalBadge, { backgroundColor: theme.colors.success }]}>
+                <Feather name="leaf" size={12} color="#FFF" />
+                <Text style={styles.naturalText}>Naturel</Text>
+              </View>
+            )}
           </View>
 
-          <View style={styles.quantityContainer}>
-            <Text style={[styles.quantityText, { 
-              color: pesticide.quantity <= 0 ? theme.colors.error : theme.colors.success 
-            }]}>
-              {pesticide.quantity} {pesticide.unit}
-            </Text>
+          <View style={styles.stockLevelContainer}>
+            <View style={styles.stockLevelHeader}>
+              <MaterialCommunityIcons
+                name="package-variant"
+                size={24}
+                color={pesticide.quantity <= pesticide.lowStockThreshold 
+                  ? theme.colors.error 
+                  : theme.colors.success}
+              />
+              <Text style={[styles.stockLevelTitle, { 
+                color: pesticide.quantity <= pesticide.lowStockThreshold 
+                  ? theme.colors.error 
+                  : theme.colors.success 
+              }]}>
+                المخزون الحالي
+              </Text>
+            </View>
+            <View style={styles.stockLevelBar}>
+              <Animated.View 
+                style={[
+                  styles.stockLevelFill,
+                  { 
+                    backgroundColor: pesticide.quantity <= pesticide.lowStockThreshold 
+                      ? theme.colors.error 
+                      : theme.colors.success,
+                    width: `${Math.min((pesticide.quantity / pesticide.lowStockThreshold) * 100, 100)}%`
+                  }
+                ]} 
+              />
+            </View>
+            <View style={styles.stockLevelInfo}>
+              <View style={styles.quantityContainer}>
+                <Text style={[styles.stockLevelText, { 
+                  color: pesticide.quantity <= pesticide.lowStockThreshold 
+                    ? theme.colors.error 
+                    : theme.colors.success 
+                }]}>
+                  {pesticide.quantity}
+                </Text>
+                <Text style={[styles.unitText, { 
+                  color: pesticide.quantity <= pesticide.lowStockThreshold 
+                    ? theme.colors.error 
+                    : theme.colors.success 
+                }]}>
+                  {pesticide.unit}
+                </Text>
+              </View>
+              <View style={styles.thresholdContainer}>
+                <MaterialCommunityIcons
+                  name="alert-circle"
+                  size={16}
+                  color={theme.colors.neutral.textSecondary}
+                />
+                <Text style={[styles.thresholdText, { color: theme.colors.neutral.textSecondary }]}>
+                  الحد الأدنى: {pesticide.lowStockThreshold} {pesticide.unit}
+                </Text>
+              </View>
+            </View>
+            {pesticide.quantity <= pesticide.lowStockThreshold && (
+              <View style={[styles.lowStockWarning, { backgroundColor: theme.colors.error }]}>
+                <MaterialCommunityIcons name="alert" size={20} color="#FFF" />
+                <Text style={styles.lowStockWarningText}>
+                  مخزون منخفض! يرجى إعادة التزويد قريباً
+                </Text>
+              </View>
+            )}
           </View>
 
           <View style={styles.actions}>
@@ -336,9 +403,9 @@ export const PesticideDetail = ({ route, navigation }: PesticideDetailProps) => 
               onPress={() => setShowAddModal(true)}
               disabled={loading}
             >
-              <Feather name="plus" size={20} color="#fff" />
+              <MaterialCommunityIcons name="plus-circle" size={24} color="#fff" />
               <Text style={[styles.actionButtonText, { color: '#fff' }]}>
-                Ajouter
+                إضافة مخزون
               </Text>
             </TouchableOpacity>
 
@@ -350,11 +417,85 @@ export const PesticideDetail = ({ route, navigation }: PesticideDetailProps) => 
               onPress={() => setShowRemoveModal(true)}
               disabled={loading}
             >
-              <Feather name="minus" size={20} color="#fff" />
+              <MaterialCommunityIcons name="minus-circle" size={24} color="#fff" />
               <Text style={[styles.actionButtonText, { color: '#fff' }]}>
-                Retirer
+                سحب من المخزون
               </Text>
             </TouchableOpacity>
+          </View>
+
+          <View style={styles.infoGrid}>
+            <View style={styles.infoSection}>
+              <Text style={[styles.sectionLabel, { color: theme.colors.neutral.textSecondary }]}>
+                معلومات عامة
+              </Text>
+              <View style={[styles.infoItem, { backgroundColor: theme.colors.neutral.background }]}>
+                <View style={[styles.iconContainer, { backgroundColor: theme.colors.primary.base }]}>
+                  <MaterialCommunityIcons name="bug-outline" size={20} color="#FFF" />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text style={[styles.infoLabel, { color: theme.colors.neutral.textSecondary }]}>
+                    الهدف
+                  </Text>
+                  <Text style={[styles.infoValue, { color: theme.colors.neutral.textPrimary }]}>
+                    {pesticide.target || 'Non spécifié'}
+                  </Text>
+                </View>
+              </View>
+
+              {pesticide.waitingPeriod && (
+                <View style={[styles.infoItem, { backgroundColor: theme.colors.neutral.background }]}>
+                  <View style={[styles.iconContainer, { backgroundColor: theme.colors.warning }]}>
+                    <MaterialCommunityIcons name="clock-outline" size={20} color="#FFF" />
+                  </View>
+                  <View style={styles.infoContent}>
+                    <Text style={[styles.infoLabel, { color: theme.colors.neutral.textSecondary }]}>
+                      فترة الانتظار قبل الحصاد
+                    </Text>
+                    <Text style={[styles.infoValue, { color: theme.colors.warning }]}>
+                      {pesticide.waitingPeriod} jours
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.infoSection}>
+              <Text style={[styles.sectionLabel, { color: theme.colors.neutral.textSecondary }]}>
+                السلامة والتطبيق
+              </Text>
+              {pesticide.safetyInstructions && (
+                <View style={[styles.infoItem, { backgroundColor: theme.colors.neutral.background }]}>
+                  <View style={[styles.iconContainer, { backgroundColor: theme.colors.error }]}>
+                    <MaterialCommunityIcons name="shield-alert" size={20} color="#FFF" />
+                  </View>
+                  <View style={styles.infoContent}>
+                    <Text style={[styles.infoLabel, { color: theme.colors.neutral.textSecondary }]}>
+                      تعليمات السلامة
+                    </Text>
+                    <Text style={[styles.infoValue, { color: theme.colors.neutral.textPrimary }]}>
+                      {pesticide.safetyInstructions}
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {pesticide.applicationInstructions && (
+                <View style={[styles.infoItem, { backgroundColor: theme.colors.neutral.background }]}>
+                  <View style={[styles.iconContainer, { backgroundColor: theme.colors.accent.base }]}>
+                    <MaterialCommunityIcons name="spray" size={20} color="#FFF" />
+                  </View>
+                  <View style={styles.infoContent}>
+                    <Text style={[styles.infoLabel, { color: theme.colors.neutral.textSecondary }]}>
+                      تعليمات التطبيق
+                    </Text>
+                    <Text style={[styles.infoValue, { color: theme.colors.neutral.textPrimary }]}>
+                      {pesticide.applicationInstructions}
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </View>
           </View>
         </View>
       </Animated.ScrollView>
@@ -419,21 +560,20 @@ const styles = createThemedStyles((theme) => ({
     shadowOpacity: 0.1,
     shadowRadius: 8,
   } as ViewStyle,
-  cardHeader: {
+  titleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: theme.spacing.lg,
   },
-  titleContainer: {
-    flex: 1,
+  titleContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: theme.spacing.sm,
   },
   name: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: theme.fontSizes.h2,
+    fontFamily: theme.fonts.bold,
   },
   naturalBadge: {
     flexDirection: 'row',
@@ -446,47 +586,137 @@ const styles = createThemedStyles((theme) => ({
   naturalText: {
     color: '#FFF',
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: theme.fonts.medium,
+  },
+  stockLevelContainer: {
+    marginTop: theme.spacing.lg,
+    backgroundColor: theme.colors.neutral.background,
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.medium,
+  },
+  stockLevelHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
+  },
+  stockLevelTitle: {
+    fontSize: theme.fontSizes.h3,
+    fontFamily: theme.fonts.bold,
+  },
+  stockLevelBar: {
+    height: 12,
+    backgroundColor: theme.colors.neutral.gray.light,
+    borderRadius: 6,
+    overflow: 'hidden',
+    marginVertical: theme.spacing.sm,
+  },
+  stockLevelFill: {
+    height: '100%',
+    borderRadius: 6,
+  },
+  stockLevelInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   quantityContainer: {
-    alignItems: 'center',
-    marginBottom: 24,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: theme.spacing.xs,
   },
-  quantityText: {
-    fontSize: 32,
-    fontWeight: 'bold',
+  stockLevelText: {
+    fontSize: theme.fontSizes.h1,
+    fontFamily: theme.fonts.bold,
+  },
+  unitText: {
+    fontSize: theme.fontSizes.h3,
+    fontFamily: theme.fonts.medium,
+  },
+  thresholdContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+  },
+  thresholdText: {
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.medium,
+  },
+  lowStockWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.medium,
+    marginTop: theme.spacing.sm,
+  },
+  lowStockWarningText: {
+    color: '#FFF',
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.medium,
   },
   actions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 16,
+    marginTop: theme.spacing.xl,
+    gap: theme.spacing.md,
   },
   actionButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 12,
+    gap: theme.spacing.sm,
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.borderRadius.medium,
     elevation: 2,
-    shadowColor: '#000000',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-  } as ViewStyle,
+  },
   actionButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.bold,
   },
-  centerContent: {
-    justifyContent: 'center',
+  infoGrid: {
+    marginTop: theme.spacing.xl,
+    gap: theme.spacing.lg,
+  },
+  infoSection: {
+    gap: theme.spacing.md,
+  },
+  sectionLabel: {
+    fontSize: theme.fontSizes.h4,
+    fontFamily: theme.fonts.bold,
+    marginBottom: theme.spacing.xs,
+  },
+  infoItem: {
+    flexDirection: 'row',
     alignItems: 'center',
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.medium,
+    ...theme.shadows.small,
   },
-  errorText: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginVertical: 16,
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: theme.spacing.md,
+  },
+  infoContent: {
+    flex: 1,
+  },
+  infoLabel: {
+    fontSize: theme.fontSizes.caption,
+    fontFamily: theme.fonts.medium,
+    marginBottom: 2,
+  },
+  infoValue: {
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.medium,
   },
   modalOverlay: {
     flex: 1,
@@ -551,6 +781,15 @@ const styles = createThemedStyles((theme) => ({
   buttonText: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginVertical: 16,
   },
 }));
 

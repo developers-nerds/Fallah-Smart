@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Animated, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Animated, Dimensions, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { theme } from '../../theme/theme';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -47,6 +47,7 @@ const EducationScreen = () => {
   const [fadeAnim] = useState(new Animated.Value(0));
 
   useEffect(() => {
+    setTimeout(() => setIsLoading(false), 1000); // Simulate loading
     Animated.sequence([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -71,7 +72,7 @@ const EducationScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <LinearGradient
         colors={[theme.colors.primary.base, theme.colors.primary.dark]}
         style={styles.headerGradient}
@@ -107,13 +108,11 @@ const EducationScreen = () => {
                 styles.categoryCard,
                 { 
                   transform: [{ scale: scaleAnims[index] }],
-                  backgroundColor: `${category.color}15`,
-                  borderColor: category.color,
                 }
               ]}
             >
               <TouchableOpacity
-                style={styles.categoryContent}
+                style={[styles.categoryContent, { backgroundColor: `${category.color}15` }]}
                 onPress={() => navigation.navigate(category.screen)}
                 onPressIn={() => handlePressIn(index)}
                 onPressOut={() => handlePressOut(index)}
@@ -122,7 +121,7 @@ const EducationScreen = () => {
                 <View style={[styles.iconContainer, { backgroundColor: `${category.color}20` }]}>
                   <MaterialCommunityIcons
                     name={category.iconName}
-                    size={64}
+                    size={48}
                     color={category.color}
                   />
                 </View>
@@ -151,7 +150,7 @@ const EducationScreen = () => {
           ))}
         </View>
       </Animated.View>
-    </View>
+    </ScrollView>
   );
 };
 
@@ -161,49 +160,46 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.neutral.background,
   },
   headerGradient: {
-    padding: theme.spacing.xl,
-    paddingTop: theme.spacing.xl * 1.5,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    ...theme.shadows.large,
+    padding: theme.spacing.md,
+    paddingTop: theme.spacing.xl,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    ...theme.shadows.medium,
   },
   header: {
-    fontSize: theme.typography.arabic.h1.fontSize,
-    fontWeight: '700',
+    fontSize: 24,
+    fontWeight: '600',
     textAlign: 'center',
     color: '#FFFFFF',
-    marginBottom: theme.spacing.sm,
-    textShadowColor: 'rgba(0, 0, 0, 0.2)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    marginBottom: theme.spacing.xs,
   },
   subheader: {
-    fontSize: theme.typography.arabic.body.fontSize,
+    fontSize: 16,
     textAlign: 'center',
     color: '#FFFFFF',
     opacity: 0.9,
   },
   content: {
     flex: 1,
-    padding: theme.spacing.lg,
+    padding: theme.spacing.md,
   },
   sectionTitle: {
-    fontSize: theme.typography.arabic.h3.fontSize,
+    fontSize: 22,
     fontWeight: '600',
     color: theme.colors.neutral.textPrimary,
     marginBottom: theme.spacing.lg,
-    textAlign: 'right',
-    marginTop: theme.spacing.xl,
+    textAlign: 'center',
+    marginTop: theme.spacing.lg,
   },
   gifContainer: {
     position: 'relative',
     width: '100%',
-    height: 200,
-    marginBottom: theme.spacing.xl,
-    borderRadius: theme.borderRadius.large,
+    height: 150,
+    marginBottom: theme.spacing.lg,
+    borderRadius: theme.borderRadius.medium,
     overflow: 'hidden',
     backgroundColor: theme.colors.neutral.surface,
-    ...theme.shadows.medium,
+    ...theme.shadows.small,
   },
   loader: {
     position: 'absolute',
@@ -214,66 +210,69 @@ const styles = StyleSheet.create({
   gif: {
     width: '100%',
     height: '100%',
-    borderRadius: theme.borderRadius.large,
+    borderRadius: theme.borderRadius.medium,
   },
   categoriesContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     paddingHorizontal: theme.spacing.sm,
-    marginTop: theme.spacing.md,
+    gap: theme.spacing.md,
   },
   categoryCard: {
-    width: width * 0.48,
+    width: width * 0.35,
+    aspectRatio: 0.85,
+    borderRadius: 12,
     backgroundColor: theme.colors.neutral.surface,
-    borderRadius: theme.borderRadius.large,
-    borderWidth: 2,
-    ...theme.shadows.medium,
+    ...theme.shadows.small,
   },
   categoryContent: {
-    padding: theme.spacing.md,
+    flex: 1,
+    padding: theme.spacing.sm,
+    borderRadius: 12,
     alignItems: 'center',
   },
   iconContainer: {
-    borderRadius: 50,
-    width: 80,
-    height: 80,
+    borderRadius: 16,
+    width: 45,
+    height: 45,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: theme.spacing.sm,
+    marginBottom: theme.spacing.xs,
     ...theme.shadows.small,
   },
   categoryTitle: {
-    fontSize: theme.typography.arabic.h3.fontSize,
-    fontWeight: '700',
-    textAlign: 'center',
+    fontSize: 18,
+    fontWeight: '600',
     marginBottom: theme.spacing.xs,
+    textAlign: 'center',
   },
   categoryDescription: {
-    fontSize: theme.typography.arabic.caption.fontSize,
+    fontSize: 12,
     color: theme.colors.neutral.textSecondary,
+    marginBottom: theme.spacing.xs,
     textAlign: 'center',
-    marginBottom: theme.spacing.sm,
   },
   progressWrapper: {
-    width: '100%',
-    alignItems: 'center',
+    width: '85%',
+    marginTop: 'auto',
   },
   progressContainer: {
     width: '100%',
-    height: 6,
+    height: 2,
     backgroundColor: theme.colors.neutral.gray.light,
-    borderRadius: 3,
+    borderRadius: 1,
     overflow: 'hidden',
     marginBottom: theme.spacing.xs,
   },
   progressBar: {
     height: '100%',
-    borderRadius: 3,
+    borderRadius: 1,
   },
   progressText: {
-    fontSize: theme.typography.arabic.caption.fontSize,
+    fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
+    marginTop: theme.spacing.xs,
   },
 });
 
