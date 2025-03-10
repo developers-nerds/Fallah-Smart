@@ -452,6 +452,7 @@ module.exports = {
   Crop,
   CropDetails,
   Animal_doc,
+  AnimalDetails,
   AnimalGaston,
   Category,
   Pesticide,
@@ -465,5 +466,4 @@ module.exports = {
   Media,
   Notification,
   Recurring_Transactions,
-  AnimalDetails
 };

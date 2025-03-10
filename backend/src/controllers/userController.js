@@ -1,6 +1,6 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const { Users } = require('../database/assossiation');
+const { Users, Accounts } = require('../database/assossiation');
 const { Op } = require('sequelize');
 require('dotenv').config();
 const config = require("../config/db");
@@ -102,6 +102,14 @@ const userController = {
         lastLogin: new Date()
       });
 
+      // Create default account for the new user
+      const defaultAccount = await Accounts.create({
+        userId: newUser.id,
+        Methods: 'Cash', // Default payment method
+        balance: 0,
+        currency: 'USD' // Default currency
+      });
+
       // Generate tokens with user data
       const accessToken = generateAccessToken(newUser);
       const refreshToken = generateRefreshToken(newUser);
@@ -119,6 +127,7 @@ const userController = {
 
       res.status(201).json({
         user: userResponse,
+        account: defaultAccount,
         tokens: {
           access: {
             token: accessToken,
