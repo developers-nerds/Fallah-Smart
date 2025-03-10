@@ -26,6 +26,32 @@ type AnimalsScreenProps = {
   navigation: StackNavigationProp<StockStackParamList, 'Animals'>;
 };
 
+const ANIMAL_TYPES = {
+  cow: { icon: '🐄', name: 'بقرة', category: 'ماشية' },
+  sheep: { icon: '🐑', name: 'خروف', category: 'ماشية' },
+  goat: { icon: '🐐', name: 'ماعز', category: 'ماشية' },
+  chicken: { icon: '🐔', name: 'دجاج', category: 'دواجن' },
+  horse: { icon: '🐎', name: 'حصان', category: 'ماشية' },
+  donkey: { icon: '🦓', name: 'حمار', category: 'ماشية' },
+  rabbit: { icon: '🐰', name: 'أرنب', category: 'حيوانات صغيرة' },
+  duck: { icon: '🦆', name: 'بطة', category: 'دواجن' },
+  turkey: { icon: '🦃', name: 'ديك رومي', category: 'دواجن' },
+  camel: { icon: '🐪', name: 'جمل', category: 'ماشية' },
+  pigeon: { icon: '🕊️', name: 'حمام', category: 'طيور' },
+  bee: { icon: '🐝', name: 'نحل', category: 'حشرات' },
+  fish: { icon: '🐟', name: 'سمك', category: 'أسماك' },
+  cat: { icon: '🐱', name: 'قط', category: 'حيوانات أليفة' },
+  dog: { icon: '🐕', name: 'كلب', category: 'حيوانات أليفة' },
+  pig: { icon: '🐷', name: 'خنزير', category: 'ماشية' },
+  goose: { icon: '🦢', name: 'إوزة', category: 'دواجن' },
+  rooster: { icon: '🐓', name: 'ديك', category: 'دواجن' },
+  peacock: { icon: '🦚', name: 'طاووس', category: 'طيور' },
+  parrot: { icon: '🦜', name: 'ببغاء', category: 'طيور' },
+  owl: { icon: '🦉', name: 'بومة', category: 'طيور' },
+  eagle: { icon: '🦅', name: 'نسر', category: 'طيور' },
+  hawk: { icon: '🦆', name: 'صقر', category: 'طيور' },
+};
+
 const getHealthStatusColor = (status: HealthStatus, theme: any) => {
   switch (status) {
     case 'excellent':
@@ -58,11 +84,20 @@ const getHealthStatusLabel = (status: HealthStatus): string => {
 
 const getAnimalIcon = (type: string): string => {
   const lowercaseType = type.toLowerCase();
-  if (lowercaseType.includes('بقرة') || lowercaseType.includes('ثور')) return 'cow';
-  if (lowercaseType.includes('خروف') || lowercaseType.includes('نعجة')) return 'sheep';
-  if (lowercaseType.includes('دجاج') || lowercaseType.includes('ديك')) return 'bird';
-  if (lowercaseType.includes('ماعز')) return 'goat';
-  return 'paw';
+  const animalType = Object.keys(ANIMAL_TYPES).find(key => 
+    lowercaseType === key || 
+    lowercaseType === ANIMAL_TYPES[key as keyof typeof ANIMAL_TYPES].name
+  );
+  return animalType ? ANIMAL_TYPES[animalType as keyof typeof ANIMAL_TYPES].icon : '🐾';
+};
+
+const getAnimalName = (type: string): string => {
+  const lowercaseType = type.toLowerCase();
+  const animalType = Object.keys(ANIMAL_TYPES).find(key => 
+    lowercaseType === key || 
+    lowercaseType === ANIMAL_TYPES[key as keyof typeof ANIMAL_TYPES].name
+  );
+  return animalType ? ANIMAL_TYPES[animalType as keyof typeof ANIMAL_TYPES].name : type;
 };
 
 export const AnimalsScreen = ({ navigation }: AnimalsScreenProps) => {
@@ -103,7 +138,12 @@ export const AnimalsScreen = ({ navigation }: AnimalsScreenProps) => {
   }, [paginatedAnimals.length, filteredAnimals.length]);
 
   const renderAnimalCard = useCallback(({ item, index }: { item: Animal; index: number }) => {
-    const animalIcon = getAnimalIcon(item.type);
+    const isPoorHealth = item.healthStatus === 'poor';
+    const animalType = Object.keys(ANIMAL_TYPES).find(key => 
+      item.type.toLowerCase() === key || 
+      item.type.toLowerCase() === ANIMAL_TYPES[key as keyof typeof ANIMAL_TYPES].name
+    );
+    const animalInfo = animalType ? ANIMAL_TYPES[animalType as keyof typeof ANIMAL_TYPES] : null;
     
     return (
       <Animated.View
@@ -116,23 +156,31 @@ export const AnimalsScreen = ({ navigation }: AnimalsScreenProps) => {
         >
           <View style={styles.cardHeader}>
             <View style={[styles.iconContainer, { backgroundColor: theme.colors.primary.base }]}>
-              <MaterialCommunityIcons 
-                name={animalIcon as any} 
-                size={24} 
-                color="#FFF" 
-              />
+              <Text style={styles.animalIcon}>{animalInfo?.icon || '🐾'}</Text>
             </View>
             <View style={styles.headerInfo}>
-              <Text style={[styles.animalType, { color: theme.colors.neutral.textPrimary }]}>
-                {item.type}
-              </Text>
-              <Text style={[styles.animalGender, { color: theme.colors.neutral.textSecondary }]}>
-                {item.gender === 'male' ? 'ذكر' : 'أنثى'}
-              </Text>
+              <View style={styles.titleContainer}>
+                <Text style={[styles.animalType, { color: theme.colors.neutral.textPrimary }]}>
+                  {animalInfo?.name || item.type}
+                </Text>
+                <Text style={[styles.animalCategory, { color: theme.colors.neutral.textSecondary }]}>
+                  {animalInfo?.category}
+                </Text>
+              </View>
+              <View style={styles.subtitleContainer}>
+                <Text style={[styles.animalGender, { color: theme.colors.neutral.textSecondary }]}>
+                  {item.gender === 'male' ? 'ذكر' : 'أنثى'}
+                </Text>
+                <Text style={styles.breedingIcon}>
+                  {item.breedingStatus === 'pregnant' ? '🤰' : 
+                   item.breedingStatus === 'lactating' ? '🍼' : 
+                   item.breedingStatus === 'ready' ? '❤️' : '⚪'}
+                </Text>
+              </View>
             </View>
             <View style={[styles.countBadge, { backgroundColor: theme.colors.primary.base }]}>
               <Text style={[styles.countText, { color: '#FFF' }]}>
-                {item.count}
+                {item.count} {item.count === 1 ? 'حيوان' : 'حيوانات'}
               </Text>
             </View>
           </View>
@@ -151,10 +199,28 @@ export const AnimalsScreen = ({ navigation }: AnimalsScreenProps) => {
                 {getHealthStatusLabel(item.healthStatus)}
               </Text>
             </View>
-            <Text style={[styles.feedingText, { color: theme.colors.neutral.textSecondary }]}>
-              {item.feedingSchedule || 'لا يوجد برنامج تغذية'}
-            </Text>
+            {item.birthDate && (
+              <View style={styles.birthDateContainer}>
+                <MaterialCommunityIcons
+                  name="calendar"
+                  size={16}
+                  color={theme.colors.neutral.textSecondary}
+                />
+                <Text style={[styles.birthDate, { color: theme.colors.neutral.textSecondary }]}>
+                  {new Date(item.birthDate).toLocaleDateString('ar-SA')}
+                </Text>
+              </View>
+            )}
           </View>
+
+          {isPoorHealth && (
+            <View style={[styles.alertContainer, { backgroundColor: theme.colors.error }]}>
+              <MaterialCommunityIcons name="alert" size={16} color="#FFF" />
+              <Text style={styles.alertText}>
+                ⚠️ حالة صحية سيئة - يحتاج إلى رعاية فورية
+              </Text>
+            </View>
+          )}
         </TouchableOpacity>
       </Animated.View>
     );
@@ -267,9 +333,17 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 12,
   },
+  titleContainer: {
+    marginBottom: 4,
+  },
   animalType: {
     fontSize: 18,
     fontWeight: '600',
+    textAlign: 'right',
+  },
+  animalCategory: {
+    fontSize: 12,
+    textAlign: 'right',
   },
   animalGender: {
     fontSize: 14,
@@ -321,5 +395,39 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 16,
     right: 16,
+  },
+  animalIcon: {
+    fontSize: 32,
+  },
+  subtitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  breedingIcon: {
+    fontSize: 16,
+  },
+  birthDateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  birthDate: {
+    fontSize: 14,
+    textAlign: 'right',
+  },
+  alertContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+    borderRadius: 8,
+    gap: 4,
+    marginTop: 8,
+  },
+  alertText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'right',
   },
 }); 

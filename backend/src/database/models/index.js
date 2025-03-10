@@ -1,11 +1,11 @@
-const fs = require('fs');
-const path = require('path');
-const Sequelize = require('sequelize');
+const fs = require("fs");
+const path = require("path");
+const Sequelize = require("sequelize");
 const basename = path.basename(__filename);
-const env = process.env.NODE_ENV || 'development';
+const env = process.env.NODE_ENV || "development";
 const db = {};
 
-require('dotenv').config({ path: path.join(__dirname, '../../../.env') });
+require("dotenv").config({ path: path.join(__dirname, "../../../.env") });
 
 const sequelize = new Sequelize(
   process.env.DB_NAME,
@@ -17,8 +17,8 @@ const sequelize = new Sequelize(
     dialect: 'postgres',
     logging: false,
     dialectOptions: {
-      ssl: process.env.DB_SSL === 'true'
-    }
+      ssl: process.env.DB_SSL === "true",
+    },
   }
 );
 
@@ -45,4 +45,4 @@ Object.keys(db).forEach(modelName => {
 db.sequelize = sequelize;
 db.Sequelize = Sequelize;
 
-module.exports = db; 
+module.exports = db;

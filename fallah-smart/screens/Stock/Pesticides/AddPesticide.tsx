@@ -10,7 +10,8 @@ import {
   ViewStyle,
   Modal,
   Switch,
-  Alert
+  Alert,
+  ActivityIndicator
 } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
 import { StockCategory, StockUnit, PesticideType } from '../types';
@@ -46,31 +47,37 @@ const UNITS = [
 
 interface FormPage {
   title: string;
+  subtitle: string;
+  icon: string;
   fields: string[];
 }
 
 const FORM_PAGES = [
   {
-    title: 'معلومات أساسية',
-    fields: ['name', 'type', 'activeIngredients', 'targetPests'] as const,
+    title: 'المعلومات الأساسية',
+    subtitle: 'أدخل المعلومات الأساسية للمبيد',
+    icon: '🧪',
+    fields: ['name', 'type', 'quantity', 'unit', 'minQuantityAlert', 'price'],
   },
   {
-    title: 'معلومات التطبيق',
-    fields: ['applicationRate', 'safetyInterval'] as const,
-  },
-  {
-    title: 'معلومات المنتج',
-    fields: ['manufacturer', 'registrationNumber', 'storageConditions'] as const,
+    title: 'التفاصيل الفنية',
+    subtitle: 'أدخل التفاصيل الفنية للمبيد',
+    icon: '⚗️',
+    fields: ['activeIngredients', 'targetPests', 'applicationRate', 'safetyInterval'],
   },
   {
     title: 'معلومات السلامة',
-    fields: ['safetyPrecautions', 'emergencyProcedures'] as const,
+    subtitle: 'أدخل معلومات السلامة والتخزين',
+    icon: '⚠️',
+    fields: ['manufacturer', 'registrationNumber', 'storageConditions', 'safetyPrecautions', 'emergencyProcedures'],
   },
   {
-    title: 'معلومات المخزون',
-    fields: ['quantity', 'unit', 'minQuantityAlert', 'price', 'isNatural', 'supplier', 'expiryDate'] as const,
+    title: 'معلومات إضافية',
+    subtitle: 'أدخل أي معلومات إضافية',
+    icon: '📝',
+    fields: ['isNatural', 'supplier', 'expiryDate'],
   },
-] as const;
+];
 
 const categories: { value: StockCategory; label: string; icon: keyof typeof MaterialCommunityIcons.glyphMap }[] = [
   { value: 'seeds', label: 'البذور', icon: 'seed-outline' },
@@ -175,6 +182,8 @@ const AddPesticideScreen = ({ navigation }: AddPesticideScreenProps) => {
   const [error, setError] = useState<string | null>(null);
   const progress = useSharedValue(0);
   const [loading, setLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   React.useEffect(() => {
     progress.value = withSpring(currentPage / (FORM_PAGES.length - 1));
@@ -186,6 +195,7 @@ const AddPesticideScreen = ({ navigation }: AddPesticideScreenProps) => {
 
   const validateCurrentPage = () => {
     const currentFields = FORM_PAGES[currentPage].fields;
+    const errors: Record<string, string> = {};
     const requiredFields: Record<string, string> = {
       name: 'اسم المبيد',
       type: 'نوع المبيد',
@@ -197,11 +207,12 @@ const AddPesticideScreen = ({ navigation }: AddPesticideScreenProps) => {
 
     for (const field of currentFields) {
       if (field in requiredFields && !formData[field as keyof FormData]) {
-        Alert.alert('خطأ', `يرجى إدخال ${requiredFields[field]}`);
-        return false;
+        errors[field] = `يرجى إدخال ${requiredFields[field]}`;
       }
     }
-    return true;
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleNext = () => {
@@ -225,31 +236,14 @@ const AddPesticideScreen = ({ navigation }: AddPesticideScreenProps) => {
   };
 
   const handleSubmit = async () => {
+    if (!validateCurrentPage()) return;
+
     try {
+      setIsSubmitting(true);
       if (!user) {
         Alert.alert('خطأ', 'يجب تسجيل الدخول أولاً');
         return;
       }
-
-      // Validate all required fields
-      const requiredFields = {
-        name: 'اسم المبيد',
-        type: 'نوع المبيد',
-        quantity: 'الكمية',
-        unit: 'الوحدة',
-        minQuantityAlert: 'الحد الأدنى للتنبيه',
-        price: 'السعر'
-      };
-
-      for (const [field, label] of Object.entries(requiredFields)) {
-        if (!formData[field as keyof FormData]) {
-          Alert.alert('خطأ', `يرجى إدخال ${label}`);
-          return;
-        }
-      }
-
-      setLoading(true);
-      setError(null);
 
       // Validate pesticide type
       if (!pesticideTypes.map(t => t.value).includes(formData.type as PesticideType)) {
@@ -306,11 +300,10 @@ const AddPesticideScreen = ({ navigation }: AddPesticideScreenProps) => {
         throw apiError;
       }
     } catch (error) {
-      console.error('Error in handleSubmit:', error);
-      setError(error instanceof Error ? error.message : 'حدث خطأ أثناء إضافة المبيد');
-      Alert.alert('خطأ', 'حدث خطأ أثناء إضافة المبيد');
+      console.error('Error submitting pesticide:', error);
+      Alert.alert('خطأ', 'فشل في إضافة المبيد');
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -540,7 +533,7 @@ const AddPesticideScreen = ({ navigation }: AddPesticideScreenProps) => {
     <View style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
       <View style={[styles.header, { backgroundColor: theme.colors.neutral.surface }]}>
         <Text style={[styles.headerTitle, { color: theme.colors.neutral.textPrimary }]}>
-          {FORM_PAGES[currentPage].title}
+          {FORM_PAGES[currentPage].icon} {FORM_PAGES[currentPage].title}
         </Text>
         <TouchableOpacity
           style={styles.backButton}
@@ -570,6 +563,11 @@ const AddPesticideScreen = ({ navigation }: AddPesticideScreenProps) => {
           {FORM_PAGES[currentPage].fields.map((field) => (
             <View key={field}>
               {renderField(field as keyof FormData)}
+              {validationErrors[field] && (
+                <Text style={[styles.errorText, { color: theme.colors.error }]}>
+                  {validationErrors[field]}
+                </Text>
+              )}
             </View>
           ))}
         </View>
@@ -577,29 +575,29 @@ const AddPesticideScreen = ({ navigation }: AddPesticideScreenProps) => {
 
       <View style={styles.footer}>
         {currentPage > 0 && (
-          <Button
-            title="السابق"
+          <TouchableOpacity
+            style={[styles.button, styles.previousButton, { backgroundColor: theme.colors.neutral.surface }]}
             onPress={handlePrevious}
-            variant="secondary"
-            style={styles.footerButton}
-          />
+            disabled={isSubmitting}
+          >
+            <Text style={[styles.buttonText, { color: theme.colors.neutral.textPrimary }]}>
+              السابق
+            </Text>
+          </TouchableOpacity>
         )}
-        {currentPage < FORM_PAGES.length - 1 ? (
-          <Button
-            title="التالي"
-            onPress={handleNext}
-            variant="primary"
-            style={styles.footerButton}
-          />
-        ) : (
-          <Button
-            title="إضافة"
-            onPress={handleSubmit}
-            variant="primary"
-            style={styles.footerButton}
-            disabled={loading}
-          />
-        )}
+        <TouchableOpacity
+          style={[styles.button, styles.nextButton, { backgroundColor: theme.colors.primary.base }]}
+          onPress={currentPage === FORM_PAGES.length - 1 ? handleSubmit : handleNext}
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text style={styles.buttonText}>
+              {currentPage === FORM_PAGES.length - 1 ? 'إضافة' : 'التالي'}
+            </Text>
+          )}
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -700,27 +698,33 @@ const styles = createThemedStyles((theme) => ({
     borderTopWidth: 1,
     borderTopColor: theme.colors.neutral.border,
   },
-  footerButton: {
+  errorText: {
+    fontSize: 12,
+    marginTop: 4,
+    marginRight: 4,
+  },
+  button: {
     flex: 1,
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  pickerContainer: {
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 0,
-  },
-  pickerHeader: {
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.neutral.border,
+    gap: 8,
   },
-  pickerButton: {
+  previousButton: {
+    borderWidth: 1,
+    borderColor: theme.colors.neutral.border,
+  },
+  nextButton: {
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  buttonText: {
+    color: 'white',
     fontSize: 16,
     fontWeight: '600',
   },

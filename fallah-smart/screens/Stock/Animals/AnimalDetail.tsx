@@ -24,22 +24,63 @@ type AnimalDetailScreenProps = {
   route: RouteProp<StockStackParamList, 'AnimalDetail'>;
 };
 
+const ANIMAL_TYPES = {
+  cow: { icon: '🐄', name: 'بقرة', category: 'ماشية' },
+  sheep: { icon: '🐑', name: 'خروف', category: 'ماشية' },
+  goat: { icon: '🐐', name: 'ماعز', category: 'ماشية' },
+  chicken: { icon: '🐔', name: 'دجاج', category: 'دواجن' },
+  horse: { icon: '🐎', name: 'حصان', category: 'ماشية' },
+  donkey: { icon: '🦓', name: 'حمار', category: 'ماشية' },
+  rabbit: { icon: '🐰', name: 'أرنب', category: 'حيوانات صغيرة' },
+  duck: { icon: '🦆', name: 'بطة', category: 'دواجن' },
+  turkey: { icon: '🦃', name: 'ديك رومي', category: 'دواجن' },
+  camel: { icon: '🐪', name: 'جمل', category: 'ماشية' },
+  pigeon: { icon: '🕊️', name: 'حمام', category: 'طيور' },
+  bee: { icon: '🐝', name: 'نحل', category: 'حشرات' },
+  fish: { icon: '🐟', name: 'سمك', category: 'أسماك' },
+  cat: { icon: '🐱', name: 'قط', category: 'حيوانات أليفة' },
+  dog: { icon: '🐕', name: 'كلب', category: 'حيوانات أليفة' },
+  pig: { icon: '🐷', name: 'خنزير', category: 'ماشية' },
+  goose: { icon: '🦢', name: 'إوزة', category: 'دواجن' },
+  rooster: { icon: '🐓', name: 'ديك', category: 'دواجن' },
+  peacock: { icon: '🦚', name: 'طاووس', category: 'طيور' },
+  parrot: { icon: '🦜', name: 'ببغاء', category: 'طيور' },
+  owl: { icon: '🦉', name: 'بومة', category: 'طيور' },
+  eagle: { icon: '🦅', name: 'نسر', category: 'طيور' },
+  hawk: { icon: '🦆', name: 'صقر', category: 'طيور' },
+};
+
+const getAnimalIcon = (type: string): string => {
+  const lowercaseType = type.toLowerCase();
+  if (lowercaseType.includes('بقرة') || lowercaseType.includes('ثور')) return '🐄';
+  if (lowercaseType.includes('خروف') || lowercaseType.includes('نعجة')) return '🐑';
+  if (lowercaseType.includes('دجاج') || lowercaseType.includes('ديك')) return '🐔';
+  if (lowercaseType.includes('ماعز')) return '🐐';
+  if (lowercaseType.includes('حصان')) return '🐎';
+  if (lowercaseType.includes('حمار')) return '🦓';
+  if (lowercaseType.includes('أرنب')) return '🐰';
+  if (lowercaseType.includes('بطة')) return '🦆';
+  if (lowercaseType.includes('ديك رومي')) return '🦃';
+  if (lowercaseType.includes('جمل')) return '🐪';
+  return '🐾';
+};
+
 const getHealthStatusColor = (status: HealthStatus, theme: any) => {
   switch (status) {
     case 'excellent':
       return theme.colors.success;
     case 'good':
-      return theme.colors.primary.base;
+      return theme.colors.success;
     case 'fair':
       return theme.colors.warning;
     case 'poor':
       return theme.colors.error;
     default:
-      return theme.colors.neutral.textSecondary;
+      return theme.colors.neutral.border;
   }
 };
 
-const getHealthStatusLabel = (status: HealthStatus): string => {
+const getHealthStatusLabel = (status: HealthStatus) => {
   switch (status) {
     case 'excellent':
       return 'ممتاز';
@@ -50,47 +91,56 @@ const getHealthStatusLabel = (status: HealthStatus): string => {
     case 'poor':
       return 'سيء';
     default:
-      return status;
-  }
-};
-
-const getBreedingStatusLabel = (status: BreedingStatus): string => {
-  switch (status) {
-    case 'not_breeding':
-      return 'غير متكاثر';
-    case 'in_heat':
-      return 'في فترة التزاوج';
-    case 'pregnant':
-      return 'حامل';
-    case 'nursing':
-      return 'مرضعة';
-    default:
-      return status;
+      return 'غير معروف';
   }
 };
 
 const getBreedingStatusColor = (status: BreedingStatus, theme: any) => {
   switch (status) {
-    case 'not_breeding':
-      return theme.colors.neutral.textSecondary;
-    case 'in_heat':
-      return theme.colors.warning;
     case 'pregnant':
       return theme.colors.primary.base;
-    case 'nursing':
+    case 'lactating':
+      return theme.colors.info;
+    case 'ready':
       return theme.colors.success;
     default:
-      return theme.colors.neutral.textSecondary;
+      return theme.colors.neutral.border;
   }
 };
 
-const getAnimalIcon = (type: string): keyof typeof MaterialCommunityIcons.glyphMap => {
+const getBreedingStatusLabel = (status: BreedingStatus) => {
+  switch (status) {
+    case 'pregnant':
+      return 'حامل';
+    case 'lactating':
+      return 'مرضعة';
+    case 'ready':
+      return 'جاهز للتزاوج';
+    default:
+      return 'غير معروف';
+  }
+};
+
+const getBreedingStatusIcon = (status: BreedingStatus) => {
+  switch (status) {
+    case 'pregnant':
+      return '🤰';
+    case 'lactating':
+      return '🍼';
+    case 'ready':
+      return '❤️';
+    default:
+      return '⚪';
+  }
+};
+
+const getAnimalInfo = (type: string) => {
   const lowercaseType = type.toLowerCase();
-  if (lowercaseType.includes('بقرة') || lowercaseType.includes('ثور')) return 'cow';
-  if (lowercaseType.includes('خروف') || lowercaseType.includes('نعجة')) return 'sheep';
-  if (lowercaseType.includes('دجاج') || lowercaseType.includes('ديك')) return 'bird';
-  if (lowercaseType.includes('ماعز')) return 'sheep';
-  return 'paw';
+  const animalType = Object.keys(ANIMAL_TYPES).find(key => 
+    lowercaseType === key || 
+    lowercaseType === ANIMAL_TYPES[key as keyof typeof ANIMAL_TYPES].name
+  );
+  return animalType ? ANIMAL_TYPES[animalType as keyof typeof ANIMAL_TYPES] : null;
 };
 
 export const AnimalDetailScreen = ({ navigation, route }: AnimalDetailScreenProps) => {
@@ -99,6 +149,7 @@ export const AnimalDetailScreen = ({ navigation, route }: AnimalDetailScreenProp
   const [isDeleting, setIsDeleting] = useState(false);
 
   const animal = animals.find(a => a.id === route.params.animalId);
+  const animalInfo = animal ? getAnimalInfo(animal.type) : null;
 
   if (!animal) {
     return (
@@ -156,18 +207,25 @@ export const AnimalDetailScreen = ({ navigation, route }: AnimalDetailScreenProp
     }
   }, [animal.id, addAnimalQuantity, removeAnimalQuantity]);
 
-  const renderInfoSection = (title: string, icon: keyof typeof MaterialCommunityIcons.glyphMap, content: string | null) => {
+  const handleEdit = useCallback(() => {
+    // Navigate to AddAnimal screen with the animal data for editing
+    navigation.navigate('AddAnimal', { 
+      animalId: animal.id,
+      mode: 'edit'
+    });
+  }, [animal.id, navigation]);
+
+  const renderInfoSection = (title: string, icon: string, content: string | null) => {
     if (!content) return null;
 
     return (
-      <View style={[styles.infoSection, { backgroundColor: theme.colors.neutral.surface }]}>
+      <Animated.View 
+        entering={FadeInDown.springify()}
+        style={[styles.infoSection, { backgroundColor: theme.colors.neutral.surface }]}
+      >
         <View style={styles.infoHeader}>
           <View style={[styles.iconContainer, { backgroundColor: theme.colors.primary.base }]}>
-            <MaterialCommunityIcons
-              name={icon}
-              size={24}
-              color="#FFF"
-            />
+            <Text style={styles.infoIcon}>{icon}</Text>
           </View>
           <Text style={[styles.infoTitle, { color: theme.colors.neutral.textPrimary }]}>
             {title}
@@ -176,7 +234,7 @@ export const AnimalDetailScreen = ({ navigation, route }: AnimalDetailScreenProp
         <Text style={[styles.infoContent, { color: theme.colors.neutral.textSecondary }]}>
           {content}
         </Text>
-      </View>
+      </Animated.View>
     );
   };
 
@@ -189,15 +247,14 @@ export const AnimalDetailScreen = ({ navigation, route }: AnimalDetailScreenProp
         >
           <View style={styles.headerContent}>
             <View style={[styles.iconContainer, { backgroundColor: theme.colors.primary.base }]}>
-              <MaterialCommunityIcons
-                name={getAnimalIcon(animal.type)}
-                size={32}
-                color="#FFF"
-              />
+              <Text style={styles.animalIcon}>{animalInfo?.icon || '🐾'}</Text>
             </View>
             <View style={styles.headerInfo}>
               <Text style={[styles.animalType, { color: theme.colors.neutral.textPrimary }]}>
-                {animal.type}
+                {animalInfo?.name || animal.type}
+              </Text>
+              <Text style={[styles.animalCategory, { color: theme.colors.neutral.textSecondary }]}>
+                {animalInfo?.category}
               </Text>
               <Text style={[styles.animalGender, { color: theme.colors.neutral.textSecondary }]}>
                 {animal.gender === 'male' ? 'ذكر' : 'أنثى'}
@@ -208,11 +265,10 @@ export const AnimalDetailScreen = ({ navigation, route }: AnimalDetailScreenProp
           <View style={styles.statsContainer}>
             <View style={styles.quantityContainer}>
               <TouchableOpacity
-                style={[styles.quantityButton, { backgroundColor: theme.colors.error }]}
+                style={[styles.quantityButton, { backgroundColor: theme.colors.primary.base }]}
                 onPress={() => handleQuantityChange('remove')}
-                disabled={animal.count === 0 || isDeleting}
               >
-                <MaterialCommunityIcons name={'minus' as keyof typeof MaterialCommunityIcons.glyphMap} size={20} color="#FFF" />
+                <MaterialCommunityIcons name="minus" size={24} color="#FFF" />
               </TouchableOpacity>
               <View style={[styles.quantityDisplay, { backgroundColor: theme.colors.primary.base }]}>
                 <Text style={[styles.quantityText, { color: '#FFF' }]}>
@@ -223,11 +279,10 @@ export const AnimalDetailScreen = ({ navigation, route }: AnimalDetailScreenProp
                 </Text>
               </View>
               <TouchableOpacity
-                style={[styles.quantityButton, { backgroundColor: theme.colors.success }]}
+                style={[styles.quantityButton, { backgroundColor: theme.colors.primary.base }]}
                 onPress={() => handleQuantityChange('add')}
-                disabled={isDeleting}
               >
-                <MaterialCommunityIcons name={'plus' as keyof typeof MaterialCommunityIcons.glyphMap} size={20} color="#FFF" />
+                <MaterialCommunityIcons name="plus" size={24} color="#FFF" />
               </TouchableOpacity>
             </View>
 
@@ -236,7 +291,7 @@ export const AnimalDetailScreen = ({ navigation, route }: AnimalDetailScreenProp
                 styles.healthStatus,
                 { backgroundColor: getHealthStatusColor(animal.healthStatus, theme) }
               ]}>
-                <MaterialCommunityIcons name={'heart-pulse' as keyof typeof MaterialCommunityIcons.glyphMap} size={20} color="#FFF" />
+                <MaterialCommunityIcons name="heart-pulse" size={20} color="#FFF" />
                 <Text style={styles.healthText}>
                   {getHealthStatusLabel(animal.healthStatus)}
                 </Text>
@@ -246,7 +301,9 @@ export const AnimalDetailScreen = ({ navigation, route }: AnimalDetailScreenProp
                 styles.breedingStatus,
                 { backgroundColor: getBreedingStatusColor(animal.breedingStatus, theme) }
               ]}>
-                <MaterialCommunityIcons name={'baby-carriage' as keyof typeof MaterialCommunityIcons.glyphMap} size={20} color="#FFF" />
+                <Text style={styles.breedingIcon}>
+                  {getBreedingStatusIcon(animal.breedingStatus)}
+                </Text>
                 <Text style={styles.breedingText}>
                   {getBreedingStatusLabel(animal.breedingStatus)}
                 </Text>
@@ -255,62 +312,62 @@ export const AnimalDetailScreen = ({ navigation, route }: AnimalDetailScreenProp
           </View>
         </Animated.View>
 
-        <View style={styles.content}>
-          {renderInfoSection('برنامج التغذية', 'food-apple', animal.feedingSchedule)}
-          {renderInfoSection('التغذية', 'food', animal.feeding || null)}
+        <View style={styles.contentContainer}>
+          {renderInfoSection('برنامج التغذية', '🍽️', animal.feedingSchedule)}
+          {renderInfoSection('التغذية', '🌾', animal.feeding || null)}
           {animal.dailyFeedConsumption && renderInfoSection(
             'استهلاك العلف اليومي',
-            'food-variant',
+            '⚖️',
             `${animal.dailyFeedConsumption} كجم`
           )}
-          {renderInfoSection('الصحة', 'heart-pulse', animal.health || null)}
-          {renderInfoSection('الأمراض', 'virus', animal.diseases || null)}
-          {renderInfoSection('الأدوية', 'pill', animal.medications || null)}
-          {renderInfoSection('التطعيم', 'needle', animal.vaccination || null)}
+          {renderInfoSection('الصحة', '🏥', animal.health || null)}
+          {renderInfoSection('الأمراض', '🦠', animal.diseases || null)}
+          {renderInfoSection('الأدوية', '💊', animal.medications || null)}
+          {renderInfoSection('التطعيم', '💉', animal.vaccination || null)}
           {animal.nextVaccinationDate && renderInfoSection(
             'موعد التطعيم القادم',
-            'calendar',
+            '📅',
             new Date(animal.nextVaccinationDate).toLocaleDateString('ar-SA')
           )}
           {animal.birthDate && renderInfoSection(
             'تاريخ الميلاد',
-            'cake-variant',
+            '🎂',
             new Date(animal.birthDate).toLocaleDateString('ar-SA')
           )}
           {animal.weight && renderInfoSection(
             'الوزن',
-            'weight',
+            '⚖️',
             `${animal.weight} كجم`
           )}
           {animal.lastBreedingDate && renderInfoSection(
             'تاريخ التكاثر الأخير',
-            'calendar-clock',
+            '❤️',
             new Date(animal.lastBreedingDate).toLocaleDateString('ar-SA')
           )}
           {animal.expectedBirthDate && renderInfoSection(
             'تاريخ الولادة المتوقع',
-            'calendar-star',
+            '👶',
             new Date(animal.expectedBirthDate).toLocaleDateString('ar-SA')
           )}
-          {animal.offspringCount > 0 && renderInfoSection(
-            'عدد النسل',
-            'baby-face-outline',
-            animal.offspringCount.toString()
-          )}
-          {renderInfoSection('ملاحظات', 'note-text', animal.notes || null)}
         </View>
       </ScrollView>
 
       <View style={[styles.footer, { backgroundColor: theme.colors.neutral.surface }]}>
         <TouchableOpacity
+          style={[styles.editButton, { backgroundColor: theme.colors.primary.base }]}
+          onPress={handleEdit}
+        >
+          <MaterialCommunityIcons name="pencil" size={24} color="#FFF" />
+          <Text style={styles.editButtonText}>تعديل</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
           style={[styles.deleteButton, { backgroundColor: theme.colors.error }]}
           onPress={handleDelete}
           disabled={isDeleting}
         >
-          <MaterialCommunityIcons name={'trash-can' as keyof typeof MaterialCommunityIcons.glyphMap} size={24} color="#FFF" />
-          <Text style={styles.deleteButtonText}>
-            {isDeleting ? 'جاري الحذف...' : 'حذف'}
-          </Text>
+          <MaterialCommunityIcons name="delete" size={24} color="#FFF" />
+          <Text style={styles.deleteButtonText}>حذف</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -351,6 +408,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 16,
   },
+  animalIcon: {
+    fontSize: 32,
+  },
+  infoIcon: {
+    fontSize: 24,
+  },
   headerInfo: {
     flex: 1,
   },
@@ -358,6 +421,11 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '600',
     marginBottom: 4,
+  },
+  animalCategory: {
+    fontSize: 14,
+    marginBottom: 4,
+    textAlign: 'right',
   },
   animalGender: {
     fontSize: 16,
@@ -420,40 +488,65 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
-  content: {
+  breedingIcon: {
+    fontSize: 16,
+  },
+  contentContainer: {
     padding: 16,
-    gap: 16,
   },
   infoSection: {
     borderRadius: 12,
     padding: 16,
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   infoHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   infoTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
-    marginLeft: 12,
+    marginLeft: 8,
   },
   infoContent: {
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 14,
+    lineHeight: 20,
   },
   footer: {
+    flexDirection: 'row',
     padding: 16,
+    gap: 12,
     borderTopWidth: 1,
     borderTopColor: '#E0E0E0',
   },
-  deleteButton: {
+  editButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
+    padding: 12,
     borderRadius: 8,
     gap: 8,
+  },
+  deleteButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 8,
+    gap: 8,
+  },
+  editButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
   deleteButtonText: {
     color: '#FFF',
@@ -462,6 +555,6 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    marginTop: 8,
+    marginTop: 16,
   },
 }); 

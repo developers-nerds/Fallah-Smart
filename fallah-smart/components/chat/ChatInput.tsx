@@ -9,6 +9,8 @@ import {
   Text,
   Platform,
   LayoutAnimation,
+  NativeSyntheticEvent,
+  TextInputSubmitEditingEventData,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { theme } from '../../theme/theme';
@@ -38,9 +40,11 @@ const ChatInput = ({
   const cancelButtonAnim = React.useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    let animationGroup: Animated.CompositeAnimation | null = null;
+
     if (selectedImage) {
       // Animate image preview when an image is selected
-      Animated.parallel([
+      animationGroup = Animated.parallel([
         Animated.spring(imageScaleAnim, {
           toValue: 1,
           friction: 7,
@@ -61,10 +65,12 @@ const ChatInput = ({
             useNativeDriver: true,
           }),
         ]),
-      ]).start();
+      ]);
+
+      animationGroup.start();
     } else {
       // Reset animations when image is canceled
-      Animated.parallel([
+      animationGroup = Animated.parallel([
         Animated.timing(imageOpacityAnim, {
           toValue: 0,
           duration: 200,
@@ -75,10 +81,19 @@ const ChatInput = ({
           duration: 150,
           useNativeDriver: true,
         }),
-      ]).start(() => {
+      ]);
+
+      animationGroup.start(() => {
         imageScaleAnim.setValue(0);
       });
     }
+
+    // Cleanup function
+    return () => {
+      if (animationGroup) {
+        animationGroup.stop();
+      }
+    };
   }, [selectedImage]);
 
   useEffect(() => {
@@ -89,7 +104,7 @@ const ChatInput = ({
 
   const handleCancelImage = () => {
     // Animate before calling the cancel function
-    Animated.parallel([
+    const cancelAnimation = Animated.parallel([
       Animated.timing(imageOpacityAnim, {
         toValue: 0,
         duration: 200,
@@ -100,9 +115,17 @@ const ChatInput = ({
         duration: 150,
         useNativeDriver: true,
       }),
-    ]).start(() => {
+    ]);
+
+    cancelAnimation.start(() => {
       onCancelImage();
     });
+  };
+
+  const handleSubmitEditing = (e: NativeSyntheticEvent<TextInputSubmitEditingEventData>) => {
+    if (value.trim() || selectedImage) {
+      onSend();
+    }
   };
 
   return (
@@ -158,7 +181,10 @@ const ChatInput = ({
           onChangeText={onChangeText}
           placeholder="Type a message..."
           placeholderTextColor={theme.colors.neutral.gray.base}
-          multiline
+          multiline={Platform.OS === 'ios'}
+          blurOnSubmit={true}
+          onSubmitEditing={handleSubmitEditing}
+          returnKeyType="send"
           textAlignVertical="center"
         />
         <View style={styles.buttonContainer}>

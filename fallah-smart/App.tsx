@@ -4,7 +4,14 @@ import { NavigationContainer } from '@react-navigation/native';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
 import { StockProvider } from './context/StockContext';
+import { AnimalProvider } from './context/AnimalContext';
 import { PesticideProvider } from './context/PesticideContext';
+import { ToolProvider } from './context/ToolContext';
+import { EquipmentProvider } from './context/EquipmentContext';
+import { SeedProvider } from './context/SeedContext';
+import { FeedProvider } from './context/FeedContext';
+import { HarvestProvider } from './context/HarvestContext';
+import { FertilizerProvider } from './context/FertilizerContext';
 import { createStackNavigator } from '@react-navigation/stack';
 import { StockNavigator } from './navigation/StockNavigator';
 import AddIncome from './screens/Wallet/components/AddIncome';
@@ -66,13 +73,27 @@ export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <StockProvider>
-          <PesticideProvider>
-            <NavigationContainer>
-              <RootNavigator />
-            </NavigationContainer>
-          </PesticideProvider>
-        </StockProvider>
+        <NavigationContainer>
+          <StockProvider>
+            <AnimalProvider>
+              <PesticideProvider>
+                <ToolProvider>
+                  <EquipmentProvider>
+                    <SeedProvider>
+                      <FeedProvider>
+                        <HarvestProvider>
+                          <FertilizerProvider>
+                            <StockNavigator />
+                          </FertilizerProvider>
+                        </HarvestProvider>
+                      </FeedProvider>
+                    </SeedProvider>
+                  </EquipmentProvider>
+                </ToolProvider>
+              </PesticideProvider>
+            </AnimalProvider>
+          </StockProvider>
+        </NavigationContainer>
       </AuthProvider>
     </ThemeProvider>
   );
