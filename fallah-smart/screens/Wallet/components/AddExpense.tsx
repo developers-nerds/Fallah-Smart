@@ -283,6 +283,10 @@ export default function AddExpense() {
     setWaitingForSecondOperand(false)
   }
 
+  const handleBackspace = () => {
+    setAmount((prev) => prev.slice(0, -1))
+  }
+
   const goBack = () => {
     navigation.goBack()
   }
@@ -395,7 +399,7 @@ export default function AddExpense() {
           <Icon name="arrow-back" color={theme.colors.neutral.surface} size={width * 0.06} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>New expense</Text>
-        <TouchableOpacity style={styles.refreshButton}>
+        <TouchableOpacity style={styles.refreshButton} onPress={handleClear}>
           <Icon name="refresh" color={theme.colors.neutral.surface} size={width * 0.06} />
         </TouchableOpacity>
       </View>
@@ -433,13 +437,9 @@ export default function AddExpense() {
       )}
 
       <View style={styles.amountContainer}>
-        <View style={styles.currencyContainer}>
-          <FontAwesome5 name="money-bill" size={width * 0.06} color={theme.colors.neutral.textSecondary} style={styles.moneyIcon} />
-          <Text style={styles.currencyText}>USD</Text>
-        </View>
         <Text style={styles.amountText}>{amount || "0"}</Text>
-        <TouchableOpacity style={styles.clearButton} onPress={handleClear}>
-          <Icon name="clear" size={width * 0.06} color={theme.colors.neutral.textSecondary} />
+        <TouchableOpacity style={styles.backspaceButton} onPress={handleBackspace}>
+          <Icon name="backspace" size={width * 0.06} color={theme.colors.neutral.textSecondary} />
         </TouchableOpacity>
       </View>
 
@@ -573,18 +573,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.medium,
     padding: width * 0.04,
     alignItems: "center",
-  },
-  currencyContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    width: width * 0.2,
-  },
-  moneyIcon: {
-    marginRight: width * 0.02,
-  },
-  currencyText: {
-    fontSize: width * 0.05,
-    color: theme.colors.neutral.textPrimary,
+    justifyContent: "space-between",
   },
   amountText: {
     flex: 1,
@@ -592,7 +581,7 @@ const styles = StyleSheet.create({
     color: theme.colors.neutral.surface,
     textAlign: "center",
   },
-  clearButton: {
+  backspaceButton: {
     padding: width * 0.02,
     backgroundColor: theme.colors.neutral.surface,
     borderRadius: width * 0.05,
@@ -652,13 +641,13 @@ const styles = StyleSheet.create({
   },
   equalsButton: {
     backgroundColor: theme.colors.success,
-    flex: 4, // Make the '=' button span the full width of the row
+    flex: 4,
     marginHorizontal: width * 0.01,
   },
   equalsText: {
-    color: theme.colors.neutral.surface, // White text for better contrast on green background
-    fontSize: width * 0.08, // Larger font size for '=' to ensure visibility
-    fontWeight: "bold", // Make '=' stand out
+    color: theme.colors.neutral.surface,
+    fontSize: width * 0.08,
+    fontWeight: "bold",
   },
   categoryButton: {
     backgroundColor: theme.colors.neutral.surface,
