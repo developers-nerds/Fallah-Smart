@@ -220,10 +220,10 @@ const HomeScreen: React.FC = () => {
       newStartDate = new Date(today)
       newEndDate = new Date(today)
       displayText = today.toLocaleDateString("en-US", {
-        weekday: "short",
-        month: "short",
+        weekday: "long",
+        month: "long",
         day: "numeric",
-        year: "numeric",
+        // year: "numeric",
       })
     } else if (filterType === "Weekly") {
       newStartDate = new Date(today)
@@ -231,12 +231,12 @@ const HomeScreen: React.FC = () => {
       newEndDate = today
       displayText = `${newStartDate.toLocaleDateString("en-US", {
         // weekday: "short",
-        month: "short",
         day: "numeric",
+        month: "long",
         // year: "numeric",
       })} - ${newEndDate.toLocaleDateString("en-US", {
-        // weekday: "short",
-        month: "short",
+        // weekday: "long",
+        month: "long",
         day: "numeric",
         // year: "numeric",
       })}`
