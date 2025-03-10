@@ -4,42 +4,42 @@ import { StyleSheet, Text, View, TouchableOpacity, TextInput } from 'react-nativ
 export const theme = {
   colors: {
     primary: {
-      base: '#2F5E1E',    // Natural forest green
-      light: '#4B7B2C',   // Fresh leaf green
-      dark: '#1B3912',    // Deep forest green
-      disabled: '#A5C49B', // Muted green
-      surface: '#E8F5E9',  // Light green surface
+      base: '#093731',    // Deep forest green (main brand color)
+      light: '#1A4F47',   // Fresh leaf green
+      dark: '#052420',    // Deep forest
+      disabled: '#A5C4C0', // Muted green
+      surface: '#E8F5F3',  // Light green surface
     },
     secondary: {
-      base: '#8B5E3C',    // Earth brown
-      light: '#A67C52',   // Light soil
-      dark: '#5C3C22',    // Deep soil
-      disabled: '#CCAD91', // Muted brown
-      surface: '#FFF3E0',  // Light brown surface
+      base: '#6F732F',    // Olive green (secondary brand color)
+      light: '#8B8F4A',   // Light olive
+      dark: '#4A4D1F',    // Deep olive
+      disabled: '#C4C6A3', // Muted olive
+      surface: '#F5F6E8',  // Light olive surface
     },
     accent: {
-      base: '#D4AF37',    // Wheat gold
-      light: '#E6C65C',   // Light wheat
-      dark: '#B39125',    // Rich harvest
-      disabled: '#F2E3AA', // Pale wheat
-      surface: '#FFF8E1',  // Light gold surface
+      base: '#DB2763',    // Vibrant pink (accent color)
+      light: '#E85B8B',   // Light pink
+      dark: '#B31B4A',    // Deep pink
+      disabled: '#F0A3B8', // Muted pink
+      surface: '#FDF0F3',  // Light pink surface
     },
     neutral: {
-      background: '#F8F6F1', // Light parchment
+      background: '#F8F9F6', // Light sage
       surface: '#FFFFFF',    // Clean white
-      textPrimary: '#2C1810', // Deep bark
-      textSecondary: '#6B5750', // Aged wood
-      border: '#E6DFD5',      // Natural fiber
+      textPrimary: '#1A2F2B', // Deep forest
+      textSecondary: '#4A5F5B', // Aged leaf
+      border: '#E6EAE8',      // Natural fiber
       gray: {
-        base: '#B0A69A',     // Stone
-        light: '#ECE9E4',    // Light sand
-        dark: '#786F67',     // Dark stone
+        base: '#846A6A',     // Warm gray (from provided colors)
+        light: '#F0E9E9',    // Light warm gray
+        dark: '#5C4A4A',     // Dark warm gray
       },
     },
-    error: '#C23616',     // Terracotta red
-    success: '#3C8C2C',   // Natural green
-    warning: '#CD950C',   // Amber honey
-    info: '#4B6584',      // Rain cloud
+    error: '#DB2763',     // Using accent pink for errors
+    success: '#093731',   // Using primary green for success
+    warning: '#6F732F',   // Using secondary olive for warnings
+    info: '#846A6A',      // Using neutral gray for info
   },
   fonts: {
     regular: 'Roboto-Regular',
@@ -47,53 +47,53 @@ export const theme = {
     bold: 'Roboto-Bold',
   },
   fontSizes: {
-    h1: 24,    // Headers
-    h2: 20,    // Subheaders
-    body: 14,  // Main text
-    caption: 12, // Small text
-    button: 16, // Button text
+    h1: 32,    // Large headers
+    h2: 24,    // Subheaders
+    body: 18,  // Main text - larger for better readability
+    caption: 16, // Small text - larger for better readability
+    button: 20, // Button text - larger for better touch targets
   },
   spacing: {
-    xs: 4,  // Extra small
-    sm: 8,  // Small
-    md: 16, // Medium
-    lg: 24, // Large
-    xl: 32, // Extra large
+    xs: 8,   // Extra small
+    sm: 12,  // Small
+    md: 20,  // Medium
+    lg: 32,  // Large
+    xl: 40,  // Extra large
   },
   borderRadius: {
-    small: 4,  // Inputs, alerts
-    medium: 8, // Buttons, cards
-    large: 16, // Modals
+    small: 8,   // Inputs, alerts
+    medium: 12, // Buttons, cards
+    large: 20,  // Modals
   },
   typography: {
     arabic: {
       h1: {
-        fontSize: 32,
-        lineHeight: 40,
+        fontSize: 40,
+        lineHeight: 48,
         fontWeight: 'bold',
         letterSpacing: 0.15,
       },
       h2: {
-        fontSize: 24,
-        lineHeight: 32,
+        fontSize: 32,
+        lineHeight: 40,
         fontWeight: '600',
         letterSpacing: 0.15,
       },
       h3: {
-        fontSize: 20,
-        lineHeight: 28,
+        fontSize: 28,
+        lineHeight: 36,
         fontWeight: '600',
         letterSpacing: 0.15,
       },
       body: {
-        fontSize: 16,
-        lineHeight: 24,
+        fontSize: 20,
+        lineHeight: 28,
         fontWeight: 'normal',
         letterSpacing: 0.5,
       },
       caption: {
-        fontSize: 14,
-        lineHeight: 20,
+        fontSize: 18,
+        lineHeight: 24,
         fontWeight: 'normal',
         letterSpacing: 0.25,
       },
@@ -101,21 +101,21 @@ export const theme = {
   },
   shadows: {
     small: {
-      shadowColor: '#000',
+      shadowColor: '#093731',
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.1,
       shadowRadius: 4,
       elevation: 2,
     },
     medium: {
-      shadowColor: '#000',
+      shadowColor: '#093731',
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.15,
       shadowRadius: 8,
       elevation: 4,
     },
     large: {
-      shadowColor: '#000',
+      shadowColor: '#093731',
       shadowOffset: { width: 0, height: 6 },
       shadowOpacity: 0.2,
       shadowRadius: 12,
@@ -165,6 +165,7 @@ export const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.medium,
     alignItems: 'center',
     marginBottom: theme.spacing.sm,
+    ...theme.shadows.small,
   },
   primaryButtonDisabled: {
     backgroundColor: theme.colors.primary.disabled,
@@ -176,6 +177,7 @@ export const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.medium,
     alignItems: 'center',
     marginBottom: theme.spacing.sm,
+    ...theme.shadows.small,
   },
   secondaryButtonDisabled: {
     backgroundColor: theme.colors.secondary.disabled,
@@ -187,6 +189,7 @@ export const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.medium,
     alignItems: 'center',
     marginBottom: theme.spacing.sm,
+    ...theme.shadows.small,
   },
   accentButtonDisabled: {
     backgroundColor: theme.colors.accent.disabled,
@@ -207,13 +210,13 @@ export const styles = StyleSheet.create({
   buttonText: {
     fontFamily: theme.fonts.medium,
     fontSize: theme.fontSizes.button,
-    color: '#FFFFFF', // Default for filled buttons
+    color: '#FFFFFF',
   },
   buttonTextDark: {
-    color: theme.colors.neutral.textPrimary, // For accent button
+    color: theme.colors.neutral.textPrimary,
   },
   buttonTextOutline: {
-    color: theme.colors.primary.base, // For outline button
+    color: theme.colors.primary.base,
   },
   buttonTextDisabled: {
     color: theme.colors.neutral.textSecondary,
@@ -230,9 +233,11 @@ export const styles = StyleSheet.create({
     fontFamily: theme.fonts.regular,
     color: theme.colors.neutral.textPrimary,
     marginBottom: theme.spacing.md,
+    ...theme.shadows.small,
   },
   inputFocused: {
     borderColor: theme.colors.primary.base,
+    ...theme.shadows.medium,
   },
   inputDisabled: {
     backgroundColor: theme.colors.neutral.gray.light,
@@ -246,11 +251,7 @@ export const styles = StyleSheet.create({
     borderColor: theme.colors.neutral.gray.light,
     padding: theme.spacing.md,
     borderRadius: theme.borderRadius.medium,
-    elevation: 2, // Android shadow
-    shadowColor: '#000', // iOS shadow
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    ...theme.shadows.medium,
     marginBottom: theme.spacing.md,
   },
 
@@ -260,6 +261,7 @@ export const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: theme.colors.neutral.gray.light,
     padding: theme.spacing.sm,
+    ...theme.shadows.medium,
   },
   tabActive: {
     color: theme.colors.primary.base,
@@ -273,9 +275,10 @@ export const styles = StyleSheet.create({
     backgroundColor: theme.colors.neutral.surface,
     borderRadius: theme.borderRadius.large,
     padding: theme.spacing.md,
+    ...theme.shadows.large,
   },
   modalOverlay: {
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(9, 55, 49, 0.5)',
   },
 
   // Alert
@@ -284,18 +287,21 @@ export const styles = StyleSheet.create({
     padding: theme.spacing.sm,
     borderRadius: theme.borderRadius.small,
     marginBottom: theme.spacing.sm,
+    ...theme.shadows.small,
   },
   alertWarning: {
+    backgroundColor: theme.colors.secondary.base,
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.small,
+    marginBottom: theme.spacing.sm,
+    ...theme.shadows.small,
+  },
+  alertError: {
     backgroundColor: theme.colors.accent.base,
     padding: theme.spacing.sm,
     borderRadius: theme.borderRadius.small,
     marginBottom: theme.spacing.sm,
-  },
-  alertError: {
-    backgroundColor: theme.colors.error,
-    padding: theme.spacing.sm,
-    borderRadius: theme.borderRadius.small,
-    marginBottom: theme.spacing.sm,
+    ...theme.shadows.small,
   },
   alertText: {
     color: '#FFFFFF',

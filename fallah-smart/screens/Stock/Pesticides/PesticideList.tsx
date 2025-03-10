@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Platform,
   ViewStyle,
+  TextInput,
 } from 'react-native';
 import Animated, {
   useAnimatedScrollHandler,
@@ -24,7 +25,7 @@ import { usePesticide } from '../../../context/PesticideContext';
 import { createThemedStyles } from '../../../utils/createThemedStyles';
 import { Button as CustomButton } from '../../../components/Button';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { StockStackParamList } from '../../../navigation/StockNavigator';
+import { StockStackParamList } from '../../../navigation/types';
 
 type PesticideListProps = {
   navigation: StackNavigationProp<StockStackParamList, 'PesticideList'>;
@@ -90,10 +91,30 @@ export const PesticideList = ({ navigation }: PesticideListProps) => {
           size={64} 
           color={theme.colors.error} 
         />
-        <Text style={[styles.errorText, { color: theme.colors.error }]}>{error}</Text>
+        <Text style={[styles.errorText, { color: theme.colors.error }]}>حدث خطأ أثناء تحميل المبيدات</Text>
         <CustomButton 
-          title="Réessayer" 
+          title="إعادة المحاولة" 
           onPress={refreshPesticides}
+          variant="primary"
+        />
+      </View>
+    );
+  }
+
+  if (!pesticides.length) {
+    return (
+      <View style={[styles.container, styles.centerContent, { backgroundColor: theme.colors.neutral.background }]}>
+        <MaterialCommunityIcons 
+          name="flask-empty-outline" 
+          size={64} 
+          color={theme.colors.neutral.textSecondary} 
+        />
+        <Text style={[styles.emptyText, { color: theme.colors.neutral.textSecondary }]}>
+          لا توجد مبيدات في المخزون
+        </Text>
+        <CustomButton 
+          title="إضافة مبيد" 
+          onPress={() => navigation.navigate('AddPesticide')}
           variant="primary"
         />
       </View>
@@ -103,19 +124,34 @@ export const PesticideList = ({ navigation }: PesticideListProps) => {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
       <Animated.View style={[styles.header, headerStyle]}>
-        <Text style={[styles.headerTitle, { color: theme.colors.neutral.textPrimary }]}>
-          Pesticides
-        </Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => navigation.navigate('AddPesticide')}
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
         >
-          <Feather name="plus" size={24} color={theme.colors.primary.base} />
+          <Feather name="arrow-left" size={24} color={theme.colors.neutral.textPrimary} />
         </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: theme.colors.neutral.textPrimary }]}>
+          قائمة المبيدات
+        </Text>
       </Animated.View>
 
+      <View style={[styles.searchContainer, { backgroundColor: theme.colors.neutral.surface }]}>
+        <MaterialCommunityIcons
+          name="magnify"
+          size={24}
+          color={theme.colors.neutral.textSecondary}
+          style={styles.searchIcon}
+        />
+        <TextInput
+          style={[styles.searchInput, { color: theme.colors.neutral.textPrimary }]}
+          placeholder="بحث عن مبيد..."
+          placeholderTextColor={theme.colors.neutral.textSecondary}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+      </View>
+
       <Animated.ScrollView
-        style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         onScroll={scrollHandler}
         scrollEventThrottle={16}
@@ -137,10 +173,10 @@ export const PesticideList = ({ navigation }: PesticideListProps) => {
                 color={theme.colors.neutral.textSecondary} 
               />
               <Text style={[styles.emptyText, { color: theme.colors.neutral.textSecondary }]}>
-                {searchQuery ? 'Aucun pesticide trouvé' : 'Aucun pesticide enregistré'}
+                {searchQuery ? 'لم يتم العثور على مبيدات' : 'لا توجد مبيدات مسجلة'}
               </Text>
               <CustomButton 
-                title="Ajouter un pesticide" 
+                title="إضافة مبيد" 
                 onPress={() => navigation.navigate('AddPesticide')}
                 variant="primary"
               />
@@ -154,26 +190,77 @@ export const PesticideList = ({ navigation }: PesticideListProps) => {
                 >
                   <TouchableOpacity
                     style={[styles.pesticideCard, { backgroundColor: theme.colors.neutral.surface }]}
-                    onPress={() => navigation.navigate('PesticideDetail', { pesticideId: pesticide.id })}
+                    onPress={() => navigation.navigate('PesticideDetail', { pesticideId: pesticide.id.toString() })}
                   >
                     <View style={styles.cardHeader}>
-                      <Text style={[styles.pesticideName, { color: theme.colors.neutral.textPrimary }]}>
-                        {pesticide.name}
-                      </Text>
+                      <View style={styles.cardTitleContainer}>
+                        <MaterialCommunityIcons
+                          name="flask-outline"
+                          size={24}
+                          color={pesticide.isNatural ? theme.colors.success : theme.colors.accent.base}
+                        />
+                        <Text style={[styles.pesticideName, { color: theme.colors.neutral.textPrimary }]}>
+                          {pesticide.name}
+                        </Text>
+                      </View>
                       {pesticide.isNatural && (
                         <View style={[styles.naturalBadge, { backgroundColor: theme.colors.success }]}>
-                          <Feather name="leaf" size={12} color="#FFF" />
-                          <Text style={styles.naturalText}>Naturel</Text>
+                          <Feather name="check-circle" size={12} color="#FFF" />
+                          <Text style={styles.naturalText}>طبيعي</Text>
                         </View>
                       )}
                     </View>
 
                     <View style={styles.pesticideInfo}>
-                      <Text style={[styles.quantity, { 
-                        color: pesticide.quantity <= 0 ? theme.colors.error : theme.colors.neutral.textPrimary 
-                      }]}>
-                        {pesticide.quantity} {pesticide.unit}
-                      </Text>
+                      <View style={styles.infoRow}>
+                        <View style={styles.quantityContainer}>
+                          <MaterialCommunityIcons
+                            name="package-variant"
+                            size={20}
+                            color={pesticide.quantity <= pesticide.lowStockThreshold 
+                              ? theme.colors.error 
+                              : theme.colors.success}
+                          />
+                          <Text style={[styles.quantity, { 
+                            color: pesticide.quantity <= pesticide.lowStockThreshold 
+                              ? theme.colors.error 
+                              : theme.colors.success 
+                          }]}>
+                            {pesticide.quantity} {pesticide.unit}
+                          </Text>
+                        </View>
+                        {pesticide.quantity <= pesticide.lowStockThreshold && (
+                          <View style={[styles.warningBadge, { backgroundColor: theme.colors.error }]}>
+                            <MaterialCommunityIcons name="alert" size={16} color="#FFF" />
+                            <Text style={styles.warningText}>مخزون منخفض</Text>
+                          </View>
+                        )}
+                      </View>
+
+                      <View style={styles.infoRow}>
+                        <View style={styles.targetContainer}>
+                          <MaterialCommunityIcons
+                            name="bug-outline"
+                            size={20}
+                            color={theme.colors.neutral.textSecondary}
+                          />
+                          <Text style={[styles.targetText, { color: theme.colors.neutral.textSecondary }]}>
+                            {pesticide.target || 'الهدف غير محدد'}
+                          </Text>
+                        </View>
+                        {pesticide.waitingPeriod && (
+                          <View style={styles.waitingPeriodContainer}>
+                            <MaterialCommunityIcons
+                              name="clock-outline"
+                              size={20}
+                              color={theme.colors.warning}
+                            />
+                            <Text style={[styles.waitingPeriodText, { color: theme.colors.warning }]}>
+                              {pesticide.waitingPeriod} يوم
+                            </Text>
+                          </View>
+                        )}
+                      </View>
                     </View>
                   </TouchableOpacity>
                 </Animated.View>
@@ -182,6 +269,13 @@ export const PesticideList = ({ navigation }: PesticideListProps) => {
           )}
         </View>
       </Animated.ScrollView>
+
+      <TouchableOpacity
+        style={[styles.fab, { backgroundColor: theme.colors.primary.base }]}
+        onPress={() => navigation.navigate('AddPesticide')}
+      >
+        <MaterialCommunityIcons name="plus" size={24} color="#FFF" />
+      </TouchableOpacity>
     </View>
   );
 };
@@ -210,7 +304,7 @@ const styles = createThemedStyles((theme) => ({
     fontSize: 24,
     fontWeight: 'bold',
   },
-  addButton: {
+  backButton: {
     padding: 8,
   },
   scrollView: {
@@ -246,11 +340,11 @@ const styles = createThemedStyles((theme) => ({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   pesticideName: {
     fontSize: 18,
-    fontWeight: '600',
+    fontFamily: theme.fonts.bold,
   },
   naturalBadge: {
     flexDirection: 'row',
@@ -263,14 +357,60 @@ const styles = createThemedStyles((theme) => ({
   naturalText: {
     color: '#FFF',
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: theme.fonts.medium,
   },
   pesticideInfo: {
-    marginTop: 8,
+    gap: 12,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  quantityContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   quantity: {
     fontSize: 16,
-    fontWeight: '500',
+    fontFamily: theme.fonts.bold,
+  },
+  warningBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  warningText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontFamily: theme.fonts.medium,
+  },
+  targetContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  targetText: {
+    fontSize: 14,
+    fontFamily: theme.fonts.medium,
+  },
+  waitingPeriodContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  waitingPeriodText: {
+    fontSize: 14,
+    fontFamily: theme.fonts.medium,
+  },
+  cardTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   centerContent: {
     flex: 1,
@@ -282,6 +422,36 @@ const styles = createThemedStyles((theme) => ({
     textAlign: 'center',
     marginTop: 16,
     marginBottom: 8,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    padding: 16,
+    borderRadius: 24,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 16,
+    paddingHorizontal: 16,
+    height: 48,
+    borderRadius: 24,
+    elevation: 2,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  } as ViewStyle,
+  searchIcon: {
+    marginRight: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    textAlign: 'right',
   },
 }));
 

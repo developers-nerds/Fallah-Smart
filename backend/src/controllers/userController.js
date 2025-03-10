@@ -4,6 +4,8 @@ const { Users } = require('../database/assossiation');
 const { Op } = require('sequelize');
 require('dotenv').config();
 const config = require("../config/db");
+const fs = require('fs').promises;
+const path = require('path');
 
 // JWT Configuration
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -93,7 +95,7 @@ const userController = {
         username,
         firstName,
         lastName,
-        role: role || 'USER',
+        role: role || "USER",
         gender,
         email,
         phoneNumber,
@@ -227,54 +229,63 @@ const userController = {
   updateProfile: async (req, res) => {
     try {
       const userId = req.user.id;
-      const user = await Users.findByPk(userId);
+      const updates = {
+        firstName: req.body.firstName,
+        lastName: req.body.lastName,
+        email: req.body.email,
+        phoneNumber: req.body.phoneNumber,
+        gender: req.body.gender,
+        username: req.body.username
+      };
 
-      if (!user) {
+      console.log("Received profile update:", req.body);
+
+      // Handle profile image upload
+      if (req.file) {
+        // Get the old profile picture path if it exists
+        const user = await Users.findByPk(userId);
+        const oldProfilePicture = user.profilePicture;
+
+        // Update with new image path
+        updates.profilePicture = `/uploads/profiles/${req.file.filename}`;
+
+        // Delete old profile picture if it exists
+        if (oldProfilePicture) {
+          const oldPath = path.join(__dirname, '../../', oldProfilePicture);
+          try {
+            await fs.unlink(oldPath);
+          } catch (error) {
+            console.error('Error deleting old profile picture:', error);
+          }
+        }
+      }
+
+      // Update user in database
+      const [numRows, [updatedUser]] = await Users.update(updates, {
+        where: { id: userId },
+        returning: true
+      });
+
+      if (numRows === 0) {
         return res.status(404).json({ message: 'User not found' });
       }
 
-      // Get the update data from request body
-      const { username, firstName, lastName, gender, phoneNumber } = req.body;
-
-      // Handle profile picture
-      let profilePicture = user.profilePicture;
-      if (req.file) {
-        // Create URL for the uploaded file
-        profilePicture = `/uploads/${req.file.filename}`;
-        console.log("New profile picture path:", profilePicture);
-      }
-
-      // Update user data
-      const updatedUser = await user.update({
-        username: username || user.username,
-        firstName: firstName || user.firstName,
-        lastName: lastName || user.lastName,
-        gender: gender || user.gender,
-        phoneNumber: phoneNumber || user.phoneNumber,
-        profilePicture: profilePicture
-      });
-
-      // Remove sensitive data before sending response
+      // Remove sensitive information
       const userResponse = {
         id: updatedUser.id,
         username: updatedUser.username,
         firstName: updatedUser.firstName,
         lastName: updatedUser.lastName,
         email: updatedUser.email,
-        gender: updatedUser.gender,
         phoneNumber: updatedUser.phoneNumber,
+        gender: updatedUser.gender,
         profilePicture: updatedUser.profilePicture
       };
 
-      console.log("Updated user response:", userResponse);
       res.json(userResponse);
-
     } catch (error) {
       console.error('Profile update error:', error);
-      res.status(500).json({ 
-        message: 'Error updating profile',
-        error: error.message 
-      });
+      res.status(500).json({ message: 'Error updating profile', error: error.message });
     }
   },
 

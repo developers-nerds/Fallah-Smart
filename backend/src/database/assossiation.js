@@ -3,7 +3,7 @@ const { DataTypes } = require("sequelize");
 //importing models
 const Accounts = require("./models/Accounts")(sequelize, DataTypes);
 const Animal_doc = require("./models/Animal _doc")(sequelize, DataTypes);
-const AnimalDetails = require("./models/AnimalDetails")(sequelize, DataTypes);
+const AnimalGaston = require("./models/AnimalGaston")(sequelize, DataTypes);
 const BackupSync = require("./models/BackupSync")(sequelize, DataTypes);
 const Category = require("./models/Categories")(sequelize, DataTypes);
 const Comments = require("./models/Comments")(sequelize, DataTypes);
@@ -50,15 +50,21 @@ Users.hasMany(Notification, {
   onUpdate: "CASCADE",
 });
 
-// User and AnimalDetails associations
-// Users.hasMany(AnimalDetails, {
-//   foreignKey: "userId",
-//   as: "animals",
-//   onDelete: "CASCADE",
-//   onUpdate: "CASCADE",
-// });
+// User and AnimalGaston associations
+Users.hasMany(AnimalGaston, {
+  foreignKey: "userId",
+  as: "animals",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
 
-AnimalDetails.belongsTo(Users, {
+AnimalGaston.belongsTo(Users, {
+  foreignKey: "userId",
+  as: "user",
+});
+
+// For scans
+Scans.belongsTo(Users, {
   foreignKey: "userId",
   as: "user",
 });
@@ -103,16 +109,16 @@ Transactions.hasMany(BackupSync, {
 });
 
 // Media associations with other tables
-AnimalDetails.hasMany(Media, {
-  foreignKey: "animalDetailsId",
+AnimalGaston.hasMany(Media, {
+  foreignKey: "animalGastonId",
   as: "media",
   onDelete: "CASCADE",
   onUpdate: "CASCADE",
 });
 
-Media.belongsTo(AnimalDetails, {
-  foreignKey: "animalDetailsId",
-  as: "animalDetails",
+Media.belongsTo(AnimalGaston, {
+  foreignKey: "animalGastonId",
+  as: "animalGaston",
 });
 
 Animal_doc.hasMany(Media, {
@@ -221,7 +227,7 @@ Messages.belongsTo(Conversations, {
   as: "conversation",
 });
 
-// Animal and AnimalDetails associations
+// Animal and AnimalGaston associations
 Crop.hasOne(CropDetails, {
   foreignKey: "cropId",
   onDelete: "CASCADE",
@@ -232,11 +238,11 @@ CropDetails.belongsTo(Crop, {
   foreignKey: "cropId",
 });
 
-AnimalDetails.belongsTo(Animal_doc, {
+AnimalGaston.belongsTo(Animal_doc, {
   foreignKey: "animalId",
 });
 
-Animal_doc.hasOne(AnimalDetails, {
+Animal_doc.hasOne(AnimalGaston, {
   foreignKey: "animalId",
   onDelete: "CASCADE",
   onUpdate: "CASCADE",
@@ -445,7 +451,7 @@ module.exports = {
   Crop,
   CropDetails,
   Animal_doc,
-  AnimalDetails,
+  AnimalGaston,
   Category,
   Pesticide,
   Stock,

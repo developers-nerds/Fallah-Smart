@@ -27,6 +27,7 @@ const AnimalDetails: React.FC<Props> = ({ route }) => {
   const [expandedSections, setExpandedSections] = useState<{[key: string]: boolean}>({});
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scrollY = useRef(new Animated.Value(0)).current;
+  const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
   useEffect(() => {
     fetchAnimalDetails();
@@ -46,8 +47,8 @@ const AnimalDetails: React.FC<Props> = ({ route }) => {
     try {
       setLoading(true);
       const [animalResponse, detailsResponse] = await Promise.all([
-        axios.get(`http://192.168.104.24:5000/api/animal/get/${id}`),
-        axios.get(`http://192.168.104.24:5000/api/animalDetails/get/${id}`)
+        axios.get(`${API_URL}/animal/get/${id}`),
+        axios.get(`${API_URL}/animalDetails/get/${id}`)
       ]);
       setAnimal(animalResponse.data);
       setDetails(detailsResponse.data);
