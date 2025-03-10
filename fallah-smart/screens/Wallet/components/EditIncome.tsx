@@ -53,9 +53,14 @@ export default function EditIncome() {
   const [accounts, setAccounts] = useState([])
   const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null)
   
+  // Calculator-specific states
+  const [firstOperand, setFirstOperand] = useState<string | null>(null)
+  const [currentOperation, setCurrentOperation] = useState<string | null>(null)
+  const [waitingForSecondOperand, setWaitingForSecondOperand] = useState(false)
+
   const navigation = useNavigation()
   const route = useRoute()
-  const { transaction } = route.params as { transaction: Transaction } // Type the route params
+  const { transaction } = route.params as { transaction: Transaction }
 
   const API_BASE_URL = Platform.select({
     web: process.env.WEB_PUBLIC_API,
@@ -63,7 +68,6 @@ export default function EditIncome() {
   })
 
   useEffect(() => {
-    // Initialize with transaction data
     if (transaction) {
       setAmount(transaction.amount.toString())
       setNote(transaction.note || "Add income")
@@ -136,7 +140,7 @@ export default function EditIncome() {
           'Authorization': `Bearer ${token}`
         }
       })
-      console.log("Fetched categories response (EditIncome):", response.data) // Debug the response
+      console.log("Fetched categories response (EditIncome):", response.data)
       if (Array.isArray(response.data)) {
         const validCategories = response.data.filter(
           (category: any) => category && typeof category === 'object' && category.id && category.name
@@ -235,16 +239,76 @@ export default function EditIncome() {
     }
   }
 
-  const handleNumberPress = (num: number) => {
-    setAmount((prev) => prev + num.toString())
+  const handleNumberPress = (num: string) => {
+    if (waitingForSecondOperand) {
+      setAmount(num)
+      setWaitingForSecondOperand(false)
+    } else {
+      setAmount((prev) => (prev === "0" || prev === "" ? num : prev + num))
+    }
   }
 
   const handleOperatorPress = (operator: string) => {
-    console.log("Operator pressed:", operator)
+    if (operator === "=") {
+      if (firstOperand !== null && currentOperation !== null && amount !== "") {
+        const result = calculateResult(
+          parseFloat(firstOperand),
+          parseFloat(amount),
+          currentOperation
+        )
+        setAmount(result.toString())
+        setFirstOperand(null)
+        setCurrentOperation(null)
+        setWaitingForSecondOperand(false)
+      }
+    } else if (operator === "C") {
+      handleClear()
+    } else {
+      if (amount !== "") {
+        if (firstOperand === null) {
+          setFirstOperand(amount)
+        } else if (currentOperation !== null) {
+          const result = calculateResult(
+            parseFloat(firstOperand),
+            parseFloat(amount),
+            currentOperation
+          )
+          setFirstOperand(result.toString())
+        }
+        setCurrentOperation(operator)
+        setWaitingForSecondOperand(true)
+      }
+    }
+  }
+
+  const calculateResult = (
+    first: number,
+    second: number,
+    operation: string
+  ): number => {
+    switch (operation) {
+      case "+":
+        return first + second
+      case "-":
+        return first - second
+      case "×":
+        return first * second
+      case "÷":
+        return second !== 0 ? first / second : NaN
+      default:
+        return second
+    }
   }
 
   const handleClear = () => {
     setAmount("")
+    setFirstOperand(null)
+    setCurrentOperation(null)
+    setWaitingForSecondOperand(false)
+  }
+
+  const handleBackspace = () => {
+    setAmount((prev) => prev.slice(0, -1))
   }
 
   const goBack = () => {
@@ -312,6 +376,46 @@ export default function EditIncome() {
     )
   }
 
+  const keypadButtons = [
+    ["1", "2", "3", "+"],
+    ["4", "5", "6", "-"],
+    ["7", "8", "9", "×"],
+    [".", "0", "C", "÷"],
+    ["="],
+  ]
+
+  const renderKeypad = () => (
+    <View style={styles.keypadContainer}>
+      {keypadButtons.map((row, rowIndex) => (
+        <View style={styles.keypadRow} key={rowIndex}>
+          {row.map((item) => (
+            <TouchableOpacity
+              key={item}
+              style={[
+                styles.keypadButton,
+                item === "=" && styles.equalsButton,
+              ]}
+              onPress={() =>
+                item.match(/[0-9.]/)
+                  ? handleNumberPress(item)
+                  : handleOperatorPress(item)
+              }
+            >
+              <Text
+                style={[
+                  styles.keypadText,
+                  item === "=" && styles.equalsText,
+                ]}
+              >
+                {item}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      ))}
+    </View>
+  )
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -357,13 +461,9 @@ export default function EditIncome() {
       )}
 
       <View style={styles.amountContainer}>
-        <View style={styles.currencyContainer}>
-          <FontAwesome5 name="money-bill" size={width * 0.06} color={theme.colors.neutral.textSecondary} style={styles.moneyIcon} />
-          <Text style={styles.currencyText}>USD</Text>
-        </View>
         <Text style={styles.amountText}>{amount || "0"}</Text>
-        <TouchableOpacity style={styles.clearButton} onPress={handleClear}>
-          <Icon name="clear" size={width * 0.06} color={theme.colors.neutral.textSecondary} />
+        <TouchableOpacity style={styles.backspaceButton} onPress={handleBackspace}>
+          <Icon name="backspace" size={width * 0.06} color={theme.colors.neutral.textSecondary} />
         </TouchableOpacity>
       </View>
 
@@ -380,52 +480,7 @@ export default function EditIncome() {
         </View>
       </View>
 
-      <View style={styles.keypadContainer}>
-        <View style={styles.keypadRow}>
-          {[1, 2, 3, "+"].map((item) => (
-            <TouchableOpacity 
-              key={item} 
-              style={styles.keypadButton} 
-              onPress={() => typeof item === "number" ? handleNumberPress(item) : handleOperatorPress(item)}
-            >
-              <Text style={styles.keypadText}>{item}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        <View style={styles.keypadRow}>
-          {[4, 5, 6, "-"].map((item) => (
-            <TouchableOpacity 
-              key={item} 
-              style={styles.keypadButton} 
-              onPress={() => typeof item === "number" ? handleNumberPress(item) : handleOperatorPress(item)}
-            >
-              <Text style={styles.keypadText}>{item}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        <View style={styles.keypadRow}>
-          {[7, 8, 9, "×"].map((item) => (
-            <TouchableOpacity 
-              key={item} 
-              style={styles.keypadButton} 
-              onPress={() => typeof item === "number" ? handleNumberPress(item) : handleOperatorPress(item)}
-            >
-              <Text style={styles.keypadText}>{item}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        <View style={styles.keypadRow}>
-          {[".", 0, "=", "÷"].map((item) => (
-            <TouchableOpacity 
-              key={item} 
-              style={styles.keypadButton} 
-              onPress={() => typeof item === "number" ? handleNumberPress(item) : handleOperatorPress(item)}
-            >
-              <Text style={styles.keypadText}>{item}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
+      {renderKeypad()}
 
       {submitError ? (
         <Text style={styles.errorText}>{submitError}</Text>
@@ -542,18 +597,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.medium,
     padding: width * 0.04,
     alignItems: "center",
-  },
-  currencyContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    width: width * 0.2,
-  },
-  moneyIcon: {
-    marginRight: width * 0.02,
-  },
-  currencyText: {
-    fontSize: width * 0.05,
-    color: theme.colors.neutral.textPrimary,
+    justifyContent: "space-between",
   },
   amountText: {
     flex: 1,
@@ -561,7 +605,7 @@ const styles = StyleSheet.create({
     color: theme.colors.neutral.surface,
     textAlign: "center",
   },
-  clearButton: {
+  backspaceButton: {
     padding: width * 0.02,
     backgroundColor: theme.colors.neutral.surface,
     borderRadius: width * 0.05,
@@ -618,6 +662,16 @@ const styles = StyleSheet.create({
   keypadText: {
     fontSize: width * 0.06,
     color: theme.colors.neutral.textPrimary,
+  },
+  equalsButton: {
+    backgroundColor: theme.colors.success,
+    flex: 4,
+    marginHorizontal: width * 0.01,
+  },
+  equalsText: {
+    color: theme.colors.neutral.surface,
+    fontSize: width * 0.08,
+    fontWeight: "bold",
   },
   categoryButton: {
     backgroundColor: theme.colors.neutral.surface,
