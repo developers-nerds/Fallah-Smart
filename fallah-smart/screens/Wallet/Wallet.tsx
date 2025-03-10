@@ -330,7 +330,7 @@ const HomeScreen: React.FC = () => {
   useFocusEffect(
     useCallback(() => {
       fetchAccounts()
-      setDateRange("Monthly") // Set default filter to Monthly
+      setDateRange("Daily") // Set default filter to Monthly
     }, [])
   )
 

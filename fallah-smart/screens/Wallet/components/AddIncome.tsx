@@ -31,7 +31,7 @@ export default function AddIncome() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [amount, setAmount] = useState("")
-  const [note, setNote] = useState("Add income")
+  const [note, setNote] = useState("")
   const [currentDate, setCurrentDate] = useState(() => {
     const date = new Date()
     const options = { weekday: "long", day: "numeric", month: "long", year: "numeric" }
@@ -47,6 +47,11 @@ export default function AddIncome() {
   const [accounts, setAccounts] = useState([])
   const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null)
   
+  // Calculator-specific states
+  const [firstOperand, setFirstOperand] = useState<string | null>(null)
+  const [currentOperation, setCurrentOperation] = useState<string | null>(null)
+  const [waitingForSecondOperand, setWaitingForSecondOperand] = useState(false)
+
   const navigation = useNavigation()
 
   const API_BASE_URL = Platform.select({
@@ -210,16 +215,72 @@ export default function AddIncome() {
     }
   }
 
-  const handleNumberPress = (num: number) => {
-    setAmount((prev) => prev + num.toString())
+  const handleNumberPress = (num: string) => {
+    if (waitingForSecondOperand) {
+      setAmount(num)
+      setWaitingForSecondOperand(false)
+    } else {
+      setAmount((prev) => (prev === "0" || prev === "" ? num : prev + num))
+    }
   }
 
   const handleOperatorPress = (operator: string) => {
-    console.log("Operator pressed:", operator)
+    if (operator === "=") {
+      if (firstOperand !== null && currentOperation !== null && amount !== "") {
+        const result = calculateResult(
+          parseFloat(firstOperand),
+          parseFloat(amount),
+          currentOperation
+        )
+        setAmount(result.toString())
+        setFirstOperand(null)
+        setCurrentOperation(null)
+        setWaitingForSecondOperand(false)
+      }
+    } else if (operator === "C") {
+      handleClear()
+    } else {
+      if (amount !== "") {
+        if (firstOperand === null) {
+          setFirstOperand(amount)
+        } else if (currentOperation !== null) {
+          const result = calculateResult(
+            parseFloat(firstOperand),
+            parseFloat(amount),
+            currentOperation
+          )
+          setFirstOperand(result.toString())
+        }
+        setCurrentOperation(operator)
+        setWaitingForSecondOperand(true)
+      }
+    }
+  }
+
+  const calculateResult = (
+    first: number,
+    second: number,
+    operation: string
+  ): number => {
+    switch (operation) {
+      case "+":
+        return first + second
+      case "-":
+        return first - second
+      case "×":
+        return first * second
+      case "÷":
+        return second !== 0 ? first / second : NaN // Handle division by zero
+      default:
+        return second
+    }
   }
 
   const handleClear = () => {
     setAmount("")
+    setFirstOperand(null)
+    setCurrentOperation(null)
+    setWaitingForSecondOperand(false)
   }
 
   const goBack = () => {
@@ -286,6 +347,46 @@ export default function AddIncome() {
       </TouchableOpacity>
     )
   }
+
+  const keypadButtons = [
+    ["1", "2", "3", "+"],
+    ["4", "5", "6", "-"],
+    ["7", "8", "9", "×"],
+    [".", "0", "C", "÷"],
+    ["="],
+  ]
+
+  const renderKeypad = () => (
+    <View style={styles.keypadContainer}>
+      {keypadButtons.map((row, rowIndex) => (
+        <View style={styles.keypadRow} key={rowIndex}>
+          {row.map((item) => (
+            <TouchableOpacity
+              key={item}
+              style={[
+                styles.keypadButton,
+                item === "=" && styles.equalsButton,
+              ]}
+              onPress={() =>
+                item.match(/[0-9.]/)
+                  ? handleNumberPress(item)
+                  : handleOperatorPress(item)
+              }
+            >
+              <Text
+                style={[
+                  styles.keypadText,
+                  item === "=" && styles.equalsText,
+                ]}
+              >
+                {item}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      ))}
+    </View>
+  )
 
   return (
     <SafeAreaView style={styles.container}>
@@ -355,52 +456,7 @@ export default function AddIncome() {
         </View>
       </View>
 
-      <View style={styles.keypadContainer}>
-        <View style={styles.keypadRow}>
-          {[1, 2, 3, "+"].map((item) => (
-            <TouchableOpacity 
-              key={item} 
-              style={styles.keypadButton} 
-              onPress={() => typeof item === "number" ? handleNumberPress(item) : handleOperatorPress(item)}
-            >
-              <Text style={styles.keypadText}>{item}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        <View style={styles.keypadRow}>
-          {[4, 5, 6, "-"].map((item) => (
-            <TouchableOpacity 
-              key={item} 
-              style={styles.keypadButton} 
-              onPress={() => typeof item === "number" ? handleNumberPress(item) : handleOperatorPress(item)}
-            >
-              <Text style={styles.keypadText}>{item}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        <View style={styles.keypadRow}>
-          {[7, 8, 9, "×"].map((item) => (
-            <TouchableOpacity 
-              key={item} 
-              style={styles.keypadButton} 
-              onPress={() => typeof item === "number" ? handleNumberPress(item) : handleOperatorPress(item)}
-            >
-              <Text style={styles.keypadText}>{item}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        <View style={styles.keypadRow}>
-          {[".", 0, "=", "÷"].map((item) => (
-            <TouchableOpacity 
-              key={item} 
-              style={styles.keypadButton} 
-              onPress={() => typeof item === "number" ? handleNumberPress(item) : handleOperatorPress(item)}
-            >
-              <Text style={styles.keypadText}>{item}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
+      {renderKeypad()}
 
       {submitError ? (
         <Text style={styles.errorText}>{submitError}</Text>
@@ -593,6 +649,16 @@ const styles = StyleSheet.create({
   keypadText: {
     fontSize: width * 0.06,
     color: theme.colors.neutral.textPrimary,
+  },
+  equalsButton: {
+    backgroundColor: theme.colors.success,
+    flex: 4, // Make the '=' button span the full width of the row
+    marginHorizontal: width * 0.01,
+  },
+  equalsText: {
+    color: theme.colors.neutral.surface, // White text for better contrast on green background
+    fontSize: width * 0.08, // Larger font size for '=' to ensure visibility
+    fontWeight: "bold", // Make '=' stand out
   },
   categoryButton: {
     backgroundColor: theme.colors.neutral.surface,
