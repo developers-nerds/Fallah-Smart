@@ -78,10 +78,60 @@ const CATEGORIES = [
 const getImageUrl = (imageUrl) => {
   if (!imageUrl) return null;
   if (imageUrl.startsWith('http')) {
-    // Replace any hardcoded IP with the environment variable
     return imageUrl.replace(/http:\/\/\d+\.\d+\.\d+\.\d+:\d+/, BASE_URL);
   }
   return `${BASE_URL}${imageUrl}`;
+};
+
+// Improved hashtag parser with better regex
+const parseTextForHashtags = (text) => {
+  if (!text) return [{ type: 'text', content: '' }];
+  
+  // Improved regex that better matches hashtags
+  const hashtagRegex = /#[a-zA-Z0-9_]+\b/g;
+  
+  // Find all hashtags in the text
+  const hashtags = text.match(hashtagRegex) || [];
+  
+  // If no hashtags, return just the original text
+  if (hashtags.length === 0) {
+    return [{ type: 'text', content: text }];
+  }
+  
+  // Split text into parts with hashtags preserved
+  let result = [];
+  let lastIndex = 0;
+  
+  // Find each hashtag position and split accordingly
+  for (const hashtag of hashtags) {
+    const hashtagIndex = text.indexOf(hashtag, lastIndex);
+    
+    // Add any text before the hashtag
+    if (hashtagIndex > lastIndex) {
+      result.push({ 
+        type: 'text', 
+        content: text.substring(lastIndex, hashtagIndex)
+      });
+    }
+    
+    // Add the hashtag
+    result.push({ 
+      type: 'hashtag', 
+      content: hashtag
+    });
+    
+    lastIndex = hashtagIndex + hashtag.length;
+  }
+  
+  // Add any remaining text after the last hashtag
+  if (lastIndex < text.length) {
+    result.push({
+      type: 'text',
+      content: text.substring(lastIndex)
+    });
+  }
+  
+  return result;
 };
 
 // First, create a new PostItem component at the top of your file (after imports)
@@ -140,7 +190,11 @@ const PostItem = ({ item, navigation, handlePostLike, handleCommentAdded, timeAg
         {/* Post description with limited lines */}
         {item.description && (
           <Text style={styles.postDescription} numberOfLines={3}>
-            {item.description}
+            {parseTextForHashtags(item.description).map((part, index) => (
+              part.type === 'hashtag' ? 
+                <Text key={index} style={styles.hashtag}>{part.content}</Text> : 
+                <Text key={index}>{part.content}</Text>
+            ))}
           </Text>
         )}
         
@@ -356,11 +410,7 @@ const Blogs = () => {
       
       console.log('🔄 Fetching posts from:', `${API_URL}/posts`);
       const response = await axios.get(`${API_URL}/posts`, {
-        timeout: 10000, // 10 second timeout
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        }
+        timeout: 10000 // 10 second timeout
       });
       
       console.log('✅ Posts fetched successfully');
@@ -963,7 +1013,7 @@ const CategoryFilter = () => (
         onPress={() => setModalVisible(true)}
       >
         <Feather name="edit" size={20} color="white" />
-        <Text style={styles.askCommunityText}>Ask Community</Text>
+        <Text style={styles.askCommunityText}>Ask a Question</Text>
       </TouchableOpacity>
       
       {/* New Post Modal */}
@@ -975,10 +1025,16 @@ const CategoryFilter = () => (
       >
         <SafeAreaView style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setModalVisible(false)}>
-              <Feather name="x" size={24} color={theme.colors.neutral.textSecondary} />
+            <TouchableOpacity 
+              style={styles.modalBackButton}
+              onPress={() => setModalVisible(false)}
+            >
+              <Feather name="arrow-left" size={24} color={theme.colors.neutral.textSecondary} />
+              <Text style={styles.modalBackText}>Cancel</Text>
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>Create Post</Text>
+            
+            <Text style={styles.modalTitle}>Share with Community</Text>
+            
             <TouchableOpacity 
               onPress={createPost}
               disabled={submitting || !newPost.title.trim()}
@@ -990,7 +1046,7 @@ const CategoryFilter = () => (
               {submitting ? (
                 <ActivityIndicator size="small" color={theme.colors.neutral.surface} />
               ) : (
-                <Text style={styles.modalSubmitButtonText}>Post</Text>
+                <Text style={styles.modalSubmitButtonText}>Share</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -1000,87 +1056,111 @@ const CategoryFilter = () => (
             style={{ flex: 1 }}
           >
             <ScrollView style={styles.modalContent}>
-              <TextInput
-                style={styles.titleInput}
-                placeholder="Title"
-                placeholderTextColor={theme.colors.neutral.gray.base}
-                value={newPost.title}
-                onChangeText={title => setNewPost(prev => ({ ...prev, title }))}
-                maxLength={100}
-              />
-              
-              <TextInput
-                style={styles.descriptionInput}
-                placeholder="What would you like to share?"
-                placeholderTextColor={theme.colors.neutral.gray.base}
-                value={newPost.description}
-                onChangeText={description => setNewPost(prev => ({ ...prev, description }))}
-                multiline
-              />
-              
-              <Text style={styles.sectionLabel}>Category</Text>
-              <View style={styles.categoryOptions}>
-                {CATEGORIES.map(category => (
-                  <TouchableOpacity
-                    key={category.value}
-                    style={[
-                      styles.categoryButton,
-                      newPost.category === category.value && { backgroundColor: theme.colors.primary.base }
-                    ]}
-                    onPress={() => setNewPost(prev => ({ ...prev, category: category.value }))}
-                  >
-                    {category.iconType === 'feather' ? (
-                      <Feather 
-                        name={category.icon} 
-                        size={16} 
-                        color={newPost.category === category.value ? 
-                          theme.colors.neutral.surface : 
-                          theme.colors.neutral.textSecondary
-                        } 
-                      />
-                    ) : (
-                      <MaterialCommunityIcons 
-                        name={category.icon} 
-                        size={16} 
-                        color={newPost.category === category.value ? 
-                          theme.colors.neutral.surface : 
-                          theme.colors.neutral.textSecondary
-                        }
-                      />
-                    )}
-                    <Text style={[
-                      styles.categoryButtonText,
-                      newPost.category === category.value && { color: theme.colors.neutral.surface }
-                    ]}>
-                      {category.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+              <View style={styles.fieldContainer}>
+                <Text style={styles.fieldLabel}>What's your question or topic?</Text>
+                <TextInput
+                  style={styles.titleInput}
+                  placeholder="Example: Best time to plant corn?"
+                  placeholderTextColor={theme.colors.neutral.gray.base}
+                  value={newPost.title}
+                  onChangeText={title => setNewPost(prev => ({ ...prev, title }))}
+                  maxLength={100}
+                />
               </View>
               
-              <Text style={styles.sectionLabel}>Add Photos</Text>
-              <TouchableOpacity style={styles.imagePickerButton} onPress={showImageOptions}>
-                <MaterialIcons name="add-photo-alternate" size={24} color={theme.colors.primary.base} />
-                <Text style={styles.imagePickerText}>Add Images</Text>
-              </TouchableOpacity>
+              <View style={styles.fieldContainer}>
+                <Text style={styles.fieldLabel}>Share more details (optional)</Text>
+                <TextInput
+                  style={styles.descriptionInput}
+                  placeholder="Add any details that might help others answer your question..."
+                  placeholderTextColor={theme.colors.neutral.gray.base}
+                  value={newPost.description}
+                  onChangeText={description => setNewPost(prev => ({ ...prev, description }))}
+                  multiline
+                />
+              </View>
               
-              <ScrollView 
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={selectedImages.length > 0 ? styles.selectedImagesContainer : null}
-              >
-                {selectedImages.map((image, index) => (
-                  <View key={index} style={styles.selectedImageContainer}>
-                    <Image source={{ uri: image.uri }} style={styles.selectedImage} />
-                    <TouchableOpacity 
-                      style={styles.removeImageButton}
-                      onPress={() => removeImage(index)}
-                    >
-                      <Feather name="x" size={16} color="white" />
-                    </TouchableOpacity>
+              <View style={styles.fieldContainer}>
+                <Text style={styles.fieldLabel}>Select a category</Text>
+                <View style={styles.categoryOptionsContainer}>
+                  <ScrollView 
+                    horizontal 
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.categoryOptions}
+                  >
+                    {CATEGORIES.map(category => (
+                      <TouchableOpacity
+                        key={category.value}
+                        style={[
+                          styles.categoryButton,
+                          newPost.category === category.value && styles.categoryButtonSelected
+                        ]}
+                        onPress={() => setNewPost(prev => ({ ...prev, category: category.value }))}
+                      >
+                        {category.iconType === 'feather' ? (
+                          <Feather 
+                            name={category.icon} 
+                            size={20} 
+                            color={newPost.category === category.value ? 
+                              theme.colors.neutral.surface : 
+                              theme.colors.neutral.textSecondary
+                            } 
+                          />
+                        ) : (
+                          <MaterialCommunityIcons 
+                            name={category.icon} 
+                            size={20} 
+                            color={newPost.category === category.value ? 
+                              theme.colors.neutral.surface : 
+                              theme.colors.neutral.textSecondary
+                            }
+                          />
+                        )}
+                        <Text style={[
+                          styles.categoryButtonText,
+                          newPost.category === category.value && { color: theme.colors.neutral.surface }
+                        ]}>
+                          {category.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              </View>
+              
+              <View style={styles.fieldContainer}>
+                <Text style={styles.fieldLabel}>Add photos (optional)</Text>
+                <TouchableOpacity 
+                  style={styles.imagePickerButton} 
+                  onPress={showImageOptions}
+                >
+                  <MaterialIcons name="add-photo-alternate" size={30} color={theme.colors.primary.base} />
+                  <Text style={styles.imagePickerText}>Add Photos</Text>
+                </TouchableOpacity>
+                
+                {selectedImages.length > 0 && (
+                  <View style={styles.selectedImagesContainer}>
+                    {selectedImages.map((image, index) => (
+                      <View key={index} style={styles.selectedImageContainer}>
+                        <Image source={{ uri: image.uri }} style={styles.selectedImage} />
+                        <TouchableOpacity 
+                          style={styles.removeImageButton}
+                          onPress={() => removeImage(index)}
+                        >
+                          <MaterialCommunityIcons name="close-circle" size={24} color="white" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
                   </View>
-                ))}
-              </ScrollView>
+                )}
+              </View>
+
+              <View style={styles.helpContainer}>
+                <MaterialCommunityIcons name="information-outline" size={20} color={theme.colors.primary.base} />
+                <Text style={styles.helpText}>
+                  Adding clear details and photos will help you get better answers from the community.
+                </Text>
+              </View>
             </ScrollView>
           </KeyboardAvoidingView>
         </SafeAreaView>
@@ -1323,26 +1403,28 @@ const styles = StyleSheet.create({
     color: theme.colors.neutral.textSecondary,
   },
   askCommunityButton: {
-    backgroundColor: theme.colors.primary.base,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 20,
     position: 'absolute',
     bottom: 20,
     right: 20,
+    backgroundColor: theme.colors.primary.base,
+    borderRadius: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 18,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
   },
   askCommunityText: {
     color: 'white',
+    fontFamily: theme.fonts.bold,
     fontSize: 16,
-    fontWeight: '600',
     marginLeft: 8,
   },
   modalContainer: {
@@ -1358,81 +1440,105 @@ const styles = StyleSheet.create({
     borderBottomColor: theme.colors.neutral.border,
   },
   modalTitle: {
-    fontSize: theme.fontSizes.h2,
+    fontSize: 18,
     fontFamily: theme.fonts.bold,
     color: theme.colors.neutral.textPrimary,
+    textAlign: 'center',
   },
   modalSubmitButton: {
     backgroundColor: theme.colors.primary.base,
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.borderRadius.small,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  modalSubmitButtonText: {
+    color: 'white',
+    fontFamily: theme.fonts.bold,
+    fontSize: 16,
   },
   modalSubmitButtonDisabled: {
     backgroundColor: theme.colors.primary.disabled,
-  },
-  modalSubmitButtonText: {
-    color: theme.colors.neutral.surface,
-    fontFamily: theme.fonts.medium,
-    fontSize: theme.fontSizes.body,
   },
   modalContent: {
     flex: 1,
     padding: theme.spacing.md,
   },
-  titleInput: {
-    fontSize: theme.fontSizes.h2,
+  fieldContainer: {
+    marginBottom: 20,
+  },
+  fieldLabel: {
+    fontSize: 16,
     fontFamily: theme.fonts.medium,
     color: theme.colors.neutral.textPrimary,
-    paddingVertical: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.neutral.border,
-    marginBottom: theme.spacing.md,
+    marginBottom: 8,
+  },
+  titleInput: {
+    borderWidth: 1,
+    borderColor: theme.colors.neutral.border,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    fontFamily: theme.fonts.regular,
+    backgroundColor: theme.colors.neutral.surface,
+    color: theme.colors.neutral.textPrimary,
   },
   descriptionInput: {
-    fontSize: theme.fontSizes.body,
-    fontFamily: theme.fonts.regular,
-    color: theme.colors.neutral.textPrimary,
+    borderWidth: 1,
+    borderColor: theme.colors.neutral.border,
+    borderRadius: 8,
+    padding: 16,
     minHeight: 120,
     textAlignVertical: 'top',
-    marginBottom: theme.spacing.lg,
-  },
-  sectionLabel: {
-    fontSize: theme.fontSizes.body,
-    fontFamily: theme.fonts.bold,
+    fontSize: 16,
+    fontFamily: theme.fonts.regular,
+    backgroundColor: theme.colors.neutral.surface,
     color: theme.colors.neutral.textPrimary,
-    marginBottom: theme.spacing.sm,
+  },
+  categoryOptionsContainer: {
+    marginTop: 8,
   },
   categoryOptions: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: theme.spacing.lg,
-    gap: 8,
+    paddingVertical: 8,
   },
   categoryButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    backgroundColor: theme.colors.neutral.gray.light,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginRight: 12,
+    backgroundColor: theme.colors.neutral.background,
+    borderWidth: 1,
+    borderColor: theme.colors.neutral.border,
+  },
+  categoryButtonSelected: {
+    backgroundColor: theme.colors.primary.base,
+    borderColor: theme.colors.primary.base,
   },
   categoryButtonText: {
-    fontSize: theme.fontSizes.caption,
+    marginLeft: 8,
+    fontSize: 16,
     fontFamily: theme.fonts.medium,
-    color: theme.colors.neutral.textSecondary,
-    marginLeft: 6,
+    color: theme.colors.neutral.textPrimary,
   },
   imagePickerButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: theme.spacing.md,
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: theme.colors.primary.base,
+    backgroundColor: `${theme.colors.primary.base}10`,
   },
   imagePickerText: {
-    marginLeft: theme.spacing.sm,
-    fontSize: theme.fontSizes.body,
-    color: theme.colors.primary.base,
+    marginLeft: 12,
+    fontSize: 16,
     fontFamily: theme.fonts.medium,
+    color: theme.colors.primary.base,
   },
   selectedImagesContainer: {
     flexDirection: 'row',
@@ -1689,6 +1795,38 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: theme.colors.neutral.textPrimary,
     fontFamily: theme.fonts.regular,
+  },
+  hashtag: {
+    color: theme.colors.primary.base,
+    fontWeight: 'bold',
+    textDecorationLine: 'none',
+  },
+  modalBackButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+  },
+  modalBackText: {
+    marginLeft: 4,
+    fontSize: 16,
+    color: theme.colors.neutral.textSecondary,
+    fontFamily: theme.fonts.medium,
+  },
+  helpContainer: {
+    flexDirection: 'row',
+    backgroundColor: `${theme.colors.primary.base}10`,
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 24,
+    alignItems: 'flex-start',
+  },
+  helpText: {
+    flex: 1,
+    marginLeft: 10,
+    fontSize: 14,
+    fontFamily: theme.fonts.regular,
+    color: theme.colors.neutral.textPrimary,
+    lineHeight: 20,
   },
 });
 

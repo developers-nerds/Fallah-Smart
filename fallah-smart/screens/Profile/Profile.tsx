@@ -14,6 +14,7 @@ import {
   StatusBar,
   Image,
   Platform,
+  RefreshControl,
 } from 'react-native';
 import axios from 'axios';
 import { storage } from '../../utils/storage';
@@ -36,21 +37,6 @@ type UserProfile = {
 
 // Add gender options
 const GENDER_OPTIONS = ['Male', 'Female'];
-const API_URL = 'http://192.168.104.24:5000/api';
-
-// Add this helper function at the top of the file
-const getImageUrl = (imageUrl: string | undefined) => {
-  if (!imageUrl) return null;
-  
-  // If it's already a full URL, return it
-  if (imageUrl.startsWith('http')) {
-    return imageUrl;
-  }
-  
-  // Otherwise, construct the full URL
-  // Note: imageUrl already includes '/uploads/'
-  return `${API_URL}${imageUrl}`;
-};
 
 // Add image picker function
 const pickImage = async () => {
@@ -81,6 +67,10 @@ const pickImage = async () => {
   }
 };
 
+// Update your API URL to be more consistent
+// Change this:
+const API_URL = process.env.EXPO_PUBLIC_API_URL || `${process.env.EXPO_PUBLIC_API}/api`;
+
 const Profile = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -88,9 +78,17 @@ const Profile = () => {
   const [editedProfile, setEditedProfile] = useState<UserProfile | null>(null);
   const [selectedImage, setSelectedImage] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [localProfileImage, setLocalProfileImage] = useState(null);
+  const [updateProgress, setUpdateProgress] = useState('');
 
   useEffect(() => {
     fetchProfile();
+    // Debug API URL configuration
+    console.log('API URL Configuration:');
+    console.log('EXPO_PUBLIC_API:', process.env.EXPO_PUBLIC_API);
+    console.log('EXPO_PUBLIC_API_URL:', process.env.EXPO_PUBLIC_API_URL);
+    console.log('Constructed API URL:', `${process.env.EXPO_PUBLIC_API}/api`);
   }, []);
 
   const fetchProfile = async () => {
@@ -98,19 +96,34 @@ const Profile = () => {
       const storedUser = await storage.getUser();
       if (storedUser) {
         setProfile(storedUser);
-        console.log("Complete profile picture URL:", getImageUrl(storedUser.profilePicture));
+        console.log("Using stored user profile picture:", storedUser.profilePicture);
       }
 
-      const response = await axios.get(`${API_URL}/users/profile`);
+      // Log the exact URL you're calling
+      const profileUrl = `${API_URL}/users/profile`;
+      console.log('Fetching profile from:', profileUrl);
+
+      const response = await axios.get(profileUrl);
       if (response?.data) {
-        console.log("Complete server profile picture URL:", getImageUrl(response.data.profilePicture));
+        console.log("Server response profile picture:", response.data.profilePicture);
         setProfile(response.data);
         setEditedProfile(response.data);
         await storage.setUser(response.data);
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to fetch profile');
+      // Improved error logging
       console.error('Profile fetch error:', error);
+      
+      if (error.response) {
+        console.error('Server responded with error:', error.response.status, error.response.data);
+      } else if (error.request) {
+        console.error('No response received. Network issue. Request details:', error.request);
+      } else {
+        console.error('Error creating request:', error.message);
+      }
+      
+      Alert.alert('Connection Error', 
+        'Could not reach the server. Please check your network connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -124,59 +137,84 @@ const Profile = () => {
     }
   };
 
-  // Update the profile update function
+  // Update the profile update function to properly handle authorization and file upload
   const updateProfile = async () => {
     if (!editedProfile) return;
     
     try {
       setIsSubmitting(true);
+      console.log('Starting profile update...');
       
-      // Create FormData object
+      // Get the auth token using the correct property name
+      const tokens = await storage.getTokens();
+      console.log('Retrieved tokens:', tokens);
+      
+      // Fix the token access - it should match the structure in Login.tsx
+      if (!tokens || !tokens.access) {
+        console.error('Missing access token in storage');
+        Alert.alert('Authentication Error', 'Please log in again');
+        setIsSubmitting(false);
+        return;
+      }
+      
+      const accessToken = tokens.access;
+      console.log('Using access token:', accessToken);
+      
+      // Create FormData object for file upload
       const formData = new FormData();
       
-      // Add profile fields
-      formData.append('username', editedProfile.username || '');
+      // Add profile fields - make sure to include username
       formData.append('firstName', editedProfile.firstName || '');
       formData.append('lastName', editedProfile.lastName || '');
-      formData.append('gender', editedProfile.gender || '');
+      formData.append('email', editedProfile.email || '');
       formData.append('phoneNumber', editedProfile.phoneNumber || '');
+      formData.append('gender', editedProfile.gender || '');
+      formData.append('username', editedProfile.username || '');  // Add username
+      
+      console.log('Sending profile update with data:', {
+        firstName: editedProfile.firstName,
+        lastName: editedProfile.lastName,
+        email: editedProfile.email,
+        phoneNumber: editedProfile.phoneNumber,
+        gender: editedProfile.gender,
+        username: editedProfile.username
+      });
       
       // Handle image upload if there's a selected image
       if (selectedImage) {
+        console.log('Adding image to form data:', selectedImage);
         const fileExtension = selectedImage.uri.split('.').pop() || 'jpg';
-        const fileName = `profile-${Date.now()}.${fileExtension}`;
+        const fileName = `profile_${Date.now()}.${fileExtension}`;
+        const mimeType = fileExtension.toLowerCase() === 'png' ? 'image/png' : 'image/jpeg';
         
+        // Make sure to use 'profileImage' as the field name to match the backend
         formData.append('profileImage', {
           uri: Platform.OS === 'android' ? selectedImage.uri : selectedImage.uri.replace('file://', ''),
-          type: `image/${fileExtension}`,
           name: fileName,
+          type: mimeType
         } as any);
-
-        console.log('Uploading image:', {
-          uri: selectedImage.uri,
-          type: `image/${fileExtension}`,
-          name: fileName
-        });
       }
       
-      // Make the API request with proper headers
-      const response = await axios.put(
-        `${API_URL}/users/profile`,
-        formData,
-        {
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'multipart/form-data',
-          },
-          transformRequest: (data, headers) => {
-            return formData; // Return FormData directly
-          },
-        }
-      );
+      // Log the request details for debugging
+      console.log(`Sending to: ${API_URL}/users/profile`);
       
-      // Handle successful response
+      // Fix the Authorization header to match what your server expects
+      const response = await axios({
+        method: 'PUT',
+        url: `${API_URL}/users/profile`,
+        data: formData,
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        },
+        timeout: 30000 // 30 second timeout
+      });
+      
+      console.log('Profile update response:', response.status, response.data);
+      
       if (response.data) {
-        console.log('Profile update response:', response.data);
+        // Update local storage and state
         setProfile(response.data);
         setEditedProfile(response.data);
         await storage.setUser(response.data);
@@ -187,14 +225,20 @@ const Profile = () => {
       
     } catch (error) {
       console.error('Profile update error:', error);
-      console.error('Error response:', error.response?.data);
       
       if (error.response) {
+        console.error('Server error details:', {
+          status: error.response.status,
+          data: error.response.data
+        });
+        
         Alert.alert(
           'Update Failed',
-          error.response.data?.message || 'Server error occurred'
+          error.response.data?.message || `Server error: ${error.response.status}`
         );
       } else if (error.request) {
+        console.error('Network error: No response received');
+        
         Alert.alert(
           'Connection Error',
           'Unable to connect to the server. Please check your internet connection.',
@@ -207,6 +251,7 @@ const Profile = () => {
           ]
         );
       } else {
+        console.error('General error:', error.message);
         Alert.alert(
           'Error',
           'An unexpected error occurred. Please try again.'
@@ -214,6 +259,186 @@ const Profile = () => {
       }
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Add this helper function inside your component
+  const getFullImageUrl = (imageUrl) => {
+    if (!imageUrl) return null;
+    if (imageUrl.startsWith('http')) return imageUrl;
+    return `${process.env.EXPO_PUBLIC_API}${imageUrl}`;
+  };
+
+  // Pull-to-refresh handler
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchProfile();
+    setRefreshing(false);
+  };
+
+  // Enhanced direct photo update function
+  const handleDirectPhotoUpdate = async () => {
+    try {
+      // Pick an image first
+      const image = await pickImage();
+      if (!image) return;
+      
+      // Set a local state to show preview immediately
+      const localUri = { uri: image.uri };
+      setLocalProfileImage(localUri);
+      
+      // Ask for confirmation with preview
+      Alert.alert(
+        "Update Profile Picture",
+        "Do you want to update your profile picture?",
+        [
+          {
+            text: "Cancel",
+            style: "cancel",
+            onPress: () => setLocalProfileImage(null)
+          },
+          {
+            text: "Update",
+            onPress: async () => {
+              try {
+                // Show loading indicator
+                setIsSubmitting(true);
+                setUpdateProgress('Preparing image...');
+                
+                // Get tokens for authorization
+                const tokens = await storage.getTokens();
+                if (!tokens || !tokens.access) {
+                  throw new Error('Authentication required');
+                }
+                
+                // Create FormData only for the profile image
+                const formData = new FormData();
+                
+                // Prepare image for upload with proper mime type detection
+                const fileUri = image.uri;
+                const fileExtension = (fileUri.split('.').pop() || 'jpg').toLowerCase();
+                const mimeType = fileExtension === 'png' ? 'image/png' : 
+                                 fileExtension === 'gif' ? 'image/gif' : 
+                                 'image/jpeg';
+                
+                // Generate a unique filename with timestamp
+                const fileName = `profile_${Date.now()}.${fileExtension}`;
+                
+                // Safe URI processing for different platforms
+                const processedUri = Platform.OS === 'android' 
+                  ? fileUri 
+                  : fileUri.replace('file://', '');
+                
+                setUpdateProgress('Uploading image...');
+                
+                // Append the file to form data with proper type annotation
+                formData.append('profileImage', {
+                  uri: processedUri,
+                  name: fileName,
+                  type: mimeType
+                } as any);
+                
+                // Use axios with timeout and cancel token
+                const cancelTokenSource = axios.CancelToken.source();
+                const timeoutId = setTimeout(() => {
+                  cancelTokenSource.cancel('Upload took too long');
+                }, 30000);
+                
+                // Send only the image update
+                const response = await axios({
+                  method: 'PUT',
+                  url: `${API_URL}/users/profile`,
+                  data: formData,
+                  headers: {
+                    'Content-Type': 'multipart/form-data',
+                    'Accept': 'application/json',
+                    'Authorization': `Bearer ${tokens.access}`
+                  },
+                  timeout: 30000,
+                  cancelToken: cancelTokenSource.token,
+                  onUploadProgress: (progressEvent) => {
+                    const percentCompleted = Math.round(
+                      (progressEvent.loaded * 100) / progressEvent.total
+                    );
+                    setUpdateProgress(`Uploading: ${percentCompleted}%`);
+                  }
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (response.data) {
+                  setUpdateProgress('Processing...');
+                  
+                  // Update local state and storage
+                  setProfile(response.data);
+                  setEditedProfile(response.data);
+                  await storage.setUser(response.data);
+                  
+                  // Clear temporary image
+                  setLocalProfileImage(null);
+                  
+                  // Show success message
+                  Alert.alert(
+                    'Success', 
+                    'Your profile picture has been updated!',
+                    [{ text: 'OK' }]
+                  );
+                }
+              } catch (error) {
+                handlePhotoUploadError(error);
+              } finally {
+                setIsSubmitting(false);
+                setUpdateProgress('');
+              }
+            }
+          }
+        ],
+        { cancelable: true }
+      );
+    } catch (error) {
+      console.error('Error in direct photo update:', error);
+      Alert.alert('Error', 'Could not update profile picture. Please try again later.');
+    }
+  };
+
+  // Add specialized error handler
+  const handlePhotoUploadError = (error) => {
+    console.error('Photo update error:', error);
+    
+    if (axios.isCancel(error)) {
+      Alert.alert('Upload Cancelled', 'The upload was cancelled or timed out. Please try again.');
+      return;
+    }
+    
+    if (error.response) {
+      // Server responded with an error status
+      const status = error.response.status;
+      const message = error.response.data?.message || 'Unknown server error';
+      
+      if (status === 413) {
+        Alert.alert('File Too Large', 'The image file is too large. Please choose a smaller image.');
+      } else if (status === 401 || status === 403) {
+        Alert.alert('Authentication Error', 'Please log in again to update your profile picture.');
+      } else {
+        Alert.alert('Server Error', `Could not update profile picture (${status}): ${message}`);
+      }
+    } else if (error.request) {
+      // Request made but no response received
+      Alert.alert(
+        'Network Error',
+        'Could not connect to the server. Please check your internet connection.',
+        [
+          { text: 'OK' },
+          { 
+            text: 'Try Again',
+            onPress: () => handleDirectPhotoUpdate()
+          }
+        ]
+      );
+    } else {
+      // Error setting up the request
+      const message = error.message || 'An unexpected error occurred';
+      Alert.alert('Error', `Could not update profile picture: ${message}`);
     }
   };
 
@@ -229,178 +454,298 @@ const Profile = () => {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" />
       
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Header with pattern background */}
+      {/* Add RefreshControl to ScrollView */}
+      <ScrollView 
+        style={styles.container} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[theme.colors.primary.base]}
+            tintColor={theme.colors.primary.base}
+          />
+        }
+      >
+        {/* Enhanced header with clearer visual indication */}
         <View style={styles.header}>
-          <View style={styles.patternBackground} />
-          
-          {/* Profile avatar */}
-          <View style={styles.avatarContainer}>
-            <View style={styles.avatar}>
-              {profile?.profilePicture ? (
-                <Image 
-                  source={{ 
-                    uri: getImageUrl(profile.profilePicture)
-                  }} 
-                  style={styles.profileImage}
-                />
-              ) : (
-                <View style={[styles.profileImage, styles.profileImagePlaceholder]}>
-                  <FontAwesome name="user" size={60} color="#cccccc" />
-                </View>
-              )}
-            </View>
+          <View style={styles.patternBackground}>
+            {/* Optional: Add a subtle pattern or gradient here */}
           </View>
+          
+          {/* Profile avatar with clearer edit button */}
+          <View style={styles.avatarContainer}>
+            <TouchableOpacity 
+              style={styles.avatarTouchable}
+              onPress={handleDirectPhotoUpdate}
+              activeOpacity={0.8}
+              disabled={isSubmitting}
+            >
+              <View style={styles.avatar}>
+                {localProfileImage ? (
+                  // Show local image preview immediately
+                  <Image 
+                    source={localProfileImage} 
+                    style={styles.avatarImage} 
+                  />
+                ) : profile?.profilePicture ? (
+                  <Image 
+                    source={{ uri: getFullImageUrl(profile?.profilePicture) }} 
+                    style={styles.avatarImage} 
+                  />
+                ) : (
+                  <FontAwesome 
+                    name="user-circle" 
+                    size={84} 
+                    color={theme.colors.primary.base} 
+                  />
+                )}
+              </View>
+            </TouchableOpacity>
+          </View>
+          
+          {/* Add upload progress indicator */}
+          {isSubmitting && (
+            <View style={styles.uploadProgressContainer}>
+              <ActivityIndicator size="small" color={theme.colors.primary.base} />
+              <Text style={styles.uploadProgressText}>{updateProgress}</Text>
+            </View>
+          )}
+          
+          {/* Add user's name directly below avatar for better context */}
+          <Text style={styles.profileName}>
+            {profile?.firstName && profile?.lastName 
+              ? `${profile.firstName} ${profile.lastName}` 
+              : profile?.username || 'Your Profile'}
+          </Text>
         </View>
         
-        {/* Profile sections */}
+        {/* Enhanced content sections */}
         <View style={styles.content}>
-          {/* General Section */}
+          {/* Personal Information Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionHeader}>General</Text>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionHeader}>Personal Information</Text>
+              <MaterialCommunityIcons name="account" size={20} color={theme.colors.primary.base} />
+            </View>
             
+            {/* Display profile fields with icons for visual cues */}
             <View style={styles.profileField}>
-              <Text style={styles.fieldLabel}>Username</Text>
+              <View style={styles.fieldRow}>
+                <MaterialCommunityIcons name="account-circle" size={18} color="#555" style={styles.fieldIcon} />
+                <Text style={styles.fieldLabel}>Username</Text>
+              </View>
               <Text style={styles.fieldValue}>
-                {profile?.username || 'Not set'}
+                {profile?.username || <Text style={styles.fieldValueLight}>Not set</Text>}
+              </Text>
+            </View>
+            
+            {/* Add similar styling for other fields */}
+            <View style={styles.profileField}>
+              <View style={styles.fieldRow}>
+                <MaterialCommunityIcons name="card-account-details" size={18} color="#555" style={styles.fieldIcon} />
+                <Text style={styles.fieldLabel}>Full Name</Text>
+              </View>
+              <Text style={styles.fieldValue}>
+                {profile?.firstName && profile?.lastName 
+                  ? `${profile.firstName} ${profile.lastName}` 
+                  : <Text style={styles.fieldValueLight}>Not set</Text>}
               </Text>
             </View>
             
             <View style={styles.profileField}>
-              <Text style={styles.fieldLabel}>Full Name</Text>
+              <View style={styles.fieldRow}>
+                <MaterialCommunityIcons name="gender-male-female" size={18} color="#555" style={styles.fieldIcon} />
+                <Text style={styles.fieldLabel}>Gender</Text>
+              </View>
               <Text style={styles.fieldValue}>
-                {(profile?.firstName || '') + ' ' + (profile?.lastName || '')}
-              </Text>
-            </View>
-            
-            <View style={styles.profileField}>
-              <Text style={styles.fieldLabel}>Email</Text>
-              <Text style={styles.fieldValue}>
-                {profile?.email || 'Not provided'}
+                {profile?.gender || <Text style={styles.fieldValueLight}>Not set</Text>}
               </Text>
             </View>
           </View>
           
-          {/* Contact Information */}
+          {/* Contact Information Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionHeader}>Contact Information</Text>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionHeader}>Contact Information</Text>
+              <MaterialCommunityIcons name="contacts" size={20} color={theme.colors.primary.base} />
+            </View>
             
             <View style={styles.profileField}>
-              <Text style={styles.fieldLabel}>Phone Number</Text>
+              <View style={styles.fieldRow}>
+                <MaterialCommunityIcons name="email" size={18} color="#555" style={styles.fieldIcon} />
+                <Text style={styles.fieldLabel}>Email</Text>
+              </View>
               <Text style={styles.fieldValue}>
-                {profile?.phoneNumber || 'Not provided'}
+                {profile?.email || <Text style={styles.fieldValueLight}>Not set</Text>}
               </Text>
             </View>
             
             <View style={styles.profileField}>
-              <Text style={styles.fieldLabel}>Gender</Text>
+              <View style={styles.fieldRow}>
+                <MaterialCommunityIcons name="phone" size={18} color="#555" style={styles.fieldIcon} />
+                <Text style={styles.fieldLabel}>Phone Number</Text>
+              </View>
               <Text style={styles.fieldValue}>
-                {profile?.gender || 'Not specified'}
+                {profile?.phoneNumber || <Text style={styles.fieldValueLight}>Not set</Text>}
               </Text>
             </View>
           </View>
           
-          {/* Edit button - visible only when needed */}
-          <TouchableOpacity 
+          {/* Edit Profile Button - make it more prominent */}
+          <TouchableOpacity
             style={styles.editButton}
-            onPress={() => setIsEditing(true)}
+            onPress={() => {
+              setEditedProfile(profile);
+              setIsEditing(true);
+            }}
           >
-            <MaterialCommunityIcons 
-              name="pencil" 
-              size={20} 
-              color="#FFFFFF" 
-            />
+            <MaterialCommunityIcons name="account-edit" size={20} color="#FFFFFF" />
             <Text style={styles.editButtonText}>Edit Profile</Text>
           </TouchableOpacity>
         </View>
-        
-        {/* Edit Modal */}
-        <Modal
-          visible={isEditing}
-          animationType="slide"
-          transparent={true}
-          onRequestClose={() => {
-            setEditedProfile(profile);
-            setIsEditing(false);
-          }}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Edit Profile</Text>
-                <TouchableOpacity 
-                  style={styles.closeButton}
-                  onPress={() => {
-                    setEditedProfile(profile);
-                    setIsEditing(false);
-                  }}
-                >
-                  <MaterialCommunityIcons name="close" size={24} color={theme.colors.neutral.textSecondary || '#999'} />
-                </TouchableOpacity>
+      </ScrollView>
+      
+      {/* Enhanced Edit Modal */}
+      <Modal
+        visible={isEditing}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => {
+          setEditedProfile(profile);
+          setIsEditing(false);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Edit Profile</Text>
+              <TouchableOpacity 
+                style={styles.closeButton}
+                onPress={() => {
+                  setEditedProfile(profile);
+                  setIsEditing(false);
+                }}
+              >
+                <MaterialCommunityIcons name="close" size={24} color={theme.colors.neutral.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+              {/* Profile image section at the top for better visibility */}
+              <View style={styles.modalImageSection}>
+                <View style={styles.imageUploadContainer}>
+                  {selectedImage ? (
+                    <View style={styles.selectedImageContainer}>
+                      <Image 
+                        source={{ uri: selectedImage.uri }} 
+                        style={styles.selectedImage} 
+                      />
+                      <TouchableOpacity 
+                        style={styles.removeImageButton}
+                        onPress={() => setSelectedImage(null)}
+                      >
+                        <MaterialCommunityIcons name="close-circle" size={24} color="#fff" />
+                      </TouchableOpacity>
+                    </View>
+                  ) : profile?.profilePicture ? (
+                    <View style={styles.selectedImageContainer}>
+                      <Image 
+                        source={{ uri: getFullImageUrl(profile.profilePicture) }} 
+                        style={styles.selectedImage} 
+                      />
+                    </View>
+                  ) : (
+                    <View style={[styles.profileImage, styles.profileImagePlaceholder]}>
+                      <FontAwesome name="user" size={60} color="#cccccc" />
+                    </View>
+                  )}
+                  
+                  <TouchableOpacity 
+                    style={styles.selectImageButton}
+                    onPress={handleSelectImage}
+                  >
+                    <MaterialCommunityIcons name="camera" size={18} color={theme.colors.primary.base} />
+                    <Text style={styles.selectImageText}>
+                      {selectedImage || profile?.profilePicture ? 'Change Photo' : 'Add Photo'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
               
-              <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+              {/* Form fields with better visual structure and icons */}
+              <View style={styles.formSection}>
+                <Text style={styles.formSectionTitle}>Account Information</Text>
+                
                 <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>Username</Text>
+                  <View style={styles.inputLabelRow}>
+                    <MaterialCommunityIcons name="account" size={16} color={theme.colors.neutral.textSecondary} />
+                    <Text style={styles.inputLabel}>Username</Text>
+                  </View>
                   <TextInput
                     style={styles.input}
                     value={editedProfile?.username || ''}
-                    onChangeText={(text) => setEditedProfile(prev => prev ? {...prev, username: text} : null)}
+                    onChangeText={(text) => 
+                      setEditedProfile(prev => ({ ...prev, username: text }))
+                    }
                     placeholder="Enter username"
-                    placeholderTextColor={theme.colors.neutral.textSecondary || '#999'}
+                    placeholderTextColor={theme.colors.neutral.textSecondary}
                   />
                 </View>
                 
                 <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>First Name</Text>
+                  <View style={styles.inputLabelRow}>
+                    <MaterialCommunityIcons name="badge-account" size={16} color={theme.colors.neutral.textSecondary} />
+                    <Text style={styles.inputLabel}>First Name</Text>
+                  </View>
                   <TextInput
                     style={styles.input}
                     value={editedProfile?.firstName || ''}
-                    onChangeText={(text) => setEditedProfile(prev => prev ? {...prev, firstName: text} : null)}
+                    onChangeText={(text) => 
+                      setEditedProfile(prev => ({ ...prev, firstName: text }))
+                    }
                     placeholder="Enter first name"
-                    placeholderTextColor={theme.colors.neutral.textSecondary || '#999'}
+                    placeholderTextColor={theme.colors.neutral.textSecondary}
                   />
                 </View>
                 
                 <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>Last Name</Text>
+                  <View style={styles.inputLabelRow}>
+                    <MaterialCommunityIcons name="badge-account" size={16} color={theme.colors.neutral.textSecondary} />
+                    <Text style={styles.inputLabel}>Last Name</Text>
+                  </View>
                   <TextInput
                     style={styles.input}
                     value={editedProfile?.lastName || ''}
-                    onChangeText={(text) => setEditedProfile(prev => prev ? {...prev, lastName: text} : null)}
+                    onChangeText={(text) => 
+                      setEditedProfile(prev => ({ ...prev, lastName: text }))
+                    }
                     placeholder="Enter last name"
-                    placeholderTextColor={theme.colors.neutral.textSecondary || '#999'}
+                    placeholderTextColor={theme.colors.neutral.textSecondary}
                   />
                 </View>
                 
                 <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>Phone Number</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={editedProfile?.phoneNumber || ''}
-                    onChangeText={(text) => setEditedProfile(prev => prev ? {...prev, phoneNumber: text} : null)}
-                    keyboardType="phone-pad"
-                    placeholder="Enter phone number"
-                    placeholderTextColor={theme.colors.neutral.textSecondary || '#999'}
-                  />
-                </View>
-                
-                <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>Gender</Text>
+                  <View style={styles.inputLabelRow}>
+                    <MaterialCommunityIcons name="gender-male-female" size={16} color={theme.colors.neutral.textSecondary} />
+                    <Text style={styles.inputLabel}>Gender</Text>
+                  </View>
                   <View style={styles.genderContainer}>
                     {GENDER_OPTIONS.map((option) => (
                       <TouchableOpacity
                         key={option}
                         style={[
                           styles.genderOption,
-                          editedProfile?.gender === option && styles.genderOptionSelected
+                          editedProfile?.gender === option && styles.genderOptionSelected,
                         ]}
-                        onPress={() => setEditedProfile(prev => prev ? {...prev, gender: option} : null)}
+                        onPress={() => 
+                          setEditedProfile(prev => ({ ...prev, gender: option }))
+                        }
                       >
                         <Text
                           style={[
                             styles.genderOptionText,
-                            editedProfile?.gender === option && styles.genderOptionTextSelected
+                            editedProfile?.gender === option && styles.genderOptionTextSelected,
                           ]}
                         >
                           {option}
@@ -409,73 +754,88 @@ const Profile = () => {
                     ))}
                   </View>
                 </View>
-                
-                {/* Add this image upload section in the modal */}
-                <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>Profile Picture</Text>
-                  <View style={styles.imageUploadContainer}>
-                    {selectedImage ? (
-                      <View style={styles.selectedImageContainer}>
-                        <Image 
-                          source={{ uri: selectedImage.uri }} 
-                          style={styles.selectedImage} 
-                        />
-                        <TouchableOpacity 
-                          style={styles.removeImageButton}
-                          onPress={() => setSelectedImage(null)}
-                        >
-                          <MaterialCommunityIcons name="close-circle" size={24} color="#fff" />
-                        </TouchableOpacity>
-                      </View>
-                    ) : profile?.profilePicture ? (
-                      <View style={styles.selectedImageContainer}>
-                        <Image 
-                          source={{ 
-                            uri: getImageUrl(profile.profilePicture)
-                          }} 
-                          style={styles.selectedImage} 
-                        />
-                      </View>
-                    ) : (
-                      <View style={[styles.profileImage, styles.profileImagePlaceholder]}>
-                        <FontAwesome name="user" size={60} color="#cccccc" />
-                      </View>
-                    )}
-                    
-                    <TouchableOpacity 
-                      style={styles.selectImageButton}
-                      onPress={handleSelectImage}
-                    >
-                      <MaterialCommunityIcons name="image-plus" size={24} color={theme.colors.primary.base} />
-                      <Text style={styles.selectImageText}>
-                        {selectedImage ? 'Change Photo' : profile?.profilePicture ? 'Change Photo' : 'Add Photo'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </ScrollView>
-              
-              <View style={styles.modalFooter}>
-                <TouchableOpacity 
-                  style={[styles.modalButton, styles.cancelButton]}
-                  onPress={() => {
-                    setEditedProfile(profile);
-                    setIsEditing(false);
-                  }}
-                >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={[styles.modalButton, styles.saveButton]}
-                  onPress={updateProfile}
-                >
-                  <Text style={styles.saveButtonText}>Save Changes</Text>
-                </TouchableOpacity>
               </View>
+              
+              <View style={styles.formSection}>
+                <Text style={styles.formSectionTitle}>Contact Information</Text>
+                
+                <View style={styles.inputContainer}>
+                  <View style={styles.inputLabelRow}>
+                    <MaterialCommunityIcons name="phone" size={16} color={theme.colors.neutral.textSecondary} />
+                    <Text style={styles.inputLabel}>Phone Number</Text>
+                  </View>
+                  <TextInput
+                    style={styles.input}
+                    value={editedProfile?.phoneNumber || ''}
+                    onChangeText={(text) => 
+                      setEditedProfile(prev => ({ ...prev, phoneNumber: text }))
+                    }
+                    keyboardType="phone-pad"
+                    placeholder="Enter phone number"
+                    placeholderTextColor={theme.colors.neutral.textSecondary}
+                  />
+                </View>
+                
+                <View style={styles.inputContainer}>
+                  <View style={styles.inputLabelRow}>
+                    <MaterialCommunityIcons name="email" size={16} color={theme.colors.neutral.textSecondary} />
+                    <Text style={styles.inputLabel}>Email</Text>
+                  </View>
+                  <TextInput
+                    style={styles.input}
+                    value={editedProfile?.email || ''}
+                    onChangeText={(text) => 
+                      setEditedProfile(prev => ({ ...prev, email: text }))
+                    }
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    placeholder="Enter email"
+                    placeholderTextColor={theme.colors.neutral.textSecondary}
+                    editable={false} // Usually email shouldn't be changeable easily
+                  />
+                  <Text style={styles.emailEditNote}>Contact support to change your email address</Text>
+                </View>
+              </View>
+            </ScrollView>
+            
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => {
+                  setEditedProfile(profile);
+                  setIsEditing(false);
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.modalButton, 
+                  styles.saveButton,
+                  isSubmitting && styles.saveButtonDisabled
+                ]}
+                onPress={updateProfile}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Text style={styles.saveButtonText}>Save Changes</Text>
+                )}
+              </TouchableOpacity>
             </View>
           </View>
-        </Modal>
-      </ScrollView>
+        </View>
+      </Modal>
+      
+      {/* Loading overlay */}
+      {loading && !profile && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color={theme.colors.primary.base} />
+          <Text style={styles.loadingText}>Loading profile...</Text>
+        </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -520,7 +880,7 @@ const styles = StyleSheet.create({
     elevation: 5,
     overflow: 'hidden',
   },
-  profileImage: {
+  avatarImage: {
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
@@ -757,6 +1117,98 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
+  },
+  profileName: {
+    fontSize: 20,
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.neutral.textPrimary,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  fieldRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  fieldIcon: {
+    marginRight: 8,
+  },
+  quickEditAvatar: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: theme.colors.primary.base,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: 'white',
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  loadingText: {
+    marginTop: 10,
+    color: theme.colors.primary.base,
+    fontSize: 16,
+    fontFamily: theme.fonts.medium,
+  },
+  formSection: {
+    marginBottom: 24,
+  },
+  formSectionTitle: {
+    fontSize: 16,
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.primary.base,
+    marginBottom: 12,
+  },
+  modalImageSection: {
+    alignItems: 'center',
+    marginVertical: 16,
+  },
+  inputLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  emailEditNote: {
+    fontSize: 12,
+    color: theme.colors.neutral.textSecondary,
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  saveButtonDisabled: {
+    backgroundColor: theme.colors.primary.disabled,
+  },
+  avatarTouchable: {
+    position: 'relative',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+  },
+  uploadProgressContainer: {
+    marginTop: 8,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  uploadProgressText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: theme.colors.primary.base,
+    fontFamily: theme.fonts.medium,
   },
 });
 
