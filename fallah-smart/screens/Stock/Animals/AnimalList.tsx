@@ -14,13 +14,13 @@ import { useTheme } from '../../../context/ThemeContext';
 import { useStock } from '../../../context/StockContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { createThemedStyles } from '../../../utils/createThemedStyles';
-import { Animal, HealthStatus } from '../types';
+import { Animal, HealthStatus, BreedingStatus } from '../types';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { StockStackParamList } from '../../../navigation/types';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 type AnimalListProps = {
-  navigation: StackNavigationProp<StockStackParamList, 'AnimalList'>;
+  navigation: StackNavigationProp<StockStackParamList, 'Animals'>;
 };
 
 const getHealthStatusColor = (status: HealthStatus, theme: any) => {
@@ -51,6 +51,45 @@ const getHealthStatusLabel = (status: HealthStatus): string => {
     default:
       return status;
   }
+};
+
+const getBreedingStatusLabel = (status: BreedingStatus): string => {
+  switch (status) {
+    case 'not_breeding':
+      return 'غير متكاثر';
+    case 'in_heat':
+      return 'في فترة التزاوج';
+    case 'pregnant':
+      return 'حامل';
+    case 'nursing':
+      return 'مرضعة';
+    default:
+      return status;
+  }
+};
+
+const getBreedingStatusColor = (status: BreedingStatus, theme: any) => {
+  switch (status) {
+    case 'not_breeding':
+      return theme.colors.neutral.textSecondary;
+    case 'in_heat':
+      return theme.colors.warning;
+    case 'pregnant':
+      return theme.colors.primary.base;
+    case 'nursing':
+      return theme.colors.success;
+    default:
+      return theme.colors.neutral.textSecondary;
+  }
+};
+
+const getAnimalIcon = (type: string): keyof typeof MaterialCommunityIcons.glyphMap => {
+  const lowercaseType = type.toLowerCase();
+  if (lowercaseType.includes('بقرة') || lowercaseType.includes('ثور')) return 'cow';
+  if (lowercaseType.includes('خروف') || lowercaseType.includes('نعجة')) return 'sheep';
+  if (lowercaseType.includes('دجاج') || lowercaseType.includes('ديك')) return 'bird';
+  if (lowercaseType.includes('ماعز')) return 'sheep';
+  return 'paw';
 };
 
 export const AnimalList = ({ navigation }: AnimalListProps) => {
@@ -137,7 +176,11 @@ export const AnimalList = ({ navigation }: AnimalListProps) => {
           onPress={() => toggleExpand(item.id)}
         >
           <View style={styles.cardHeader}>
-            <MaterialCommunityIcons name="cow" size={24} color={theme.colors.primary.base} />
+            <MaterialCommunityIcons 
+              name={getAnimalIcon(item.type) as keyof typeof MaterialCommunityIcons.glyphMap} 
+              size={24} 
+              color={theme.colors.primary.base} 
+            />
             <View style={styles.animalInfo}>
               <Text style={[styles.animalType, { color: theme.colors.neutral.textPrimary }]}>
                 {item.type} ({item.gender === 'male' ? 'ذكر' : 'أنثى'})
@@ -152,7 +195,7 @@ export const AnimalList = ({ navigation }: AnimalListProps) => {
                   disabled={item.count === 0 || loading}
                 >
                   <MaterialCommunityIcons 
-                    name="minus" 
+                    name={'minus' as keyof typeof MaterialCommunityIcons.glyphMap}
                     size={16} 
                     color={theme.colors.neutral.surface} 
                   />
@@ -166,7 +209,7 @@ export const AnimalList = ({ navigation }: AnimalListProps) => {
                   disabled={loading}
                 >
                   <MaterialCommunityIcons 
-                    name="plus" 
+                    name={'plus' as keyof typeof MaterialCommunityIcons.glyphMap}
                     size={16} 
                     color={theme.colors.neutral.surface} 
                   />
@@ -178,7 +221,7 @@ export const AnimalList = ({ navigation }: AnimalListProps) => {
                 disabled={loading}
               >
                 <MaterialCommunityIcons 
-                  name="trash-can-outline" 
+                  name={'trash-can-outline' as keyof typeof MaterialCommunityIcons.glyphMap}
                   size={20} 
                   color={theme.colors.error} 
                 />
@@ -188,33 +231,60 @@ export const AnimalList = ({ navigation }: AnimalListProps) => {
 
           <View style={styles.cardContent}>
             <View style={styles.statusContainer}>
-              <Text style={[styles.statusLabel, { color: theme.colors.neutral.textSecondary }]}>
-                الحالة الصحية:
-              </Text>
               <View style={[styles.statusBadge, { backgroundColor: getHealthStatusColor(item.healthStatus, theme) }]}>
+                <MaterialCommunityIcons 
+                  name={'heart-pulse' as keyof typeof MaterialCommunityIcons.glyphMap}
+                  size={16} 
+                  color="#FFF" 
+                />
                 <Text style={styles.statusText}>
                   {getHealthStatusLabel(item.healthStatus)}
+                </Text>
+              </View>
+
+              <View style={[styles.statusBadge, { backgroundColor: getBreedingStatusColor(item.breedingStatus, theme) }]}>
+                <MaterialCommunityIcons 
+                  name={'baby-carriage' as keyof typeof MaterialCommunityIcons.glyphMap}
+                  size={16} 
+                  color="#FFF" 
+                />
+                <Text style={styles.statusText}>
+                  {getBreedingStatusLabel(item.breedingStatus)}
                 </Text>
               </View>
             </View>
 
             <Text style={[styles.infoText, { color: theme.colors.neutral.textPrimary }]}>
-              التغذية: {item.feedingSchedule || 'غير محدد'}
+              التغذية: {item.feedingSchedule}
             </Text>
 
             {isExpanded && (
               <View style={styles.expandedDetails}>
-                {renderDetailItem('تفاصيل التغذية', item.feeding)}
-                {renderDetailItem('الرعاية', item.care)}
-                {renderDetailItem('الصحة', item.health)}
-                {renderDetailItem('السكن', item.housing)}
-                {renderDetailItem('التكاثر', item.breeding)}
-                {renderDetailItem('الأمراض', item.diseases)}
-                {renderDetailItem('الأدوية', item.medications)}
-                {renderDetailItem('السلوك', item.behavior)}
-                {renderDetailItem('الجوانب الاقتصادية', item.economics)}
-                {renderDetailItem('التطعيم', item.vaccination)}
-                {renderDetailItem('ملاحظات', item.notes)}
+                {renderDetailItem('تفاصيل التغذية', item.feeding || null)}
+                {item.dailyFeedConsumption && renderDetailItem('استهلاك العلف اليومي', `${item.dailyFeedConsumption} كجم`)}
+                {renderDetailItem('الصحة', item.health || null)}
+                {renderDetailItem('الأمراض', item.diseases || null)}
+                {renderDetailItem('الأدوية', item.medications || null)}
+                {renderDetailItem('التطعيم', item.vaccination || null)}
+                {item.nextVaccinationDate && renderDetailItem(
+                  'موعد التطعيم القادم',
+                  new Date(item.nextVaccinationDate).toLocaleDateString('ar-SA')
+                )}
+                {item.birthDate && renderDetailItem(
+                  'تاريخ الميلاد',
+                  new Date(item.birthDate).toLocaleDateString('ar-SA')
+                )}
+                {item.weight && renderDetailItem('الوزن', `${item.weight} كجم`)}
+                {item.lastBreedingDate && renderDetailItem(
+                  'تاريخ التكاثر الأخير',
+                  new Date(item.lastBreedingDate).toLocaleDateString('ar-SA')
+                )}
+                {item.expectedBirthDate && renderDetailItem(
+                  'تاريخ الولادة المتوقع',
+                  new Date(item.expectedBirthDate).toLocaleDateString('ar-SA')
+                )}
+                {item.offspringCount > 0 && renderDetailItem('عدد النسل', item.offspringCount.toString())}
+                {renderDetailItem('ملاحظات', item.notes || null)}
               </View>
             )}
 
@@ -223,7 +293,7 @@ export const AnimalList = ({ navigation }: AnimalListProps) => {
               onPress={() => toggleExpand(item.id)}
             >
               <MaterialCommunityIcons
-                name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                name={isExpanded ? 'chevron-up' : 'chevron-down' as keyof typeof MaterialCommunityIcons.glyphMap}
                 size={24}
                 color={theme.colors.neutral.textSecondary}
               />
@@ -246,18 +316,26 @@ export const AnimalList = ({ navigation }: AnimalListProps) => {
     return (
       <View style={[styles.container, styles.centerContent, { backgroundColor: theme.colors.neutral.background }]}>
         <MaterialCommunityIcons 
-          name="cow-off" 
+          name={'cow-off' as keyof typeof MaterialCommunityIcons.glyphMap}
           size={64} 
           color={theme.colors.error} 
         />
         <Text style={[styles.errorText, { color: theme.colors.error }]}>
-          {searchQuery ? 'لم يتم العثور على حيوانات' : 'لا توجد حيوانات مسجلة'}
+          حدث خطأ أثناء تحميل الحيوانات
         </Text>
-        <CustomButton 
-          title="إعادة المحاولة" 
-          onPress={refreshAnimals}
-          variant="primary"
-        />
+        <TouchableOpacity
+          style={[styles.retryButton, { backgroundColor: theme.colors.primary.base }]}
+          onPress={handleRefresh}
+        >
+          <MaterialCommunityIcons 
+            name={'refresh' as keyof typeof MaterialCommunityIcons.glyphMap}
+            size={20} 
+            color="#FFF" 
+          />
+          <Text style={styles.retryButtonText}>
+            إعادة المحاولة
+          </Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -357,21 +435,21 @@ const styles = createThemedStyles((theme) => ({
   statusContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
     marginBottom: 8,
   },
-  statusLabel: {
-    fontSize: 14,
-    marginRight: 8,
-  },
   statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 4,
   },
   statusText: {
     color: '#FFF',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   infoText: {
     fontSize: 14,
@@ -415,6 +493,20 @@ const styles = createThemedStyles((theme) => ({
     textAlign: 'center',
     marginTop: 16,
     marginBottom: 8,
+  },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 16,
+    gap: 8,
+  },
+  retryButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '500',
   },
 }));
 

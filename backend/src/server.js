@@ -21,6 +21,14 @@ const animalDetailsRoutes = require("./routes/animalsDetails");
 const animal = require("./routes/animal");
 const stockStatisticsRoutes = require("./routes/stockStatisticsRoutes");
 
+// New stock management routes
+const stockFeedRoutes = require("./routes/stockFeedRoutes");
+const stockSeedsRoutes = require("./routes/stockSeedsRoutes");
+const stockFertilizerRoutes = require("./routes/stockFertilizerRoutes");
+const stockEquipmentRoutes = require("./routes/stockEquipmentRoutes");
+const stockToolsRoutes = require("./routes/stockToolsRoutes");
+const stockHarvestRoutes = require("./routes/stockHarvestRoutes");
+
 const app = express();
 const port = process.env.PORT;
 
@@ -47,6 +55,14 @@ app.use("/api/cropsDetails", cropDetailsRoutes);
 app.use("/api/animalDetails", animalDetailsRoutes);
 app.use("/api/animal", animal);
 app.use("/api/stock-statistics", stockStatisticsRoutes);
+
+// New stock management routes
+app.use("/api/stock/feed", stockFeedRoutes);
+app.use("/api/stock/seeds", stockSeedsRoutes);
+app.use("/api/stock/fertilizer", stockFertilizerRoutes);
+app.use("/api/stock/equipment", stockEquipmentRoutes);
+app.use("/api/stock/tools", stockToolsRoutes);
+app.use("/api/stock/harvest", stockHarvestRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

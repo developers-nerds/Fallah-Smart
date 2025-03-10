@@ -1,281 +1,170 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
+  FlatList,
   TouchableOpacity,
   RefreshControl,
-  ActivityIndicator,
-  Platform,
-  ViewStyle,
-  TextInput,
+  Alert,
 } from 'react-native';
-import Animated, {
-  useAnimatedScrollHandler,
-  useAnimatedStyle,
-  useSharedValue,
-  interpolate,
-  Extrapolate,
-  FadeInDown,
-} from 'react-native-reanimated';
-import { BlurView } from 'expo-blur';
-import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../../context/ThemeContext';
 import { usePesticide } from '../../../context/PesticideContext';
+import { Pesticide } from '../types';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { createThemedStyles } from '../../../utils/createThemedStyles';
-import { Button as CustomButton } from '../../../components/Button';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { StockStackParamList } from '../../../navigation/types';
 
-type PesticideListProps = {
+type PesticideListScreenProps = {
   navigation: StackNavigationProp<StockStackParamList, 'PesticideList'>;
 };
 
-export const PesticideList = ({ navigation }: PesticideListProps) => {
+const PesticideListScreen: React.FC<PesticideListScreenProps> = ({ navigation }) => {
   const theme = useTheme();
-  const { pesticides, loading, error, refreshPesticides } = usePesticide();
-  const [refreshing, setRefreshing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const scrollY = useSharedValue(0);
+  const { pesticides, fetchPesticides, loading } = usePesticide();
+  const [refreshing, setRefreshing] = React.useState(false);
 
-  const handleRefresh = useCallback(async () => {
+  useEffect(() => {
+    fetchPesticides();
+  }, []);
+
+  const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
     try {
-      await refreshPesticides();
+      await fetchPesticides();
     } catch (error) {
-      console.error('Error refreshing pesticides:', error);
+      Alert.alert('خطأ', 'فشل في تحديث قائمة المبيدات');
     } finally {
       setRefreshing(false);
     }
-  }, [refreshPesticides]);
+  }, [fetchPesticides]);
 
-  const scrollHandler = useAnimatedScrollHandler({
-    onScroll: (event) => {
-      scrollY.value = event.contentOffset.y;
-    },
-  });
-
-  const headerStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(
-      scrollY.value,
-      [0, 100],
-      [1, 0.9],
-      Extrapolate.CLAMP
-    );
-
-    return {
-      opacity,
-      backgroundColor: theme.colors.neutral.surface,
+  const renderPesticideItem = ({ item }: { item: Pesticide }) => {
+    const getTypeIcon = (type: string) => {
+      switch (type) {
+        case 'insecticide':
+          return 'bug';
+        case 'herbicide':
+          return 'flower';
+        case 'fungicide':
+          return 'mushroom';
+        default:
+          return 'spray';
+      }
     };
-  });
 
-  const filteredPesticides = useMemo(() => {
-    return pesticides.filter(pesticide =>
-      pesticide.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [pesticides, searchQuery]);
-
-  if (loading && !pesticides.length) {
     return (
-      <View style={[styles.container, styles.centerContent, { backgroundColor: theme.colors.neutral.background }]}>
-        <ActivityIndicator size="large" color={theme.colors.primary.base} />
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View style={[styles.container, styles.centerContent, { backgroundColor: theme.colors.neutral.background }]}>
-        <MaterialCommunityIcons 
-          name="flask-empty-outline" 
-          size={64} 
-          color={theme.colors.error} 
-        />
-        <Text style={[styles.errorText, { color: theme.colors.error }]}>حدث خطأ أثناء تحميل المبيدات</Text>
-        <CustomButton 
-          title="إعادة المحاولة" 
-          onPress={refreshPesticides}
-          variant="primary"
-        />
-      </View>
-    );
-  }
-
-  if (!pesticides.length) {
-    return (
-      <View style={[styles.container, styles.centerContent, { backgroundColor: theme.colors.neutral.background }]}>
-        <MaterialCommunityIcons 
-          name="flask-empty-outline" 
-          size={64} 
-          color={theme.colors.neutral.textSecondary} 
-        />
-        <Text style={[styles.emptyText, { color: theme.colors.neutral.textSecondary }]}>
-          لا توجد مبيدات في المخزون
-        </Text>
-        <CustomButton 
-          title="إضافة مبيد" 
-          onPress={() => navigation.navigate('AddPesticide')}
-          variant="primary"
-        />
-      </View>
-    );
-  }
-
-  return (
-    <View style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
-      <Animated.View style={[styles.header, headerStyle]}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Feather name="arrow-left" size={24} color={theme.colors.neutral.textPrimary} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.colors.neutral.textPrimary }]}>
-          قائمة المبيدات
-        </Text>
-      </Animated.View>
-
-      <View style={[styles.searchContainer, { backgroundColor: theme.colors.neutral.surface }]}>
-        <MaterialCommunityIcons
-          name="magnify"
-          size={24}
-          color={theme.colors.neutral.textSecondary}
-          style={styles.searchIcon}
-        />
-        <TextInput
-          style={[styles.searchInput, { color: theme.colors.neutral.textPrimary }]}
-          placeholder="بحث عن مبيد..."
-          placeholderTextColor={theme.colors.neutral.textSecondary}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-      </View>
-
-      <Animated.ScrollView
-        showsVerticalScrollIndicator={false}
-        onScroll={scrollHandler}
-        scrollEventThrottle={16}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            colors={[theme.colors.primary.base]}
-            tintColor={theme.colors.primary.base}
-          />
-        }
+      <TouchableOpacity
+        style={[styles.card, { backgroundColor: theme.colors.neutral.surface }]}
+        onPress={() => navigation.navigate('PesticideDetail', { pesticideId: item.id })}
       >
-        <View style={styles.content}>
-          {filteredPesticides.length === 0 ? (
-            <View style={styles.emptyState}>
-              <MaterialCommunityIcons 
-                name="flask-empty-outline" 
-                size={64} 
-                color={theme.colors.neutral.textSecondary} 
-              />
-              <Text style={[styles.emptyText, { color: theme.colors.neutral.textSecondary }]}>
-                {searchQuery ? 'لم يتم العثور على مبيدات' : 'لا توجد مبيدات مسجلة'}
+        <View style={styles.cardHeader}>
+          <View style={styles.cardTitleContainer}>
+            <MaterialCommunityIcons
+              name={getTypeIcon(item.type)}
+              size={24}
+              color={theme.colors.primary.base}
+            />
+            <Text style={[styles.cardTitle, { color: theme.colors.neutral.textPrimary }]}>
+              {item.name}
+            </Text>
+          </View>
+          {item.isNatural && (
+            <MaterialCommunityIcons
+              name="leaf"
+              size={20}
+              color={theme.colors.success}
+            />
+          )}
+        </View>
+
+        <View style={styles.cardContent}>
+          <View style={styles.infoRow}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
+              الكمية:
+            </Text>
+            <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
+              {item.quantity} {item.unit}
+            </Text>
+          </View>
+
+          <View style={styles.infoRow}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
+              السعر:
+            </Text>
+            <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
+              {item.price} د.أ
+            </Text>
+          </View>
+
+          {item.expiryDate && (
+            <View style={styles.infoRow}>
+              <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
+                تاريخ الانتهاء:
               </Text>
-              <CustomButton 
-                title="إضافة مبيد" 
-                onPress={() => navigation.navigate('AddPesticide')}
-                variant="primary"
-              />
-            </View>
-          ) : (
-            <View style={styles.pesticideGrid}>
-              {filteredPesticides.map((pesticide, index) => (
-                <Animated.View
-                  key={pesticide.id}
-                  entering={FadeInDown.delay(index * 100).springify()}
-                >
-                  <TouchableOpacity
-                    style={[styles.pesticideCard, { backgroundColor: theme.colors.neutral.surface }]}
-                    onPress={() => navigation.navigate('PesticideDetail', { pesticideId: pesticide.id.toString() })}
-                  >
-                    <View style={styles.cardHeader}>
-                      <View style={styles.cardTitleContainer}>
-                        <MaterialCommunityIcons
-                          name="flask-outline"
-                          size={24}
-                          color={pesticide.isNatural ? theme.colors.success : theme.colors.accent.base}
-                        />
-                        <Text style={[styles.pesticideName, { color: theme.colors.neutral.textPrimary }]}>
-                          {pesticide.name}
-                        </Text>
-                      </View>
-                      {pesticide.isNatural && (
-                        <View style={[styles.naturalBadge, { backgroundColor: theme.colors.success }]}>
-                          <Feather name="check-circle" size={12} color="#FFF" />
-                          <Text style={styles.naturalText}>طبيعي</Text>
-                        </View>
-                      )}
-                    </View>
-
-                    <View style={styles.pesticideInfo}>
-                      <View style={styles.infoRow}>
-                        <View style={styles.quantityContainer}>
-                          <MaterialCommunityIcons
-                            name="package-variant"
-                            size={20}
-                            color={pesticide.quantity <= pesticide.lowStockThreshold 
-                              ? theme.colors.error 
-                              : theme.colors.success}
-                          />
-                          <Text style={[styles.quantity, { 
-                            color: pesticide.quantity <= pesticide.lowStockThreshold 
-                              ? theme.colors.error 
-                              : theme.colors.success 
-                          }]}>
-                            {pesticide.quantity} {pesticide.unit}
-                          </Text>
-                        </View>
-                        {pesticide.quantity <= pesticide.lowStockThreshold && (
-                          <View style={[styles.warningBadge, { backgroundColor: theme.colors.error }]}>
-                            <MaterialCommunityIcons name="alert" size={16} color="#FFF" />
-                            <Text style={styles.warningText}>مخزون منخفض</Text>
-                          </View>
-                        )}
-                      </View>
-
-                      <View style={styles.infoRow}>
-                        <View style={styles.targetContainer}>
-                          <MaterialCommunityIcons
-                            name="bug-outline"
-                            size={20}
-                            color={theme.colors.neutral.textSecondary}
-                          />
-                          <Text style={[styles.targetText, { color: theme.colors.neutral.textSecondary }]}>
-                            {pesticide.target || 'الهدف غير محدد'}
-                          </Text>
-                        </View>
-                        {pesticide.waitingPeriod && (
-                          <View style={styles.waitingPeriodContainer}>
-                            <MaterialCommunityIcons
-                              name="clock-outline"
-                              size={20}
-                              color={theme.colors.warning}
-                            />
-                            <Text style={[styles.waitingPeriodText, { color: theme.colors.warning }]}>
-                              {pesticide.waitingPeriod} يوم
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                </Animated.View>
-              ))}
+              <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
+                {new Date(item.expiryDate).toLocaleDateString()}
+              </Text>
             </View>
           )}
         </View>
-      </Animated.ScrollView>
 
-      <TouchableOpacity
-        style={[styles.fab, { backgroundColor: theme.colors.primary.base }]}
-        onPress={() => navigation.navigate('AddPesticide')}
-      >
-        <MaterialCommunityIcons name="plus" size={24} color="#FFF" />
+        {item.quantity <= item.minQuantityAlert && (
+          <View style={[styles.alert, { backgroundColor: '#FFEBEE' }]}>
+            <MaterialCommunityIcons
+              name="alert"
+              size={16}
+              color="#D32F2F"
+            />
+            <Text style={[styles.alertText, { color: '#D32F2F' }]}>
+              المخزون منخفض
+            </Text>
+          </View>
+        )}
       </TouchableOpacity>
+    );
+  };
+
+  return (
+    <View style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
+      <View style={styles.header}>
+        <Text style={[styles.headerTitle, { color: theme.colors.neutral.textPrimary }]}>
+          المبيدات
+        </Text>
+        <TouchableOpacity
+          style={[styles.addButton, { backgroundColor: theme.colors.primary.base }]}
+          onPress={() => navigation.navigate('AddPesticide')}
+        >
+          <MaterialCommunityIcons name="plus" size={24} color="white" />
+        </TouchableOpacity>
+      </View>
+
+      <FlatList
+        data={pesticides}
+        renderItem={renderPesticideItem}
+        keyExtractor={(item) => item.id.toString()}
+        contentContainerStyle={styles.list}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[theme.colors.primary.base]}
+          />
+        }
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <MaterialCommunityIcons
+              name="spray"
+              size={48}
+              color={theme.colors.neutral.textSecondary}
+            />
+            <Text style={[styles.emptyText, { color: theme.colors.neutral.textSecondary }]}>
+              لا يوجد مبيدات
+            </Text>
+          </View>
+        }
+      />
     </View>
   );
 };
@@ -286,173 +175,89 @@ const styles = createThemedStyles((theme) => ({
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: Platform.OS === 'ios' ? 44 : 0,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+    alignItems: 'center',
+    padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.neutral.border,
-    elevation: 4,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    shadowColor: '#000000',
-    zIndex: 1000,
-  } as ViewStyle,
+  },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
   },
-  backButton: {
-    padding: 8,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    padding: 16,
-  },
-  emptyState: {
-    alignItems: 'center',
+  addButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
-    padding: 32,
+    alignItems: 'center',
   },
-  emptyText: {
-    fontSize: 16,
-    marginVertical: 16,
-    textAlign: 'center',
-  },
-  pesticideGrid: {
-    flexDirection: 'column',
-    gap: 16,
-  },
-  pesticideCard: {
+  list: {
     padding: 16,
+  },
+  card: {
     borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
     elevation: 2,
-    shadowColor: '#000000',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-  } as ViewStyle,
+  },
   cardHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 12,
-  },
-  pesticideName: {
-    fontSize: 18,
-    fontFamily: theme.fonts.bold,
-  },
-  naturalBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    gap: 4,
-  },
-  naturalText: {
-    color: '#FFF',
-    fontSize: 12,
-    fontFamily: theme.fonts.medium,
-  },
-  pesticideInfo: {
-    gap: 12,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  quantityContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  quantity: {
-    fontSize: 16,
-    fontFamily: theme.fonts.bold,
-  },
-  warningBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    gap: 4,
-  },
-  warningText: {
-    color: '#FFF',
-    fontSize: 12,
-    fontFamily: theme.fonts.medium,
-  },
-  targetContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  targetText: {
-    fontSize: 14,
-    fontFamily: theme.fonts.medium,
-  },
-  waitingPeriodContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  waitingPeriodText: {
-    fontSize: 14,
-    fontFamily: theme.fonts.medium,
   },
   cardTitleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  centerContent: {
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  cardContent: {
+    gap: 8,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  label: {
+    fontSize: 14,
+  },
+  value: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  alert: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 12,
+    padding: 8,
+    borderRadius: 6,
+  },
+  alertText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 32,
+    gap: 16,
   },
-  errorText: {
+  emptyText: {
     fontSize: 16,
     textAlign: 'center',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 24,
-    right: 24,
-    padding: 16,
-    borderRadius: 24,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 16,
-    marginTop: 8,
-    marginBottom: 16,
-    paddingHorizontal: 16,
-    height: 48,
-    borderRadius: 24,
-    elevation: 2,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  } as ViewStyle,
-  searchIcon: {
-    marginRight: 12,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    textAlign: 'right',
   },
 }));
 
-export default PesticideList;
+export default PesticideListScreen;

@@ -53,10 +53,15 @@ const stockApi = {
   // Get all stocks
   getAllStocks: async () => {
     try {
+      console.log('Fetching all stocks from:', `${API_URL}/stocks`);
       const response = await api.get('/stocks');
       return response.data;
     } catch (error) {
-      console.error('Error fetching stocks:', error);
+      if (axios.isAxiosError(error)) {
+        console.error('Error fetching stocks:', error.response?.data || error.message);
+      } else {
+        console.error('Error fetching stocks:', error);
+      }
       throw error;
     }
   },
@@ -75,13 +80,18 @@ const stockApi = {
   // Create stock
   createStock: async (stockData: Omit<StockItem, 'id' | 'stockHistory'>) => {
     try {
-      const response = await api.post('/stocks', {
-        ...stockData,
-        quantity: stockData.quantity || 0
-      });
+      console.log('Creating stock at:', `${API_URL}/stocks`);
+      console.log('Stock data:', JSON.stringify(stockData, null, 2));
+      const response = await api.post('/stocks', stockData);
+      console.log('Create stock response:', response.data);
       return response.data;
     } catch (error) {
-      console.error('Error creating stock:', error);
+      if (axios.isAxiosError(error)) {
+        console.error('Error creating stock:', error.response?.data || error.message);
+        console.error('Full error:', error);
+      } else {
+        console.error('Error creating stock:', error);
+      }
       throw error;
     }
   },
@@ -200,5 +210,64 @@ const stockStatisticsApi = {
   }
 };
 
+// Pesticide API methods
+const pesticideApi = {
+  // Get all pesticides
+  getAllPesticides: async () => {
+    try {
+      console.log('Fetching all pesticides');
+      const response = await api.get('/pesticides');
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        console.error('Error fetching pesticides:', error.response?.data || error.message);
+      } else {
+        console.error('Error fetching pesticides:', error);
+      }
+      throw error;
+    }
+  },
+
+  // Create pesticide
+  createPesticide: async (pesticideData: any) => {
+    try {
+      console.log('Creating pesticide with data:', JSON.stringify(pesticideData, null, 2));
+      const response = await api.post('/pesticides', pesticideData);
+      console.log('Create pesticide response:', response.data);
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        console.error('Error creating pesticide:', error.response?.data || error.message);
+        console.error('Full error:', error);
+      } else {
+        console.error('Error creating pesticide:', error);
+      }
+      throw error;
+    }
+  },
+
+  // Update pesticide
+  updatePesticide: async (id: string, data: any) => {
+    try {
+      const response = await api.put(`/pesticides/${id}`, data);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating pesticide:', error);
+      throw error;
+    }
+  },
+
+  // Delete pesticide
+  deletePesticide: async (id: string) => {
+    try {
+      const response = await api.delete(`/pesticides/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error deleting pesticide:', error);
+      throw error;
+    }
+  },
+};
+
 // Export both the base API and specific methods
-export { api, stockApi, animalApi, stockStatisticsApi }; 
+export { api, stockApi, animalApi, stockStatisticsApi, pesticideApi }; 

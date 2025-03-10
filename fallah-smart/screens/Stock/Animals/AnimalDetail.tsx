@@ -11,7 +11,7 @@ import {
 import { useTheme } from '../../../context/ThemeContext';
 import { useStock } from '../../../context/StockContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Animal, HealthStatus } from '../types';
+import { Animal, HealthStatus, BreedingStatus } from '../types';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { StockStackParamList } from '../../../navigation/types';
 import { RouteProp } from '@react-navigation/native';
@@ -54,12 +54,42 @@ const getHealthStatusLabel = (status: HealthStatus): string => {
   }
 };
 
-const getAnimalIcon = (type: string): string => {
+const getBreedingStatusLabel = (status: BreedingStatus): string => {
+  switch (status) {
+    case 'not_breeding':
+      return 'غير متكاثر';
+    case 'in_heat':
+      return 'في فترة التزاوج';
+    case 'pregnant':
+      return 'حامل';
+    case 'nursing':
+      return 'مرضعة';
+    default:
+      return status;
+  }
+};
+
+const getBreedingStatusColor = (status: BreedingStatus, theme: any) => {
+  switch (status) {
+    case 'not_breeding':
+      return theme.colors.neutral.textSecondary;
+    case 'in_heat':
+      return theme.colors.warning;
+    case 'pregnant':
+      return theme.colors.primary.base;
+    case 'nursing':
+      return theme.colors.success;
+    default:
+      return theme.colors.neutral.textSecondary;
+  }
+};
+
+const getAnimalIcon = (type: string): keyof typeof MaterialCommunityIcons.glyphMap => {
   const lowercaseType = type.toLowerCase();
   if (lowercaseType.includes('بقرة') || lowercaseType.includes('ثور')) return 'cow';
   if (lowercaseType.includes('خروف') || lowercaseType.includes('نعجة')) return 'sheep';
   if (lowercaseType.includes('دجاج') || lowercaseType.includes('ديك')) return 'bird';
-  if (lowercaseType.includes('ماعز')) return 'goat';
+  if (lowercaseType.includes('ماعز')) return 'sheep';
   return 'paw';
 };
 
@@ -126,7 +156,7 @@ export const AnimalDetailScreen = ({ navigation, route }: AnimalDetailScreenProp
     }
   }, [animal.id, addAnimalQuantity, removeAnimalQuantity]);
 
-  const renderInfoSection = (title: string, icon: string, content: string | null) => {
+  const renderInfoSection = (title: string, icon: keyof typeof MaterialCommunityIcons.glyphMap, content: string | null) => {
     if (!content) return null;
 
     return (
@@ -182,7 +212,7 @@ export const AnimalDetailScreen = ({ navigation, route }: AnimalDetailScreenProp
                 onPress={() => handleQuantityChange('remove')}
                 disabled={animal.count === 0 || isDeleting}
               >
-                <MaterialCommunityIcons name="minus" size={20} color="#FFF" />
+                <MaterialCommunityIcons name={'minus' as keyof typeof MaterialCommunityIcons.glyphMap} size={20} color="#FFF" />
               </TouchableOpacity>
               <View style={[styles.quantityDisplay, { backgroundColor: theme.colors.primary.base }]}>
                 <Text style={[styles.quantityText, { color: '#FFF' }]}>
@@ -197,35 +227,77 @@ export const AnimalDetailScreen = ({ navigation, route }: AnimalDetailScreenProp
                 onPress={() => handleQuantityChange('add')}
                 disabled={isDeleting}
               >
-                <MaterialCommunityIcons name="plus" size={20} color="#FFF" />
+                <MaterialCommunityIcons name={'plus' as keyof typeof MaterialCommunityIcons.glyphMap} size={20} color="#FFF" />
               </TouchableOpacity>
             </View>
 
-            <View style={[
-              styles.healthStatus,
-              { backgroundColor: getHealthStatusColor(animal.healthStatus, theme) }
-            ]}>
-              <MaterialCommunityIcons name="heart-pulse" size={20} color="#FFF" />
-              <Text style={styles.healthText}>
-                {getHealthStatusLabel(animal.healthStatus)}
-              </Text>
+            <View style={styles.statusContainer}>
+              <View style={[
+                styles.healthStatus,
+                { backgroundColor: getHealthStatusColor(animal.healthStatus, theme) }
+              ]}>
+                <MaterialCommunityIcons name={'heart-pulse' as keyof typeof MaterialCommunityIcons.glyphMap} size={20} color="#FFF" />
+                <Text style={styles.healthText}>
+                  {getHealthStatusLabel(animal.healthStatus)}
+                </Text>
+              </View>
+
+              <View style={[
+                styles.breedingStatus,
+                { backgroundColor: getBreedingStatusColor(animal.breedingStatus, theme) }
+              ]}>
+                <MaterialCommunityIcons name={'baby-carriage' as keyof typeof MaterialCommunityIcons.glyphMap} size={20} color="#FFF" />
+                <Text style={styles.breedingText}>
+                  {getBreedingStatusLabel(animal.breedingStatus)}
+                </Text>
+              </View>
             </View>
           </View>
         </Animated.View>
 
         <View style={styles.content}>
           {renderInfoSection('برنامج التغذية', 'food-apple', animal.feedingSchedule)}
-          {renderInfoSection('التغذية', 'food', animal.feeding)}
-          {renderInfoSection('الرعاية', 'medical-bag', animal.care)}
-          {renderInfoSection('الصحة', 'heart-pulse', animal.health)}
-          {renderInfoSection('السكن', 'home', animal.housing)}
-          {renderInfoSection('التكاثر', 'baby-face', animal.breeding)}
-          {renderInfoSection('الأمراض', 'virus', animal.diseases)}
-          {renderInfoSection('الأدوية', 'pill', animal.medications)}
-          {renderInfoSection('السلوك', 'eye', animal.behavior)}
-          {renderInfoSection('الجوانب الاقتصادية', 'cash', animal.economics)}
-          {renderInfoSection('التطعيم', 'needle', animal.vaccination)}
-          {renderInfoSection('ملاحظات', 'note-text', animal.notes)}
+          {renderInfoSection('التغذية', 'food', animal.feeding || null)}
+          {animal.dailyFeedConsumption && renderInfoSection(
+            'استهلاك العلف اليومي',
+            'food-variant',
+            `${animal.dailyFeedConsumption} كجم`
+          )}
+          {renderInfoSection('الصحة', 'heart-pulse', animal.health || null)}
+          {renderInfoSection('الأمراض', 'virus', animal.diseases || null)}
+          {renderInfoSection('الأدوية', 'pill', animal.medications || null)}
+          {renderInfoSection('التطعيم', 'needle', animal.vaccination || null)}
+          {animal.nextVaccinationDate && renderInfoSection(
+            'موعد التطعيم القادم',
+            'calendar',
+            new Date(animal.nextVaccinationDate).toLocaleDateString('ar-SA')
+          )}
+          {animal.birthDate && renderInfoSection(
+            'تاريخ الميلاد',
+            'cake-variant',
+            new Date(animal.birthDate).toLocaleDateString('ar-SA')
+          )}
+          {animal.weight && renderInfoSection(
+            'الوزن',
+            'weight',
+            `${animal.weight} كجم`
+          )}
+          {animal.lastBreedingDate && renderInfoSection(
+            'تاريخ التكاثر الأخير',
+            'calendar-clock',
+            new Date(animal.lastBreedingDate).toLocaleDateString('ar-SA')
+          )}
+          {animal.expectedBirthDate && renderInfoSection(
+            'تاريخ الولادة المتوقع',
+            'calendar-star',
+            new Date(animal.expectedBirthDate).toLocaleDateString('ar-SA')
+          )}
+          {animal.offspringCount > 0 && renderInfoSection(
+            'عدد النسل',
+            'baby-face-outline',
+            animal.offspringCount.toString()
+          )}
+          {renderInfoSection('ملاحظات', 'note-text', animal.notes || null)}
         </View>
       </ScrollView>
 
@@ -235,7 +307,7 @@ export const AnimalDetailScreen = ({ navigation, route }: AnimalDetailScreenProp
           onPress={handleDelete}
           disabled={isDeleting}
         >
-          <MaterialCommunityIcons name="trash-can" size={24} color="#FFF" />
+          <MaterialCommunityIcons name={'trash-can' as keyof typeof MaterialCommunityIcons.glyphMap} size={24} color="#FFF" />
           <Text style={styles.deleteButtonText}>
             {isDeleting ? 'جاري الحذف...' : 'حذف'}
           </Text>
@@ -320,15 +392,30 @@ const styles = StyleSheet.create({
   quantityLabel: {
     fontSize: 12,
   },
+  statusContainer: {
+    flexDirection: 'column',
+    gap: 8,
+  },
   healthStatus: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 16,
-    gap: 8,
+    padding: 8,
+    borderRadius: 8,
+    gap: 4,
+  },
+  breedingStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+    borderRadius: 8,
+    gap: 4,
   },
   healthText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  breedingText: {
     color: '#FFF',
     fontSize: 14,
     fontWeight: '500',
