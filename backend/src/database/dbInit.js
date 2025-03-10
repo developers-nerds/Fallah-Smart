@@ -6,7 +6,7 @@ async function initializeDatabase() {
     
     // Try with alter first, which is less destructive
     console.log('Synchronizing database models...');
-    await sequelize.sync({ force: true });
+    await sequelize.sync({ alter: true });
     
     console.log('✅ Database initialized successfully!');
     return true;

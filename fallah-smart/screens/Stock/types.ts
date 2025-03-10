@@ -46,24 +46,37 @@ export type StockHistoryType = 'add' | 'remove' | 'expired' | 'damaged';
 export type HealthStatus = 'excellent' | 'good' | 'fair' | 'poor';
 export type Gender = 'male' | 'female';
 
+export type BreedingStatus = 'not_breeding' | 'in_heat' | 'pregnant' | 'nursing';
+
 export interface Animal {
   id: string;
   type: string;
   count: number;
   healthStatus: HealthStatus;
+  feedingSchedule: string;
   gender: Gender;
-  feedingSchedule?: string;
   feeding?: string | null;
-  care?: string | null;
   health?: string | null;
-  housing?: string | null;
-  breeding?: string | null;
   diseases?: string | null;
   medications?: string | null;
-  behavior?: string | null;
-  economics?: string | null;
   vaccination?: string | null;
   notes?: string | null;
+  birthDate?: string | null;
+  weight?: number | null;
+  lastWeightUpdate?: string | null;
+  dailyFeedConsumption?: number | null;
+  lastFeedingTime?: string | null;
+  breedingStatus: BreedingStatus;
+  lastBreedingDate?: string | null;
+  expectedBirthDate?: string | null;
+  offspringCount: number;
+  nextVaccinationDate?: string | null;
+  vaccinationHistory?: Array<{
+    date: string;
+    type: string;
+  }> | null;
+  motherId?: string | null;
+  userId: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -95,4 +108,48 @@ export interface StockItem {
   stockHistory: StockHistory[];
   createdAt: string;
   updatedAt: string;
+}
+
+export type PesticideType = 'insecticide' | 'herbicide' | 'fungicide' | 'other';
+
+export interface Pesticide {
+  id: string;
+  name: string;
+  quantity: number;
+  unit: string;
+  minQuantityAlert: number;
+  price: number;
+  isNatural: boolean;
+  type: PesticideType;
+  activeIngredients?: string | null;
+  targetPests?: string | null;
+  applicationRate?: number | null;
+  safetyInterval?: number | null;
+  expiryDate?: string | null;
+  manufacturer?: string | null;
+  registrationNumber?: string | null;
+  storageConditions?: string | null;
+  safetyPrecautions?: string | null;
+  emergencyProcedures?: string | null;
+  lastApplicationDate?: string | null;
+  supplier?: string | null;
+  userId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StockFormValues {
+  name: string;
+  quantity: number;
+  unit: StockUnit;
+  category: StockCategory;
+  lowStockThreshold: number;
+  location: string;
+  supplier: string;
+  price?: number;
+  notes: string;
+  isNatural: boolean;
+  qualityStatus: 'good' | 'medium' | 'poor';
+  batchNumber?: string;
+  expiryDate?: Date;
 } 

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import StockScreen from '../screens/Stock/stock';
 import { StockDetail } from '../screens/Stock/StockDetail';
-import { StockForm, StockFormValues } from '../screens/Stock/components/StockForm';
+import { StockForm } from '../screens/Stock/components/StockForm';
 import { AnimalsScreen } from '../screens/Stock/Animals/Animals';
 import { AddAnimalScreen } from '../screens/Stock/Animals/AddAnimal';
 import { AnimalDetailScreen } from '../screens/Stock/Animals/AnimalDetail';
@@ -12,11 +12,11 @@ import { useTheme } from '../context/ThemeContext';
 import TabBar from './TabBar';
 import Login from '../screens/Auth/Login';
 import Register from '../screens/Auth/Register';
-import { StockItem } from '../screens/Stock/types';
+import { StockItem, StockFormValues } from '../screens/Stock/types';
 import { View, ActivityIndicator, Text } from 'react-native';
-import { PesticideList } from '../screens/Stock/Pesticides/PesticideList';
 import { PesticideDetail } from '../screens/Stock/Pesticides/PesticideDetail';
-import { AddPesticide } from '../screens/Stock/Pesticides/AddPesticide';
+import AddPesticideScreen from '../screens/Stock/Pesticides/AddPesticide';
+import PesticideListScreen from '../screens/Stock/Pesticides/PesticideList';
 import { PesticideProvider } from '../context/PesticideContext';
 import Blogs from '../screens/blogs/blogs';
 import PostDetail from '../screens/blogs/PostDetail';
@@ -102,7 +102,7 @@ export const StockNavigator = () => {
         />
         <Stack.Screen 
           name="PesticideList" 
-          component={PesticideList}
+          component={PesticideListScreen}
           options={{ title: 'قائمة المبيدات', headerShown: true }}
         />
         <Stack.Screen 
@@ -112,7 +112,7 @@ export const StockNavigator = () => {
         />
         <Stack.Screen 
           name="AddPesticide" 
-          component={AddPesticide}
+          component={AddPesticideScreen}
           options={{ title: 'إضافة مبيد', headerShown: true }}
         />
         <Stack.Screen 

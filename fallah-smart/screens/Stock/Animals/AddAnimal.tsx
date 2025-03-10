@@ -12,7 +12,7 @@ import {
 import { useTheme } from '../../../context/ThemeContext';
 import { useStock } from '../../../context/StockContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Animal, HealthStatus, Gender } from '../types';
+import { Animal, HealthStatus, Gender, BreedingStatus } from '../types';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { StockStackParamList } from '../../../navigation/types';
 import Animated, { FadeInRight, useAnimatedStyle } from 'react-native-reanimated';
@@ -70,16 +70,18 @@ interface FormData {
   feedingSchedule: string;
   gender: Gender;
   feeding: string;
-  care: string;
   health: string;
-  housing: string;
-  breeding: string;
   diseases: string;
   medications: string;
-  behavior: string;
-  economics: string;
   vaccination: string;
   notes: string;
+  birthDate: string;
+  weight: string;
+  dailyFeedConsumption: string;
+  breedingStatus: BreedingStatus;
+  lastBreedingDate: string;
+  expectedBirthDate: string;
+  nextVaccinationDate: string;
 }
 
 const initialFormData: FormData = {
@@ -89,16 +91,18 @@ const initialFormData: FormData = {
   feedingSchedule: '',
   gender: 'male',
   feeding: '',
-  care: '',
   health: '',
-  housing: '',
-  breeding: '',
   diseases: '',
   medications: '',
-  behavior: '',
-  economics: '',
   vaccination: '',
-  notes: ''
+  notes: '',
+  birthDate: '',
+  weight: '',
+  dailyFeedConsumption: '',
+  breedingStatus: 'not_breeding',
+  lastBreedingDate: '',
+  expectedBirthDate: '',
+  nextVaccinationDate: ''
 };
 
 const formPages: FormPage[] = [
@@ -106,25 +110,31 @@ const formPages: FormPage[] = [
     title: 'المعلومات الأساسية',
     subtitle: 'أدخل المعلومات الأساسية للحيوان',
     icon: 'information',
-    fields: ['type', 'gender', 'count', 'healthStatus'],
+    fields: ['type', 'gender', 'count', 'healthStatus', 'birthDate', 'weight'],
   },
   {
     title: 'التغذية والرعاية',
     subtitle: 'أدخل تفاصيل التغذية والرعاية',
     icon: 'heart-pulse',
-    fields: ['feedingSchedule', 'feeding', 'care', 'housing'],
+    fields: ['feedingSchedule', 'feeding', 'dailyFeedConsumption'],
   },
   {
-    title: 'الصحة والطب',
-    subtitle: 'أدخل معلومات الصحة والعلاج',
-    icon: 'cog',
-    fields: ['health', 'diseases', 'medications', 'vaccination'],
+    title: 'الصحة والتطعيم',
+    subtitle: 'أدخل معلومات الصحة والتطعيم',
+    icon: 'medical-bag',
+    fields: ['health', 'diseases', 'medications', 'vaccination', 'nextVaccinationDate'],
   },
   {
-    title: 'معلومات إضافية',
-    subtitle: 'أدخل معلومات إضافية',
+    title: 'التكاثر',
+    subtitle: 'أدخل معلومات التكاثر',
+    icon: 'baby-carriage',
+    fields: ['breedingStatus', 'lastBreedingDate', 'expectedBirthDate'],
+  },
+  {
+    title: 'ملاحظات إضافية',
+    subtitle: 'أدخل أي ملاحظات إضافية',
     icon: 'text-box',
-    fields: ['breeding', 'behavior', 'economics', 'notes'],
+    fields: ['notes'],
   },
 ];
 
@@ -139,16 +149,18 @@ const validationSchema = Yup.object().shape({
     .required('الحالة الصحية مطلوبة'),
   feedingSchedule: Yup.string().required('برنامج التغذية مطلوب'),
   feeding: Yup.string(),
-  care: Yup.string(),
-  housing: Yup.string(),
   health: Yup.string(),
   diseases: Yup.string(),
   medications: Yup.string(),
-  breeding: Yup.string(),
-  behavior: Yup.string(),
-  economics: Yup.string(),
   vaccination: Yup.string(),
   notes: Yup.string(),
+  birthDate: Yup.string(),
+  weight: Yup.number().min(0, 'الوزن يجب أن يكون أكبر من 0'),
+  dailyFeedConsumption: Yup.number().min(0, 'كمية العلف اليومي يجب أن تكون أكبر من 0'),
+  breedingStatus: Yup.string().oneOf(['not_breeding', 'in_heat', 'pregnant', 'nursing']),
+  lastBreedingDate: Yup.string(),
+  expectedBirthDate: Yup.string(),
+  nextVaccinationDate: Yup.string()
 });
 
 export const AddAnimalScreen = ({ navigation }: AddAnimalScreenProps) => {
@@ -194,16 +206,21 @@ export const AddAnimalScreen = ({ navigation }: AddAnimalScreenProps) => {
         type: formData.type.trim(),
         feedingSchedule: formData.feedingSchedule.trim(),
         feeding: formData.feeding.trim() || null,
-        care: formData.care.trim() || null,
         health: formData.health.trim() || null,
-        housing: formData.housing.trim() || null,
-        breeding: formData.breeding.trim() || null,
         diseases: formData.diseases.trim() || null,
         medications: formData.medications.trim() || null,
-        behavior: formData.behavior.trim() || null,
-        economics: formData.economics.trim() || null,
         vaccination: formData.vaccination.trim() || null,
-        notes: formData.notes.trim() || null
+        notes: formData.notes.trim() || null,
+        birthDate: formData.birthDate || null,
+        weight: formData.weight ? Number(formData.weight) : null,
+        dailyFeedConsumption: formData.dailyFeedConsumption ? Number(formData.dailyFeedConsumption) : null,
+        breedingStatus: formData.breedingStatus,
+        lastBreedingDate: formData.lastBreedingDate || null,
+        expectedBirthDate: formData.expectedBirthDate || null,
+        nextVaccinationDate: formData.nextVaccinationDate || null,
+        vaccinationHistory: [],
+        offspringCount: 0,
+        userId: '1' // TODO: Get the actual user ID from authentication context
       });
 
       navigation.goBack();
@@ -400,52 +417,6 @@ export const AddAnimalScreen = ({ navigation }: AddAnimalScreenProps) => {
           </View>
         );
 
-      case 'care':
-        return (
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
-              الرعاية
-            </Text>
-            <TextInput
-              style={[styles.input, { 
-                backgroundColor: theme.colors.neutral.surface,
-                color: theme.colors.neutral.textPrimary,
-                borderColor: theme.colors.neutral.border,
-                textAlign: 'right'
-              }]}
-              value={formData.care}
-              onChangeText={(text) => setFormData({ ...formData, care: text })}
-              placeholder="أدخل تفاصيل الرعاية"
-              placeholderTextColor={theme.colors.neutral.textSecondary}
-              multiline
-              numberOfLines={4}
-            />
-          </View>
-        );
-
-      case 'housing':
-        return (
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
-              السكن
-            </Text>
-            <TextInput
-              style={[styles.input, { 
-                backgroundColor: theme.colors.neutral.surface,
-                color: theme.colors.neutral.textPrimary,
-                borderColor: theme.colors.neutral.border,
-                textAlign: 'right'
-              }]}
-              value={formData.housing}
-              onChangeText={(text) => setFormData({ ...formData, housing: text })}
-              placeholder="أدخل تفاصيل السكن"
-              placeholderTextColor={theme.colors.neutral.textSecondary}
-              multiline
-              numberOfLines={4}
-            />
-          </View>
-        );
-
       case 'health':
         return (
           <View style={styles.inputGroup}>
@@ -538,11 +509,44 @@ export const AddAnimalScreen = ({ navigation }: AddAnimalScreenProps) => {
           </View>
         );
 
-      case 'breeding':
+      case 'breedingStatus':
         return (
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
-              التكاثر
+              حالة التكاثر *
+            </Text>
+            <View style={styles.breedingStatusContainer}>
+              {['not_breeding', 'in_heat', 'pregnant', 'nursing'].map((status) => (
+                <TouchableOpacity
+                  key={status}
+                  style={[
+                    styles.breedingStatusButton,
+                    formData.breedingStatus === status && { backgroundColor: getHealthStatusColor(status as HealthStatus, theme) }
+                  ]}
+                  onPress={() => setFormData({ ...formData, breedingStatus: status as BreedingStatus })}
+                >
+                  <MaterialCommunityIcons
+                    name="baby-carriage"
+                    size={20}
+                    color={formData.breedingStatus === status ? '#FFF' : theme.colors.neutral.textSecondary}
+                  />
+                  <Text style={[
+                    styles.breedingStatusText,
+                    { color: formData.breedingStatus === status ? '#FFF' : theme.colors.neutral.textSecondary }
+                  ]}>
+                    {status.replace('_', ' ')}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        );
+
+      case 'lastBreedingDate':
+        return (
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+              تاريخ التكاثر الأخير
             </Text>
             <TextInput
               style={[styles.input, { 
@@ -551,21 +555,19 @@ export const AddAnimalScreen = ({ navigation }: AddAnimalScreenProps) => {
                 borderColor: theme.colors.neutral.border,
                 textAlign: 'right'
               }]}
-              value={formData.breeding}
-              onChangeText={(text) => setFormData({ ...formData, breeding: text })}
-              placeholder="أدخل تفاصيل التكاثر"
+              value={formData.lastBreedingDate}
+              onChangeText={(text) => setFormData({ ...formData, lastBreedingDate: text })}
+              placeholder="أدخل تاريخ التكاثر الأخير"
               placeholderTextColor={theme.colors.neutral.textSecondary}
-              multiline
-              numberOfLines={4}
             />
           </View>
         );
 
-      case 'behavior':
+      case 'expectedBirthDate':
         return (
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
-              السلوك
+              تاريخ الميلاد المتوقع
             </Text>
             <TextInput
               style={[styles.input, { 
@@ -574,21 +576,19 @@ export const AddAnimalScreen = ({ navigation }: AddAnimalScreenProps) => {
                 borderColor: theme.colors.neutral.border,
                 textAlign: 'right'
               }]}
-              value={formData.behavior}
-              onChangeText={(text) => setFormData({ ...formData, behavior: text })}
-              placeholder="أدخل تفاصيل السلوك"
+              value={formData.expectedBirthDate}
+              onChangeText={(text) => setFormData({ ...formData, expectedBirthDate: text })}
+              placeholder="أدخل تاريخ الميلاد المتوقع"
               placeholderTextColor={theme.colors.neutral.textSecondary}
-              multiline
-              numberOfLines={4}
             />
           </View>
         );
 
-      case 'economics':
+      case 'nextVaccinationDate':
         return (
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
-              الجوانب الاقتصادية
+              تاريخ التطعيم القادم
             </Text>
             <TextInput
               style={[styles.input, { 
@@ -597,12 +597,10 @@ export const AddAnimalScreen = ({ navigation }: AddAnimalScreenProps) => {
                 borderColor: theme.colors.neutral.border,
                 textAlign: 'right'
               }]}
-              value={formData.economics}
-              onChangeText={(text) => setFormData({ ...formData, economics: text })}
-              placeholder="أدخل تفاصيل الجوانب الاقتصادية"
+              value={formData.nextVaccinationDate}
+              onChangeText={(text) => setFormData({ ...formData, nextVaccinationDate: text })}
+              placeholder="أدخل تاريخ التطعيم القادم"
               placeholderTextColor={theme.colors.neutral.textSecondary}
-              multiline
-              numberOfLines={4}
             />
           </View>
         );
@@ -790,5 +788,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: 16,
     gap: 8,
+  },
+  breedingStatusContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  breedingStatusButton: {
+    flex: 1,
+    minWidth: (width - 48) / 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 8,
+    gap: 8,
+  },
+  breedingStatusText: {
+    fontSize: 16,
+    fontWeight: '500',
   },
 }); 

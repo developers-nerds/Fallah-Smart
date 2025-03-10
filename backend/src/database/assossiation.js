@@ -3,6 +3,7 @@ const { DataTypes } = require("sequelize");
 //importing models
 const Accounts = require("./models/Accounts")(sequelize, DataTypes);
 const Animal_doc = require("./models/Animal _doc")(sequelize, DataTypes);
+const AnimalDetails = require("./models/AnimalDetails")(sequelize, DataTypes);
 const AnimalGaston = require("./models/AnimalGaston")(sequelize, DataTypes);
 const BackupSync = require("./models/BackupSync")(sequelize, DataTypes);
 const Category = require("./models/Categories")(sequelize, DataTypes);
@@ -23,6 +24,13 @@ const Recurring_Transactions = require("./models/Recurring_Transactions")(
 const Scans = require("./models/Scans")(sequelize, DataTypes);
 const Stock = require("./models/Stock")(sequelize, DataTypes);
 const StockHistory = require("./models/StockHistory")(sequelize, DataTypes);
+const StockFeed = require("./models/StockFeed")(sequelize, DataTypes);
+const StockSeeds = require("./models/StockSeeds")(sequelize, DataTypes);
+const StockFertilizer = require("./models/StockFertilizer")(sequelize, DataTypes);
+const StockEquipment = require("./models/StockEquipment")(sequelize, DataTypes);
+const StockHarvest = require("./models/StockHarvest")(sequelize, DataTypes);
+const StockNotification = require("./models/StockNotification")(sequelize, DataTypes);
+const StockTools = require("./models/StockTools")(sequelize, DataTypes);
 const Transactions = require("./models/Transactions")(sequelize, DataTypes);
 const Users = require("./models/Users")(sequelize, DataTypes);
 
@@ -427,6 +435,90 @@ Stock.belongsTo(Users, {
   as: "user",
 });
 
+// Stock Feed associations
+Users.hasMany(StockFeed, {
+  foreignKey: "userId",
+  as: "stockFeeds",
+  onDelete: "CASCADE",
+});
+
+StockFeed.belongsTo(Users, {
+  foreignKey: "userId",
+  as: "user",
+});
+
+// Stock Seeds associations
+Users.hasMany(StockSeeds, {
+  foreignKey: "userId",
+  as: "stockSeeds",
+  onDelete: "CASCADE",
+});
+
+StockSeeds.belongsTo(Users, {
+  foreignKey: "userId",
+  as: "user",
+});
+
+// Stock Fertilizer associations
+Users.hasMany(StockFertilizer, {
+  foreignKey: "userId",
+  as: "stockFertilizers",
+  onDelete: "CASCADE",
+});
+
+StockFertilizer.belongsTo(Users, {
+  foreignKey: "userId",
+  as: "user",
+});
+
+// Stock Equipment associations
+Users.hasMany(StockEquipment, {
+  foreignKey: "userId",
+  as: "stockEquipment",
+  onDelete: "CASCADE",
+});
+
+StockEquipment.belongsTo(Users, {
+  foreignKey: "userId",
+  as: "user",
+});
+
+// Stock Harvest associations
+Users.hasMany(StockHarvest, {
+  foreignKey: "userId",
+  as: "stockHarvests",
+  onDelete: "CASCADE",
+});
+
+StockHarvest.belongsTo(Users, {
+  foreignKey: "userId",
+  as: "user",
+});
+
+// Stock Notification associations
+Users.hasMany(StockNotification, {
+  foreignKey: "userId",
+  as: "stockNotifications",
+  onDelete: "CASCADE",
+});
+
+StockNotification.belongsTo(Users, {
+  foreignKey: "userId",
+  as: "user",
+});
+
+// Stock Tools associations
+Users.hasMany(StockTools, {
+  foreignKey: "userId",
+  as: "stockTools",
+  onDelete: "CASCADE",
+});
+
+StockTools.belongsTo(Users, {
+  foreignKey: "userId",
+  as: "user",
+});
+
 // Sync all models with the database
 // async function syncModels() {
 //   try {
@@ -451,11 +543,19 @@ module.exports = {
   Crop,
   CropDetails,
   Animal_doc,
+  AnimalDetails,
   AnimalGaston,
   Category,
   Pesticide,
   Stock,
   StockHistory,
+  StockFeed,
+  StockSeeds,
+  StockFertilizer,
+  StockEquipment,
+  StockHarvest,
+  StockNotification,
+  StockTools,
   Transactions,
   Likes,
   Comments,
