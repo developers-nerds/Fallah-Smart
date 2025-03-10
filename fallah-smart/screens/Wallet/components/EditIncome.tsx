@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, ActivityIndicator, Platform, Dimensions } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
-import { useNavigation } from "@react-navigation/native"
+import { useNavigation, useRoute } from "@react-navigation/native"
 import Icon from "react-native-vector-icons/MaterialIcons"
 import { FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons"
 import { theme } from "../../../theme/theme"
@@ -25,18 +25,24 @@ interface Category {
   isIncome?: boolean
 }
 
-export default function AddExpense() {
+interface Transaction {
+  id: number
+  accountId: number
+  amount: number
+  note: string
+  date: string
+  type: string
+  category: Category
+}
+
+export default function EditIncome() {
   const [showCategories, setShowCategories] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [amount, setAmount] = useState("")
-  const [note, setNote] = useState("Add expense")
-  const [currentDate, setCurrentDate] = useState(() => {
-    const date = new Date()
-    const options = { weekday: "long", day: "numeric", month: "long", year: "numeric" }
-    return date.toLocaleDateString("en-US", options)
-  })
+  const [note, setNote] = useState("")
+  const [currentDate, setCurrentDate] = useState("")
   const [date, setDate] = useState(new Date())
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [isManualDateInput, setIsManualDateInput] = useState(false)
@@ -48,11 +54,39 @@ export default function AddExpense() {
   const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null)
   
   const navigation = useNavigation()
+  const route = useRoute()
+  const { transaction } = route.params as { transaction: Transaction } // Type the route params
 
   const API_BASE_URL = Platform.select({
     web: process.env.WEB_PUBLIC_API,
     default: process.env.EXPO_PUBLIC_API_URL 
   })
+
+  useEffect(() => {
+    // Initialize with transaction data
+    if (transaction) {
+      setAmount(transaction.amount.toString())
+      setNote(transaction.note || "Add income")
+      setSelectedCategory({
+        id: transaction.category.id,
+        name: transaction.category.name,
+        icon: transaction.category.icon,
+        type: transaction.category.type,
+        color: transaction.category.color
+      })
+      setSelectedAccountId(transaction.accountId)
+      const transDate = new Date(transaction.date)
+      setDate(transDate)
+      setCurrentDate(transDate.toLocaleDateString("en-US", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric"
+      }))
+    }
+    fetchAccounts()
+    fetchCategories()
+  }, [transaction])
 
   const getUserIdFromToken = async () => {
     try {
@@ -84,69 +118,46 @@ export default function AddExpense() {
         }
       })
       setAccounts(response.data)
-      if (response.data.length > 0) {
-        setSelectedAccountId(response.data[0].id)
-      }
     } catch (error) {
       setError('Error fetching accounts: ' + (error.response?.data?.message || error.message))
     }
   }
 
-  useEffect(() => {
-    fetchAccounts()
-
-    let isMounted = true
-
-    const fetchCategories = async () => {
-      try {
-        setLoading(true)
-        const token = await AsyncStorage.getItem('@access_token')
-        if (!token) {
-          setError("No authentication token found")
-          return
-        }
-        const response = await axios.get(`${API_BASE_URL}/categories/type/Expense`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        })
-        console.log("Fetched categories response (AddExpense):", response.data)
-        if (isMounted) {
-          if (Array.isArray(response.data)) {
-            const validCategories = response.data.filter(
-              (category: any) => category && typeof category === 'object' && category.id && category.name
-            )
-            setCategories(validCategories)
-            if (validCategories.length === 0) {
-              setError("No valid categories found")
-            }
-          } else {
-            setError("Invalid response format: Categories data is not an array")
-            setCategories([])
-          }
-        }
-      } catch (err) {
-        if (isMounted) {
-          setError("Failed to fetch categories: " + err.message)
-          setCategories([])
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false)
-        }
+  const fetchCategories = async () => {
+    try {
+      setLoading(true)
+      const token = await AsyncStorage.getItem('@access_token')
+      if (!token) {
+        setError("No authentication token found")
+        return
       }
+      const response = await axios.get(`${API_BASE_URL}/categories/type/Income`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      console.log("Fetched categories response (EditIncome):", response.data) // Debug the response
+      if (Array.isArray(response.data)) {
+        const validCategories = response.data.filter(
+          (category: any) => category && typeof category === 'object' && category.id && category.name
+        )
+        setCategories(validCategories)
+        if (validCategories.length === 0) {
+          setError("No valid categories found")
+        }
+      } else {
+        setError("Invalid response format: Categories data is not an array")
+        setCategories([])
+      }
+    } catch (err) {
+      setError("Failed to fetch categories: " + err.message)
+      setCategories([])
+    } finally {
+      setLoading(false)
     }
+  }
 
-    if (showCategories) {
-      fetchCategories()
-    }
-
-    return () => {
-      isMounted = false
-    }
-  }, [showCategories])
-
-  const handleCreateTransaction = async (category: Category) => {
+  const handleUpdateTransaction = async (category: Category) => {
     try {
       setIsSubmitting(true)
       setSubmitError("")
@@ -178,13 +189,13 @@ export default function AddExpense() {
         accountId: selectedAccountId,
         categoryId: category.id,
         amount: parseFloat(amount),
-        type: 'expense',
+        type: 'income',
         note: note || "",
         date: date.toISOString()
       }
 
-      const response = await axios.post(
-        `${API_BASE_URL}/transactions`,
+      const response = await axios.put(
+        `${API_BASE_URL}/transactions/${transaction.id}`,
         transactionData,
         {
           headers: {
@@ -195,16 +206,30 @@ export default function AddExpense() {
       )
 
       if (response.data.success) {
-        setAmount("")
-        setNote("Add expense")
-        setSelectedCategory(null)
-        setShowCategories(false)
         navigation.goBack()
       } else {
-        setSubmitError(response.data.message || 'Failed to create transaction')
+        setSubmitError(response.data.message || 'Failed to update transaction')
       }
     } catch (error) {
-      setSubmitError(error.response?.data?.message || 'Failed to create transaction: ' + error.message)
+      setSubmitError(error.response?.data?.message || 'Failed to update transaction: ' + error.message)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleDeleteTransaction = async () => {
+    try {
+      setIsSubmitting(true)
+      const token = await AsyncStorage.getItem('@access_token')
+      
+      await axios.delete(`${API_BASE_URL}/transactions/${transaction.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      navigation.goBack()
+    } catch (error) {
+      setSubmitError(error.response?.data?.message || 'Failed to delete transaction')
     } finally {
       setIsSubmitting(false)
     }
@@ -261,7 +286,7 @@ export default function AddExpense() {
         onPress={() => {
           setSelectedCategory(item)
           setShowCategories(false)
-          handleCreateTransaction(item)
+          handleUpdateTransaction(item)
         }}
         disabled={isSubmitting}
       >
@@ -293,9 +318,9 @@ export default function AddExpense() {
         <TouchableOpacity onPress={goBack} style={styles.backButton}>
           <Icon name="arrow-back" color={theme.colors.neutral.surface} size={width * 0.06} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>New expense</Text>
-        <TouchableOpacity style={styles.refreshButton}>
-          <Icon name="refresh" color={theme.colors.neutral.surface} size={width * 0.06} />
+        <Text style={styles.headerTitle}>Edit Income</Text>
+        <TouchableOpacity onPress={handleDeleteTransaction} style={styles.deleteButton}>
+          <Icon name="delete" color={theme.colors.neutral.surface} size={width * 0.06} />
         </TouchableOpacity>
       </View>
 
@@ -467,7 +492,7 @@ const styles = StyleSheet.create({
     fontSize: width * 0.05,
     fontWeight: "500",
   },
-  refreshButton: {
+  deleteButton: {
     padding: width * 0.02,
   },
   dateContainer: {

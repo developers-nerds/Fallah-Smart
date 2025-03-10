@@ -40,7 +40,8 @@ async function seedAnimalDocs() {
     
   ];
   try {
-    Animal_doc.bulkCreate(animalsData);
+    await Animal_doc.bulkCreate(animalsData);  // Added 'await' here
+    console.log("✅ Animal docs seeded successfully");  // Added success message
   } catch (error) {
     console.error("❌ Error seeding animal documents:", error);
     throw error;
