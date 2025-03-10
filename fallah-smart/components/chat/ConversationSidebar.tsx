@@ -8,78 +8,73 @@ import {
   Animated,
   Image,
   Easing,
+  ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { theme } from '../../theme/theme';
 import { handleNewConversation, Conversation } from '../../utils/conversationUtils';
+import { storage } from '../../utils/storage';
+const Url = process.env.EXPO_PUBLIC_API_URL;
 
-// Fake data with added unread status and icons
-const fakeConversations = [
-  {
-    id: '1',
-    title: 'Tomato disease prevention',
-    date: '2023-12-15',
-    preview: 'How do I prevent blight in tomatoes?',
-    unread: true,
-    icon: '🍅',
-  },
-  {
-    id: '2',
-    title: 'Irrigation systems',
-    date: '2023-12-10',
-    preview: 'What irrigation system is best for my small farm?',
+// Function to fetch conversations from the API
+const getConversations = async () => {
+  try {
+    console.log('before all conv');
+    const response = await fetch(`${Url}/conversations/get`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${await getToken()}`,
+      },
+    });
+    console.log('after all conv');
+    if (!response.ok) {
+      throw new Error('Failed to fetch conversations');
+    }
+
+    const data = await response.json();
+    console.log('Fetched conversations:', data);
+
+    // Check if data has the expected structure
+    if (data && Array.isArray(data.data)) {
+      return data.data; // Return the array of conversations
+    } else {
+      console.error('Unexpected data structure:', data);
+      return [];
+    }
+  } catch (error) {
+    console.error('Error fetching conversations:', error);
+    return [];
+  }
+};
+
+// Helper function to get the auth token from storage
+const getToken = async () => {
+  try {
+    // Get token from storage utility
+    const tokens = await storage.getTokens();
+    return tokens.accessToken || '';
+  } catch (error) {
+    console.error('Error getting token:', error);
+    return '';
+  }
+};
+
+// Helper function to map API conversation data to our Conversation interface
+const mapApiConversations = (apiData: any[]): Conversation[] => {
+  if (!Array.isArray(apiData)) return [];
+
+  return apiData.map((conv: any) => ({
+    id: conv.id.toString(),
+    title: conv.conversation_name || 'Untitled Conversation',
+    date: new Date(conv.createdAt).toLocaleDateString(),
+    preview: conv.description || 'No description',
     unread: false,
-    icon: '💧',
-  },
-  {
-    id: '3',
-    title: 'Organic fertilizers',
-    date: '2023-12-05',
-    preview: 'Can you recommend organic fertilizers for vegetables?',
-    unread: true,
-    icon: '🌱',
-  },
-  {
-    id: '4',
-    title: 'Pest control',
-    date: '2023-11-28',
-    preview: 'How to control aphids without chemicals?',
-    unread: false,
-    icon: '🐞',
-  },
-  {
-    id: '5',
-    title: 'Crop rotation',
-    date: '2023-11-20',
-    preview: "What's a good crop rotation schedule for my garden?",
-    unread: false,
-    icon: '🌾',
-  },
-  {
-    id: '6',
-    title: 'Soil testing',
-    date: '2023-11-15',
-    preview: 'How often should I test my soil?',
-    unread: false,
-    icon: '🧪',
-  },
-  {
-    id: '7',
-    title: 'Weather patterns',
-    date: '2023-11-10',
-    preview: 'How will changing weather affect my crops?',
-    unread: false,
-    icon: '☁️',
-  },
-  {
-    id: '8',
-    title: 'Seed selection',
-    date: '2023-11-05',
-    preview: 'Which tomato varieties are disease resistant?',
-    unread: false,
-    icon: '🌰',
-  },
-];
+    icon: conv.icon || '💬',
+    messages: [],
+  }));
+};
 
 interface ConversationSidebarProps {
   isVisible: boolean;
@@ -100,101 +95,147 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
   const bounceAnim = useRef(new Animated.Value(0)).current; // Bounce animation
   const [isAnimationComplete, setIsAnimationComplete] = useState(!isVisible);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true); // Start with loading true
+  const [error, setError] = useState<string | null>(null);
 
-  // Create animated values for each conversation item
-  const itemAnimations = useRef(fakeConversations.map(() => new Animated.Value(0))).current;
+  // Create animated values for each conversation item - max 20 for performance
+  const itemAnimations = useRef(
+    Array(20)
+      .fill(0)
+      .map(() => new Animated.Value(0))
+  ).current;
+
+  // Fetch conversations when component mounts
+  useEffect(() => {
+    const fetchConversations = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await getConversations();
+        if (data && Array.isArray(data)) {
+          // Map API data to match our Conversation interface
+          const formattedConversations = mapApiConversations(data);
+          setConversations(formattedConversations);
+        } else {
+          setConversations([]);
+        }
+      } catch (err) {
+        console.error('Error in fetchConversations:', err);
+        setError('Failed to load conversations');
+        setConversations([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (isVisible) {
+      fetchConversations();
+    }
+  }, [isVisible]);
 
   useEffect(() => {
+    let animationGroup: Animated.CompositeAnimation | null = null;
+    let itemAnimationInstances: Animated.CompositeAnimation[] = [];
+
     if (isVisible) {
       // Opening animations
       setIsAnimationComplete(false);
 
       // Main sidebar animations
-      Animated.parallel([
+      animationGroup = Animated.parallel([
         Animated.spring(slideAnim, {
           toValue: 0,
-          tension: 80,
-          friction: 10,
+          friction: 6,
+          tension: 40,
           useNativeDriver: true,
         }),
-        Animated.timing(scaleAnim, {
+        Animated.spring(scaleAnim, {
           toValue: 1,
-          duration: 300,
+          friction: 6,
+          tension: 40,
           useNativeDriver: true,
         }),
         Animated.timing(rotateAnim, {
-          toValue: 0,
-          duration: 400,
-          easing: Easing.elastic(1),
+          toValue: 1,
+          duration: 300,
+          easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
-      ]).start();
+      ]);
 
-      // Staggered animations for conversation items
-      Animated.stagger(
-        50, // Stagger each item by 50ms
-        itemAnimations.map((anim) =>
-          Animated.spring(anim, {
-            toValue: 1,
-            tension: 100,
-            friction: 8,
-            useNativeDriver: true,
-          })
-        )
-      ).start();
+      animationGroup.start();
+
+      // Animate conversation items sequentially
+      if (conversations.length > 0) {
+        conversations.forEach((_, i) => {
+          if (i < 20) {
+            // Limit to 20 animations for performance
+            const animation = Animated.timing(itemAnimations[i], {
+              toValue: 1,
+              duration: 200,
+              delay: 100 + i * 50,
+              easing: Easing.out(Easing.cubic),
+              useNativeDriver: true,
+            });
+            animation.start();
+            itemAnimationInstances.push(animation);
+          }
+        });
+      }
     } else {
-      // Closing animations - more fun and bouncy
-
-      // First animate the items out in reverse order
-      Animated.stagger(
-        30,
-        [...itemAnimations].reverse().map((anim) =>
-          Animated.timing(anim, {
-            toValue: 0,
-            duration: 200,
-            useNativeDriver: true,
-          })
-        )
-      ).start();
-
-      // Then animate the sidebar with bounce and rotation
-      Animated.sequence([
-        // Small bounce before closing
+      // Closing animations
+      animationGroup = Animated.sequence([
+        // First bounce slightly
         Animated.timing(bounceAnim, {
           toValue: 1,
-          duration: 150,
-          easing: Easing.out(Easing.back(2)),
+          duration: 100,
+          easing: Easing.inOut(Easing.quad),
           useNativeDriver: true,
         }),
-        // Then slide out with rotation
+        // Then slide out and scale down
         Animated.parallel([
           Animated.timing(slideAnim, {
             toValue: -300,
-            duration: 400,
-            easing: Easing.bezier(0.25, 1, 0.5, 1),
+            duration: 200,
+            easing: Easing.in(Easing.cubic),
             useNativeDriver: true,
           }),
           Animated.timing(scaleAnim, {
             toValue: 0.95,
-            duration: 300,
+            duration: 200,
+            easing: Easing.in(Easing.cubic),
             useNativeDriver: true,
           }),
           Animated.timing(rotateAnim, {
-            toValue: 1,
-            duration: 400,
-            easing: Easing.out(Easing.back(1.5)),
+            toValue: 0,
+            duration: 200,
+            easing: Easing.in(Easing.cubic),
             useNativeDriver: true,
           }),
         ]),
-      ]).start(({ finished }) => {
-        if (finished) {
-          setIsAnimationComplete(true);
-          // Reset bounce animation for next time
-          bounceAnim.setValue(0);
-        }
+      ]);
+
+      animationGroup.start(() => {
+        // Mark animation as complete so component can be removed from DOM
+        setIsAnimationComplete(true);
       });
     }
-  }, [isVisible]);
+
+    // Cleanup function
+    return () => {
+      if (animationGroup) {
+        animationGroup.stop();
+      }
+
+      itemAnimationInstances.forEach((animation) => {
+        if (animation) {
+          animation.stop();
+        }
+      });
+    };
+  }, [isVisible, conversations.length]);
 
   // Don't render if not visible and animation is complete
   if (!isVisible && isAnimationComplete) return null;
@@ -204,7 +245,15 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
     onSelectConversation(id);
   };
 
-  const renderItem = ({ item, index }: { item: (typeof fakeConversations)[0]; index: number }) => {
+  // Use the actual conversations only
+  const displayConversations = conversations;
+
+  // Filter conversations based on search term
+  const filteredConversations = conversations.filter((conversation) =>
+    conversation.title.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const renderItem = ({ item, index }: { item: Conversation; index: number }) => {
     const scale = new Animated.Value(1); // For hover-like effect
     const isSelected = selectedId === item.id;
 
@@ -223,17 +272,20 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
     };
 
     // Calculate item animation styles
+    // Check if the animation exists for this index, use a default value if not
+    const animValue = index < itemAnimations.length ? itemAnimations[index] : new Animated.Value(1);
+
     const itemAnimStyle = {
-      opacity: itemAnimations[index],
+      opacity: animValue,
       transform: [
         {
-          translateX: itemAnimations[index].interpolate({
+          translateX: animValue.interpolate({
             inputRange: [0, 1],
             outputRange: [-50, 0],
           }),
         },
         {
-          scale: itemAnimations[index].interpolate({
+          scale: animValue.interpolate({
             inputRange: [0, 1],
             outputRange: [0.8, 1],
           }),
@@ -282,18 +334,10 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
     transform: [
       { translateX: slideAnim },
       { scale: scaleAnim },
-      // Add rotation on close
       {
-        rotateY: rotateAnim.interpolate({
+        rotate: rotateAnim.interpolate({
           inputRange: [0, 1],
-          outputRange: ['0deg', '-10deg'],
-        }),
-      },
-      // Add bounce effect before closing
-      {
-        translateX: bounceAnim.interpolate({
-          inputRange: [0, 0.5, 1],
-          outputRange: [0, 10, 0],
+          outputRange: ['-3deg', '0deg'],
         }),
       },
     ],
@@ -335,17 +379,88 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
           <MaterialIcons name="search" size={20} color={theme.colors.neutral.textSecondary} />
-          <Text style={styles.searchPlaceholder}>Search conversations...</Text>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search conversations..."
+            placeholderTextColor={theme.colors.neutral.textSecondary}
+            value={searchTerm}
+            onChangeText={setSearchTerm}
+          />
+          {searchTerm.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchTerm('')} style={styles.clearSearch}>
+              <MaterialIcons name="close" size={20} color={theme.colors.neutral.textSecondary} />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
-      <FlatList
-        data={fakeConversations}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.listContent}
-      />
+      {/* Conversations list */}
+      <View style={styles.conversationsContainer}>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={theme.colors.primary.base} />
+            <Text style={styles.loadingText}>Loading conversations...</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={() => {
+                // Trigger a re-fetch
+                setConversations([]);
+                setError(null);
+                setLoading(true);
+                getConversations()
+                  .then((data) => {
+                    if (data && Array.isArray(data)) {
+                      const formattedConversations = mapApiConversations(data);
+                      setConversations(formattedConversations);
+                    }
+                  })
+                  .catch((err) => {
+                    console.error('Error retrying fetch:', err);
+                    setError('Failed to load conversations');
+                  })
+                  .finally(() => setLoading(false));
+              }}>
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        ) : filteredConversations.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <MaterialIcons
+              name={searchTerm ? 'search-off' : 'chat-bubble-outline'}
+              size={48}
+              color={theme.colors.neutral.textSecondary}
+            />
+            <Text style={styles.emptyText}>
+              {searchTerm
+                ? `No conversations found matching "${searchTerm}"`
+                : 'No conversations yet'}
+            </Text>
+            {!searchTerm && (
+              <TouchableOpacity
+                style={styles.newConversationButton}
+                onPress={() => {
+                  if (onNewConversation) {
+                    handleNewConversation(onNewConversation, onClose);
+                  }
+                }}>
+                <Text style={styles.newConversationButtonText}>Start a new conversation</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : (
+          <FlatList
+            data={filteredConversations}
+            keyExtractor={(item) => item.id}
+            renderItem={renderItem}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+          />
+        )}
+      </View>
 
       <View style={styles.footer}>
         <TouchableOpacity
@@ -367,18 +482,18 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     bottom: 0,
-    width: '80%', // Slightly narrower for better mobile experience
+    width: '85%',
     backgroundColor: theme.colors.neutral.surface,
     borderRightWidth: 1,
-    borderRightColor: theme.colors.neutral.border,
+    borderRightColor: 'rgba(0, 0, 0, 0.1)',
     zIndex: 1000,
     elevation: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 4, height: 0 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    borderTopRightRadius: 16, // Increased rounded edges
-    borderBottomRightRadius: 16,
+    shadowOffset: { width: 6, height: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    borderTopRightRadius: 24,
+    borderBottomRightRadius: 24,
     overflow: 'hidden',
   },
   header: {
@@ -386,98 +501,126 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: theme.spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.neutral.border,
+    paddingVertical: theme.spacing.lg + 8,
     backgroundColor: theme.colors.primary.base,
-    paddingVertical: theme.spacing.lg + 4, // Extra vertical padding
+    borderBottomWidth: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: theme.fontSizes.h2,
+    fontSize: theme.fontSizes.h2 + 2,
     fontFamily: theme.fonts.bold,
     color: theme.colors.neutral.surface,
-    letterSpacing: 0.5,
+    letterSpacing: 0.7,
     marginLeft: theme.spacing.sm,
   },
   closeButton: {
     padding: theme.spacing.sm,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 20,
-    width: 40,
-    height: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 24,
+    width: 44,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
   },
   searchContainer: {
     padding: theme.spacing.md,
+    paddingVertical: theme.spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.neutral.border,
+    borderBottomColor: 'rgba(0, 0, 0, 0.06)',
+    backgroundColor: 'rgba(0, 0, 0, 0.02)',
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.neutral.gray.light,
-    borderRadius: theme.borderRadius.medium,
-    padding: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
+    backgroundColor: theme.colors.neutral.surface,
+    borderRadius: theme.borderRadius.large,
+    padding: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
   },
-  searchPlaceholder: {
-    color: theme.colors.neutral.textSecondary,
+  searchInput: {
+    flex: 1,
     marginLeft: theme.spacing.sm,
     fontSize: theme.fontSizes.body,
     fontFamily: theme.fonts.regular,
+    color: theme.colors.neutral.textPrimary,
+    padding: 0, // Remove default padding on Android
+  },
+  clearSearch: {
+    padding: theme.spacing.xs,
+    marginLeft: theme.spacing.sm,
   },
   conversationItem: {
     marginHorizontal: theme.spacing.md,
     marginVertical: theme.spacing.xs,
-    borderRadius: theme.borderRadius.medium,
+    borderRadius: theme.borderRadius.large,
     overflow: 'hidden',
     backgroundColor: theme.colors.neutral.surface,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.04)',
   },
   conversationItemSelected: {
-    backgroundColor: theme.colors.neutral.gray.light,
-    borderLeftWidth: 3,
+    backgroundColor: `${theme.colors.primary.base}10`,
+    borderLeftWidth: 4,
     borderLeftColor: theme.colors.primary.base,
+    transform: [{ scale: 1.02 }],
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
   },
   touchableItem: {
     width: '100%',
   },
   conversationContent: {
-    padding: theme.spacing.md,
+    padding: theme.spacing.lg,
   },
   conversationHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: theme.spacing.xs,
+    marginBottom: theme.spacing.sm,
   },
   iconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: theme.colors.primary.light,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: `${theme.colors.primary.base}15`,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: theme.spacing.sm,
+    marginRight: theme.spacing.md,
+    shadowColor: theme.colors.primary.base,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
   },
   iconText: {
-    fontSize: 16,
+    fontSize: 18,
   },
   titleContainer: {
     flex: 1,
   },
   conversationTitle: {
-    fontSize: theme.fontSizes.body,
+    fontSize: theme.fontSizes.body + 1,
     fontFamily: theme.fonts.medium,
     color: theme.colors.neutral.textPrimary,
-    marginBottom: theme.spacing.xs / 2,
+    marginBottom: theme.spacing.xs,
+    letterSpacing: 0.3,
   },
   unreadText: {
     fontFamily: theme.fonts.bold,
@@ -485,44 +628,137 @@ const styles = StyleSheet.create({
   },
   conversationDate: {
     fontSize: theme.fontSizes.caption,
-    fontFamily: theme.fonts.regular,
+    fontFamily: theme.fonts.medium,
     color: theme.colors.neutral.textSecondary,
+    opacity: 0.8,
   },
   conversationPreview: {
-    fontSize: theme.fontSizes.caption,
+    fontSize: theme.fontSizes.body - 1,
     fontFamily: theme.fonts.regular,
     color: theme.colors.neutral.textSecondary,
-    lineHeight: 18,
-    marginLeft: 36 + theme.spacing.sm, // Align with title
+    lineHeight: 20,
+    marginLeft: 42 + theme.spacing.md,
+    opacity: 0.9,
   },
   unreadIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: theme.colors.primary.base,
     marginLeft: theme.spacing.sm,
+    shadowColor: theme.colors.primary.base,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 2,
   },
   listContent: {
-    paddingVertical: theme.spacing.md,
+    paddingVertical: theme.spacing.lg,
   },
   footer: {
-    padding: theme.spacing.md,
+    padding: theme.spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: theme.colors.neutral.border,
+    borderTopColor: 'rgba(0, 0, 0, 0.06)',
+    backgroundColor: 'rgba(0, 0, 0, 0.02)',
   },
   newChatButton: {
     backgroundColor: theme.colors.primary.base,
-    borderRadius: theme.borderRadius.medium,
-    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.large,
+    padding: theme.spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: theme.colors.primary.base,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
   },
   newChatText: {
     color: theme.colors.neutral.surface,
     fontFamily: theme.fonts.medium,
     fontSize: theme.fontSizes.body,
     marginLeft: theme.spacing.sm,
+    letterSpacing: 0.5,
+  },
+  conversationsContainer: {
+    flex: 1,
+    padding: theme.spacing.md,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+  },
+  loadingText: {
+    color: theme.colors.neutral.textSecondary,
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.medium,
+    marginTop: theme.spacing.md,
+    letterSpacing: 0.3,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: theme.spacing.xl,
+  },
+  errorText: {
+    color: theme.colors.primary.dark,
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.medium,
+    marginBottom: theme.spacing.lg,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  retryButton: {
+    backgroundColor: theme.colors.primary.base,
+    borderRadius: theme.borderRadius.large,
+    padding: theme.spacing.md,
+    paddingHorizontal: theme.spacing.xl,
+    shadowColor: theme.colors.primary.base,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  retryButtonText: {
+    color: theme.colors.neutral.surface,
+    fontFamily: theme.fonts.medium,
+    fontSize: theme.fontSizes.body,
+    letterSpacing: 0.5,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: theme.spacing.xl,
+  },
+  emptyText: {
+    color: theme.colors.neutral.textSecondary,
+    fontSize: theme.fontSizes.body + 1,
+    fontFamily: theme.fonts.medium,
+    marginVertical: theme.spacing.lg,
+    textAlign: 'center',
+    letterSpacing: 0.3,
+    lineHeight: 24,
+  },
+  newConversationButton: {
+    backgroundColor: theme.colors.primary.base,
+    borderRadius: theme.borderRadius.large,
+    padding: theme.spacing.md,
+    paddingHorizontal: theme.spacing.xl,
+    shadowColor: theme.colors.primary.base,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  newConversationButtonText: {
+    color: theme.colors.neutral.surface,
+    fontFamily: theme.fonts.medium,
+    fontSize: theme.fontSizes.body,
+    letterSpacing: 0.5,
   },
 });
 

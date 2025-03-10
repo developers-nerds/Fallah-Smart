@@ -1,4 +1,4 @@
-const { Conversations, Messages } = require("../database/assossiation");
+const { Conversations } = require("../database/assossiation");
 
 /**
  * Create a new conversation for a user
@@ -10,41 +10,12 @@ const createConversation = async (req, res) => {
     const userId = req.user.id; // Get user ID from auth middleware
     const { conversation_name, icon, description } = req.body;
 
-    // Generate a random icon if not provided
-    const defaultIcons = [
-      "🌱",
-      "🌾",
-      "🍅",
-      "🥕",
-      "🌽",
-      "🥬",
-      "🍎",
-      "🚜",
-      "💧",
-      "☀️",
-      "🌿",
-      "🐄",
-      "🐑",
-      "🐓",
-    ];
-    const randomIcon =
-      defaultIcons[Math.floor(Math.random() * defaultIcons.length)];
-
     // Create new conversation
     const newConversation = await Conversations.create({
       userId,
-      conversation_name: conversation_name || "New Conversation",
-      icon: icon || randomIcon,
-      description:
-        description || "How can I help with your farming needs today?",
-    });
-
-    // Create initial message from assistant
-    await Messages.create({
-      conversationId: newConversation.id,
-      content: "How can I help with your farming needs today?",
-      sender: "assistant",
-      type: "text",
+      conversation_name: conversation_name ,
+      icon: icon,
+      description: description,
     });
 
     res.status(201).json({
@@ -68,22 +39,14 @@ const createConversation = async (req, res) => {
  */
 const getUserConversations = async (req, res) => {
   try {
-    const userId = req.user.id; // Get user ID from auth middleware
-
+    const userId = req.user.id;
+    console.log( "userId",userId);
     // Find all conversations for the user
     const conversations = await Conversations.findAll({
       where: { userId },
-      include: [
-        {
-          model: Messages,
-          as: "messages",
-          limit: 1,
-          order: [["createdAt", "DESC"]], // Get the most recent message
-        },
-      ],
       order: [["updatedAt", "DESC"]], // Sort by most recently updated
     });
-
+    console.log( "conversations",conversations);
     res.status(200).json({
       success: true,
       count: conversations.length,

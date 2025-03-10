@@ -1,4 +1,4 @@
-require('dotenv').config();
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const path = require('path');
@@ -9,10 +9,11 @@ const categoryRoutes = require('./routes/categoryRoutes');
 const transactionRoutes = require("./routes/transactionRoutes");
 const userRoutes = require("./routes/userRoutes");
 const stockRoutes = require("./routes/stockRoutes");
-const pesticideRoutes = require('./routes/pesticideRoutes');
+const pesticideRoutes = require("./routes/pesticideRoutes");
 const blogRoutes = require("./routes/blogRoutes");
 const scanRoutes = require("./routes/scanRoutes");
 const conversationRoutes = require("./routes/conversationRoutes");
+const messageRoutes = require("./routes/messageRoutes");
 const accountRoutes = require("./routes/accountRoutes");
 const cropRoutes = require("./routes/crops");
 const cropDetailsRoutes = require("./routes/cropsDetails");
@@ -30,7 +31,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Static files
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 // Routes
 app.use("/api/transactions", transactionRoutes);
@@ -41,6 +42,7 @@ app.use('/api/pesticides', pesticideRoutes);
 app.use("/api/blog", blogRoutes);
 app.use("/api/scans", scanRoutes);
 app.use("/api/conversations", conversationRoutes);
+app.use("/api/messages", messageRoutes);
 app.use("/api/accounts", accountRoutes);
 app.use("/api/crops", cropRoutes);
 app.use("/api/cropsDetails", cropDetailsRoutes);
@@ -56,7 +58,9 @@ app.use((err, req, res, next) => {
 });
 
 // Test route for image serving
-app.get('/test-image', (req, res) => {
+
+// Test image endpoint
+app.get("/test-image", (req, res) => {
   res.send(`
     <html>
       <body>
@@ -71,7 +75,7 @@ app.get('/test-image', (req, res) => {
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ message: 'Something went wrong!' });
+  res.status(500).json({ message: "Something went wrong!" });
 });
 
 app.listen(port, () => {

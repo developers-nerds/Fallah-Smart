@@ -7,17 +7,17 @@ const {
 const auth = require("../middleware/auth");
 
 /**
- * @route   POST /api/conversations
+ * @route   POST /api/conversations/create
  * @desc    Create a new conversation
  * @access  Private
  */
-router.post("/", auth, createConversation);
+router.post("/create", auth, createConversation);
 
 /**
- * @route   GET /api/conversations
+ * @route   GET /api/conversations/get
  * @desc    Get all conversations for a user
  * @access  Private
  */
-router.get("/", auth, getUserConversations);
+router.get("/get", auth, getUserConversations);
 
 module.exports = router;
