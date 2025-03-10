@@ -15,17 +15,27 @@ const SidebarOverlay: React.FC<SidebarOverlayProps> = ({
   const scaleAnim = useRef(new Animated.Value(1.1)).current;
 
   useEffect(() => {
+    let scaleAnimation: Animated.CompositeAnimation | null = null;
+
     if (isVisible) {
       // Animate in with scale effect
-      Animated.timing(scaleAnim, {
+      scaleAnimation = Animated.timing(scaleAnim, {
         toValue: 1,
         duration: 300,
         useNativeDriver: true,
-      }).start();
+      });
+      scaleAnimation.start();
     } else {
       // Reset animations when hidden
       scaleAnim.setValue(1.1);
     }
+
+    // Cleanup function
+    return () => {
+      if (scaleAnimation) {
+        scaleAnimation.stop();
+      }
+    };
   }, [isVisible]);
 
   if (!isVisible) return null;
@@ -33,7 +43,7 @@ const SidebarOverlay: React.FC<SidebarOverlayProps> = ({
   // Create a ripple effect when tapped
   const handlePress = () => {
     // Quick pulse animation before closing
-    Animated.sequence([
+    const pulseAnimation = Animated.sequence([
       Animated.timing(scaleAnim, {
         toValue: 0.98,
         duration: 100,
@@ -44,7 +54,9 @@ const SidebarOverlay: React.FC<SidebarOverlayProps> = ({
         duration: 100,
         useNativeDriver: true,
       }),
-    ]).start(() => {
+    ]);
+
+    pulseAnimation.start(() => {
       onClose();
     });
   };

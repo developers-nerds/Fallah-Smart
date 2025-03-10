@@ -46,13 +46,16 @@ export type StockHistoryType = 'add' | 'remove' | 'expired' | 'damaged';
 export type HealthStatus = 'excellent' | 'good' | 'fair' | 'poor';
 export type Gender = 'male' | 'female';
 
-export type BreedingStatus = 'not_breeding' | 'in_heat' | 'pregnant' | 'nursing';
+export type BreedingStatus = 'pregnant' | 'lactating' | 'ready' | 'not_breeding' | 'in_heat' | 'nursing';
 
 export interface Animal {
   id: string;
+  name: string;
   type: string;
   count: number;
+  quantity: number;
   healthStatus: HealthStatus;
+  location: string;
   feedingSchedule: string;
   gender: Gender;
   feeding?: string | null;
@@ -152,4 +155,8 @@ export interface StockFormValues {
   qualityStatus: 'good' | 'medium' | 'poor';
   batchNumber?: string;
   expiryDate?: Date;
-} 
+}
+
+export type StockPesticide = Pesticide;
+
+export type StockAnimal = Animal; 

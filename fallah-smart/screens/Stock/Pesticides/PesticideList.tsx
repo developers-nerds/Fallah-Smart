@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -7,14 +7,21 @@ import {
   TouchableOpacity,
   RefreshControl,
   Alert,
+  ActivityIndicator,
+  Dimensions,
 } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
 import { usePesticide } from '../../../context/PesticideContext';
-import { Pesticide } from '../types';
+import { StockPesticide } from '../types';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { createThemedStyles } from '../../../utils/createThemedStyles';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { StockStackParamList } from '../../../navigation/types';
+import { Feather } from '@expo/vector-icons';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+
+const ITEMS_PER_PAGE = 10;
+const { width } = Dimensions.get('window');
 
 type PesticideListScreenProps = {
   navigation: StackNavigationProp<StockStackParamList, 'PesticideList'>;
@@ -23,7 +30,9 @@ type PesticideListScreenProps = {
 const PesticideListScreen: React.FC<PesticideListScreenProps> = ({ navigation }) => {
   const theme = useTheme();
   const { pesticides, fetchPesticides, loading } = usePesticide();
-  const [refreshing, setRefreshing] = React.useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   useEffect(() => {
     fetchPesticides();
@@ -33,6 +42,7 @@ const PesticideListScreen: React.FC<PesticideListScreenProps> = ({ navigation })
     setRefreshing(true);
     try {
       await fetchPesticides();
+      setCurrentPage(1);
     } catch (error) {
       Alert.alert('خطأ', 'فشل في تحديث قائمة المبيدات');
     } finally {
@@ -40,95 +50,134 @@ const PesticideListScreen: React.FC<PesticideListScreenProps> = ({ navigation })
     }
   }, [fetchPesticides]);
 
-  const renderPesticideItem = ({ item }: { item: Pesticide }) => {
-    const getTypeIcon = (type: string) => {
-      switch (type) {
-        case 'insecticide':
-          return 'bug';
-        case 'herbicide':
-          return 'flower';
-        case 'fungicide':
-          return 'mushroom';
-        default:
-          return 'spray';
-      }
-    };
+  const loadMoreItems = () => {
+    if (isLoadingMore || pesticides.length <= currentPage * ITEMS_PER_PAGE) return;
+    
+    setIsLoadingMore(true);
+    setCurrentPage(prev => prev + 1);
+    setIsLoadingMore(false);
+  };
 
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case 'insecticide':
+        return '🐛';
+      case 'herbicide':
+        return '🌿';
+      case 'fungicide':
+        return '🍄';
+      case 'rodenticide':
+        return '🐭';
+      default:
+        return '🧪';
+    }
+  };
+
+  const renderPesticideItem = ({ item, index }: { item: StockPesticide; index: number }) => {
+    const isLowStock = item.quantity <= item.minQuantityAlert;
+    
     return (
-      <TouchableOpacity
-        style={[styles.card, { backgroundColor: theme.colors.neutral.surface }]}
-        onPress={() => navigation.navigate('PesticideDetail', { pesticideId: item.id })}
+      <Animated.View 
+        entering={FadeInDown.delay(index * 100)}
+        style={[styles.itemContainer, { backgroundColor: theme.colors.neutral.surface }]}
       >
-        <View style={styles.cardHeader}>
-          <View style={styles.cardTitleContainer}>
-            <MaterialCommunityIcons
-              name={getTypeIcon(item.type)}
-              size={24}
-              color={theme.colors.primary.base}
-            />
-            <Text style={[styles.cardTitle, { color: theme.colors.neutral.textPrimary }]}>
-              {item.name}
-            </Text>
-          </View>
-          {item.isNatural && (
-            <MaterialCommunityIcons
-              name="leaf"
-              size={20}
-              color={theme.colors.success}
-            />
-          )}
-        </View>
-
-        <View style={styles.cardContent}>
-          <View style={styles.infoRow}>
-            <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-              الكمية:
-            </Text>
-            <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-              {item.quantity} {item.unit}
-            </Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-              السعر:
-            </Text>
-            <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-              {item.price} د.أ
-            </Text>
-          </View>
-
-          {item.expiryDate && (
-            <View style={styles.infoRow}>
-              <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-                تاريخ الانتهاء:
+        <TouchableOpacity
+          style={styles.itemContent}
+          onPress={() => navigation.navigate('PesticideDetail', { pesticideId: item.id })}
+        >
+          <View style={styles.itemHeader}>
+            <View style={styles.typeIconContainer}>
+              <Text style={styles.typeIcon}>{getTypeIcon(item.type)}</Text>
+            </View>
+            <View style={styles.titleContainer}>
+              <Text style={[styles.title, { color: theme.colors.neutral.textPrimary }]}>
+                {item.name}
               </Text>
-              <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-                {new Date(item.expiryDate).toLocaleDateString()}
+              <Text style={[styles.subtitle, { color: theme.colors.neutral.textSecondary }]}>
+                {item.type}
+              </Text>
+            </View>
+            {item.isNatural && (
+              <View style={[styles.naturalBadge, { backgroundColor: theme.colors.success }]}>
+                <Feather name="check-circle" size={12} color="#FFF" />
+                <Text style={styles.naturalText}>طبيعي</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.itemDetails}>
+            <View style={styles.quantityContainer}>
+              <MaterialCommunityIcons
+                name="scale"
+                size={20}
+                color={theme.colors.neutral.textSecondary}
+              />
+              <Text style={[styles.quantity, { color: theme.colors.neutral.textPrimary }]}>
+                {item.quantity} {item.unit}
+              </Text>
+            </View>
+
+            {item.expiryDate && (
+              <View style={styles.expiryContainer}>
+                <MaterialCommunityIcons
+                  name="calendar-clock"
+                  size={20}
+                  color={theme.colors.neutral.textSecondary}
+                />
+                <Text style={[styles.expiry, { color: theme.colors.neutral.textSecondary }]}>
+                  {new Date(item.expiryDate).toLocaleDateString()}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {isLowStock && (
+            <View style={[styles.alertContainer, { backgroundColor: theme.colors.error }]}>
+              <MaterialCommunityIcons name="alert" size={16} color="#FFF" />
+              <Text style={styles.alertText}>
+                مخزون منخفض
               </Text>
             </View>
           )}
-        </View>
-
-        {item.quantity <= item.minQuantityAlert && (
-          <View style={[styles.alert, { backgroundColor: '#FFEBEE' }]}>
-            <MaterialCommunityIcons
-              name="alert"
-              size={16}
-              color="#D32F2F"
-            />
-            <Text style={[styles.alertText, { color: '#D32F2F' }]}>
-              المخزون منخفض
-            </Text>
-          </View>
-        )}
-      </TouchableOpacity>
+        </TouchableOpacity>
+      </Animated.View>
     );
   };
 
+  const renderEmptyState = () => (
+    <View style={[styles.emptyContainer, { backgroundColor: theme.colors.neutral.background }]}>
+      <MaterialCommunityIcons
+        name="flask-empty-outline"
+        size={64}
+        color={theme.colors.neutral.textSecondary}
+      />
+      <Text style={[styles.emptyText, { color: theme.colors.neutral.textSecondary }]}>
+        لا توجد مبيدات في المخزون
+      </Text>
+      <TouchableOpacity
+        style={[styles.addButton, { backgroundColor: theme.colors.primary.base }]}
+        onPress={() => navigation.navigate('AddPesticide')}
+      >
+        <Feather name="plus" size={24} color="#FFF" />
+        <Text style={styles.addButtonText}>إضافة مبيد جديد</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderFooter = () => {
+    if (!isLoadingMore) return null;
+    return (
+      <View style={styles.footerLoader}>
+        <ActivityIndicator color={theme.colors.primary.base} />
+      </View>
+    );
+  };
+
+  const paginatedData = pesticides.slice(0, currentPage * ITEMS_PER_PAGE);
+
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: theme.colors.neutral.surface }]}>
         <Text style={[styles.headerTitle, { color: theme.colors.neutral.textPrimary }]}>
           المبيدات
         </Text>
@@ -136,115 +185,153 @@ const PesticideListScreen: React.FC<PesticideListScreenProps> = ({ navigation })
           style={[styles.addButton, { backgroundColor: theme.colors.primary.base }]}
           onPress={() => navigation.navigate('AddPesticide')}
         >
-          <MaterialCommunityIcons name="plus" size={24} color="white" />
+          <Feather name="plus" size={24} color="#FFF" />
         </TouchableOpacity>
       </View>
 
       <FlatList
-        data={pesticides}
+        data={paginatedData}
         renderItem={renderPesticideItem}
         keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        onEndReached={loadMoreItems}
+        onEndReachedThreshold={0.5}
+        ListEmptyComponent={renderEmptyState}
+        ListFooterComponent={renderFooter}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
             colors={[theme.colors.primary.base]}
+            tintColor={theme.colors.primary.base}
           />
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <MaterialCommunityIcons
-              name="spray"
-              size={48}
-              color={theme.colors.neutral.textSecondary}
-            />
-            <Text style={[styles.emptyText, { color: theme.colors.neutral.textSecondary }]}>
-              لا يوجد مبيدات
-            </Text>
-          </View>
         }
       />
     </View>
   );
 };
 
-const styles = createThemedStyles((theme) => ({
+const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.neutral.border,
+    borderBottomColor: '#E0E0E0',
   },
   headerTitle: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
   addButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
   },
-  list: {
+  addButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  listContent: {
     padding: 16,
   },
-  card: {
+  itemContainer: {
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    marginBottom: 12,
+    overflow: 'hidden',
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
-  cardHeader: {
+  itemContent: {
+    padding: 16,
+  },
+  itemHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
   },
-  cardTitleContainer: {
-    flexDirection: 'row',
+  typeIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F5F5F5',
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
+    marginRight: 12,
   },
-  cardTitle: {
+  typeIcon: {
+    fontSize: 24,
+  },
+  titleContainer: {
+    flex: 1,
+  },
+  title: {
     fontSize: 18,
     fontWeight: '600',
+    marginBottom: 4,
   },
-  cardContent: {
-    gap: 8,
+  subtitle: {
+    fontSize: 14,
   },
-  infoRow: {
+  naturalBadge: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
   },
-  label: {
-    fontSize: 14,
-  },
-  value: {
-    fontSize: 14,
+  naturalText: {
+    color: '#FFF',
+    fontSize: 12,
     fontWeight: '500',
   },
-  alert: {
+  itemDetails: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginBottom: 12,
+  },
+  quantityContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginTop: 12,
+  },
+  quantity: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  expiryContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  expiry: {
+    fontSize: 14,
+  },
+  alertContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: 8,
-    borderRadius: 6,
+    borderRadius: 8,
+    gap: 4,
   },
   alertText: {
-    fontSize: 12,
+    color: '#FFF',
+    fontSize: 14,
     fontWeight: '500',
   },
   emptyContainer: {
@@ -252,12 +339,16 @@ const styles = createThemedStyles((theme) => ({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 32,
-    gap: 16,
   },
   emptyText: {
     fontSize: 16,
-    textAlign: 'center',
+    marginTop: 16,
+    marginBottom: 24,
   },
-}));
+  footerLoader: {
+    padding: 16,
+    alignItems: 'center',
+  },
+});
 
 export default PesticideListScreen;

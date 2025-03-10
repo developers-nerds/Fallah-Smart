@@ -38,6 +38,7 @@ export type DrawerParamList = {
   Stock: undefined;
   Wallet: undefined;
   Dictionary: undefined;
+  Marketplace: undefined;
 };
 
 type SideBarProps = {
@@ -149,6 +150,36 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
         }}
         navigation={props.navigation}
       />
+            <MenuItem
+        icon="warehouse"
+        label="Stock"
+        active={currentRoute === 'Stock'}
+        onPress={() => {
+          props.navigation.navigate('Stock');
+          props.navigation.closeDrawer();
+        }}
+        navigation={props.navigation}
+      />
+            <MenuItem
+        icon="store"
+        label="Marketplace"
+        active={currentRoute === 'Marketplace'}
+        onPress={() => {
+          props.navigation.navigate('Marketplace');
+          props.navigation.closeDrawer();
+        }}
+        navigation={props.navigation}
+      />
+            <MenuItem
+        icon="book-open-variant"
+        label="Dictionary"
+        active={currentRoute === 'Dictionary'}
+        onPress={() => {
+          props.navigation.navigate('Dictionary');
+          props.navigation.closeDrawer();
+        }}
+        navigation={props.navigation}
+      />
       <MenuItem
         icon="chat"
         label="Chat"
@@ -169,16 +200,8 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
         }}
         navigation={props.navigation}
       />
-      <MenuItem
-        icon="warehouse"
-        label="Stock"
-        active={currentRoute === 'Stock'}
-        onPress={() => {
-          props.navigation.navigate('Stock');
-          props.navigation.closeDrawer();
-        }}
-        navigation={props.navigation}
-      />
+
+
       <MenuItem
         icon="wallet"
         label="Wallet"
@@ -189,16 +212,7 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
         }}
         navigation={props.navigation}
       />
-      <MenuItem
-        icon="book-open-variant"
-        label="Dictionary"
-        active={currentRoute === 'Dictionary'}
-        onPress={() => {
-          props.navigation.navigate('Dictionary');
-          props.navigation.closeDrawer();
-        }}
-        navigation={props.navigation}
-      />
+
 
       <View style={styles.logoutContainer}>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   View, 
   StyleSheet, 
@@ -7,7 +7,10 @@ import {
   TextInput, 
   TouchableOpacity, 
   Platform,
-  Dimensions 
+  Dimensions,
+  Alert,
+  ActivityIndicator,
+  Modal
 } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
 import { useStock } from '../../../context/StockContext';
@@ -15,12 +18,39 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Animal, HealthStatus, Gender, BreedingStatus } from '../types';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { StockStackParamList } from '../../../navigation/types';
+import { RouteProp } from '@react-navigation/native';
 import Animated, { FadeInRight, useAnimatedStyle } from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 import * as Yup from 'yup';
 import { CustomButton } from '../../../components/CustomButton';
 
 const { width } = Dimensions.get('window');
+
+const ANIMAL_TYPES = {
+  cow: { icon: '🐄', name: 'بقرة', category: 'ماشية' },
+  sheep: { icon: '🐑', name: 'خروف', category: 'ماشية' },
+  goat: { icon: '🐐', name: 'ماعز', category: 'ماشية' },
+  chicken: { icon: '🐔', name: 'دجاج', category: 'دواجن' },
+  horse: { icon: '🐎', name: 'حصان', category: 'ماشية' },
+  donkey: { icon: '🦓', name: 'حمار', category: 'ماشية' },
+  rabbit: { icon: '🐰', name: 'أرنب', category: 'حيوانات صغيرة' },
+  duck: { icon: '🦆', name: 'بطة', category: 'دواجن' },
+  turkey: { icon: '🦃', name: 'ديك رومي', category: 'دواجن' },
+  camel: { icon: '🐪', name: 'جمل', category: 'ماشية' },
+  pigeon: { icon: '🕊️', name: 'حمام', category: 'طيور' },
+  bee: { icon: '🐝', name: 'نحل', category: 'حشرات' },
+  fish: { icon: '🐟', name: 'سمك', category: 'أسماك' },
+  cat: { icon: '🐱', name: 'قط', category: 'حيوانات أليفة' },
+  dog: { icon: '🐕', name: 'كلب', category: 'حيوانات أليفة' },
+  pig: { icon: '🐷', name: 'خنزير', category: 'ماشية' },
+  goose: { icon: '🦢', name: 'إوزة', category: 'دواجن' },
+  rooster: { icon: '🐓', name: 'ديك', category: 'دواجن' },
+  peacock: { icon: '🦚', name: 'طاووس', category: 'طيور' },
+  parrot: { icon: '🦜', name: 'ببغاء', category: 'طيور' },
+  owl: { icon: '🦉', name: 'بومة', category: 'طيور' },
+  eagle: { icon: '🦅', name: 'نسر', category: 'طيور' },
+  hawk: { icon: '🦆', name: 'صقر', category: 'طيور' },
+};
 
 const getHealthStatusLabel = (status: HealthStatus): string => {
   switch (status) {
@@ -37,23 +67,75 @@ const getHealthStatusLabel = (status: HealthStatus): string => {
   }
 };
 
-const getHealthStatusColor = (status: HealthStatus, theme: any): string => {
+const getHealthStatusColor = (status: HealthStatus, theme: any) => {
   switch (status) {
     case 'excellent':
-      return theme.colors.success.base;
+      return theme.colors.success;
     case 'good':
-      return theme.colors.success.light;
+      return theme.colors.success;
     case 'fair':
-      return theme.colors.warning.base;
+      return theme.colors.warning;
     case 'poor':
-      return theme.colors.error.base;
+      return theme.colors.error;
     default:
       return theme.colors.neutral.border;
   }
 };
 
+const getBreedingStatusColor = (status: BreedingStatus, theme: any) => {
+  switch (status) {
+    case 'pregnant':
+      return theme.colors.primary.base;
+    case 'lactating':
+      return theme.colors.info;
+    case 'ready':
+      return theme.colors.success;
+    default:
+      return theme.colors.neutral.border;
+  }
+};
+
+const getBreedingStatusLabel = (status: BreedingStatus): string => {
+  switch (status) {
+    case 'pregnant':
+      return 'حامل';
+    case 'lactating':
+      return 'مرضعة';
+    case 'ready':
+      return 'جاهز للتزاوج';
+    case 'not_breeding':
+      return 'غير متزاوج';
+    case 'in_heat':
+      return 'في فترة التزاوج';
+    case 'nursing':
+      return 'مرضعة';
+    default:
+      return 'غير معروف';
+  }
+};
+
+const getBreedingStatusIcon = (status: BreedingStatus): string => {
+  switch (status) {
+    case 'pregnant':
+      return '🤰';
+    case 'lactating':
+      return '🍼';
+    case 'ready':
+      return '❤️';
+    case 'not_breeding':
+      return '⚪';
+    case 'in_heat':
+      return '🔥';
+    case 'nursing':
+      return '👶';
+    default:
+      return '⚪';
+  }
+};
+
 type AddAnimalScreenProps = {
   navigation: StackNavigationProp<StockStackParamList, 'AddAnimal'>;
+  route: RouteProp<StockStackParamList, 'AddAnimal'>;
 };
 
 interface FormPage {
@@ -82,6 +164,7 @@ interface FormData {
   lastBreedingDate: string;
   expectedBirthDate: string;
   nextVaccinationDate: string;
+  customType: string;
 }
 
 const initialFormData: FormData = {
@@ -102,38 +185,39 @@ const initialFormData: FormData = {
   breedingStatus: 'not_breeding',
   lastBreedingDate: '',
   expectedBirthDate: '',
-  nextVaccinationDate: ''
+  nextVaccinationDate: '',
+  customType: ''
 };
 
 const formPages: FormPage[] = [
   {
     title: 'المعلومات الأساسية',
     subtitle: 'أدخل المعلومات الأساسية للحيوان',
-    icon: 'information',
+    icon: '🐄',
     fields: ['type', 'gender', 'count', 'healthStatus', 'birthDate', 'weight'],
   },
   {
     title: 'التغذية والرعاية',
     subtitle: 'أدخل تفاصيل التغذية والرعاية',
-    icon: 'heart-pulse',
+    icon: '🌾',
     fields: ['feedingSchedule', 'feeding', 'dailyFeedConsumption'],
   },
   {
     title: 'الصحة والتطعيم',
     subtitle: 'أدخل معلومات الصحة والتطعيم',
-    icon: 'medical-bag',
+    icon: '💉',
     fields: ['health', 'diseases', 'medications', 'vaccination', 'nextVaccinationDate'],
   },
   {
     title: 'التكاثر',
     subtitle: 'أدخل معلومات التكاثر',
-    icon: 'baby-carriage',
+    icon: '👶',
     fields: ['breedingStatus', 'lastBreedingDate', 'expectedBirthDate'],
   },
   {
     title: 'ملاحظات إضافية',
     subtitle: 'أدخل أي ملاحظات إضافية',
-    icon: 'text-box',
+    icon: '📝',
     fields: ['notes'],
   },
 ];
@@ -157,19 +241,53 @@ const validationSchema = Yup.object().shape({
   birthDate: Yup.string(),
   weight: Yup.number().min(0, 'الوزن يجب أن يكون أكبر من 0'),
   dailyFeedConsumption: Yup.number().min(0, 'كمية العلف اليومي يجب أن تكون أكبر من 0'),
-  breedingStatus: Yup.string().oneOf(['not_breeding', 'in_heat', 'pregnant', 'nursing']),
+  breedingStatus: Yup.string().oneOf(['not_breeding', 'in_heat', 'pregnant', 'nursing', 'lactating', 'ready']),
   lastBreedingDate: Yup.string(),
   expectedBirthDate: Yup.string(),
   nextVaccinationDate: Yup.string()
 });
 
-export const AddAnimalScreen = ({ navigation }: AddAnimalScreenProps) => {
+export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => {
   const theme = useTheme();
-  const { createAnimal } = useStock();
+  const { createAnimal, updateAnimal, animals } = useStock();
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [currentPage, setCurrentPage] = useState(0);
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
   const [loading, setLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [showTypeModal, setShowTypeModal] = useState(false);
+
+  const { animalId, mode } = route.params || {};
+
+  useEffect(() => {
+    if (mode === 'edit' && animalId) {
+      const animal = animals.find(a => a.id === animalId);
+      if (animal) {
+        setFormData({
+          type: animal.type,
+          count: animal.count.toString(),
+          healthStatus: animal.healthStatus,
+          feedingSchedule: animal.feedingSchedule || '',
+          gender: animal.gender,
+          feeding: animal.feeding || '',
+          health: animal.health || '',
+          diseases: animal.diseases || '',
+          medications: animal.medications || '',
+          vaccination: animal.vaccination || '',
+          notes: animal.notes || '',
+          birthDate: animal.birthDate || '',
+          weight: animal.weight?.toString() || '',
+          dailyFeedConsumption: animal.dailyFeedConsumption?.toString() || '',
+          breedingStatus: animal.breedingStatus,
+          lastBreedingDate: animal.lastBreedingDate || '',
+          expectedBirthDate: animal.expectedBirthDate || '',
+          nextVaccinationDate: animal.nextVaccinationDate || '',
+          customType: ''
+        });
+      }
+    }
+  }, [animalId, mode, animals]);
 
   const progressStyle = useAnimatedStyle(() => {
     return {
@@ -177,33 +295,39 @@ export const AddAnimalScreen = ({ navigation }: AddAnimalScreenProps) => {
     };
   });
 
-  const validateForm = () => {
-    const newErrors: Partial<Record<keyof FormData, string>> = {};
+  const validateCurrentPage = () => {
+    const currentFields = formPages[currentPage].fields;
+    const errors: Record<string, string> = {};
+    const requiredFields: Record<string, string> = {
+      type: 'نوع الحيوان',
+      gender: 'جنس الحيوان',
+      count: 'العدد',
+      healthStatus: 'الحالة الصحية',
+      feedingSchedule: 'برنامج التغذية'
+    };
 
-    if (!formData.type.trim()) {
-      newErrors.type = 'نوع الحيوان مطلوب';
+    for (const field of currentFields) {
+      if (field in requiredFields && !formData[field as keyof FormData]) {
+        errors[field] = `يرجى إدخال ${requiredFields[field]}`;
+      }
     }
 
-    const count = Number(formData.count);
-    if (isNaN(count) || count <= 0) {
-      newErrors.count = 'يجب أن يكون العدد رقمًا موجبًا';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async () => {
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateCurrentPage()) return;
 
     try {
-      setLoading(true);
-      await createAnimal({
+      setIsSubmitting(true);
+      const animalData = {
         ...formData,
+        name: formData.type === 'other' ? formData.customType.trim() : formData.type,
+        quantity: Number(formData.count),
+        location: 'الحظيرة',
         count: Number(formData.count),
-        type: formData.type.trim(),
+        type: formData.type === 'other' ? formData.customType.trim() : formData.type,
         feedingSchedule: formData.feedingSchedule.trim(),
         feeding: formData.feeding.trim() || null,
         health: formData.health.trim() || null,
@@ -220,15 +344,21 @@ export const AddAnimalScreen = ({ navigation }: AddAnimalScreenProps) => {
         nextVaccinationDate: formData.nextVaccinationDate || null,
         vaccinationHistory: [],
         offspringCount: 0,
-        userId: '1' // TODO: Get the actual user ID from authentication context
-      });
+        userId: '1'
+      };
+
+      if (mode === 'edit' && animalId) {
+        await updateAnimal(animalId, animalData);
+      } else {
+        await createAnimal(animalData);
+      }
 
       navigation.goBack();
     } catch (error) {
-      console.error('Error creating animal:', error);
-      // Handle error
+      console.error('Error saving animal:', error);
+      Alert.alert('خطأ', mode === 'edit' ? 'فشل في تحديث الحيوان' : 'فشل في إضافة الحيوان');
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -254,18 +384,64 @@ export const AddAnimalScreen = ({ navigation }: AddAnimalScreenProps) => {
             <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
               نوع الحيوان *
             </Text>
-            <TextInput
-              style={[styles.input, { 
-                backgroundColor: theme.colors.neutral.surface,
-                color: theme.colors.neutral.textPrimary,
-                borderColor: theme.colors.neutral.border,
-                textAlign: 'right'
-              }]}
-              value={formData.type}
-              onChangeText={(text) => setFormData({ ...formData, type: text })}
-              placeholder="أدخل نوع الحيوان"
-              placeholderTextColor={theme.colors.neutral.textSecondary}
-            />
+            {formData.type === 'other' ? (
+              <View style={styles.otherTypeContainer}>
+                <TextInput
+                  style={[
+                    styles.input,
+                    { 
+                      backgroundColor: theme.colors.neutral.surface,
+                      color: theme.colors.neutral.textPrimary,
+                      borderColor: theme.colors.neutral.border,
+                      textAlign: 'right'
+                    }
+                  ]}
+                  value={formData.customType}
+                  onChangeText={(text) => setFormData({ ...formData, customType: text })}
+                  placeholder="أدخل نوع الحيوان"
+                  placeholderTextColor={theme.colors.neutral.textSecondary}
+                />
+                <TouchableOpacity
+                  style={styles.changeTypeButton}
+                  onPress={() => setShowTypeModal(true)}
+                >
+                  <Text style={[styles.changeTypeText, { color: theme.colors.primary.base }]}>
+                    تغيير النوع
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={[
+                  styles.typeSelector,
+                  { 
+                    backgroundColor: theme.colors.neutral.surface,
+                    borderColor: theme.colors.neutral.border,
+                  }
+                ]}
+                onPress={() => setShowTypeModal(true)}
+              >
+                {formData.type ? (
+                  <View style={styles.selectedType}>
+                    <Text style={styles.selectedTypeIcon}>
+                      {ANIMAL_TYPES[formData.type as keyof typeof ANIMAL_TYPES]?.icon || '🐾'}
+                    </Text>
+                    <View style={styles.selectedTypeInfo}>
+                      <Text style={[styles.selectedTypeText, { color: theme.colors.neutral.textPrimary }]}>
+                        {ANIMAL_TYPES[formData.type as keyof typeof ANIMAL_TYPES]?.name || formData.type}
+                      </Text>
+                      <Text style={[styles.selectedTypeCategory, { color: theme.colors.neutral.textSecondary }]}>
+                        {ANIMAL_TYPES[formData.type as keyof typeof ANIMAL_TYPES]?.category}
+                      </Text>
+                    </View>
+                  </View>
+                ) : (
+                  <Text style={[styles.typePlaceholder, { color: theme.colors.neutral.textSecondary }]}>
+                    اختر نوع الحيوان
+                  </Text>
+                )}
+              </TouchableOpacity>
+            )}
           </View>
         );
 
@@ -283,11 +459,7 @@ export const AddAnimalScreen = ({ navigation }: AddAnimalScreenProps) => {
                 ]}
                 onPress={() => setFormData({ ...formData, gender: 'male' })}
               >
-                <MaterialCommunityIcons
-                  name="gender-male"
-                  size={24}
-                  color={formData.gender === 'male' ? '#FFF' : theme.colors.neutral.textSecondary}
-                />
+                <Text style={styles.genderIcon}>👨</Text>
                 <Text style={[
                   styles.genderText,
                   { color: formData.gender === 'male' ? '#FFF' : theme.colors.neutral.textSecondary }
@@ -302,11 +474,7 @@ export const AddAnimalScreen = ({ navigation }: AddAnimalScreenProps) => {
                 ]}
                 onPress={() => setFormData({ ...formData, gender: 'female' })}
               >
-                <MaterialCommunityIcons
-                  name="gender-female"
-                  size={24}
-                  color={formData.gender === 'female' ? '#FFF' : theme.colors.neutral.textSecondary}
-                />
+                <Text style={styles.genderIcon}>👩</Text>
                 <Text style={[
                   styles.genderText,
                   { color: formData.gender === 'female' ? '#FFF' : theme.colors.neutral.textSecondary }
@@ -333,7 +501,7 @@ export const AddAnimalScreen = ({ navigation }: AddAnimalScreenProps) => {
               }]}
               value={formData.count}
               onChangeText={(text) => setFormData({ ...formData, count: text })}
-              placeholder="1"
+              placeholder="أدخل عدد الحيوانات"
               placeholderTextColor={theme.colors.neutral.textSecondary}
               keyboardType="numeric"
             />
@@ -352,15 +520,15 @@ export const AddAnimalScreen = ({ navigation }: AddAnimalScreenProps) => {
                   key={status}
                   style={[
                     styles.healthStatusButton,
-                    formData.healthStatus === status && { backgroundColor: getHealthStatusColor(status, theme) }
+                    formData.healthStatus === status && { backgroundColor: getHealthStatusColor(status as HealthStatus, theme) }
                   ]}
                   onPress={() => setFormData({ ...formData, healthStatus: status as HealthStatus })}
                 >
-                  <MaterialCommunityIcons
-                    name="heart-pulse"
-                    size={20}
-                    color={formData.healthStatus === status ? '#FFF' : theme.colors.neutral.textSecondary}
-                  />
+                  <Text style={styles.healthStatusIcon}>
+                    {status === 'excellent' ? '🌟' : 
+                     status === 'good' ? '👍' : 
+                     status === 'fair' ? '😐' : '😢'}
+                  </Text>
                   <Text style={[
                     styles.healthStatusText,
                     { color: formData.healthStatus === status ? '#FFF' : theme.colors.neutral.textSecondary }
@@ -390,6 +558,8 @@ export const AddAnimalScreen = ({ navigation }: AddAnimalScreenProps) => {
               onChangeText={(text) => setFormData({ ...formData, feedingSchedule: text })}
               placeholder="أدخل برنامج التغذية"
               placeholderTextColor={theme.colors.neutral.textSecondary}
+              multiline
+              numberOfLines={4}
             />
           </View>
         );
@@ -516,25 +686,23 @@ export const AddAnimalScreen = ({ navigation }: AddAnimalScreenProps) => {
               حالة التكاثر *
             </Text>
             <View style={styles.breedingStatusContainer}>
-              {['not_breeding', 'in_heat', 'pregnant', 'nursing'].map((status) => (
+              {['not_breeding', 'in_heat', 'pregnant', 'nursing', 'lactating', 'ready'].map((status) => (
                 <TouchableOpacity
                   key={status}
                   style={[
                     styles.breedingStatusButton,
-                    formData.breedingStatus === status && { backgroundColor: getHealthStatusColor(status as HealthStatus, theme) }
+                    formData.breedingStatus === status && { backgroundColor: getBreedingStatusColor(status as BreedingStatus, theme) }
                   ]}
                   onPress={() => setFormData({ ...formData, breedingStatus: status as BreedingStatus })}
                 >
-                  <MaterialCommunityIcons
-                    name="baby-carriage"
-                    size={20}
-                    color={formData.breedingStatus === status ? '#FFF' : theme.colors.neutral.textSecondary}
-                  />
+                  <Text style={styles.breedingStatusIcon}>
+                    {getBreedingStatusIcon(status as BreedingStatus)}
+                  </Text>
                   <Text style={[
                     styles.breedingStatusText,
                     { color: formData.breedingStatus === status ? '#FFF' : theme.colors.neutral.textSecondary }
                   ]}>
-                    {status.replace('_', ' ')}
+                    {getBreedingStatusLabel(status as BreedingStatus)}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -637,7 +805,7 @@ export const AddAnimalScreen = ({ navigation }: AddAnimalScreenProps) => {
     <View style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
       <View style={[styles.header, { backgroundColor: theme.colors.neutral.surface }]}>
         <Text style={[styles.headerTitle, { color: theme.colors.neutral.textPrimary }]}>
-          {formPages[currentPage].title}
+          {mode === 'edit' ? 'تعديل الحيوان' : 'إضافة حيوان جديد'}
         </Text>
         <TouchableOpacity
           style={styles.backButton}
@@ -667,28 +835,125 @@ export const AddAnimalScreen = ({ navigation }: AddAnimalScreenProps) => {
           {formPages[currentPage].fields.map((field) => (
             <View key={field}>
               {renderField(field)}
+              {validationErrors[field] && (
+                <Text style={[styles.errorText, { color: theme.colors.error }]}>
+                  {validationErrors[field]}
+                </Text>
+              )}
             </View>
           ))}
         </View>
       </ScrollView>
 
-      <View style={styles.footer}>
-        <CustomButton
-          title={currentPage === formPages.length - 1 ? 'إنهاء' : 'التالي'}
-          onPress={nextPage}
-          variant="primary"
-          loading={loading}
-          style={{ flex: 1, marginLeft: currentPage > 0 ? 8 : 0 }}
-        />
+      <View style={[styles.footer, { backgroundColor: theme.colors.neutral.surface }]}>
         {currentPage > 0 && (
-          <CustomButton
-            title="السابق"
+          <TouchableOpacity
+            style={[styles.navButton, { backgroundColor: theme.colors.neutral.border }]}
             onPress={prevPage}
-            variant="secondary"
-            style={{ flex: 1, marginRight: 8 }}
-          />
+          >
+            <Feather name="arrow-right" size={24} color={theme.colors.neutral.textPrimary} />
+            <Text style={[styles.navButtonText, { color: theme.colors.neutral.textPrimary }]}>
+              السابق
+            </Text>
+          </TouchableOpacity>
         )}
+        <TouchableOpacity
+          style={[styles.navButton, { backgroundColor: theme.colors.primary.base }]}
+          onPress={nextPage}
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? (
+            <ActivityIndicator color="#FFF" />
+          ) : (
+            <>
+              <Text style={styles.navButtonText}>
+                {currentPage === formPages.length - 1 ? 'حفظ' : 'التالي'}
+              </Text>
+              <Feather name="arrow-left" size={24} color="#FFF" />
+            </>
+          )}
+        </TouchableOpacity>
       </View>
+
+      <Modal
+        visible={showTypeModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowTypeModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.colors.neutral.surface }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.colors.neutral.textPrimary }]}>
+                اختر نوع الحيوان
+              </Text>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setShowTypeModal(false)}
+              >
+                <Feather name="x" size={24} color={theme.colors.neutral.textPrimary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody}>
+              <View style={styles.animalGrid}>
+                {Object.entries(ANIMAL_TYPES).map(([id, animal]) => (
+                  <TouchableOpacity
+                    key={id}
+                    style={[
+                      styles.animalOption,
+                      { 
+                        backgroundColor: theme.colors.neutral.background,
+                        borderWidth: 1,
+                        borderColor: theme.colors.neutral.border,
+                      }
+                    ]}
+                    onPress={() => {
+                      setFormData({ ...formData, type: id });
+                      setShowTypeModal(false);
+                    }}
+                  >
+                    <Text style={styles.animalIcon}>{animal.icon}</Text>
+                    <View style={styles.animalInfo}>
+                      <Text style={[styles.animalName, { color: theme.colors.neutral.textPrimary }]}>
+                        {animal.name}
+                      </Text>
+                      <Text style={[styles.animalCategory, { color: theme.colors.neutral.textSecondary }]}>
+                        {animal.category}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+                
+                <TouchableOpacity
+                  style={[
+                    styles.animalOption,
+                    { 
+                      backgroundColor: theme.colors.neutral.background,
+                      borderWidth: 1,
+                      borderColor: theme.colors.neutral.border,
+                    }
+                  ]}
+                  onPress={() => {
+                    setFormData({ ...formData, type: 'other' });
+                    setShowTypeModal(false);
+                  }}
+                >
+                  <Text style={styles.animalIcon}>➕</Text>
+                  <View style={styles.animalInfo}>
+                    <Text style={[styles.animalName, { color: theme.colors.neutral.textPrimary }]}>
+                      نوع آخر
+                    </Text>
+                    <Text style={[styles.animalCategory, { color: theme.colors.neutral.textSecondary }]}>
+                      إضافة نوع مخصص
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -701,6 +966,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
   },
   headerTitle: {
     fontSize: 24,
@@ -733,6 +1000,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   form: {
+    padding: 16,
     gap: 24,
   },
   inputGroup: {
@@ -747,6 +1015,8 @@ const styles = StyleSheet.create({
     height: 48,
     paddingHorizontal: 16,
     fontSize: 16,
+    borderRadius: 8,
+    borderWidth: 1,
   },
   genderContainer: {
     flexDirection: 'row',
@@ -760,6 +1030,9 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 8,
     gap: 8,
+  },
+  genderIcon: {
+    fontSize: 24,
   },
   genderText: {
     fontSize: 16,
@@ -780,14 +1053,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     gap: 8,
   },
+  healthStatusIcon: {
+    fontSize: 20,
+  },
   healthStatusText: {
     fontSize: 16,
     fontWeight: '500',
-  },
-  footer: {
-    flexDirection: 'row',
-    padding: 16,
-    gap: 8,
   },
   breedingStatusContainer: {
     flexDirection: 'row',
@@ -804,8 +1075,146 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     gap: 8,
   },
+  breedingStatusIcon: {
+    fontSize: 20,
+  },
   breedingStatusText: {
     fontSize: 16,
+    fontWeight: '500',
+  },
+  footer: {
+    flexDirection: 'row',
+    padding: 16,
+    gap: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+  },
+  navButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 8,
+    gap: 8,
+  },
+  navButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  errorText: {
+    fontSize: 14,
+    marginTop: 4,
+  },
+  typeSelector: {
+    height: 48,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    justifyContent: 'center',
+  },
+  selectedType: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  selectedTypeIcon: {
+    fontSize: 24,
+  },
+  selectedTypeInfo: {
+    flex: 1,
+  },
+  selectedTypeText: {
+    fontSize: 16,
+    textAlign: 'right',
+  },
+  selectedTypeCategory: {
+    fontSize: 12,
+    textAlign: 'right',
+  },
+  typePlaceholder: {
+    fontSize: 16,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '95%',
+    minHeight: '50%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+  },
+  closeButton: {
+    padding: 8,
+  },
+  modalBody: {
+    padding: 16,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 16,
+  },
+  animalGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    justifyContent: 'space-between',
+    paddingBottom: 100,
+  },
+  animalOption: {
+    width: (width - 56) / 3,
+    aspectRatio: 1,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    marginBottom: 8,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  animalIcon: {
+    fontSize: 40,
+  },
+  animalInfo: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  animalName: {
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  animalCategory: {
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  otherTypeContainer: {
+    gap: 8,
+    width: '100%',
+  },
+  changeTypeButton: {
+    alignSelf: 'flex-end',
+    padding: 8,
+  },
+  changeTypeText: {
+    fontSize: 14,
     fontWeight: '500',
   },
 }); 

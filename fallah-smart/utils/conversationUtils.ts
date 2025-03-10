@@ -88,7 +88,6 @@ export const createNewConversation = (callback?: () => void): Conversation => {
   // 2. Reset the current conversation state
   // 3. Navigate to the new conversation if needed
 
-
   // Execute the callback if provided
   if (callback) {
     callback();

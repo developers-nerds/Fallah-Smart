@@ -38,12 +38,33 @@ const StockScreen = () => {
   const navigation = useNavigation<StockScreenNavigationProp>();
 
   const handleCategoryPress = (category: StockCategory) => {
-    if (category === 'animals') {
-      navigation.navigate('Animals');
-    } else if (category === 'pesticide') {
-      navigation.navigate('PesticideList');
-    } else {
-      navigation.navigate('StockList', { category });
+    switch (category) {
+      case 'animals':
+        navigation.navigate('Animals');
+        break;
+      case 'pesticide':
+        navigation.navigate('PesticideList');
+        break;
+      case 'tools':
+        navigation.navigate('ToolList');
+        break;
+      case 'equipment':
+        navigation.navigate('EquipmentList');
+        break;
+      case 'seeds':
+        navigation.navigate('SeedList');
+        break;
+      case 'feed':
+        navigation.navigate('FeedList');
+        break;
+      case 'harvest':
+        navigation.navigate('HarvestList');
+        break;
+      case 'fertilizer':
+        navigation.navigate('FertilizerList');
+        break;
+      default:
+        navigation.navigate('StockList', { category });
     }
   };
 
