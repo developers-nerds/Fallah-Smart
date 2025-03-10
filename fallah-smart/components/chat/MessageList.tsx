@@ -1,14 +1,23 @@
 import React, { useRef, useEffect } from 'react';
-import { ScrollView, View, StyleSheet, Keyboard, Platform, KeyboardEvent } from 'react-native';
+import {
+  ScrollView,
+  View,
+  StyleSheet,
+  Keyboard,
+  Platform,
+  KeyboardEvent,
+  RefreshControl,
+} from 'react-native';
 import ChatMessage from './ChatMessage';
 import { Message } from '../../types/chat';
 import { theme } from '../../theme/theme';
 
 interface MessageListProps {
   messages: Message[];
+  refreshControl?: React.ReactElement;
 }
 
-const MessageList: React.FC<MessageListProps> = ({ messages }) => {
+const MessageList: React.FC<MessageListProps> = ({ messages, refreshControl }) => {
   const scrollViewRef = useRef<ScrollView>(null);
   const keyboardHeight = useRef(0);
 
@@ -62,7 +71,8 @@ const MessageList: React.FC<MessageListProps> = ({ messages }) => {
       keyboardDismissMode="on-drag"
       showsVerticalScrollIndicator={false}
       onContentSizeChange={() => scrollToBottom(false)}
-      onLayout={() => scrollToBottom(false)}>
+      onLayout={() => scrollToBottom(false)}
+      refreshControl={refreshControl}>
       {messages.map((message) => (
         <View
           key={message.id}

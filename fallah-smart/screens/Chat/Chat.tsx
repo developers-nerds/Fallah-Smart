@@ -9,6 +9,7 @@ import {
   Animated,
   Keyboard,
   LayoutAnimation,
+  RefreshControl,
 } from 'react-native';
 import { Message } from '../../types/chat';
 import * as ImagePicker from 'expo-image-picker';
@@ -51,6 +52,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
   const keyboardTimer = useRef<NodeJS.Timeout | null>(null);
   const [showMessageLimitAlert, setShowMessageLimitAlert] = useState(false);
   const MESSAGE_LIMIT = 10;
+  const [refreshing, setRefreshing] = useState(false);
 
   const toggleSidebar = () => {
     if (sidebarVisible) {
@@ -155,7 +157,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
 
         // Store user message in database - only from message 2 onwards (which creates message pair)
         if (messageNumber >= 2 && conversationId) {
-          const userMessageResponse = await fetch(`http://192.168.1.15:5000/api/messages/create`, {
+          const userMessageResponse = await fetch(`${API_URL}/messages/create`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -183,7 +185,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
 
         // Store AI response in database - only if we have a valid conversation ID
         if (messageNumber >= 2 && conversationId) {
-          const aiMessageResponse = await fetch(`http://192.168.1.15:5000/api/messages/create`, {
+          const aiMessageResponse = await fetch(`${API_URL}/messages/create`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -332,6 +334,41 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
     };
   }, []);
 
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+
+    try {
+      // If we have a conversation ID, refresh messages for that conversation
+      if (currentConversationId) {
+        const response = await fetch(`${API_URL}/messages/${currentConversationId}`);
+        const result = await response.json();
+
+        if (result.success) {
+          // Map backend messages to frontend Message format
+          const loadedMessages: Message[] = result.data.map((msg: any) => ({
+            id: msg.id.toString(),
+            text: msg.content,
+            isUser: msg.sender === 'user',
+            sender: msg.sender as 'user' | 'assistant',
+            imageUrl: msg.type === 'image' ? msg.content : undefined,
+          }));
+
+          setMessages(loadedMessages);
+        } else {
+          console.error('Failed to refresh messages:', result.message);
+        }
+      } else {
+        // If no conversation ID (new chat), just reset to initial greeting
+        setMessages([]);
+        setGreetingSent(false);
+      }
+    } catch (error) {
+      console.error('Error refreshing conversation:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [currentConversationId]);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar backgroundColor={theme.colors.neutral.surface} barStyle="dark-content" />
@@ -341,7 +378,19 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}>
         <View style={styles.mainContent}>
           <ChatHeader onNewConversation={handleNewConversation} onTitlePress={toggleSidebar} />
-          <MessageList messages={messages} />
+          <MessageList
+            messages={messages}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={[theme.colors.primary.base]}
+                tintColor={theme.colors.primary.base}
+                title="Refreshing conversation..."
+                titleColor={theme.colors.primary.base}
+              />
+            }
+          />
           {(isLoading || isImageLoading) && (
             <View style={styles.loadingContainer}>
               <LoadingAnimation
@@ -406,10 +455,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: Platform.OS === 'ios' ? 100 : 90,
-    alignItems: 'center',
+    top: 0,
+    bottom: 0,
     justifyContent: 'center',
-    zIndex: 2,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    zIndex: 10,
   },
   inputContainer: {
     position: 'absolute',

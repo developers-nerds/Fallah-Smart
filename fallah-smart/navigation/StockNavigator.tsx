@@ -22,7 +22,6 @@ import Blogs from '../screens/blogs/blogs';
 import PostDetail from '../screens/blogs/PostDetail';
 import StockStatisticsScreen from '../screens/Stock/StockStatisticsScreen';
 import { StockStackParamList } from './types';
-
 const Stack = createStackNavigator<StockStackParamList>();
 
 export const StockNavigator = () => {

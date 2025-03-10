@@ -14,4 +14,15 @@ export type StockStackParamList = {
   Blogs: undefined;
   PostDetail: { postId: string };
   Statistics: undefined;
-}; 
+  Marketplace: undefined;
+};
+
+export type DrawerParamList = {
+  HomeContent: undefined;
+  Chat: undefined;
+  Scan: undefined;
+  Stock: undefined;
+  Wallet: undefined;
+  Dictionary: undefined;
+  Marketplace: undefined;
+};
