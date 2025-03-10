@@ -37,6 +37,7 @@ const CropDetails: React.FC<Props> = ({ route }) => {
   const [expandedSections, setExpandedSections] = useState<{[key: string]: boolean}>({});
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scrollY = useRef(new Animated.Value(0)).current;
+  const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
   useEffect(() => {
     fetchCropDetails();
@@ -56,8 +57,8 @@ const CropDetails: React.FC<Props> = ({ route }) => {
     try {
       setLoading(true);
       const [cropResponse, detailsResponse] = await Promise.all([
-        axios.get(`http://192.168.11.96:5000/api/crops/${id}`),
-        axios.get(`http://192.168.11.96:5000/api/cropsDetails/${id}`)
+        axios.get(`${API_URL}/crops/${id}`),
+        axios.get(`${API_URL}/cropsDetails/${id}`)
       ]);
       setCrop(cropResponse.data);
       setDetails(detailsResponse.data);

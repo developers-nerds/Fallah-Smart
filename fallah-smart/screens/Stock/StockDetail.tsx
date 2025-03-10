@@ -31,7 +31,7 @@ import { useStock } from '../../context/StockContext';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { StockStackParamList } from '../../navigation/StockNavigator';
+import { StockStackParamList } from '../../navigation/types';
 import { createThemedStyles } from '../../utils/createThemedStyles';
 import { FeatherNames } from '../../types/icons';
 import { Button as CustomButton } from '../../components/Button';
@@ -137,39 +137,71 @@ const QuantityModal = ({
               }
             ]}
           >
-            <Text style={[styles.modalTitle, { color: theme.colors.neutral.textPrimary }]}>
-              {type === 'add' ? 'Ajouter au stock' : 'Retirer du stock'}
-            </Text>
+            <View style={styles.modalHeader}>
+              <MaterialCommunityIcons
+                name={type === 'add' ? 'plus-circle' : 'minus-circle'}
+                size={32}
+                color={type === 'add' ? theme.colors.success : theme.colors.error}
+              />
+              <Text style={[styles.modalTitle, { color: theme.colors.neutral.textPrimary }]}>
+                {type === 'add' ? 'إضافة للمخزون' : 'سحب من المخزون'}
+              </Text>
+            </View>
+
+            <View style={styles.currentQuantityContainer}>
+              <Text style={[styles.currentQuantityLabel, { color: theme.colors.neutral.textSecondary }]}>
+                المخزون الحالي
+              </Text>
+              <Text style={[styles.currentQuantity, { color: theme.colors.neutral.textPrimary }]}>
+                {currentQuantity.toLocaleString('en-US')} {unit}
+              </Text>
+            </View>
 
             <View style={styles.modalInputContainer}>
-              <TextInput
-                style={[styles.modalInput, { 
-                  backgroundColor: theme.colors.neutral.background,
-                  color: theme.colors.neutral.textPrimary 
-                }]}
-                value={quantity}
-                onChangeText={setQuantity}
-                keyboardType="numeric"
-                placeholder={`Quantité en ${unit}`}
-                placeholderTextColor={theme.colors.neutral.textSecondary}
-                editable={!loading}
-              />
+              <View style={styles.quantityInputContainer}>
+                <MaterialCommunityIcons
+                  name="scale"
+                  size={24}
+                  color={theme.colors.neutral.textSecondary}
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  style={[styles.modalInput, { 
+                    backgroundColor: theme.colors.neutral.background,
+                    color: theme.colors.neutral.textPrimary 
+                  }]}
+                  value={quantity}
+                  onChangeText={setQuantity}
+                  keyboardType="numeric"
+                  placeholder={`الكمية بـ ${unit}`}
+                  placeholderTextColor={theme.colors.neutral.textSecondary}
+                  editable={!loading}
+                />
+              </View>
 
-              <TextInput
-                style={[styles.modalInput, { 
-                  backgroundColor: theme.colors.neutral.background,
-                  color: theme.colors.neutral.textPrimary,
-                  height: 100,
-                  textAlignVertical: 'top'
-                }]}
-                value={notes}
-                onChangeText={setNotes}
-                placeholder="Notes (optionnel)"
-                placeholderTextColor={theme.colors.neutral.textSecondary}
-                multiline
-                numberOfLines={4}
-                editable={!loading}
-              />
+              <View style={styles.notesInputContainer}>
+                <MaterialCommunityIcons
+                  name="note-text"
+                  size={24}
+                  color={theme.colors.neutral.textSecondary}
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  style={[styles.modalInput, { 
+                    backgroundColor: theme.colors.neutral.background,
+                    color: theme.colors.neutral.textPrimary,
+                    height: 100,
+                    textAlignVertical: 'top'
+                  }]}
+                  value={notes}
+                  onChangeText={setNotes}
+                  placeholder="ملاحظات (اختياري)"
+                  placeholderTextColor={theme.colors.neutral.textSecondary}
+                  multiline
+                  numberOfLines={4}
+                  editable={!loading}
+                />
+              </View>
             </View>
 
             <View style={styles.modalButtons}>
@@ -179,7 +211,7 @@ const QuantityModal = ({
                 disabled={loading}
               >
                 <Text style={[styles.buttonText, { color: theme.colors.neutral.textPrimary }]}>
-                  Annuler
+                  إلغاء
                 </Text>
               </TouchableOpacity>
 
@@ -196,7 +228,7 @@ const QuantityModal = ({
                 {loading ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <Text style={[styles.buttonText, { color: '#fff' }]}>Confirmer</Text>
+                  <Text style={[styles.buttonText, { color: '#fff' }]}>تأكيد</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -210,24 +242,65 @@ const QuantityModal = ({
 const HistoryItem = ({ history, unit }: { history: StockHistory; unit: string }) => {
   const theme = useTheme();
   const isAdd = history.type === 'add';
+  const date = new Date(history.date);
+  const formattedDate = date.toLocaleDateString('en-US', { 
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  });
+  const formattedTime = date.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
 
   return (
     <View style={[styles.historyItem, { backgroundColor: theme.colors.neutral.surface }]}>
       <View style={styles.historyHeader}>
-        <Feather 
-          name={isAdd ? 'plus-circle' : 'minus-circle'} 
-          size={20} 
-          color={isAdd ? theme.colors.success : theme.colors.error} 
-        />
-        <Text style={[styles.historyDate, { color: theme.colors.neutral.textSecondary }]}>
-          {new Date(history.date).toLocaleDateString()}
-        </Text>
+        <View style={[
+          styles.historyIconContainer,
+          { backgroundColor: isAdd ? theme.colors.success : theme.colors.error }
+        ]}>
+          <MaterialCommunityIcons
+            name={isAdd ? 'plus-circle' : 'minus-circle'}
+            size={24}
+            color="#FFF"
+          />
+        </View>
+        <View style={styles.historyInfo}>
+          <Text style={[styles.historyDate, { color: theme.colors.neutral.textPrimary }]}>
+            {formattedDate}
+          </Text>
+          <Text style={[styles.historyTime, { color: theme.colors.neutral.textSecondary }]}>
+            {formattedTime}
+          </Text>
+        </View>
       </View>
-      <Text style={[styles.historyQuantity, { 
-        color: isAdd ? theme.colors.success : theme.colors.error 
-      }]}>
-        {isAdd ? '+' : '-'}{history.quantity} {unit}
-      </Text>
+      <View style={styles.historyDetails}>
+        <View style={styles.historyQuantityContainer}>
+          <MaterialCommunityIcons
+            name="scale"
+            size={20}
+            color={isAdd ? theme.colors.success : theme.colors.error}
+          />
+          <Text style={[styles.historyQuantity, { 
+            color: isAdd ? theme.colors.success : theme.colors.error 
+          }]}>
+            {isAdd ? '+' : '-'}{history.quantity.toLocaleString('en-US')} {unit}
+          </Text>
+        </View>
+        {history.notes && (
+          <View style={styles.historyNotesContainer}>
+            <MaterialCommunityIcons
+              name="note-text"
+              size={16}
+              color={theme.colors.neutral.textSecondary}
+            />
+            <Text style={[styles.historyNotes, { color: theme.colors.neutral.textSecondary }]}>
+              {history.notes}
+            </Text>
+          </View>
+        )}
+      </View>
     </View>
   );
 };
@@ -250,17 +323,17 @@ type QualityMap = {
 };
 
 const getCategoryLabel = (category: StockCategory): string => {
-  if (category === 'all') return 'Tous';
+  if (category === 'all') return 'الكل';
   
   const categories: CategoryMap = {
-    seeds: 'Semences',
-    fertilizer: 'Engrais',
-    harvest: 'Récoltes',
-    feed: 'Aliments',
-    pesticide: 'Pesticides',
-    equipment: 'Équipement',
-    tools: 'Outils',
-    animals: 'Animaux'
+    seeds: 'البذور',
+    fertilizer: 'الأسمدة',
+    harvest: 'المحاصيل',
+    feed: 'الأعلاف',
+    pesticide: 'المبيدات',
+    equipment: 'المعدات',
+    tools: 'الأدوات',
+    animals: 'الحيوانات'
   };
   return categories[category];
 };
@@ -280,11 +353,11 @@ const getQualityColor = (quality: 'good' | 'medium' | 'poor' | undefined, theme:
 
 const getQualityLabel = (quality: 'good' | 'medium' | 'poor' | undefined): string => {
   const qualities: QualityMap = {
-    good: 'Bon',
-    medium: 'Moyen',
-    poor: 'Mauvais'
+    good: 'جيد',
+    medium: 'متوسط',
+    poor: 'سيء'
   };
-  return quality ? qualities[quality] : 'Non défini';
+  return quality ? qualities[quality] : 'غير محدد';
 };
 
 const AddStockModal = ({ visible, onClose, onAdd }: {
@@ -349,19 +422,19 @@ const AddStockModal = ({ visible, onClose, onAdd }: {
       <View style={styles.modalOverlay}>
         <View style={[styles.modalContent, { backgroundColor: theme.colors.neutral.surface }]}>
           <Text style={[styles.modalTitle, { color: theme.colors.neutral.textPrimary }]}>
-            Ajouter un nouveau stock
+            إضافة مخزون جديد
           </Text>
 
           <ScrollView>
             <TextInput
               style={styles.modalInput}
-              placeholder="Nom du produit*"
+              placeholder="اسم المنتج*"
               value={formData.name}
               onChangeText={text => setFormData(prev => ({ ...prev, name: text }))}
             />
 
             <View style={styles.pickerContainer}>
-              <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>Catégorie</Text>
+              <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>الفئة</Text>
               <Picker
                 selectedValue={formData.category}
                 style={styles.modalInput}
@@ -375,28 +448,28 @@ const AddStockModal = ({ visible, onClose, onAdd }: {
 
             <TextInput
               style={styles.modalInput}
-              placeholder="Quantité initiale"
+              placeholder="الكمية الأولية"
               keyboardType="numeric"
               value={formData.quantity.toString()}
               onChangeText={text => setFormData(prev => ({ ...prev, quantity: Number(text) }))}
             />
 
             <View style={styles.pickerContainer}>
-              <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>Unité</Text>
+              <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>الوحدة</Text>
               <Picker
                 selectedValue={formData.unit}
                 style={styles.modalInput}
                 onValueChange={(itemValue) => setFormData(prev => ({ ...prev, unit: itemValue as StockUnit }))}
               >
                 {STOCK_UNITS.map(unit => (
-                  <Picker.Item key={unit} label={unit.toUpperCase()} value={unit} />
+                  <Picker.Item key={unit.value} label={unit.label} value={unit.value} />
                 ))}
               </Picker>
             </View>
 
             <TextInput
               style={styles.modalInput}
-              placeholder="Seuil d'alerte*"
+              placeholder="الحد الأدنى للتنبيه*"
               keyboardType="numeric"
               value={formData.lowStockThreshold.toString()}
               onChangeText={text => setFormData(prev => ({ ...prev, lowStockThreshold: Number(text) }))}
@@ -404,21 +477,21 @@ const AddStockModal = ({ visible, onClose, onAdd }: {
 
             <TextInput
               style={styles.modalInput}
-              placeholder="Emplacement"
+              placeholder="الموقع"
               value={formData.location}
               onChangeText={text => setFormData(prev => ({ ...prev, location: text }))}
             />
 
             <TextInput
               style={styles.modalInput}
-              placeholder="Fournisseur"
+              placeholder="المورد"
               value={formData.supplier}
               onChangeText={text => setFormData(prev => ({ ...prev, supplier: text }))}
             />
 
             <TextInput
               style={styles.modalInput}
-              placeholder="Prix (€)"
+              placeholder="السعر (درهم)"
               keyboardType="numeric"
               value={formData.price?.toString() || ''}
               onChangeText={text => setFormData(prev => ({ ...prev, price: Number(text) }))}
@@ -426,20 +499,20 @@ const AddStockModal = ({ visible, onClose, onAdd }: {
 
             <TextInput
               style={styles.modalInput}
-              placeholder="Numéro de lot"
+              placeholder="رقم الدفعة"
               value={formData.batchNumber}
               onChangeText={text => setFormData(prev => ({ ...prev, batchNumber: text }))}
             />
 
             <TextInput
               style={styles.modalInput}
-              placeholder="Date d'expiration (AAAA-MM-JJ)"
+              placeholder="تاريخ انتهاء الصلاحية (YYYY-MM-DD)"
               value={formData.expiryDate}
               onChangeText={text => setFormData(prev => ({ ...prev, expiryDate: text }))}
             />
 
             <View style={styles.switchContainer}>
-              <Text style={[styles.switchLabel, { color: theme.colors.neutral.textPrimary }]}>Produit naturel</Text>
+              <Text style={[styles.switchLabel, { color: theme.colors.neutral.textPrimary }]}>منتج طبيعي</Text>
               <Switch
                 value={formData.isNatural}
                 onValueChange={(value: boolean) => setFormData(prev => ({ ...prev, isNatural: value }))}
@@ -453,10 +526,10 @@ const AddStockModal = ({ visible, onClose, onAdd }: {
               style={styles.modalInput}
               onValueChange={(itemValue) => setFormData(prev => ({ ...prev, qualityStatus: itemValue as 'good' | 'medium' | 'poor' | undefined }))}
             >
-              <Picker.Item label="Sélectionner la qualité" value={undefined} />
-              <Picker.Item label="Bon" value="good" />
-              <Picker.Item label="Moyen" value="medium" />
-              <Picker.Item label="Mauvais" value="poor" />
+              <Picker.Item label="اختر الجودة" value={undefined} />
+              <Picker.Item label="جيد" value="good" />
+              <Picker.Item label="متوسط" value="medium" />
+              <Picker.Item label="سيء" value="poor" />
             </Picker>
           </ScrollView>
 
@@ -466,7 +539,7 @@ const AddStockModal = ({ visible, onClose, onAdd }: {
               onPress={onClose}
               disabled={loading}
             >
-              <Text style={styles.buttonText}>Annuler</Text>
+              <Text style={styles.buttonText}>إلغاء</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               style={[styles.modalButton, styles.confirmButton]}
@@ -476,7 +549,7 @@ const AddStockModal = ({ visible, onClose, onAdd }: {
               {loading ? (
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
-                <Text style={[styles.buttonText, { color: '#fff' }]}>Ajouter</Text>
+                <Text style={[styles.buttonText, { color: '#fff' }]}>إضافة</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -503,6 +576,7 @@ export const StockDetail = ({ route, navigation }: StockDetailProps) => {
   const [history, setHistory] = useState<StockHistory[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeSection, setActiveSection] = useState<'details' | 'history' | null>(null);
   const scrollY = useSharedValue(0);
 
   const scrollHandler = useAnimatedScrollHandler({
@@ -585,6 +659,10 @@ export const StockDetail = ({ route, navigation }: StockDetailProps) => {
     }
   };
 
+  const toggleSection = (section: 'details' | 'history') => {
+    setActiveSection(current => current === section ? null : section);
+  };
+
   if (loading && !stock) {
     return (
       <View style={[styles.container, styles.centerContent, { backgroundColor: theme.colors.neutral.background }]}>
@@ -603,7 +681,7 @@ export const StockDetail = ({ route, navigation }: StockDetailProps) => {
         />
         <Text style={[styles.errorText, { color: theme.colors.error }]}>{error}</Text>
         <CustomButton 
-          title="Réessayer" 
+          title="إعادة المحاولة" 
           onPress={refreshStocks}
           variant="primary"
         />
@@ -619,9 +697,9 @@ export const StockDetail = ({ route, navigation }: StockDetailProps) => {
           size={64} 
           color={theme.colors.error} 
         />
-        <Text style={[styles.errorText, { color: theme.colors.error }]}>Stock non trouvé</Text>
+        <Text style={[styles.errorText, { color: theme.colors.error }]}>لم يتم العثور على المخزون</Text>
         <CustomButton 
-          title="Retour" 
+          title="رجوع" 
           onPress={() => navigation.goBack()}
           variant="primary"
         />
@@ -634,18 +712,7 @@ export const StockDetail = ({ route, navigation }: StockDetailProps) => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
-      <Animated.View style={[styles.header, headerStyle]}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Feather name="arrow-left" size={24} color={theme.colors.neutral.textPrimary} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.colors.neutral.textPrimary }]}>
-          Détails du Stock
-        </Text>
-      </Animated.View>
-
+      
       <Animated.ScrollView
         showsVerticalScrollIndicator={false}
         onScroll={scrollHandler}
@@ -668,7 +735,7 @@ export const StockDetail = ({ route, navigation }: StockDetailProps) => {
               {stock.isNatural && (
                 <View style={[styles.naturalBadge, { backgroundColor: theme.colors.success }]}>
                   <Feather name={leafIcon} size={12} color="#FFF" />
-                  <Text style={styles.naturalText}>Naturel</Text>
+                  <Text style={styles.naturalText}>طبيعي</Text>
                 </View>
               )}
             </View>
@@ -680,6 +747,18 @@ export const StockDetail = ({ route, navigation }: StockDetailProps) => {
           </View>
 
           <View style={styles.stockLevelContainer}>
+            <View style={styles.stockLevelHeader}>
+              <MaterialCommunityIcons
+                name="package-variant"
+                size={24}
+                color={isLowStock ? theme.colors.error : theme.colors.success}
+              />
+              <Text style={[styles.stockLevelTitle, { 
+                color: isLowStock ? theme.colors.error : theme.colors.success 
+              }]}>
+                المخزون الحالي
+              </Text>
+            </View>
             <View style={styles.stockLevelBar}>
               <Animated.View 
                 style={[
@@ -692,15 +771,37 @@ export const StockDetail = ({ route, navigation }: StockDetailProps) => {
               />
             </View>
             <View style={styles.stockLevelInfo}>
-              <Text style={[styles.stockLevelText, { 
-                color: isLowStock ? theme.colors.error : theme.colors.success 
-              }]}>
-                {stock.quantity} {stock.unit}
-              </Text>
-              <Text style={[styles.thresholdText, { color: theme.colors.neutral.textSecondary }]}>
-                Seuil: {stock.lowStockThreshold} {stock.unit}
-              </Text>
+              <View style={styles.quantityContainer}>
+                <Text style={[styles.stockLevelText, { 
+                  color: isLowStock ? theme.colors.error : theme.colors.success 
+                }]}>
+                  {stock.quantity.toLocaleString('en-US')}
+                </Text>
+                <Text style={[styles.unitText, { 
+                  color: isLowStock ? theme.colors.error : theme.colors.success 
+                }]}>
+                  {stock.unit}
+                </Text>
+              </View>
+              <View style={styles.thresholdContainer}>
+                <MaterialCommunityIcons
+                  name="alert-circle"
+                  size={16}
+                  color={theme.colors.neutral.textSecondary}
+                />
+                <Text style={[styles.thresholdText, { color: theme.colors.neutral.textSecondary }]}>
+                  الحد الأدنى: {stock.lowStockThreshold.toLocaleString('en-US')} {stock.unit}
+                </Text>
+              </View>
             </View>
+            {isLowStock && (
+              <View style={[styles.lowStockWarning, { backgroundColor: theme.colors.error }]}>
+                <MaterialCommunityIcons name="alert" size={20} color="#FFF" />
+                <Text style={styles.lowStockWarningText}>
+                  Stock faible! Reapprovisionnez bientôt
+                </Text>
+              </View>
+            )}
           </View>
 
           <View style={styles.actions}>
@@ -712,9 +813,9 @@ export const StockDetail = ({ route, navigation }: StockDetailProps) => {
               onPress={() => setShowAddModal(true)}
               disabled={loading}
             >
-              <Feather name="plus" size={20} color="#fff" />
+              <MaterialCommunityIcons name="plus-circle" size={24} color="#fff" />
               <Text style={[styles.actionButtonText, { color: '#fff' }]}>
-                Ajouter
+                إضافة للمخزون
               </Text>
             </TouchableOpacity>
 
@@ -726,90 +827,240 @@ export const StockDetail = ({ route, navigation }: StockDetailProps) => {
               onPress={() => setShowRemoveModal(true)}
               disabled={loading}
             >
-              <Feather name="minus" size={20} color="#fff" />
+              <MaterialCommunityIcons name="minus-circle" size={24} color="#fff" />
               <Text style={[styles.actionButtonText, { color: '#fff' }]}>
-                Retirer
+                سحب من المخزون
               </Text>
             </TouchableOpacity>
           </View>
         </View>
 
         <View style={[styles.card, { backgroundColor: theme.colors.neutral.surface }]}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.neutral.textPrimary }]}>
-            Détails
-          </Text>
-          <View style={styles.detailsGrid}>
-            {stock.location && (
-              <View style={styles.infoItem}>
-                <Feather name="map-pin" size={16} color={theme.colors.neutral.textSecondary} />
-                <Text style={[styles.infoText, { color: theme.colors.neutral.textPrimary }]}>
-                  {stock.location}
+          <TouchableOpacity 
+            style={[
+              styles.sectionHeader,
+              { 
+                backgroundColor: activeSection === 'details' 
+                  ? theme.colors.neutral.surface
+                  : theme.colors.neutral.background,
+                borderWidth: 1,
+                borderColor: theme.colors.neutral.border
+              }
+            ]}
+            onPress={() => toggleSection('details')}
+          >
+            <View style={styles.sectionHeaderContent}>
+              <MaterialCommunityIcons
+                name="information"
+                size={24}
+                color={theme.colors.neutral.textPrimary}
+              />
+              <Text style={[styles.sectionTitle, { color: theme.colors.neutral.textPrimary }]}>
+                التفاصيل
+              </Text>
+              <View style={[
+                styles.sectionBadge,
+                {
+                  backgroundColor: activeSection === 'details'
+                    ? theme.colors.primary.base
+                    : theme.colors.neutral.gray.base
+                }
+              ]}>
+                <Text style={styles.sectionSubtitle}>
+                  {activeSection === 'details' ? 'إخفاء' : 'عرض'}
                 </Text>
               </View>
-            )}
+            </View>
+            <Feather 
+              name="chevron-down" 
+              size={24} 
+              color={theme.colors.neutral.textPrimary}
+              style={{
+                transform: [{ rotate: activeSection === 'details' ? '180deg' : '0deg' }]
+              }}
+            />
+          </TouchableOpacity>
 
-            {stock.supplier && (
-              <View style={styles.infoItem}>
-                <Feather name="truck" size={16} color={theme.colors.neutral.textSecondary} />
-                <Text style={[styles.infoText, { color: theme.colors.neutral.textPrimary }]}>
-                  {stock.supplier}
+          {activeSection === 'details' && (
+            <Animated.View 
+              entering={FadeInDown}
+              exiting={FadeIn}
+              style={styles.detailsGrid}
+            >
+              <View style={styles.detailsSection}>
+                <Text style={[styles.sectionLabel, { color: theme.colors.neutral.textSecondary }]}>
+                  معلومات عامة
                 </Text>
-              </View>
-            )}
+                {stock.location && (
+                  <View style={[styles.infoItem, { backgroundColor: theme.colors.neutral.background }]}>
+                    <View style={[styles.iconContainer, { backgroundColor: theme.colors.primary.base }]}>
+                      <Feather name="map-pin" size={20} color="#FFF" />
+                    </View>
+                    <View style={styles.infoContent}>
+                      <Text style={[styles.infoLabel, { color: theme.colors.neutral.textSecondary }]}>
+                        الموقع
+                      </Text>
+                      <Text style={[styles.infoValue, { color: theme.colors.neutral.textPrimary }]}>
+                        {stock.location}
+                      </Text>
+                    </View>
+                  </View>
+                )}
 
-            {stock.price && (
-              <View style={styles.infoItem}>
-                <Feather name="tag" size={16} color={theme.colors.neutral.textSecondary} />
-                <Text style={[styles.infoText, { color: theme.colors.neutral.textPrimary }]}>
-                  {stock.price} €/{stock.unit}
-                </Text>
+                {stock.supplier && (
+                  <View style={[styles.infoItem, { backgroundColor: theme.colors.neutral.background }]}>
+                    <View style={[styles.iconContainer, { backgroundColor: theme.colors.accent.base }]}>
+                      <Feather name="truck" size={20} color="#FFF" />
+                    </View>
+                    <View style={styles.infoContent}>
+                      <Text style={[styles.infoLabel, { color: theme.colors.neutral.textSecondary }]}>
+                        المورد
+                      </Text>
+                      <Text style={[styles.infoValue, { color: theme.colors.neutral.textPrimary }]}>
+                        {stock.supplier}
+                      </Text>
+                    </View>
+                  </View>
+                )}
               </View>
-            )}
 
-            {stock.batchNumber && (
-              <View style={styles.infoItem}>
-                <Feather name="hash" size={16} color={theme.colors.neutral.textSecondary} />
-                <Text style={[styles.infoText, { color: theme.colors.neutral.textPrimary }]}>
-                  Lot: {stock.batchNumber}
+              <View style={styles.detailsSection}>
+                <Text style={[styles.sectionLabel, { color: theme.colors.neutral.textSecondary }]}>
+                  تفاصيل المنتج
                 </Text>
-              </View>
-            )}
+                {stock.price && (
+                  <View style={[styles.infoItem, { backgroundColor: theme.colors.neutral.background }]}>
+                    <View style={[styles.iconContainer, { backgroundColor: theme.colors.success }]}>
+                      <Feather name="tag" size={20} color="#FFF" />
+                    </View>
+                    <View style={styles.infoContent}>
+                      <Text style={[styles.infoLabel, { color: theme.colors.neutral.textSecondary }]}>
+                        السعر
+                      </Text>
+                      <Text style={[styles.infoValue, { color: theme.colors.neutral.textPrimary }]}>
+                        {stock.price.toLocaleString('en-US')} درهم/{stock.unit}
+                      </Text>
+                    </View>
+                  </View>
+                )}
 
-            {stock.expiryDate && (
-              <View style={styles.infoItem}>
-                <Feather name="calendar" size={16} color={theme.colors.neutral.textSecondary} />
-                <Text style={[styles.infoText, { color: theme.colors.neutral.textPrimary }]}>
-                  Exp: {new Date(stock.expiryDate).toLocaleDateString()}
-                </Text>
+                {stock.batchNumber && (
+                  <View style={[styles.infoItem, { backgroundColor: theme.colors.neutral.background }]}>
+                    <View style={[styles.iconContainer, { backgroundColor: theme.colors.warning }]}>
+                      <Feather name="hash" size={20} color="#FFF" />
+                    </View>
+                    <View style={styles.infoContent}>
+                      <Text style={[styles.infoLabel, { color: theme.colors.neutral.textSecondary }]}>
+                        رقم الدفعة
+                      </Text>
+                      <Text style={[styles.infoValue, { color: theme.colors.neutral.textPrimary }]}>
+                        {stock.batchNumber}
+                      </Text>
+                    </View>
+                  </View>
+                )}
               </View>
-            )}
 
-            {stock.qualityStatus && (
-              <View style={styles.infoItem}>
-                <MaterialCommunityIcons 
-                  name="check-decagram" 
-                  size={16} 
-                  color={getQualityColor(stock.qualityStatus, theme)} 
-                />
-                <Text style={[styles.infoText, { color: theme.colors.neutral.textPrimary }]}>
-                  Qualité: {getQualityLabel(stock.qualityStatus)}
+              <View style={styles.detailsSection}>
+                <Text style={[styles.sectionLabel, { color: theme.colors.neutral.textSecondary }]}>
+                  الجودة وتاريخ الانتهاء
                 </Text>
+                {stock.expiryDate && (
+                  <View style={[styles.infoItem, { backgroundColor: theme.colors.neutral.background }]}>
+                    <View style={[styles.iconContainer, { backgroundColor: theme.colors.warning }]}>
+                      <Feather name="calendar" size={20} color="#FFF" />
+                    </View>
+                    <View style={styles.infoContent}>
+                      <Text style={[styles.infoLabel, { color: theme.colors.neutral.textSecondary }]}>
+                        تاريخ الانتهاء
+                      </Text>
+                      <Text style={[styles.infoValue, { color: theme.colors.neutral.textPrimary }]}>
+                        {new Date(stock.expiryDate).toLocaleDateString('ar-SA')}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+
+                {stock.qualityStatus && (
+                  <View style={[styles.infoItem, { backgroundColor: theme.colors.neutral.background }]}>
+                    <View style={[styles.iconContainer, { backgroundColor: theme.colors.accent.base }]}>
+                      <Feather name="check-circle" size={20} color="#FFF" />
+                    </View>
+                    <View style={styles.infoContent}>
+                      <Text style={[styles.infoLabel, { color: theme.colors.neutral.textSecondary }]}>
+                        الجودة
+                      </Text>
+                      <Text style={[styles.infoValue, { color: theme.colors.neutral.textPrimary }]}>
+                        {stock.qualityStatus === 'good' ? 'جيد' : 
+                         stock.qualityStatus === 'medium' ? 'متوسط' : 'سيء'}
+                      </Text>
+                    </View>
+                  </View>
+                )}
               </View>
-            )}
-          </View>
+            </Animated.View>
+          )}
         </View>
 
         <View style={[styles.card, { backgroundColor: theme.colors.neutral.surface }]}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.neutral.textPrimary }]}>
-            Historique
-          </Text>
-          <View style={styles.section}>
-            <StockHistoryComponent 
-              history={history} 
-              unit={stock.unit} 
-              loading={historyLoading}
+          <TouchableOpacity 
+            style={[
+              styles.sectionHeader,
+              { 
+                backgroundColor: activeSection === 'history' 
+                  ? theme.colors.neutral.surface
+                  : theme.colors.neutral.background,
+                borderWidth: 1,
+                borderColor: theme.colors.neutral.border
+              }
+            ]}
+            onPress={() => toggleSection('history')}
+          >
+            <View style={styles.sectionHeaderContent}>
+              <MaterialCommunityIcons
+                name="history"
+                size={24}
+                color={theme.colors.neutral.textPrimary}
+              />
+              <Text style={[styles.sectionTitle, { color: theme.colors.neutral.textPrimary }]}>
+                السجل
+              </Text>
+              <View style={[
+                styles.sectionBadge,
+                {
+                  backgroundColor: activeSection === 'history'
+                    ? theme.colors.accent.base
+                    : theme.colors.neutral.gray.base
+                }
+              ]}>
+                <Text style={styles.sectionSubtitle}>
+                  {activeSection === 'history' ? 'إخفاء' : 'عرض'}
+                </Text>
+              </View>
+            </View>
+            <Feather 
+              name="chevron-down" 
+              size={24} 
+              color={theme.colors.neutral.textPrimary}
+              style={{
+                transform: [{ rotate: activeSection === 'history' ? '180deg' : '0deg' }]
+              }}
             />
-          </View>
+          </TouchableOpacity>
+
+          {activeSection === 'history' && (
+            <Animated.View 
+              entering={FadeInDown}
+              exiting={FadeIn}
+              style={styles.section}
+            >
+              <StockHistoryComponent 
+                history={history} 
+                unit={stock.unit} 
+                loading={historyLoading}
+              />
+            </Animated.View>
+          )}
         </View>
       </Animated.ScrollView>
 
@@ -893,29 +1144,71 @@ const styles = createThemedStyles((theme) => ({
     fontWeight: '600',
   },
   stockLevelContainer: {
-    marginTop: 24,
+    marginTop: theme.spacing.lg,
+    backgroundColor: theme.colors.neutral.background,
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.medium,
+  },
+  stockLevelHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
+  },
+  stockLevelTitle: {
+    fontSize: theme.fontSizes.h3,
+    fontFamily: theme.fonts.bold,
   },
   stockLevelBar: {
-    height: 8,
+    height: 12,
     backgroundColor: theme.colors.neutral.gray.light,
-    borderRadius: 4,
+    borderRadius: 6,
     overflow: 'hidden',
+    marginVertical: theme.spacing.sm,
   },
   stockLevelFill: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: 6,
   },
   stockLevelInfo: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 8,
+    alignItems: 'center',
+  },
+  quantityContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: theme.spacing.xs,
   },
   stockLevelText: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: theme.fontSizes.h1,
+    fontFamily: theme.fonts.bold,
+  },
+  unitText: {
+    fontSize: theme.fontSizes.h3,
+    fontFamily: theme.fonts.medium,
+  },
+  thresholdContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
   },
   thresholdText: {
-    fontSize: 14,
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.medium,
+  },
+  lowStockWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.medium,
+    marginTop: theme.spacing.sm,
+  },
+  lowStockWarningText: {
+    color: '#FFF',
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.medium,
   },
   actions: {
     flexDirection: 'row',
@@ -941,25 +1234,75 @@ const styles = createThemedStyles((theme) => ({
     fontSize: 16,
     fontWeight: '600',
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.medium,
+    marginBottom: theme.spacing.md,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+  },
+  sectionHeaderContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 16,
+    fontSize: theme.fontSizes.h3,
+    fontFamily: theme.fonts.bold,
+  },
+  sectionBadge: {
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: theme.borderRadius.small,
+    marginLeft: theme.spacing.sm,
+  },
+  sectionSubtitle: {
+    fontSize: theme.fontSizes.caption,
+    fontFamily: theme.fonts.medium,
+    color: '#FFFFFF',
   },
   detailsGrid: {
-    gap: 16,
+    gap: theme.spacing.lg,
+  },
+  detailsSection: {
+    gap: theme.spacing.md,
+  },
+  sectionLabel: {
+    fontSize: theme.fontSizes.h4,
+    fontFamily: theme.fonts.bold,
+    marginBottom: theme.spacing.xs,
   },
   infoItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    padding: 12,
-    backgroundColor: theme.colors.neutral.background,
-    borderRadius: 12,
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.medium,
+    ...theme.shadows.small,
   },
-  infoText: {
-    fontSize: 14,
-    fontWeight: '500',
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: theme.spacing.md,
+  },
+  infoContent: {
+    flex: 1,
+  },
+  infoLabel: {
+    fontSize: theme.fontSizes.caption,
+    fontFamily: theme.fonts.medium,
+    marginBottom: 2,
+  },
+  infoValue: {
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.medium,
   },
   naturalBadge: {
     flexDirection: 'row',
@@ -1060,6 +1403,81 @@ const styles = createThemedStyles((theme) => ({
   switchLabel: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing.lg,
+    gap: theme.spacing.sm,
+  },
+  currentQuantityContainer: {
+    alignItems: 'center',
+    marginBottom: theme.spacing.lg,
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.neutral.background,
+    borderRadius: theme.borderRadius.medium,
+  },
+  currentQuantityLabel: {
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.medium,
+    marginBottom: theme.spacing.xs,
+  },
+  currentQuantity: {
+    fontSize: theme.fontSizes.h2,
+    fontFamily: theme.fonts.bold,
+  },
+  quantityInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.neutral.background,
+    borderRadius: theme.borderRadius.medium,
+    marginBottom: theme.spacing.md,
+  },
+  notesInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: theme.colors.neutral.background,
+    borderRadius: theme.borderRadius.medium,
+  },
+  inputIcon: {
+    padding: theme.spacing.md,
+  },
+  historyItem: {
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.medium,
+    marginBottom: theme.spacing.sm,
+    ...theme.shadows.small,
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing.sm,
+  },
+  historyIconContainer: {
+    marginRight: theme.spacing.md,
+  },
+  historyInfo: {
+    flex: 1,
+  },
+  historyDate: {
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.medium,
+  },
+  historyTime: {
+    fontSize: theme.fontSizes.caption,
+    fontFamily: theme.fonts.regular,
+  },
+  historyDetails: {
+    marginLeft: theme.spacing.xl,
+  },
+  historyQuantity: {
+    fontSize: theme.fontSizes.h3,
+    fontFamily: theme.fonts.bold,
+    marginBottom: theme.spacing.xs,
+  },
+  historyNotes: {
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.regular,
   },
 }));
 

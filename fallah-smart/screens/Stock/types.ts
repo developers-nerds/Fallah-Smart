@@ -1,4 +1,4 @@
-export type StockUnit = 'kg' | 'g' | 'l' | 'ml' | 'units';
+export type StockUnit = 'kg' | 'g' | 'l' | 'ml' | 'units' | 'piece' | 'box' | 'bag' | 'bottle' | 'can' | 'pack' | 'roll' | 'meter' | 'cm' | 'other';
 
 export type StockCategory = 
   | 'all'        // Tous
@@ -9,27 +9,37 @@ export type StockCategory =
   | 'pesticide'  // Pesticides
   | 'equipment'  // Équipement
   | 'tools'      // Outils
-  | 'animals';   // Animaux
+  | 'machinery'  // المعدات
+  | 'animals'    // Animaux
+  | 'other';     // أخرى
 
-export const STOCK_CATEGORIES: StockCategory[] = [
-  'all',
-  'seeds',
-  'fertilizer',
-  'harvest',
-  'feed',
-  'pesticide',
-  'equipment',
-  'tools',
-  'animals'
-];
+export const STOCK_CATEGORIES = [
+  { value: 'all', label: 'الكل' },
+  { value: 'seeds', label: 'البذور' },
+  { value: 'fertilizers', label: 'الأسمدة' },
+  { value: 'tools', label: 'الأدوات' },
+  { value: 'machinery', label: 'المعدات' },
+  { value: 'animals', label: 'الحيوانات' },
+  { value: 'other', label: 'أخرى' }
+] as const;
 
-export const STOCK_UNITS: StockUnit[] = [
-  'kg',
-  'g',
-  'l',
-  'ml',
-  'units'
-];
+export const STOCK_UNITS = [
+  { value: 'kg', label: 'كيلوغرام' },
+  { value: 'g', label: 'غرام' },
+  { value: 'l', label: 'لتر' },
+  { value: 'ml', label: 'ملليلتر' },
+  { value: 'unit', label: 'وحدة' },
+  { value: 'piece', label: 'قطعة' },
+  { value: 'box', label: 'صندوق' },
+  { value: 'bag', label: 'كيس' },
+  { value: 'bottle', label: 'زجاجة' },
+  { value: 'can', label: 'علبة' },
+  { value: 'pack', label: 'حزمة' },
+  { value: 'roll', label: 'لفة' },
+  { value: 'meter', label: 'متر' },
+  { value: 'cm', label: 'سنتيمتر' },
+  { value: 'other', label: 'أخرى' }
+] as const;
 
 export type StockHistoryType = 'add' | 'remove' | 'expired' | 'damaged';
 
@@ -41,19 +51,19 @@ export interface Animal {
   type: string;
   count: number;
   healthStatus: HealthStatus;
-  feedingSchedule: string;
   gender: Gender;
-  feeding: string | null;
-  care: string | null;
-  health: string | null;
-  housing: string | null;
-  breeding: string | null;
-  diseases: string | null;
-  medications: string | null;
-  behavior: string | null;
-  economics: string | null;
-  vaccination: string | null;
-  notes: string | null;
+  feedingSchedule?: string;
+  feeding?: string | null;
+  care?: string | null;
+  health?: string | null;
+  housing?: string | null;
+  breeding?: string | null;
+  diseases?: string | null;
+  medications?: string | null;
+  behavior?: string | null;
+  economics?: string | null;
+  vaccination?: string | null;
+  notes?: string | null;
   createdAt: string;
   updatedAt: string;
 }
