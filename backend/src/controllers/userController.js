@@ -1,6 +1,6 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const { Users } = require('../database/assossiation');
+const { Users, Accounts } = require('../database/assossiation');
 const { Op } = require('sequelize');
 require('dotenv').config();
 const config = require("../config/db");
@@ -13,6 +13,9 @@ const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
 const JWT_EXPIRES_IN = '30d';
 const JWT_REFRESH_EXPIRES_IN = '30d';
 
+// Add this constant at the top of the file
+const VALID_ROLES = ["USER", "ADMIN", "ADVISOR"];
+
 const userController = {
   // Register new user
   register: async (req, res) => {
@@ -21,13 +24,23 @@ const userController = {
         username,
         firstName,
         lastName,
-        role,
+        role, // Allow role to be passed in
         gender,
         email,
         phoneNumber,
         password,
         profilePicture
       } = req.body;
+
+      // Validate and normalize role
+      let userRole = (role || "USER").toUpperCase();
+      
+      // Check if the provided role is valid
+      if (!VALID_ROLES.includes(userRole)) {
+        return res.status(400).json({ 
+          message: `Invalid role. Role must be one of: ${VALID_ROLES.join(', ')}`
+        });
+      }
 
       // Basic validation
       if (!firstName || !lastName || !username || !email || !password) {
@@ -90,12 +103,12 @@ const userController = {
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(password, salt);
 
-      // Create new user
+      // Create new user with validated role
       const newUser = await Users.create({
         username,
         firstName,
         lastName,
-        role: role || "USER",
+        role: userRole, // Use the validated role
         gender,
         email,
         phoneNumber,
@@ -103,6 +116,14 @@ const userController = {
         profilePicture,
         isOnline: true,
         lastLogin: new Date()
+      });
+
+      // Create default account for the new user
+      const defaultAccount = await Accounts.create({
+        userId: newUser.id,
+        Methods: 'Cash', // Default payment method
+        balance: 0,
+        currency: 'USD' // Default currency
       });
 
       // Generate tokens with user data
@@ -122,6 +143,7 @@ const userController = {
 
       res.status(201).json({
         user: userResponse,
+        account: defaultAccount,
         tokens: {
           access: {
             token: accessToken,

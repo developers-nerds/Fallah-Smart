@@ -7,7 +7,7 @@ async function seedUsers() {
     console.log("🌱 Seeding users...");
 
     const usersToCreate = [];
-    const roles = ['admin', 'farmer', 'worker'];
+    const roles = ['ADMIN', 'USER', 'ADVISOR'];
     const genders = ['male', 'female'];
 
     // Create one admin user
@@ -16,7 +16,7 @@ async function seedUsers() {
       username: 'admin',
       firstName: 'Admin',
       lastName: 'User',
-      role: 'admin',
+      role: 'ADMIN',
       gender: faker.helpers.arrayElement(genders),
       email: 'admin@example.com',
       phoneNumber: faker.phone.number('###-###-####'),
