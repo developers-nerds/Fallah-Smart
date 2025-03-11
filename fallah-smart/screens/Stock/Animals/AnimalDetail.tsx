@@ -6,7 +6,12 @@ import {
   Text, 
   TouchableOpacity, 
   Alert,
-  Dimensions 
+  Dimensions,
+  Platform,
+  ActivityIndicator,
+  I18nManager,
+  StatusBar,
+  SafeAreaView
 } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
 import { useStock } from '../../../context/StockContext';
@@ -17,6 +22,10 @@ import { StockStackParamList } from '../../../navigation/types';
 import { RouteProp } from '@react-navigation/native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
+// Force RTL layout
+I18nManager.allowRTL(true);
+I18nManager.forceRTL(true);
+
 const { width } = Dimensions.get('window');
 
 type AnimalDetailScreenProps = {
@@ -26,28 +35,42 @@ type AnimalDetailScreenProps = {
 
 const ANIMAL_TYPES = {
   cow: { icon: '🐄', name: 'بقرة', category: 'ماشية' },
+  bull: { icon: '🐂', name: 'ثور', category: 'ماشية' },
+  buffalo: { icon: '🦬', name: 'جاموس', category: 'ماشية' },
   sheep: { icon: '🐑', name: 'خروف', category: 'ماشية' },
+  ram: { icon: '🐏', name: 'كبش', category: 'ماشية' },
   goat: { icon: '🐐', name: 'ماعز', category: 'ماشية' },
-  chicken: { icon: '🐔', name: 'دجاج', category: 'دواجن' },
+  camel: { icon: '🐪', name: 'جمل', category: 'ماشية' },
   horse: { icon: '🐎', name: 'حصان', category: 'ماشية' },
   donkey: { icon: '🦓', name: 'حمار', category: 'ماشية' },
-  rabbit: { icon: '🐰', name: 'أرنب', category: 'حيوانات صغيرة' },
-  duck: { icon: '🦆', name: 'بطة', category: 'دواجن' },
-  turkey: { icon: '🦃', name: 'ديك رومي', category: 'دواجن' },
-  camel: { icon: '🐪', name: 'جمل', category: 'ماشية' },
-  pigeon: { icon: '🕊️', name: 'حمام', category: 'طيور' },
-  bee: { icon: '🐝', name: 'نحل', category: 'حشرات' },
-  fish: { icon: '🐟', name: 'سمك', category: 'أسماك' },
-  cat: { icon: '🐱', name: 'قط', category: 'حيوانات أليفة' },
-  dog: { icon: '🐕', name: 'كلب', category: 'حيوانات أليفة' },
-  pig: { icon: '🐷', name: 'خنزير', category: 'ماشية' },
-  goose: { icon: '🦢', name: 'إوزة', category: 'دواجن' },
+  ox: { icon: '🐃', name: 'ثور الحراثة', category: 'ماشية' },
+  llama: { icon: '🦙', name: 'لاما', category: 'ماشية' },
+  
+  // Poultry (دواجن)
+  chicken: { icon: '🐔', name: 'دجاج', category: 'دواجن' },
   rooster: { icon: '🐓', name: 'ديك', category: 'دواجن' },
+  chick: { icon: '🐥', name: 'كتكوت', category: 'دواجن' },
+  duck: { icon: '🦆', name: 'بط', category: 'دواجن' },
+  turkey: { icon: '🦃', name: 'ديك رومي', category: 'دواجن' },
+  goose: { icon: '🦢', name: 'إوز', category: 'دواجن' },
+  
+  // Birds (طيور)
+  pigeon: { icon: '🕊️', name: 'حمام', category: 'طيور' },
+  dove: { icon: '🕊️', name: 'يمام', category: 'طيور' },
   peacock: { icon: '🦚', name: 'طاووس', category: 'طيور' },
   parrot: { icon: '🦜', name: 'ببغاء', category: 'طيور' },
-  owl: { icon: '🦉', name: 'بومة', category: 'طيور' },
-  eagle: { icon: '🦅', name: 'نسر', category: 'طيور' },
-  hawk: { icon: '🦆', name: 'صقر', category: 'طيور' },
+  
+  
+  // Small Animals (حيوانات صغيرة)
+  rabbit: { icon: '🐰', name: 'أرنب', category: 'حيوانات صغيرة' },
+
+  
+  // Guard/Working Animals (حيوانات الحراسة والعمل)
+  dog: { icon: '🐕', name: 'كلب حراسة', category: 'حيوانات الحراسة والعمل' },
+  shepherdDog: { icon: '🦮', name: 'كلب راعي', category: 'حيوانات الحراسة والعمل' },
+  
+  // Insects (حشرات)
+  bee: { icon: '🐝', name: 'نحل', category: 'حشرات' },
 };
 
 const getAnimalIcon = (type: string): string => {
@@ -62,6 +85,35 @@ const getAnimalIcon = (type: string): string => {
   if (lowercaseType.includes('بطة')) return '🦆';
   if (lowercaseType.includes('ديك رومي')) return '🦃';
   if (lowercaseType.includes('جمل')) return '🐪';
+  if (lowercaseType.includes('كتكوت')) return '🐥';
+  if (lowercaseType.includes('كبش')) return '🐏';
+  if (lowercaseType.includes('ثور الحراثة')) return '🐃';
+  if (lowercaseType.includes('لاما')) return '🦙';
+  if (lowercaseType.includes('نحل')) return '🐝';
+  if (lowercaseType.includes('طاووس')) return '🦚';
+  if (lowercaseType.includes('ببغاء')) return '🦜';
+  if (lowercaseType.includes('حمام')) return '🕊️';
+  if (lowercaseType.includes('يمام')) return '🕊️';
+  if (lowercaseType.includes('إوز')) return '🦢';
+  if (lowercaseType.includes('ثور')) return '🐂';
+  if (lowercaseType.includes('جاموس')) return '🦬';
+  if (lowercaseType.includes('ثور الحراثة')) return '🐃';
+  if (lowercaseType.includes('لاما')) return '🦙';
+  if (lowercaseType.includes('نحل')) return '🐝';
+  if (lowercaseType.includes('طاووس')) return '🦚';
+  if (lowercaseType.includes('ببغاء')) return '🦜';
+  if (lowercaseType.includes('حمام')) return '🕊️';
+  if (lowercaseType.includes('يمام')) return '🕊️';
+  if (lowercaseType.includes('إوز')) return '🦢';
+  if (lowercaseType.includes('ثور')) return '🐂';
+  if (lowercaseType.includes('جاموس')) return '🦬';
+  if (lowercaseType.includes('ثور الحراثة')) return '🐃';
+  if (lowercaseType.includes('لاما')) return '🦙';
+  if (lowercaseType.includes('كلب راعي')) return '🦮';
+  if (lowercaseType.includes('كلب حراسة')) return '🐕';
+  if (lowercaseType.includes('حشرة')) return '🐝';
+
+  
   return '🐾';
 };
 
@@ -99,10 +151,11 @@ const getBreedingStatusColor = (status: BreedingStatus, theme: any) => {
   switch (status) {
     case 'pregnant':
       return theme.colors.primary.base;
-    case 'lactating':
+    case 'nursing':
       return theme.colors.info;
-    case 'ready':
-      return theme.colors.success;
+    case 'in_heat':
+      return theme.colors.warning;
+    case 'not_breeding':
     default:
       return theme.colors.neutral.border;
   }
@@ -112,12 +165,13 @@ const getBreedingStatusLabel = (status: BreedingStatus) => {
   switch (status) {
     case 'pregnant':
       return 'حامل';
-    case 'lactating':
-      return 'مرضعة';
-    case 'ready':
-      return 'جاهز للتزاوج';
+    case 'nursing':
+      return 'في فترة الرضاعة';
+    case 'in_heat':
+      return 'في فترة التزاوج';
+    case 'not_breeding':
     default:
-      return 'غير معروف';
+      return 'غير متزاوج';
   }
 };
 
@@ -125,13 +179,48 @@ const getBreedingStatusIcon = (status: BreedingStatus) => {
   switch (status) {
     case 'pregnant':
       return '🤰';
-    case 'lactating':
-      return '🍼';
-    case 'ready':
-      return '❤️';
+    case 'nursing':
+      return '👶';
+    case 'in_heat':
+      return '🔥';
+    case 'not_breeding':
     default:
       return '⚪';
   }
+};
+
+const calculateExpectedBirthDate = (breedingDate: string, animalType: string): string => {
+  if (!breedingDate) return '';
+  
+  const date = new Date(breedingDate);
+  const lowercaseType = animalType.toLowerCase();
+  
+  // Gestation periods in days for different animals
+  const gestationPeriods: Record<string, number> = {
+    cow: 280, // ~9 months
+    sheep: 150, // ~5 months
+    goat: 150, // ~5 months
+    camel: 390, // ~13 months
+    horse: 340, // ~11 months
+    donkey: 365, // ~12 months
+    rabbit: 31, // ~1 month
+    pig: 114, // ~4 months
+    default: 0
+  };
+
+  let gestationDays = 0;
+  
+  // Find matching animal type
+  Object.entries(gestationPeriods).forEach(([key, days]) => {
+    if (lowercaseType.includes(key)) {
+      gestationDays = days;
+    }
+  });
+
+  if (gestationDays === 0) return '';
+
+  date.setDate(date.getDate() + gestationDays);
+  return date.toISOString().split('T')[0];
 };
 
 const getAnimalInfo = (type: string) => {
@@ -143,6 +232,34 @@ const getAnimalInfo = (type: string) => {
   return animalType ? ANIMAL_TYPES[animalType as keyof typeof ANIMAL_TYPES] : null;
 };
 
+const HEALTH_STATUS_ICONS = {
+  excellent: '🌟',
+  good: '💚',
+  fair: '💛',
+  poor: '❤️‍🩹',
+};
+
+const BREEDING_STATUS_ICONS = {
+  pregnant: '🐣',
+  nursing: '🍼',
+  in_heat: '💝',
+  not_breeding: '⭕',
+};
+
+const FIELD_ICONS = {
+  birthDate: '🎂',
+  weight: '⚖️',
+  feedingSchedule: '🕒',
+  feeding: '🥩',
+  dailyFeedConsumption: '📊',
+  health: '🏥',
+  diseases: '🤒',
+  medications: '💊',
+  vaccination: '💉',
+  nextVaccinationDate: '📅',
+  notes: '📝',
+};
+
 export const AnimalDetailScreen = ({ navigation, route }: AnimalDetailScreenProps) => {
   const theme = useTheme();
   const { animals, deleteAnimal, addAnimalQuantity, removeAnimalQuantity } = useStock();
@@ -150,21 +267,6 @@ export const AnimalDetailScreen = ({ navigation, route }: AnimalDetailScreenProp
 
   const animal = animals.find(a => a.id === route.params.animalId);
   const animalInfo = animal ? getAnimalInfo(animal.type) : null;
-
-  if (!animal) {
-    return (
-      <View style={[styles.container, styles.centerContent]}>
-        <MaterialCommunityIcons 
-          name="alert-circle-outline" 
-          size={64} 
-          color={theme.colors.error} 
-        />
-        <Text style={[styles.errorText, { color: theme.colors.error }]}>
-          لم يتم العثور على الحيوان
-        </Text>
-      </View>
-    );
-  }
 
   const handleDelete = useCallback(() => {
     Alert.alert(
@@ -181,7 +283,7 @@ export const AnimalDetailScreen = ({ navigation, route }: AnimalDetailScreenProp
           onPress: async () => {
             setIsDeleting(true);
             try {
-              await deleteAnimal(animal.id);
+              await deleteAnimal(animal?.id || '');
               navigation.goBack();
             } catch (error) {
               console.error('Error deleting animal:', error);
@@ -193,9 +295,10 @@ export const AnimalDetailScreen = ({ navigation, route }: AnimalDetailScreenProp
         },
       ]
     );
-  }, [animal.id, deleteAnimal, navigation]);
+  }, [animal?.id, deleteAnimal, navigation]);
 
   const handleQuantityChange = useCallback(async (action: 'add' | 'remove') => {
+    if (!animal) return;
     try {
       if (action === 'add') {
         await addAnimalQuantity(animal.id, 1);
@@ -205,172 +308,287 @@ export const AnimalDetailScreen = ({ navigation, route }: AnimalDetailScreenProp
     } catch (error) {
       Alert.alert('خطأ', 'حدث خطأ أثناء تعديل الكمية');
     }
-  }, [animal.id, addAnimalQuantity, removeAnimalQuantity]);
+  }, [animal, addAnimalQuantity, removeAnimalQuantity]);
 
   const handleEdit = useCallback(() => {
-    // Navigate to AddAnimal screen with the animal data for editing
+    if (!animal) return;
     navigation.navigate('AddAnimal', { 
       animalId: animal.id,
       mode: 'edit'
     });
-  }, [animal.id, navigation]);
+  }, [animal, navigation]);
 
-  const renderInfoSection = (title: string, icon: string, content: string | null) => {
-    if (!content) return null;
-
+  const renderField = useCallback((label: string, value: string | undefined | null, icon: string) => {
+    if (!value) return null;
+    
     return (
       <Animated.View 
-        entering={FadeInDown.springify()}
-        style={[styles.infoSection, { backgroundColor: theme.colors.neutral.surface }]}
+        entering={FadeInDown.delay(100).springify()}
+        style={[styles.infoCard, { backgroundColor: theme.colors.neutral.surface }]}
       >
         <View style={styles.infoHeader}>
-          <View style={[styles.iconContainer, { backgroundColor: theme.colors.primary.base }]}>
-            <Text style={styles.infoIcon}>{icon}</Text>
-          </View>
+          <Text style={styles.fieldIcon}>{icon}</Text>
           <Text style={[styles.infoTitle, { color: theme.colors.neutral.textPrimary }]}>
-            {title}
+            {label}
           </Text>
         </View>
         <Text style={[styles.infoContent, { color: theme.colors.neutral.textSecondary }]}>
-          {content}
+          {value}
         </Text>
       </Animated.View>
     );
-  };
+  }, [theme.colors.neutral.surface, theme.colors.neutral.textPrimary, theme.colors.neutral.textSecondary]);
+
+  if (!animal) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
+        <StatusBar
+          backgroundColor={theme.colors.neutral.surface}
+          barStyle="dark-content"
+        />
+        <View style={[styles.container, styles.centerContent]}>
+          <MaterialCommunityIcons 
+            name="alert-circle-outline" 
+            size={64} 
+            color={theme.colors.error} 
+          />
+          <Text style={[styles.errorText, { color: theme.colors.error }]}>
+            لم يتم العثور على الحيوان
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
-      <ScrollView style={styles.scrollView}>
-        <Animated.View 
-          entering={FadeInDown.springify()}
-          style={[styles.header, { backgroundColor: theme.colors.neutral.surface }]}
-        >
-          <View style={styles.headerContent}>
-            <View style={[styles.iconContainer, { backgroundColor: theme.colors.primary.base }]}>
-              <Text style={styles.animalIcon}>{animalInfo?.icon || '🐾'}</Text>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
+      <StatusBar
+        backgroundColor={theme.colors.neutral.surface}
+        barStyle="dark-content"
+      />
+      <View style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
+        <ScrollView style={styles.scrollView}>
+          <Animated.View 
+            entering={FadeInDown.springify()}
+            style={[
+              styles.header,
+              { 
+                backgroundColor: theme.colors.neutral.surface,
+                ...Platform.select({
+                  ios: {
+                    shadowColor: theme.colors.neutral.textPrimary,
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 8,
+                  },
+                  android: {
+                    elevation: 4,
+                  },
+                }),
+              }
+            ]}
+          >
+            <View style={styles.headerContent}>
+              <View style={[
+                styles.iconContainer,
+                { backgroundColor: animal.healthStatus === 'poor' ? theme.colors.error : theme.colors.primary.base }
+              ]}>
+                <Text style={styles.animalIcon}>{animalInfo?.icon || '🐾'}</Text>
+              </View>
+              <View style={styles.headerInfo}>
+                <View style={styles.titleContainer}>
+                  <Text style={[styles.animalName, { color: theme.colors.neutral.textPrimary }]}>
+                    {animalInfo?.name || animal.type}
+                  </Text>
+                  <Text style={[styles.animalCategory, { color: theme.colors.neutral.textSecondary }]}>
+                    {animalInfo?.category}
+                  </Text>
+                </View>
+                <View style={styles.subtitleContainer}>
+                  <View style={styles.genderContainer}>
+                    <Text style={styles.genderIcon}>
+                      {animal.gender === 'male' ? '♂️' : '♀️'}
+                    </Text>
+                    <Text style={[styles.genderText, { color: theme.colors.neutral.textSecondary }]}>
+                      {animal.gender === 'male' ? 'ذكر' : 'أنثى'}
+                    </Text>
+                  </View>
+                  <Text style={styles.breedingIcon}>
+                    {getBreedingStatusIcon(animal.breedingStatus)}
+                  </Text>
+                </View>
+              </View>
             </View>
-            <View style={styles.headerInfo}>
-              <Text style={[styles.animalType, { color: theme.colors.neutral.textPrimary }]}>
-                {animalInfo?.name || animal.type}
-              </Text>
-              <Text style={[styles.animalCategory, { color: theme.colors.neutral.textSecondary }]}>
-                {animalInfo?.category}
-              </Text>
-              <Text style={[styles.animalGender, { color: theme.colors.neutral.textSecondary }]}>
-                {animal.gender === 'male' ? 'ذكر' : 'أنثى'}
-              </Text>
-            </View>
-          </View>
 
-          <View style={styles.statsContainer}>
-            <View style={styles.quantityContainer}>
+            <View style={styles.headerActions}>
               <TouchableOpacity
-                style={[styles.quantityButton, { backgroundColor: theme.colors.primary.base }]}
-                onPress={() => handleQuantityChange('remove')}
+                style={[styles.actionButton, { backgroundColor: theme.colors.primary.base }]}
+                onPress={handleEdit}
               >
-                <MaterialCommunityIcons name="minus" size={24} color="#FFF" />
+                <MaterialCommunityIcons name="pencil" size={24} color="#FFF" />
+                <Text style={styles.actionButtonText}>تعديل</Text>
               </TouchableOpacity>
-              <View style={[styles.quantityDisplay, { backgroundColor: theme.colors.primary.base }]}>
-                <Text style={[styles.quantityText, { color: '#FFF' }]}>
+              <TouchableOpacity
+                style={[styles.actionButton, { backgroundColor: theme.colors.error }]}
+                onPress={handleDelete}
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <>
+                    <MaterialCommunityIcons name="delete" size={24} color="#FFF" />
+                    <Text style={styles.actionButtonText}>حذف</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.statsContainer}>
+              <View style={[styles.statCard, { backgroundColor: theme.colors.neutral.background }]}>
+                <Text style={[styles.statValue, { color: theme.colors.neutral.textPrimary }]}>
                   {animal.count}
                 </Text>
-                <Text style={[styles.quantityLabel, { color: '#FFF' }]}>
-                  حيوان
+                <Text style={[styles.statLabel, { color: theme.colors.neutral.textSecondary }]}>
+                  {animal.count === 1 ? 'حيوان' : 'حيوانات'}
                 </Text>
+                <View style={styles.quantityControls}>
+                  <TouchableOpacity
+                    style={[styles.quantityButton, { backgroundColor: theme.colors.primary.base }]}
+                    onPress={() => handleQuantityChange('add')}
+                  >
+                    <MaterialCommunityIcons name="plus" size={20} color="#FFF" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.quantityButton, { backgroundColor: theme.colors.error }]}
+                    onPress={() => handleQuantityChange('remove')}
+                    disabled={animal.count <= 1}
+                  >
+                    <MaterialCommunityIcons name="minus" size={20} color="#FFF" />
+                  </TouchableOpacity>
+                </View>
               </View>
-              <TouchableOpacity
-                style={[styles.quantityButton, { backgroundColor: theme.colors.primary.base }]}
-                onPress={() => handleQuantityChange('add')}
-              >
-                <MaterialCommunityIcons name="plus" size={24} color="#FFF" />
-              </TouchableOpacity>
-            </View>
 
-            <View style={styles.statusContainer}>
-              <View style={[
-                styles.healthStatus,
-                { backgroundColor: getHealthStatusColor(animal.healthStatus, theme) }
-              ]}>
-                <MaterialCommunityIcons name="heart-pulse" size={20} color="#FFF" />
-                <Text style={styles.healthText}>
+              <View style={[styles.statCard, { backgroundColor: theme.colors.neutral.background }]}>
+                <View style={[
+                  styles.healthIndicator,
+                  { backgroundColor: getHealthStatusColor(animal.healthStatus, theme) }
+                ]}>
+                  <Text style={styles.healthIcon}>
+                    {HEALTH_STATUS_ICONS[animal.healthStatus]}
+                  </Text>
+                </View>
+                <Text style={[styles.statLabel, { color: theme.colors.neutral.textSecondary }]}>
+                  الحالة الصحية
+                </Text>
+                <Text style={[styles.healthStatus, { color: theme.colors.neutral.textPrimary }]}>
                   {getHealthStatusLabel(animal.healthStatus)}
                 </Text>
               </View>
 
-              <View style={[
-                styles.breedingStatus,
-                { backgroundColor: getBreedingStatusColor(animal.breedingStatus, theme) }
-              ]}>
-                <Text style={styles.breedingIcon}>
-                  {getBreedingStatusIcon(animal.breedingStatus)}
+              <View style={[styles.statCard, { backgroundColor: theme.colors.neutral.background }]}>
+                <View style={[
+                  styles.breedingIndicator,
+                  { backgroundColor: getBreedingStatusColor(animal.breedingStatus, theme) }
+                ]}>
+                  <Text style={styles.breedingStatusIcon}>
+                    {getBreedingStatusIcon(animal.breedingStatus)}
+                  </Text>
+                </View>
+                <Text style={[styles.statLabel, { color: theme.colors.neutral.textSecondary }]}>
+                  حالة التكاثر
                 </Text>
-                <Text style={styles.breedingText}>
+                <Text style={[styles.breedingStatus, { color: theme.colors.neutral.textPrimary }]}>
                   {getBreedingStatusLabel(animal.breedingStatus)}
                 </Text>
+                {animal.lastBreedingDate && (
+                  <View style={styles.breedingDateContainer}>
+                    <Text style={styles.calendarIcon}>📅</Text>
+                    <Text style={[styles.breedingDate, { color: theme.colors.neutral.textSecondary }]}>
+                      آخر تكاثر: {new Date(animal.lastBreedingDate).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit'
+                      })}
+                    </Text>
+                  </View>
+                )}
+                {animal.breedingStatus === 'pregnant' && animal.expectedBirthDate && (
+                  <View style={styles.breedingDateContainer}>
+                    <Text style={styles.calendarIcon}>📅</Text>
+                    <Text style={[styles.breedingDate, { color: theme.colors.warning }]}>
+                      الولادة المتوقعة: {new Date(animal.expectedBirthDate).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit'
+                      })}
+                    </Text>
+                  </View>
+                )}
               </View>
             </View>
+          </Animated.View>
+
+          <View style={styles.content}>
+            {renderField('تاريخ الميلاد', animal.birthDate ? 
+              new Date(animal.birthDate).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+              }) : null, 
+              FIELD_ICONS.birthDate
+            )}
+            
+            {renderField('الوزن', animal.weight ? 
+              `${animal.weight} كجم` : null,
+              FIELD_ICONS.weight
+            )}
+            
+            {renderField('برنامج التغذية', animal.feedingSchedule,
+              FIELD_ICONS.feedingSchedule
+            )}
+            
+            {renderField('التغذية', animal.feeding,
+              '🍽️'
+            )}
+            
+            {renderField('كمية العلف اليومي', animal.dailyFeedConsumption ? 
+              `${animal.dailyFeedConsumption} كجم` : null,
+              '🥘'
+            )}
+            
+            {renderField('الحالة الصحية', animal.health,
+              '🏥'
+            )}
+            
+            {renderField('الأمراض', animal.diseases,
+              '🤒'
+            )}
+            
+            {renderField('الأدوية', animal.medications,
+              '💊'
+            )}
+            
+            {renderField('التلقيح', animal.vaccination,
+              '💉'
+            )}
+            
+            {animal.nextVaccinationDate && renderField('موعد التلقيح القادم',
+              new Date(animal.nextVaccinationDate).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+              }),
+              '📅'
+            )}
+            
+            {renderField('ملاحظات', animal.notes,
+              '📝'
+            )}
           </View>
-        </Animated.View>
-
-        <View style={styles.contentContainer}>
-          {renderInfoSection('برنامج التغذية', '🍽️', animal.feedingSchedule)}
-          {renderInfoSection('التغذية', '🌾', animal.feeding || null)}
-          {animal.dailyFeedConsumption && renderInfoSection(
-            'استهلاك العلف اليومي',
-            '⚖️',
-            `${animal.dailyFeedConsumption} كجم`
-          )}
-          {renderInfoSection('الصحة', '🏥', animal.health || null)}
-          {renderInfoSection('الأمراض', '🦠', animal.diseases || null)}
-          {renderInfoSection('الأدوية', '💊', animal.medications || null)}
-          {renderInfoSection('التطعيم', '💉', animal.vaccination || null)}
-          {animal.nextVaccinationDate && renderInfoSection(
-            'موعد التطعيم القادم',
-            '📅',
-            new Date(animal.nextVaccinationDate).toLocaleDateString('ar-SA')
-          )}
-          {animal.birthDate && renderInfoSection(
-            'تاريخ الميلاد',
-            '🎂',
-            new Date(animal.birthDate).toLocaleDateString('ar-SA')
-          )}
-          {animal.weight && renderInfoSection(
-            'الوزن',
-            '⚖️',
-            `${animal.weight} كجم`
-          )}
-          {animal.lastBreedingDate && renderInfoSection(
-            'تاريخ التكاثر الأخير',
-            '❤️',
-            new Date(animal.lastBreedingDate).toLocaleDateString('ar-SA')
-          )}
-          {animal.expectedBirthDate && renderInfoSection(
-            'تاريخ الولادة المتوقع',
-            '👶',
-            new Date(animal.expectedBirthDate).toLocaleDateString('ar-SA')
-          )}
-        </View>
-      </ScrollView>
-
-      <View style={[styles.footer, { backgroundColor: theme.colors.neutral.surface }]}>
-        <TouchableOpacity
-          style={[styles.editButton, { backgroundColor: theme.colors.primary.base }]}
-          onPress={handleEdit}
-        >
-          <MaterialCommunityIcons name="pencil" size={24} color="#FFF" />
-          <Text style={styles.editButtonText}>تعديل</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.deleteButton, { backgroundColor: theme.colors.error }]}
-          onPress={handleDelete}
-          disabled={isDeleting}
-        >
-          <MaterialCommunityIcons name="delete" size={24} color="#FFF" />
-          <Text style={styles.deleteButtonText}>حذف</Text>
-        </TouchableOpacity>
+        </ScrollView>
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -386,175 +604,199 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    padding: 16,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    padding: 24,
+    gap: 24,
+    ...Platform.select({
+      android: {
+        paddingTop: StatusBar.currentHeight,
+      },
+    }),
   },
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    gap: 16,
   },
   iconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
   },
   animalIcon: {
-    fontSize: 32,
-  },
-  infoIcon: {
-    fontSize: 24,
+    fontSize: 40,
   },
   headerInfo: {
     flex: 1,
+    gap: 8,
   },
-  animalType: {
+  titleContainer: {
+    gap: 4,
+  },
+  animalName: {
     fontSize: 24,
     fontWeight: '600',
-    marginBottom: 4,
-  },
-  animalCategory: {
-    fontSize: 14,
-    marginBottom: 4,
     textAlign: 'right',
   },
-  animalGender: {
+  animalCategory: {
     fontSize: 16,
+    textAlign: 'right',
+  },
+  subtitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  genderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  genderIcon: {
+    fontSize: 20,
+  },
+  genderText: {
+    fontSize: 16,
+  },
+  breedingIcon: {
+    fontSize: 20,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 12,
+    gap: 8,
+  },
+  actionButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '500',
   },
   statsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    gap: 12,
   },
-  quantityContainer: {
-    flexDirection: 'row',
+  statCard: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 16,
     alignItems: 'center',
     gap: 8,
   },
+  statValue: {
+    fontSize: 24,
+    fontWeight: '600',
+  },
+  statLabel: {
+    fontSize: 14,
+  },
+  quantityControls: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
   quantityButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  quantityDisplay: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 16,
+  healthIndicator: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
     alignItems: 'center',
-  },
-  quantityText: {
-    fontSize: 20,
-    fontWeight: '600',
-  },
-  quantityLabel: {
-    fontSize: 12,
-  },
-  statusContainer: {
-    flexDirection: 'column',
-    gap: 8,
   },
   healthStatus: {
-    flexDirection: 'row',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  breedingIndicator: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
     alignItems: 'center',
-    padding: 8,
-    borderRadius: 8,
-    gap: 4,
+  },
+  breedingStatusIcon: {
+    fontSize: 24,
   },
   breedingStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 8,
-    borderRadius: 8,
-    gap: 4,
-  },
-  healthText: {
-    color: '#FFF',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  breedingText: {
-    color: '#FFF',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  breedingIcon: {
     fontSize: 16,
+    fontWeight: '500',
   },
-  contentContainer: {
-    padding: 16,
+  content: {
+    padding: 24,
+    gap: 16,
   },
-  infoSection: {
-    borderRadius: 12,
+  infoCard: {
     padding: 16,
-    marginBottom: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    borderRadius: 16,
+    gap: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   infoHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    gap: 12,
   },
   infoTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
-    marginLeft: 8,
+    textAlign: 'right',
   },
   infoContent: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  footer: {
-    flexDirection: 'row',
-    padding: 16,
-    gap: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
-  },
-  editButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
-    borderRadius: 8,
-    gap: 8,
-  },
-  deleteButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
-    borderRadius: 8,
-    gap: 8,
-  },
-  editButtonText: {
-    color: '#FFF',
     fontSize: 16,
-    fontWeight: '600',
+    lineHeight: 24,
+    textAlign: 'right',
   },
-  deleteButtonText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: '600',
+  fieldIcon: {
+    fontSize: 24,
   },
   errorText: {
     fontSize: 16,
     marginTop: 16,
+    textAlign: 'center',
+  },
+  breedingDateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  breedingDate: {
+    fontSize: 12,
+  },
+  calendarIcon: {
+    fontSize: 24,
+  },
+  healthIcon: {
+    fontSize: 24,
+    color: '#FFF',
   },
 }); 

@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { StockStackParamList } from '../../navigation/StockNavigator';
+import { StockStackParamList } from '../../navigation/types';
 import { useTheme } from '../../context/ThemeContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StockCategory } from './types';
@@ -23,13 +23,13 @@ const BUTTON_WIDTH = width * 0.42; // Slightly less than half to ensure 2 per ro
 type StockScreenNavigationProp = StackNavigationProp<StockStackParamList, 'StockList'>;
 
 const categories: { value: StockCategory; label: string; icon: string }[] = [
-  { value: 'seeds', label: 'البذور', icon: '🌱' },
-  { value: 'fertilizer', label: 'الأسمدة', icon: '💩' },
-  { value: 'harvest', label: 'المحاصيل', icon: '🌾' },
+  { value: 'seeds', label: 'البذور', icon: '🌾' },
+  { value: 'fertilizer', label: 'الأسمدة', icon: '🪣' },
+  { value: 'harvest', label: 'المحاصيل', icon: '🌽' },
   { value: 'feed', label: 'الأعلاف', icon: '🌿' },
-  { value: 'pesticide', label: 'المبيدات', icon: '🐛' },
+  { value: 'pesticide', label: 'المبيدات', icon: '🧪' },
   { value: 'equipment', label: 'المعدات', icon: '🚜' },
-  { value: 'tools', label: 'الأدوات', icon: '🔧' },
+  { value: 'tools', label: 'الأدوات', icon: '🛠️' },
   { value: 'animals', label: 'الحيوانات', icon: '🐄' }
 ];
 

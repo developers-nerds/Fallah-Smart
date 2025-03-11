@@ -46,7 +46,7 @@ export type StockHistoryType = 'add' | 'remove' | 'expired' | 'damaged';
 export type HealthStatus = 'excellent' | 'good' | 'fair' | 'poor';
 export type Gender = 'male' | 'female';
 
-export type BreedingStatus = 'pregnant' | 'lactating' | 'ready' | 'not_breeding' | 'in_heat' | 'nursing';
+export type BreedingStatus = 'pregnant' | 'not_breeding' | 'in_heat' | 'nursing';
 
 export interface Animal {
   id: string;
