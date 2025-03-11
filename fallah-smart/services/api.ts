@@ -147,6 +147,7 @@ const animalApi = {
   getAllAnimals: async () => {
     try {
       const response = await api.get('/animals');
+      console.log('Fetched animals:', response.data);
       return response.data;
     } catch (error) {
       console.error('Error fetching animals:', error);
@@ -157,7 +158,9 @@ const animalApi = {
   // Create animal
   createAnimal: async (animalData: any) => {
     try {
+      console.log('Creating animal with data:', JSON.stringify(animalData, null, 2));
       const response = await api.post('/animals', animalData);
+      console.log('Created animal response:', response.data);
       return response.data;
     } catch (error) {
       console.error('Error creating animal:', error);
@@ -168,7 +171,9 @@ const animalApi = {
   // Update animal
   updateAnimal: async (id: string, data: any) => {
     try {
+      console.log('Updating animal with data:', JSON.stringify(data, null, 2));
       const response = await api.put(`/animals/${id}`, data);
+      console.log('Updated animal response:', response.data);
       return response.data;
     } catch (error) {
       console.error('Error updating animal:', error);

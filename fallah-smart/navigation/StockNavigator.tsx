@@ -65,6 +65,21 @@ const Stack = createStackNavigator<StockStackParamList>();
 export const StockNavigator = () => {
   const theme = useTheme();
 
+  const screenOptions = {
+    headerStyle: {
+      backgroundColor: theme.colors.neutral.surface,
+      elevation: 0,
+      shadowOpacity: 0,
+    },
+    headerTintColor: theme.colors.neutral.textPrimary,
+    headerTitleStyle: {
+      fontWeight: '600' as const,
+    },
+    cardStyle: {
+      backgroundColor: theme.colors.neutral.background,
+    },
+  };
+
   return (
     <AnimalProvider>
       <PesticideProvider>
@@ -74,22 +89,7 @@ export const StockNavigator = () => {
               <FeedProvider>
                 <HarvestProvider>
                   <FertilizerProvider>
-                    <Stack.Navigator
-                      screenOptions={{
-                        headerStyle: {
-                          backgroundColor: theme.colors.neutral.surface,
-                          elevation: 0,
-                          shadowOpacity: 0,
-                        },
-                        headerTintColor: theme.colors.neutral.textPrimary,
-                        headerTitleStyle: {
-                          fontWeight: '600',
-                        },
-                        cardStyle: {
-                          backgroundColor: theme.colors.neutral.background,
-                        },
-                      }}
-                    >
+                    <Stack.Navigator screenOptions={screenOptions}>
                       <Stack.Screen 
                         name="Login" 
                         component={Login}
@@ -120,7 +120,7 @@ export const StockNavigator = () => {
                       />
                       <Stack.Screen 
                         name="AddStock" 
-                        component={AddStockScreen}
+                        component={AddStockScreenContainer}
                         options={{ title: 'إضافة مخزون', headerShown: true }}
                       />
                       <Stack.Screen 
@@ -276,7 +276,7 @@ export const StockNavigator = () => {
   );
 };
 
-const AddStockScreen = () => {
+const AddStockScreenContainer = () => {
   const { addStock, loading, error, refreshStocks } = useStock();
   const navigation = useNavigation<NavigationProp<StockStackParamList>>();
   const [submitting, setSubmitting] = useState(false);

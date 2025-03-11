@@ -10,7 +10,10 @@ import {
   Dimensions,
   Alert,
   ActivityIndicator,
-  Modal
+  Modal,
+  I18nManager,
+  StatusBar,
+  SafeAreaView
 } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
 import { useStock } from '../../../context/StockContext';
@@ -23,33 +26,76 @@ import Animated, { FadeInRight, useAnimatedStyle } from 'react-native-reanimated
 import { Feather } from '@expo/vector-icons';
 import * as Yup from 'yup';
 import { CustomButton } from '../../../components/CustomButton';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 const { width } = Dimensions.get('window');
 
+// Force RTL layout
+I18nManager.allowRTL(true);
+I18nManager.forceRTL(true);
+
 const ANIMAL_TYPES = {
+  // Livestock (ماشية)
   cow: { icon: '🐄', name: 'بقرة', category: 'ماشية' },
+  bull: { icon: '🐂', name: 'ثور', category: 'ماشية' },
+  buffalo: { icon: '🦬', name: 'جاموس', category: 'ماشية' },
   sheep: { icon: '🐑', name: 'خروف', category: 'ماشية' },
+  ram: { icon: '🐏', name: 'كبش', category: 'ماشية' },
   goat: { icon: '🐐', name: 'ماعز', category: 'ماشية' },
-  chicken: { icon: '🐔', name: 'دجاج', category: 'دواجن' },
+  camel: { icon: '🐪', name: 'جمل', category: 'ماشية' },
   horse: { icon: '🐎', name: 'حصان', category: 'ماشية' },
   donkey: { icon: '🦓', name: 'حمار', category: 'ماشية' },
-  rabbit: { icon: '🐰', name: 'أرنب', category: 'حيوانات صغيرة' },
-  duck: { icon: '🦆', name: 'بطة', category: 'دواجن' },
-  turkey: { icon: '🦃', name: 'ديك رومي', category: 'دواجن' },
-  camel: { icon: '🐪', name: 'جمل', category: 'ماشية' },
-  pigeon: { icon: '🕊️', name: 'حمام', category: 'طيور' },
-  bee: { icon: '🐝', name: 'نحل', category: 'حشرات' },
-  fish: { icon: '🐟', name: 'سمك', category: 'أسماك' },
-  cat: { icon: '🐱', name: 'قط', category: 'حيوانات أليفة' },
-  dog: { icon: '🐕', name: 'كلب', category: 'حيوانات أليفة' },
-  pig: { icon: '🐷', name: 'خنزير', category: 'ماشية' },
-  goose: { icon: '🦢', name: 'إوزة', category: 'دواجن' },
+  ox: { icon: '🐃', name: 'ثور الحراثة', category: 'ماشية' },
+  llama: { icon: '🦙', name: 'لاما', category: 'ماشية' },
+  
+  // Poultry (دواجن)
+  chicken: { icon: '🐔', name: 'دجاج', category: 'دواجن' },
   rooster: { icon: '🐓', name: 'ديك', category: 'دواجن' },
+  chick: { icon: '🐥', name: 'كتكوت', category: 'دواجن' },
+  duck: { icon: '🦆', name: 'بط', category: 'دواجن' },
+  turkey: { icon: '🦃', name: 'ديك رومي', category: 'دواجن' },
+  goose: { icon: '🦢', name: 'إوز', category: 'دواجن' },
+  
+  // Birds (طيور)
+  pigeon: { icon: '🕊️', name: 'حمام', category: 'طيور' },
+  dove: { icon: '🕊️', name: 'يمام', category: 'طيور' },
   peacock: { icon: '🦚', name: 'طاووس', category: 'طيور' },
   parrot: { icon: '🦜', name: 'ببغاء', category: 'طيور' },
-  owl: { icon: '🦉', name: 'بومة', category: 'طيور' },
-  eagle: { icon: '🦅', name: 'نسر', category: 'طيور' },
-  hawk: { icon: '🦆', name: 'صقر', category: 'طيور' },
+  
+  
+  // Small Animals (حيوانات صغيرة)
+  rabbit: { icon: '🐰', name: 'أرنب', category: 'حيوانات صغيرة' },
+
+  
+  // Guard/Working Animals (حيوانات الحراسة والعمل)
+  dog: { icon: '🐕', name: 'كلب حراسة', category: 'حيوانات الحراسة والعمل' },
+  // Insects (حشرات)
+  bee: { icon: '🐝', name: 'نحل', category: 'حشرات' },
+  
+  // Fish (أسماك)
+
+  
+  // Exotic Animals (حيوانات نادرة)
+
+};
+
+const GENDER_ICONS = {
+  male: '♂️',
+  female: '♀️'
+};
+
+const BREEDING_STATUS_ICONS = {
+  pregnant: '🤰 → 🐣',
+  nursing: '🍼',
+  in_heat: '💝',
+  not_breeding: '⭕',
+};
+
+const HEALTH_STATUS_ICONS = {
+  excellent: '🌟',
+  good: '💚',
+  fair: '💛',
+  poor: '❤️‍🩹',
 };
 
 const getHealthStatusLabel = (status: HealthStatus): string => {
@@ -86,10 +132,11 @@ const getBreedingStatusColor = (status: BreedingStatus, theme: any) => {
   switch (status) {
     case 'pregnant':
       return theme.colors.primary.base;
-    case 'lactating':
+    case 'in_heat':
+      return theme.colors.warning;
+    case 'nursing':
       return theme.colors.info;
-    case 'ready':
-      return theme.colors.success;
+    case 'not_breeding':
     default:
       return theme.colors.neutral.border;
   }
@@ -99,18 +146,13 @@ const getBreedingStatusLabel = (status: BreedingStatus): string => {
   switch (status) {
     case 'pregnant':
       return 'حامل';
-    case 'lactating':
-      return 'مرضعة';
-    case 'ready':
-      return 'جاهز للتزاوج';
-    case 'not_breeding':
-      return 'غير متزاوج';
+    case 'nursing':
+      return 'في فترة الرضاعة';
     case 'in_heat':
       return 'في فترة التزاوج';
-    case 'nursing':
-      return 'مرضعة';
+    case 'not_breeding':
     default:
-      return 'غير معروف';
+      return 'غير متزاوج';
   }
 };
 
@@ -118,19 +160,48 @@ const getBreedingStatusIcon = (status: BreedingStatus): string => {
   switch (status) {
     case 'pregnant':
       return '🤰';
-    case 'lactating':
-      return '🍼';
-    case 'ready':
-      return '❤️';
-    case 'not_breeding':
-      return '⚪';
-    case 'in_heat':
-      return '🔥';
     case 'nursing':
       return '👶';
+    case 'in_heat':
+      return '🔥';
+    case 'not_breeding':
     default:
       return '⚪';
   }
+};
+
+const calculateExpectedBirthDate = (breedingDate: string, animalType: string): string => {
+  if (!breedingDate) return '';
+  
+  const date = new Date(breedingDate);
+  const lowercaseType = animalType.toLowerCase();
+  
+  // Gestation periods in days for different animals
+  const gestationPeriods: Record<string, number> = {
+    cow: 280, // ~9 months
+    sheep: 150, // ~5 months
+    goat: 150, // ~5 months
+    camel: 390, // ~13 months
+    horse: 340, // ~11 months
+    donkey: 365, // ~12 months
+    rabbit: 31, // ~1 month
+    pig: 114, // ~4 months
+    default: 0
+  };
+
+  let gestationDays = 0;
+  
+  // Find matching animal type
+  Object.entries(gestationPeriods).forEach(([key, days]) => {
+    if (lowercaseType.includes(key)) {
+      gestationDays = days;
+    }
+  });
+
+  if (gestationDays === 0) return '';
+
+  date.setDate(date.getDate() + gestationDays);
+  return date.toISOString().split('T')[0];
 };
 
 type AddAnimalScreenProps = {
@@ -182,7 +253,7 @@ const initialFormData: FormData = {
   birthDate: '',
   weight: '',
   dailyFeedConsumption: '',
-  breedingStatus: 'not_breeding',
+  breedingStatus: 'not_breeding' as BreedingStatus,
   lastBreedingDate: '',
   expectedBirthDate: '',
   nextVaccinationDate: '',
@@ -193,7 +264,7 @@ const formPages: FormPage[] = [
   {
     title: 'المعلومات الأساسية',
     subtitle: 'أدخل المعلومات الأساسية للحيوان',
-    icon: '🐄',
+    icon: '🐾',
     fields: ['type', 'gender', 'count', 'healthStatus', 'birthDate', 'weight'],
   },
   {
@@ -203,15 +274,15 @@ const formPages: FormPage[] = [
     fields: ['feedingSchedule', 'feeding', 'dailyFeedConsumption'],
   },
   {
-    title: 'الصحة والتطعيم',
-    subtitle: 'أدخل معلومات الصحة والتطعيم',
+    title: 'الصحة والتلقيح',
+    subtitle: 'أدخل معلومات الصحة والتلقيح',
     icon: '💉',
     fields: ['health', 'diseases', 'medications', 'vaccination', 'nextVaccinationDate'],
   },
   {
     title: 'التكاثر',
     subtitle: 'أدخل معلومات التكاثر',
-    icon: '👶',
+    icon: '🐣',
     fields: ['breedingStatus', 'lastBreedingDate', 'expectedBirthDate'],
   },
   {
@@ -221,6 +292,28 @@ const formPages: FormPage[] = [
     fields: ['notes'],
   },
 ];
+
+// Add field icons mapping
+const FIELD_ICONS = {
+  type: '🐾',
+  gender: '⚥',
+  count: '🔢',
+  healthStatus: '❤️',
+  birthDate: '🎂',
+  weight: '⚖️',
+  feedingSchedule: '🕒',
+  feeding: '🥩',
+  dailyFeedConsumption: '📊',
+  health: '🏥',
+  diseases: '🤒',
+  medications: '💊',
+  vaccination: '💉',
+  nextVaccinationDate: '📅',
+  breedingStatus: '🐣',
+  lastBreedingDate: '📆',
+  expectedBirthDate: '👶',
+  notes: '📝',
+};
 
 const validationSchema = Yup.object().shape({
   type: Yup.string().required('نوع الحيوان مطلوب'),
@@ -241,10 +334,22 @@ const validationSchema = Yup.object().shape({
   birthDate: Yup.string(),
   weight: Yup.number().min(0, 'الوزن يجب أن يكون أكبر من 0'),
   dailyFeedConsumption: Yup.number().min(0, 'كمية العلف اليومي يجب أن تكون أكبر من 0'),
-  breedingStatus: Yup.string().oneOf(['not_breeding', 'in_heat', 'pregnant', 'nursing', 'lactating', 'ready']),
-  lastBreedingDate: Yup.string(),
-  expectedBirthDate: Yup.string(),
-  nextVaccinationDate: Yup.string()
+  breedingStatus: Yup.string()
+    .oneOf(['not_breeding', 'in_heat', 'pregnant', 'nursing'])
+    .required('حالة التكاثر مطلوبة'),
+  lastBreedingDate: Yup.string()
+    .nullable()
+    .test('conditional-required', 'تاريخ التكاثر الأخير مطلوب', function(value) {
+      const { breedingStatus } = this.parent;
+      return ['pregnant', 'nursing'].includes(breedingStatus) ? !!value : true;
+    }),
+  expectedBirthDate: Yup.string()
+    .nullable()
+    .test('conditional-required', 'تاريخ الولادة المتوقع مطلوب', function(value) {
+      const { breedingStatus } = this.parent;
+      return breedingStatus === 'pregnant' ? !!value : true;
+    }),
+  nextVaccinationDate: Yup.string().nullable(),
 });
 
 export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => {
@@ -257,6 +362,8 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [showTypeModal, setShowTypeModal] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [activeDateField, setActiveDateField] = useState<'lastBreedingDate' | 'expectedBirthDate' | 'nextVaccinationDate' | null>(null);
 
   const { animalId, mode } = route.params || {};
 
@@ -321,6 +428,8 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
 
     try {
       setIsSubmitting(true);
+      console.log('Starting form submission with data:', formData);
+
       const animalData = {
         ...formData,
         name: formData.type === 'other' ? formData.customType.trim() : formData.type,
@@ -344,12 +453,17 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
         nextVaccinationDate: formData.nextVaccinationDate || null,
         vaccinationHistory: [],
         offspringCount: 0,
-        userId: '1'
+        userId: '1',
+        gender: formData.gender
       };
 
+      console.log('Submitting animal data:', JSON.stringify(animalData, null, 2));
+
       if (mode === 'edit' && animalId) {
+        console.log('Updating animal with ID:', animalId);
         await updateAnimal(animalId, animalData);
       } else {
+        console.log('Creating new animal');
         await createAnimal(animalData);
       }
 
@@ -376,30 +490,62 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
     }
   };
 
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(false);
+    if (selectedDate && activeDateField) {
+      const formattedDate = selectedDate.toISOString().split('T')[0];
+      setFormData(prev => ({
+        ...prev,
+        [activeDateField]: formattedDate
+      }));
+
+      // If this is lastBreedingDate and status is pregnant, calculate expected birth date
+      if (activeDateField === 'lastBreedingDate' && formData.breedingStatus === 'pregnant') {
+        const expectedDate = calculateExpectedBirthDate(formattedDate, formData.type);
+        setFormData(prev => ({
+          ...prev,
+          expectedBirthDate: expectedDate
+        }));
+      }
+    }
+  };
+
+  const showDatePickerModal = (field: 'lastBreedingDate' | 'expectedBirthDate' | 'nextVaccinationDate') => {
+    setActiveDateField(field);
+    setShowDatePicker(true);
+  };
+
   const renderField = (field: string) => {
+    const fieldIcon = FIELD_ICONS[field as keyof typeof FIELD_ICONS] || '📋';
+    
     switch (field) {
       case 'type':
         return (
           <View style={styles.inputGroup}>
+            <View style={styles.labelContainer}>
+              <Text style={styles.fieldIcon}>{fieldIcon}</Text>
             <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
               نوع الحيوان *
             </Text>
+            </View>
             {formData.type === 'other' ? (
               <View style={styles.otherTypeContainer}>
-                <TextInput
+            <TextInput
                   style={[
                     styles.input,
                     { 
-                      backgroundColor: theme.colors.neutral.surface,
-                      color: theme.colors.neutral.textPrimary,
-                      borderColor: theme.colors.neutral.border,
-                      textAlign: 'right'
+                backgroundColor: theme.colors.neutral.surface,
+                color: theme.colors.neutral.textPrimary,
+                borderColor: theme.colors.neutral.border,
+                textAlign: 'right'
                     }
                   ]}
                   value={formData.customType}
                   onChangeText={(text) => setFormData({ ...formData, customType: text })}
-                  placeholder="أدخل نوع الحيوان"
-                  placeholderTextColor={theme.colors.neutral.textSecondary}
+              placeholder="أدخل نوع الحيوان"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+                  textAlign="right"
+                  textAlignVertical="center"
                 />
                 <TouchableOpacity
                   style={styles.changeTypeButton}
@@ -448,9 +594,12 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
       case 'gender':
         return (
           <View style={styles.inputGroup}>
+            <View style={styles.labelContainer}>
+              <Text style={styles.fieldIcon}>{fieldIcon}</Text>
             <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
               جنس الحيوان *
             </Text>
+            </View>
             <View style={styles.genderContainer}>
               <TouchableOpacity
                 style={[
@@ -459,7 +608,7 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
                 ]}
                 onPress={() => setFormData({ ...formData, gender: 'male' })}
               >
-                <Text style={styles.genderIcon}>👨</Text>
+                <Text style={styles.genderIcon}>{GENDER_ICONS.male}</Text>
                 <Text style={[
                   styles.genderText,
                   { color: formData.gender === 'male' ? '#FFF' : theme.colors.neutral.textSecondary }
@@ -474,7 +623,7 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
                 ]}
                 onPress={() => setFormData({ ...formData, gender: 'female' })}
               >
-                <Text style={styles.genderIcon}>👩</Text>
+                <Text style={styles.genderIcon}>{GENDER_ICONS.female}</Text>
                 <Text style={[
                   styles.genderText,
                   { color: formData.gender === 'female' ? '#FFF' : theme.colors.neutral.textSecondary }
@@ -489,9 +638,12 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
       case 'count':
         return (
           <View style={styles.inputGroup}>
+            <View style={styles.labelContainer}>
+              <Text style={styles.fieldIcon}>{fieldIcon}</Text>
             <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
               عدد الحيوانات *
             </Text>
+            </View>
             <TextInput
               style={[styles.input, { 
                 backgroundColor: theme.colors.neutral.surface,
@@ -504,6 +656,8 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
               placeholder="أدخل عدد الحيوانات"
               placeholderTextColor={theme.colors.neutral.textSecondary}
               keyboardType="numeric"
+              textAlign="right"
+              textAlignVertical="center"
             />
           </View>
         );
@@ -511,9 +665,12 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
       case 'healthStatus':
         return (
           <View style={styles.inputGroup}>
+            <View style={styles.labelContainer}>
+              <Text style={styles.fieldIcon}>{fieldIcon}</Text>
             <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
               الحالة الصحية *
             </Text>
+            </View>
             <View style={styles.healthStatusContainer}>
               {['excellent', 'good', 'fair', 'poor'].map((status) => (
                 <TouchableOpacity
@@ -525,9 +682,7 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
                   onPress={() => setFormData({ ...formData, healthStatus: status as HealthStatus })}
                 >
                   <Text style={styles.healthStatusIcon}>
-                    {status === 'excellent' ? '🌟' : 
-                     status === 'good' ? '👍' : 
-                     status === 'fair' ? '😐' : '😢'}
+                    {HEALTH_STATUS_ICONS[status as keyof typeof HEALTH_STATUS_ICONS]}
                   </Text>
                   <Text style={[
                     styles.healthStatusText,
@@ -544,15 +699,20 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
       case 'feedingSchedule':
         return (
           <View style={styles.inputGroup}>
+            <View style={styles.labelContainer}>
+              <Text style={styles.fieldIcon}>{fieldIcon}</Text>
             <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
               برنامج التغذية *
             </Text>
+            </View>
             <TextInput
               style={[styles.input, { 
                 backgroundColor: theme.colors.neutral.surface,
                 color: theme.colors.neutral.textPrimary,
                 borderColor: theme.colors.neutral.border,
-                textAlign: 'right'
+                textAlign: 'right',
+                height: 120,
+                paddingTop: 12
               }]}
               value={formData.feedingSchedule}
               onChangeText={(text) => setFormData({ ...formData, feedingSchedule: text })}
@@ -560,6 +720,8 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
               placeholderTextColor={theme.colors.neutral.textSecondary}
               multiline
               numberOfLines={4}
+              textAlign="right"
+              textAlignVertical="top"
             />
           </View>
         );
@@ -567,9 +729,12 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
       case 'feeding':
         return (
           <View style={styles.inputGroup}>
+            <View style={styles.labelContainer}>
+              <Text style={styles.fieldIcon}>{fieldIcon}</Text>
             <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
               التغذية
             </Text>
+            </View>
             <TextInput
               style={[styles.input, { 
                 backgroundColor: theme.colors.neutral.surface,
@@ -590,9 +755,12 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
       case 'health':
         return (
           <View style={styles.inputGroup}>
+            <View style={styles.labelContainer}>
+              <Text style={styles.fieldIcon}>{fieldIcon}</Text>
             <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
               الصحة
             </Text>
+            </View>
             <TextInput
               style={[styles.input, { 
                 backgroundColor: theme.colors.neutral.surface,
@@ -613,9 +781,12 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
       case 'diseases':
         return (
           <View style={styles.inputGroup}>
+            <View style={styles.labelContainer}>
+              <Text style={styles.fieldIcon}>{fieldIcon}</Text>
             <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
               الأمراض
             </Text>
+            </View>
             <TextInput
               style={[styles.input, { 
                 backgroundColor: theme.colors.neutral.surface,
@@ -636,9 +807,12 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
       case 'medications':
         return (
           <View style={styles.inputGroup}>
+            <View style={styles.labelContainer}>
+              <Text style={styles.fieldIcon}>{fieldIcon}</Text>
             <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
               الأدوية
             </Text>
+            </View>
             <TextInput
               style={[styles.input, { 
                 backgroundColor: theme.colors.neutral.surface,
@@ -659,9 +833,12 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
       case 'vaccination':
         return (
           <View style={styles.inputGroup}>
+            <View style={styles.labelContainer}>
+              <Text style={styles.fieldIcon}>{fieldIcon}</Text>
             <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
-              التطعيم
+                التلقيح
             </Text>
+            </View>
             <TextInput
               style={[styles.input, { 
                 backgroundColor: theme.colors.neutral.surface,
@@ -671,7 +848,7 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
               }]}
               value={formData.vaccination}
               onChangeText={(text) => setFormData({ ...formData, vaccination: text })}
-              placeholder="أدخل تفاصيل التطعيم"
+              placeholder="أدخل تفاصيل التلقيح"
               placeholderTextColor={theme.colors.neutral.textSecondary}
               multiline
               numberOfLines={4}
@@ -682,103 +859,213 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
       case 'breedingStatus':
         return (
           <View style={styles.inputGroup}>
+            <View style={styles.labelContainer}>
+              <Text style={styles.fieldIcon}>{fieldIcon}</Text>
             <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
-              حالة التكاثر *
+                حالة التكاثر *
             </Text>
+            </View>
             <View style={styles.breedingStatusContainer}>
-              {['not_breeding', 'in_heat', 'pregnant', 'nursing', 'lactating', 'ready'].map((status) => (
+              {['not_breeding', 'in_heat', 'pregnant', 'nursing'].map((status) => (
                 <TouchableOpacity
                   key={status}
                   style={[
                     styles.breedingStatusButton,
-                    formData.breedingStatus === status && { backgroundColor: getBreedingStatusColor(status as BreedingStatus, theme) }
+                    { 
+                      backgroundColor: formData.breedingStatus === status 
+                        ? getBreedingStatusColor(status as BreedingStatus, theme)
+                        : theme.colors.neutral.surface,
+                      borderColor: formData.breedingStatus === status
+                        ? getBreedingStatusColor(status as BreedingStatus, theme)
+                        : theme.colors.neutral.border,
+                    }
                   ]}
-                  onPress={() => setFormData({ ...formData, breedingStatus: status as BreedingStatus })}
+                  onPress={() => {
+                    const statusValue = status as BreedingStatus;
+                    console.log('Setting breeding status to:', statusValue);
+                    
+                    setFormData((prevData) => {
+                      const newData = {
+                        ...prevData,
+                        breedingStatus: statusValue,
+                        lastBreedingDate: !['pregnant', 'nursing'].includes(statusValue) ? '' : prevData.lastBreedingDate,
+                        expectedBirthDate: statusValue !== 'pregnant' ? '' : prevData.expectedBirthDate
+                      };
+                      console.log('Updated form data:', newData);
+                      return newData;
+                    });
+                  }}
                 >
                   <Text style={styles.breedingStatusIcon}>
-                    {getBreedingStatusIcon(status as BreedingStatus)}
+                    {BREEDING_STATUS_ICONS[status as keyof typeof BREEDING_STATUS_ICONS]}
                   </Text>
                   <Text style={[
                     styles.breedingStatusText,
-                    { color: formData.breedingStatus === status ? '#FFF' : theme.colors.neutral.textSecondary }
+                    { 
+                      color: formData.breedingStatus === status 
+                        ? '#FFF' 
+                        : theme.colors.neutral.textSecondary 
+                    }
                   ]}>
                     {getBreedingStatusLabel(status as BreedingStatus)}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
+            {validationErrors.breedingStatus && (
+              <Text style={[styles.errorText, { color: theme.colors.error }]}>
+                {validationErrors.breedingStatus}
+              </Text>
+            )}
           </View>
         );
 
       case 'lastBreedingDate':
+        if (!['pregnant', 'nursing'].includes(formData.breedingStatus)) {
+          return null;
+        }
         return (
           <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
-              تاريخ التكاثر الأخير
-            </Text>
-            <TextInput
-              style={[styles.input, { 
-                backgroundColor: theme.colors.neutral.surface,
-                color: theme.colors.neutral.textPrimary,
-                borderColor: theme.colors.neutral.border,
-                textAlign: 'right'
-              }]}
-              value={formData.lastBreedingDate}
-              onChangeText={(text) => setFormData({ ...formData, lastBreedingDate: text })}
-              placeholder="أدخل تاريخ التكاثر الأخير"
-              placeholderTextColor={theme.colors.neutral.textSecondary}
-            />
+            <View style={styles.labelContainer}>
+              <Text style={styles.fieldIcon}>{fieldIcon}</Text>
+              <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+                تاريخ التكاثر الأخير {['pregnant', 'nursing'].includes(formData.breedingStatus) ? '*' : ''}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[
+                styles.dateInput,
+                { 
+                  backgroundColor: theme.colors.neutral.surface,
+                  borderColor: validationErrors.lastBreedingDate 
+                    ? theme.colors.error 
+                    : theme.colors.neutral.border
+                }
+              ]}
+              onPress={() => showDatePickerModal('lastBreedingDate')}
+            >
+              <MaterialCommunityIcons
+                name="calendar"
+                size={24}
+                color={theme.colors.neutral.textSecondary}
+              />
+              <Text style={[
+                styles.dateText,
+                { color: formData.lastBreedingDate ? theme.colors.neutral.textPrimary : theme.colors.neutral.textSecondary }
+              ]}>
+                {formData.lastBreedingDate 
+                  ? new Date(formData.lastBreedingDate).toLocaleDateString('ar-SA')
+                  : 'اختر التاريخ'}
+              </Text>
+            </TouchableOpacity>
+            {validationErrors.lastBreedingDate && (
+              <Text style={[styles.errorText, { color: theme.colors.error }]}>
+                {validationErrors.lastBreedingDate}
+              </Text>
+            )}
           </View>
         );
 
       case 'expectedBirthDate':
+        if (formData.breedingStatus !== 'pregnant') {
+          return null;
+        }
+        
+        const calculatedDate = calculateExpectedBirthDate(formData.lastBreedingDate, formData.type);
+        
         return (
           <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
-              تاريخ الميلاد المتوقع
-            </Text>
-            <TextInput
-              style={[styles.input, { 
-                backgroundColor: theme.colors.neutral.surface,
-                color: theme.colors.neutral.textPrimary,
-                borderColor: theme.colors.neutral.border,
-                textAlign: 'right'
-              }]}
-              value={formData.expectedBirthDate}
-              onChangeText={(text) => setFormData({ ...formData, expectedBirthDate: text })}
-              placeholder="أدخل تاريخ الميلاد المتوقع"
-              placeholderTextColor={theme.colors.neutral.textSecondary}
-            />
+            <View style={styles.labelContainer}>
+              <Text style={styles.fieldIcon}>{fieldIcon}</Text>
+              <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+                تاريخ الولادة المتوقع *
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[
+                styles.dateInput,
+                { 
+                  backgroundColor: theme.colors.neutral.surface,
+                  borderColor: theme.colors.neutral.border
+                }
+              ]}
+              onPress={() => showDatePickerModal('expectedBirthDate')}
+            >
+              <MaterialCommunityIcons
+                name="calendar-clock"
+                size={24}
+                color={theme.colors.primary.base}
+              />
+              <Text style={[styles.dateText, { color: theme.colors.neutral.textPrimary }]}>
+                {calculatedDate 
+                  ? new Date(calculatedDate).toLocaleDateString('en-US', {
+                      year: 'numeric',
+                      month: '2-digit',
+                      day: '2-digit'
+                    })
+                  : 'سيتم الحساب تلقائياً بعد تحديد تاريخ التكاثر'}
+              </Text>
+            </TouchableOpacity>
           </View>
         );
 
       case 'nextVaccinationDate':
         return (
           <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
-              تاريخ التطعيم القادم
-            </Text>
-            <TextInput
+            <View style={styles.labelContainer}>
+              <Text style={styles.fieldIcon}>{fieldIcon}</Text>
+              <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+                موعد التلقيح القادم
+              </Text>
+            </View>
+            <TouchableOpacity
               style={[styles.input, { 
                 backgroundColor: theme.colors.neutral.surface,
-                color: theme.colors.neutral.textPrimary,
                 borderColor: theme.colors.neutral.border,
-                textAlign: 'right'
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingVertical: 12,
               }]}
-              value={formData.nextVaccinationDate}
-              onChangeText={(text) => setFormData({ ...formData, nextVaccinationDate: text })}
-              placeholder="أدخل تاريخ التطعيم القادم"
-              placeholderTextColor={theme.colors.neutral.textSecondary}
-            />
+              onPress={() => showDatePickerModal('nextVaccinationDate')}
+            >
+              <MaterialCommunityIcons 
+                name="calendar" 
+                size={24} 
+                color={theme.colors.neutral.textSecondary} 
+              />
+              <Text style={[
+                styles.dateText,
+                { 
+                  color: formData.nextVaccinationDate 
+                    ? theme.colors.neutral.textPrimary 
+                    : theme.colors.neutral.textSecondary,
+                  textAlign: 'right',
+                  flex: 1,
+                  marginLeft: 12
+                }
+              ]}>
+                {formData.nextVaccinationDate 
+                  ? new Date(formData.nextVaccinationDate).toLocaleDateString('en-US', {
+                      year: 'numeric',
+                      month: '2-digit',
+                      day: '2-digit'
+                    })
+                  : 'اختر موعد التلقيح القادم'}
+              </Text>
+            </TouchableOpacity>
           </View>
         );
 
       case 'notes':
         return (
           <View style={styles.inputGroup}>
+            <View style={styles.labelContainer}>
+              <Text style={styles.fieldIcon}>{fieldIcon}</Text>
             <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
-              ملاحظات
+                ملاحظات
             </Text>
+            </View>
             <TextInput
               style={[styles.input, { 
                 backgroundColor: theme.colors.neutral.surface,
@@ -796,13 +1083,130 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
           </View>
         );
 
+      case 'birthDate':
+        return (
+          <View style={styles.inputGroup}>
+            <View style={styles.labelContainer}>
+              <Text style={styles.fieldIcon}>{fieldIcon}</Text>
+            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+                تاريخ الميلاد
+            </Text>
+            </View>
+            <TouchableOpacity
+              style={[
+                styles.dateInput,
+                { 
+                  backgroundColor: theme.colors.neutral.surface,
+                  borderColor: theme.colors.neutral.border
+                }
+              ]}
+              onPress={() => showDatePickerModal('birthDate' as any)}
+            >
+              <MaterialCommunityIcons
+                name="calendar"
+                size={24}
+                color={theme.colors.neutral.textSecondary}
+              />
+              <Text style={[
+                styles.dateText,
+                { color: formData.birthDate ? theme.colors.neutral.textPrimary : theme.colors.neutral.textSecondary }
+              ]}>
+                {formData.birthDate 
+                  ? new Date(formData.birthDate).toLocaleDateString('en-US', {
+                      year: 'numeric',
+                      month: '2-digit',
+                      day: '2-digit'
+                    })
+                  : 'اختر تاريخ الميلاد'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        );
+
+      case 'weight':
+        return (
+          <View style={styles.inputGroup}>
+            <View style={styles.labelContainer}>
+              <Text style={styles.fieldIcon}>{fieldIcon}</Text>
+              <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+                الوزن (كجم)
+              </Text>
+            </View>
+            <View style={styles.inputWithUnit}>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.colors.neutral.surface,
+                color: theme.colors.neutral.textPrimary,
+                borderColor: theme.colors.neutral.border,
+                  textAlign: 'right',
+                  flex: 1
+                }]}
+                value={formData.weight}
+                onChangeText={(text) => setFormData({ ...formData, weight: text })}
+                placeholder="أدخل الوزن"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+                keyboardType="numeric"
+                textAlign="right"
+            />
+              <Text style={[styles.unitText, { color: theme.colors.neutral.textSecondary }]}>
+                كجم
+              </Text>
+            </View>
+          </View>
+        );
+
+      case 'dailyFeedConsumption':
+        return (
+          <View style={styles.inputGroup}>
+            <View style={styles.labelContainer}>
+              <Text style={styles.fieldIcon}>{fieldIcon}</Text>
+            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+                كمية العلف اليومي (كجم)
+            </Text>
+            </View>
+            <View style={styles.inputWithUnit}>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.colors.neutral.surface,
+                color: theme.colors.neutral.textPrimary,
+                borderColor: theme.colors.neutral.border,
+                  textAlign: 'right',
+                  flex: 1
+                }]}
+                value={formData.dailyFeedConsumption}
+                onChangeText={(text) => setFormData({ ...formData, dailyFeedConsumption: text })}
+                placeholder="أدخل كمية العلف اليومي"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+                keyboardType="numeric"
+                textAlign="right"
+            />
+              <Text style={[styles.unitText, { color: theme.colors.neutral.textSecondary }]}>
+                كجم
+              </Text>
+            </View>
+          </View>
+        );
+
       default:
-        return null;
+        return (
+          <View style={styles.inputGroup}>
+            <View style={styles.labelContainer}>
+              <Text style={styles.fieldIcon}>{fieldIcon}</Text>
+              <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+                {field}
+              </Text>
+            </View>
+          </View>
+        );
     }
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
+      <StatusBar
+        backgroundColor={theme.colors.neutral.surface}
+        barStyle="dark-content"
+      />
       <View style={[styles.header, { backgroundColor: theme.colors.neutral.surface }]}>
         <Text style={[styles.headerTitle, { color: theme.colors.neutral.textPrimary }]}>
           {mode === 'edit' ? 'تعديل الحيوان' : 'إضافة حيوان جديد'}
@@ -811,7 +1215,7 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Feather name="arrow-left" size={24} color={theme.colors.neutral.textPrimary} />
+          <Feather name="arrow-right" size={24} color={theme.colors.neutral.textPrimary} />
         </TouchableOpacity>
       </View>
 
@@ -851,7 +1255,7 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
             style={[styles.navButton, { backgroundColor: theme.colors.neutral.border }]}
             onPress={prevPage}
           >
-            <Feather name="arrow-right" size={24} color={theme.colors.neutral.textPrimary} />
+            <Feather name="arrow-left" size={24} color={theme.colors.neutral.textPrimary} />
             <Text style={[styles.navButtonText, { color: theme.colors.neutral.textPrimary }]}>
               السابق
             </Text>
@@ -869,7 +1273,7 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
               <Text style={styles.navButtonText}>
                 {currentPage === formPages.length - 1 ? 'حفظ' : 'التالي'}
               </Text>
-              <Feather name="arrow-left" size={24} color="#FFF" />
+              <Feather name="arrow-right" size={24} color="#FFF" />
             </>
           )}
         </TouchableOpacity>
@@ -884,101 +1288,155 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.colors.neutral.surface }]}>
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: theme.colors.neutral.textPrimary }]}>
-                اختر نوع الحيوان
-              </Text>
+              <View style={styles.modalTitleContainer}>
+                <Text style={[styles.modalTitle, { color: theme.colors.neutral.textPrimary }]}>
+                  اختر نوع الحيوان
+                </Text>
+                <Text style={[styles.modalSubtitle, { color: theme.colors.neutral.textSecondary }]}>
+                  اختر من القائمة أو أضف نوعًا جديدًا
+                </Text>
+    </View>
               <TouchableOpacity
-                style={styles.closeButton}
+                style={[styles.closeButton, { backgroundColor: theme.colors.neutral.background }]}
                 onPress={() => setShowTypeModal(false)}
               >
                 <Feather name="x" size={24} color={theme.colors.neutral.textPrimary} />
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalBody}>
-              <View style={styles.animalGrid}>
-                {Object.entries(ANIMAL_TYPES).map(([id, animal]) => (
-                  <TouchableOpacity
-                    key={id}
-                    style={[
-                      styles.animalOption,
-                      { 
-                        backgroundColor: theme.colors.neutral.background,
-                        borderWidth: 1,
-                        borderColor: theme.colors.neutral.border,
-                      }
-                    ]}
-                    onPress={() => {
-                      setFormData({ ...formData, type: id });
-                      setShowTypeModal(false);
-                    }}
-                  >
-                    <Text style={styles.animalIcon}>{animal.icon}</Text>
-                    <View style={styles.animalInfo}>
-                      <Text style={[styles.animalName, { color: theme.colors.neutral.textPrimary }]}>
-                        {animal.name}
-                      </Text>
-                      <Text style={[styles.animalCategory, { color: theme.colors.neutral.textSecondary }]}>
-                        {animal.category}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-                
-                <TouchableOpacity
-                  style={[
-                    styles.animalOption,
-                    { 
-                      backgroundColor: theme.colors.neutral.background,
-                      borderWidth: 1,
-                      borderColor: theme.colors.neutral.border,
+            <ScrollView 
+              style={styles.modalBody}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.categorySection}>
+                {Object.entries(
+                  Object.entries(ANIMAL_TYPES).reduce((acc, [id, animal]) => {
+                    if (!acc[animal.category]) {
+                      acc[animal.category] = [];
                     }
-                  ]}
-                  onPress={() => {
-                    setFormData({ ...formData, type: 'other' });
-                    setShowTypeModal(false);
-                  }}
-                >
-                  <Text style={styles.animalIcon}>➕</Text>
-                  <View style={styles.animalInfo}>
-                    <Text style={[styles.animalName, { color: theme.colors.neutral.textPrimary }]}>
-                      نوع آخر
+                    acc[animal.category].push({ id, ...animal });
+                    return acc;
+                  }, {} as Record<string, Array<{ id: string } & typeof ANIMAL_TYPES[keyof typeof ANIMAL_TYPES]>>)
+                ).map(([category, animals]) => (
+                  <View key={category} style={styles.categoryGroup}>
+                    <Text style={[styles.categoryTitle, { color: theme.colors.neutral.textPrimary }]}>
+                      {category}
                     </Text>
-                    <Text style={[styles.animalCategory, { color: theme.colors.neutral.textSecondary }]}>
-                      إضافة نوع مخصص
-                    </Text>
+                    <View style={styles.animalGrid}>
+                      {animals.map(({ id, icon, name }) => (
+                        <TouchableOpacity
+                          key={id}
+                          style={[
+                            styles.animalOption,
+                            { 
+                              backgroundColor: formData.type === id ? theme.colors.primary.base : theme.colors.neutral.background,
+                              borderColor: formData.type === id ? theme.colors.primary.base : theme.colors.neutral.border,
+                            }
+                          ]}
+                          onPress={() => {
+                            setFormData({ ...formData, type: id });
+                            setShowTypeModal(false);
+                          }}
+                        >
+                          <View style={[
+                            styles.animalIconContainer,
+                            {
+                              backgroundColor: formData.type === id ? 'rgba(255, 255, 255, 0.2)' : theme.colors.neutral.surface,
+                            }
+                          ]}>
+                            <Text style={styles.animalIcon}>{icon}</Text>
+                          </View>
+                          <View style={styles.animalInfo}>
+                            <Text style={[
+                              styles.animalName,
+                              { 
+                                color: formData.type === id ? '#FFF' : theme.colors.neutral.textPrimary,
+                                fontWeight: formData.type === id ? '600' : '400'
+                              }
+                            ]}>
+                              {name}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
                   </View>
-                </TouchableOpacity>
+                ))}
               </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.addCustomTypeButton,
+                  { 
+                    backgroundColor: theme.colors.neutral.background,
+                    borderColor: theme.colors.primary.base,
+                  }
+                ]}
+                onPress={() => {
+                  setFormData({ ...formData, type: 'other' });
+                  setShowTypeModal(false);
+                }}
+              >
+                <View style={[styles.addIconContainer, { backgroundColor: theme.colors.primary.base }]}>
+                  <Feather name="plus" size={24} color="#FFF" />
+                </View>
+                <View style={styles.addCustomTypeInfo}>
+                  <Text style={[styles.addCustomTypeTitle, { color: theme.colors.neutral.textPrimary }]}>
+                    إضافة نوع جديد
+                  </Text>
+                  <Text style={[styles.addCustomTypeSubtitle, { color: theme.colors.neutral.textSecondary }]}>
+                    أدخل نوع حيوان غير موجود في القائمة
+                  </Text>
+                </View>
+                <Feather name="chevron-left" size={24} color={theme.colors.neutral.textSecondary} />
+              </TouchableOpacity>
             </ScrollView>
           </View>
         </View>
       </Modal>
-    </View>
+
+      {showDatePicker && (
+        <DateTimePicker
+          value={activeDateField ? new Date(formData[activeDateField] || new Date()) : new Date()}
+          mode="date"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={handleDateChange}
+          minimumDate={new Date(2000, 0, 1)}
+          maximumDate={new Date(2100, 11, 31)}
+        />
+      )}
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#fff',
   },
   header: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
+    ...Platform.select({
+      android: {
+        paddingTop: StatusBar.currentHeight,
+      },
+    }),
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: '600',
-    marginRight: 16,
+    marginLeft: 16,
   },
   backButton: {
     padding: 8,
+    transform: [{ scaleX: -1 }],
   },
   progressContainer: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     padding: 16,
   },
@@ -993,7 +1451,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   progressText: {
-    marginLeft: 16,
+    marginRight: 16,
     fontSize: 16,
   },
   content: {
@@ -1006,10 +1464,18 @@ const styles = StyleSheet.create({
   inputGroup: {
     marginBottom: 16,
   },
+  labelContainer: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
+  fieldIcon: {
+    fontSize: 20,
+  },
   label: {
     fontSize: 16,
     fontWeight: '500',
-    marginBottom: 8,
   },
   input: {
     height: 48,
@@ -1017,9 +1483,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     borderRadius: 8,
     borderWidth: 1,
+    textAlign: 'right',
+    textAlignVertical: 'center',
   },
   genderContainer: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     gap: 8,
   },
   genderButton: {
@@ -1028,18 +1496,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 16,
-    borderRadius: 8,
+    borderRadius: 12,
+    borderWidth: 1,
     gap: 8,
   },
   genderIcon: {
     fontSize: 24,
+    fontWeight: 'bold',
   },
   genderText: {
     fontSize: 16,
     fontWeight: '500',
   },
   healthStatusContainer: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     flexWrap: 'wrap',
     gap: 8,
   },
@@ -1054,14 +1524,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   healthStatusIcon: {
-    fontSize: 20,
+    fontSize: 24,
+    marginBottom: 4,
   },
   healthStatusText: {
     fontSize: 16,
     fontWeight: '500',
   },
   breedingStatusContainer: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     flexWrap: 'wrap',
     gap: 8,
   },
@@ -1072,18 +1543,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 16,
-    borderRadius: 8,
+    borderRadius: 12,
+    borderWidth: 1,
     gap: 8,
   },
   breedingStatusIcon: {
     fontSize: 20,
+    marginBottom: 4,
   },
   breedingStatusText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '500',
   },
   footer: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     padding: 16,
     gap: 8,
     borderTopWidth: 1,
@@ -1115,7 +1588,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   selectedType: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 8,
   },
@@ -1144,66 +1617,108 @@ const styles = StyleSheet.create({
   modalContent: {
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: '95%',
+    maxHeight: '90%',
     minHeight: '50%',
   },
   modalHeader: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
   },
+  modalTitleContainer: {
+    flex: 1,
+  },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: '600',
+    marginBottom: 4,
+    textAlign: 'right',
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    textAlign: 'right',
   },
   closeButton: {
     padding: 8,
+    borderRadius: 8,
+    marginRight: 16,
   },
   modalBody: {
     padding: 16,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 16,
+  },
+  categorySection: {
+    gap: 24,
+  },
+  categoryGroup: {
+    gap: 12,
+  },
+  categoryTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
+    textAlign: 'right',
   },
   animalGrid: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     flexWrap: 'wrap',
     gap: 12,
-    justifyContent: 'space-between',
-    paddingBottom: 100,
+    justifyContent: 'flex-start',
   },
   animalOption: {
-    width: (width - 56) / 3,
-    aspectRatio: 1,
+    width: (width - 64) / 3,
     borderRadius: 16,
+    borderWidth: 1,
+    padding: 12,
+    gap: 8,
+    alignItems: 'center',
+  },
+  animalIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
-    padding: 12,
-    marginBottom: 8,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
   },
   animalIcon: {
-    fontSize: 40,
+    fontSize: 32,
   },
   animalInfo: {
     alignItems: 'center',
-    width: '100%',
   },
   animalName: {
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  addCustomTypeButton: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginTop: 24,
+    marginBottom: 32,
+  },
+  addIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 16,
+  },
+  addCustomTypeInfo: {
+    flex: 1,
+  },
+  addCustomTypeTitle: {
     fontSize: 16,
     fontWeight: '600',
-    textAlign: 'center',
     marginBottom: 4,
   },
-  animalCategory: {
+  addCustomTypeSubtitle: {
     fontSize: 12,
-    textAlign: 'center',
   },
   otherTypeContainer: {
     gap: 8,
@@ -1216,5 +1731,27 @@ const styles = StyleSheet.create({
   changeTypeText: {
     fontSize: 14,
     fontWeight: '500',
+  },
+  dateInput: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    height: 48,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 12,
+  },
+  dateText: {
+    fontSize: 16,
+    paddingHorizontal: 12,
+  },
+  inputWithUnit: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 8,
+  },
+  unitText: {
+    fontSize: 16,
+    marginRight: 8,
   },
 }); 

@@ -1,187 +1,112 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
+import React from 'react';
+import { View, StyleSheet, FlatList, Text } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
 import { StockHistory as StockHistoryType } from '../types';
-import { Feather } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-interface StockHistoryComponentProps {
+interface StockHistoryProps {
   history: StockHistoryType[];
-  unit: string;
-  loading: boolean;
 }
 
-const ITEMS_PER_PAGE = 5;
-
-const getTypeInfo = (type: string) => {
+export const StockHistory: React.FC<StockHistoryProps> = ({ history }) => {
   const theme = useTheme();
-  const types = {
-    add: {
-      icon: 'plus-circle',
-      label: 'إضافة',
-      color: theme.colors.success
-    },
-    remove: {
-      icon: 'minus-circle',
-      label: 'إزالة',
-      color: theme.colors.error
-    },
-    expired: {
-      icon: 'alert-circle',
-      label: 'منتهي الصلاحية',
-      color: theme.colors.warning
-    },
-    damaged: {
-      icon: 'x-circle',
-      label: 'تالف',
-      color: theme.colors.error
-    }
-  };
-  return types[type] || {
-    icon: 'circle',
-    label: type,
-    color: theme.colors.neutral.textSecondary
-  };
-};
 
-export const StockHistoryComponent: React.FC<StockHistoryComponentProps> = ({ history, unit, loading }) => {
-  const theme = useTheme();
-  const [currentPage, setCurrentPage] = useState(1);
-
-  const totalPages = Math.ceil(history.length / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const endIndex = startIndex + ITEMS_PER_PAGE;
-  const currentItems = history.slice(startIndex, endIndex);
-
-  const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString('ar-SA', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+  const getHistoryTypeColor = (type: 'add' | 'remove') => {
+    return type === 'add' 
+      ? theme.colors.success 
+      : theme.colors.error;
   };
 
-  const handlePreviousPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
-    }
+  const getHistoryTypeIcon = (type: 'add' | 'remove') => {
+    return type === 'add' 
+      ? 'plus-circle-outline' 
+      : 'minus-circle-outline';
   };
 
-  const handleNextPage = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1);
-    }
-  };
-
-  if (loading) {
+  const renderHistoryItem = ({ item }: { item: StockHistoryType }) => {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primary.base} />
+      <View style={[styles.historyCard, { 
+        backgroundColor: theme.colors.neutral.surface,
+        borderColor: theme.colors.neutral.border,
+      }]}>
+        <View style={styles.historyHeader}>
+          <View style={styles.typeContainer}>
+            <MaterialCommunityIcons 
+              name={getHistoryTypeIcon(item.type)} 
+              size={24} 
+              color={getHistoryTypeColor(item.type)} 
+            />
+            <Text style={[styles.typeText, { color: getHistoryTypeColor(item.type) }]}>
+              {item.type === 'add' ? 'إضافة' : 'سحب'}
+            </Text>
+          </View>
+          <Text style={[styles.dateText, { color: theme.colors.neutral.textSecondary }]}>
+            {new Date(item.date).toLocaleDateString('ar-SA')}
+          </Text>
+        </View>
+        
+        <View style={[styles.divider, { backgroundColor: theme.colors.neutral.border }]} />
+        
+        <View style={styles.detailsContainer}>
+          <Text style={[styles.quantityLabel, { color: theme.colors.neutral.textSecondary }]}>
+            الكمية:
+          </Text>
+          <Text style={[styles.quantityValue, { color: theme.colors.neutral.textPrimary }]}>
+            {item.quantity}
+          </Text>
+        </View>
+        
+        {item.notes && (
+          <View style={styles.notesContainer}>
+            <Text style={[styles.notesLabel, { color: theme.colors.neutral.textSecondary }]}>
+              ملاحظات:
+            </Text>
+            <Text style={[styles.notesValue, { color: theme.colors.neutral.textPrimary }]}>
+              {item.notes}
+            </Text>
+          </View>
+        )}
       </View>
     );
-  }
+  };
 
-  if (history.length === 0) {
+  if (!history || history.length === 0) {
     return (
       <View style={styles.emptyContainer}>
-        <Feather 
-          name="clock" 
+        <MaterialCommunityIcons 
+          name="history" 
           size={48} 
           color={theme.colors.neutral.textSecondary} 
         />
         <Text style={[styles.emptyText, { color: theme.colors.neutral.textSecondary }]}>
-          لا يوجد سجل للمخزون
+          لا يوجد سجل حركة للمخزون
         </Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      {currentItems.map((item) => {
-        const { icon, label, color } = getTypeInfo(item.type);
-        
-        return (
-          <View 
-            key={item.id} 
-            style={[styles.historyItem, { backgroundColor: theme.colors.neutral.surface }]}
-          >
-            <View style={styles.historyHeader}>
-              <View style={styles.typeContainer}>
-                <Feather name={icon as any} size={20} color={color} />
-                <Text style={[styles.typeText, { color }]}>{label}</Text>
-              </View>
-              <Text style={[styles.dateText, { color: theme.colors.neutral.textSecondary }]}>
-                {formatDate(item.date)}
-              </Text>
-            </View>
-            
-            <View style={styles.detailsContainer}>
-              <Text style={[styles.quantityText, { color: theme.colors.neutral.textPrimary }]}>
-                {item.type === 'add' ? '+' : '-'} {item.quantity.toLocaleString('en-US')} {unit}
-              </Text>
-              {item.notes && (
-                <Text style={[styles.notesText, { color: theme.colors.neutral.textSecondary }]}>
-                  {item.notes}
-                </Text>
-              )}
-            </View>
-          </View>
-        );
-      })}
-
-      {totalPages > 1 && (
-        <View style={styles.paginationContainer}>
-          <TouchableOpacity
-            style={[
-              styles.paginationButton,
-              currentPage === 1 && styles.paginationButtonDisabled,
-              { backgroundColor: theme.colors.neutral.surface }
-            ]}
-            onPress={handlePreviousPage}
-            disabled={currentPage === 1}
-          >
-            <Feather
-              name="chevron-left"
-              size={20}
-              color={currentPage === 1 ? theme.colors.neutral.textSecondary : theme.colors.primary.base}
-            />
-          </TouchableOpacity>
-
-          <Text style={[styles.paginationText, { color: theme.colors.neutral.textPrimary }]}>
-            {currentPage.toLocaleString('en-US')} / {totalPages.toLocaleString('en-US')}
-          </Text>
-
-          <TouchableOpacity
-            style={[
-              styles.paginationButton,
-              currentPage === totalPages && styles.paginationButtonDisabled,
-              { backgroundColor: theme.colors.neutral.surface }
-            ]}
-            onPress={handleNextPage}
-            disabled={currentPage === totalPages}
-          >
-            <Feather
-              name="chevron-right"
-              size={20}
-              color={currentPage === totalPages ? theme.colors.neutral.textSecondary : theme.colors.primary.base}
-            />
-          </TouchableOpacity>
-        </View>
-      )}
-    </View>
+    <FlatList
+      data={history}
+      keyExtractor={(item) => item.id}
+      renderItem={renderHistoryItem}
+      ItemSeparatorComponent={() => <View style={styles.separator} />}
+      contentContainerStyle={styles.listContainer}
+    />
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingBottom: 16,
+  listContainer: {
+    padding: 16,
   },
-  historyItem: {
+  separator: {
+    height: 12,
+  },
+  historyCard: {
     borderRadius: 8,
+    borderWidth: 1,
     padding: 12,
-    marginBottom: 8,
-    elevation: 1,
   },
   historyHeader: {
     flexDirection: 'row',
@@ -192,58 +117,52 @@ const styles = StyleSheet.create({
   typeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
   typeText: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
+    marginLeft: 8,
   },
   dateText: {
-    fontSize: 12,
+    fontSize: 14,
+  },
+  divider: {
+    height: 1,
+    marginVertical: 8,
   },
   detailsContainer: {
-    gap: 4,
+    flexDirection: 'row',
+    marginTop: 8,
   },
-  quantityText: {
-    fontSize: 16,
-    fontWeight: '500',
+  quantityLabel: {
+    fontSize: 14,
+    marginRight: 8,
   },
-  notesText: {
+  quantityValue: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  notesContainer: {
+    marginTop: 8,
+  },
+  notesLabel: {
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  notesValue: {
     fontSize: 14,
   },
   emptyContainer: {
-    alignItems: 'center',
+    flex: 1,
     justifyContent: 'center',
-    paddingVertical: 32,
-    gap: 16,
+    alignItems: 'center',
+    padding: 32,
   },
   emptyText: {
     fontSize: 16,
     textAlign: 'center',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  paginationContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
     marginTop: 16,
-    gap: 16,
   },
-  paginationButton: {
-    padding: 8,
-    borderRadius: 8,
-    elevation: 1,
-  },
-  paginationButtonDisabled: {
-    opacity: 0.5,
-  },
-  paginationText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-}); 
+});
+
+export default StockHistory; 
