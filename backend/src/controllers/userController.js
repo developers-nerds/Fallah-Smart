@@ -6,6 +6,7 @@ require('dotenv').config();
 const config = require("../config/db");
 const fs = require('fs').promises;
 const path = require('path');
+const { AdvisorApplications } = require('../database/assossiation');
 
 // JWT Configuration
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -189,14 +190,36 @@ const userController = {
         },
       };
 
-      // Remove sensitive data
-      const userData = {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: user.role,
-      };
+      // Handle user data correctly for any ORM type
+      let userData;
+      
+      // Try to get user data using common ORM methods
+      if (user.toJSON) {
+        // Sequelize or similar
+        userData = user.toJSON();
+      } else if (user.toObject) {
+        // Mongoose or similar
+        userData = user.toObject();
+      } else if (user.get) {
+        // Sequelize alternative method
+        userData = user.get({ plain: true });
+      } else {
+        // Fallback to direct object properties
+        userData = {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          role: user.role,
+          username: user.username,
+          profilePicture: user.profilePicture,
+        };
+      }
+
+      // Ensure role is properly set
+      if (!userData.role && userData.isAdvisor) {
+        userData.role = 'ADVISOR';
+      }
 
       res.json({ user: userData, tokens });
     } catch (error) {
@@ -432,6 +455,178 @@ const userController = {
       res.status(401).json({ message: 'Invalid refresh token' });
     }
   },
+
+  // Submit application to become an advisor
+  applyForAdvisor: async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const { 
+        specialization, 
+        experience, 
+        education,
+        certifications,
+        applicationNotes 
+      } = req.body;
+
+      // Check if user exists
+      const user = await Users.findByPk(userId);
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      // Check if the user is already an advisor
+      if (user.role === 'ADVISOR') {
+        return res.status(400).json({ message: 'You are already an advisor' });
+      }
+
+      // Create advisor application record with APPROVED status
+      const application = await AdvisorApplications.create({
+        userId,
+        specialization,
+        experience,
+        education,
+        certifications,
+        applicationNotes,
+        status: 'APPROVED', // Changed from 'PENDING' to 'APPROVED'
+        documents: req.files ? req.files.map(file => file.path) : [],
+        submittedAt: new Date()
+      });
+
+      // Immediately update the user's role to ADVISOR
+      await Users.update(
+        { role: 'ADVISOR' },
+        { where: { id: userId } }
+      );
+
+      res.status(201).json({ 
+        message: 'Advisor application approved automatically',
+        application,
+        status: 'APPROVED'
+      });
+    } catch (error) {
+      console.error('Error applying for advisor:', error);
+      res.status(500).json({ 
+        message: 'Error submitting advisor application',
+        error: error.message
+      });
+    }
+  },
+
+  // For admin to approve or reject advisor applications
+  reviewAdvisorApplication: async (req, res) => {
+    try {
+      // Ensure the user is an admin
+      if (req.user.role !== 'ADMIN') {
+        return res.status(403).json({ message: 'Unauthorized. Admin access required.' });
+      }
+
+      const { applicationId, status, reviewNotes } = req.body;
+      
+      // Valid statuses
+      const validStatuses = ['APPROVED', 'REJECTED', 'PENDING_MORE_INFO'];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ 
+          message: `Invalid status. Must be one of: ${validStatuses.join(', ')}` 
+        });
+      }
+
+      // Find the application
+      const application = await AdvisorApplications.findByPk(applicationId);
+      if (!application) {
+        return res.status(404).json({ message: 'Application not found' });
+      }
+
+      // Update application status
+      await application.update({
+        status,
+        reviewNotes,
+        reviewedAt: new Date(),
+        reviewedBy: req.user.id
+      });
+
+      // If approved, update user role to ADVISOR
+      if (status === 'APPROVED') {
+        await Users.update(
+          { role: 'ADVISOR' },
+          { where: { id: application.userId } }
+        );
+
+        // Optionally notify the user via email, push notification, etc.
+      }
+
+      res.json({ 
+        message: `Application ${status.toLowerCase()}`, 
+        application
+      });
+    } catch (error) {
+      console.error('Error reviewing advisor application:', error);
+      res.status(500).json({ 
+        message: 'Error processing review',
+        error: error.message
+      });
+    }
+  },
+
+  // For users to check their application status
+  getAdvisorApplicationStatus: async (req, res) => {
+    try {
+      const userId = req.user.id;
+      
+      // Find the most recent application for this user
+      const application = await AdvisorApplications.findOne({
+        where: { userId },
+        order: [['submittedAt', 'DESC']]
+      });
+
+      if (!application) {
+        return res.status(404).json({ message: 'No application found' });
+      }
+
+      res.json({ application });
+    } catch (error) {
+      console.error('Error fetching application status:', error);
+      res.status(500).json({ 
+        message: 'Error retrieving application status',
+        error: error.message
+      });
+    }
+  },
+
+  // List all advisor applications (for admin)
+  getAllAdvisorApplications: async (req, res) => {
+    try {
+      // Ensure the user is an admin
+      if (req.user.role !== 'ADMIN') {
+        return res.status(403).json({ message: 'Unauthorized. Admin access required.' });
+      }
+
+      const { status } = req.query;
+      
+      // Build query conditions
+      const whereCondition = {};
+      if (status) {
+        whereCondition.status = status;
+      }
+
+      // Get applications with user details
+      const applications = await AdvisorApplications.findAll({
+        where: whereCondition,
+        include: [{
+          model: Users,
+          attributes: ['id', 'username', 'firstName', 'lastName', 'email', 'profilePicture']
+        }],
+        order: [['submittedAt', 'DESC']]
+      });
+
+      res.json({ applications });
+    } catch (error) {
+      console.error('Error fetching advisor applications:', error);
+      res.status(500).json({ 
+        message: 'Error retrieving applications',
+        error: error.message
+      });
+    }
+  }
 };
 
 // Helper functions

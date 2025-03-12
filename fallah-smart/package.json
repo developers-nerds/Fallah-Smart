@@ -51,7 +51,8 @@
     "react-native-svg": "^15.8.0",
     "react-native-web": "^0.19.13",
     "victory-native": "^41.16.1",
-    "yup": "^1.6.1"
+    "yup": "^1.6.1",
+    "expo-document-picker": "~13.0.3"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

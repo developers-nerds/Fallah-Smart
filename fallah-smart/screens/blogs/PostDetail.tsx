@@ -17,7 +17,8 @@ import {
   ActionSheetIOS,
   Linking,
   Modal,
-  Animated
+  Animated,
+  RefreshControl
 } from 'react-native';
 import axios from 'axios';
 import { 
@@ -38,21 +39,39 @@ import { storage } from '../../utils/storage';
 const BASE_URL = process.env.EXPO_PUBLIC_API;
 const API_URL = `${BASE_URL}/api/blog`;
 const { width } = Dimensions.get('window');
+const placeholderImage = 'https://via.placeholder.com/100';
 
-// Helper function to process image URLs
+// Enhanced getImageUrl function with better URL handling
 const getImageUrl = (imageUrl) => {
-  if (!imageUrl) return null;
-  
-  console.log("Processing image URL:", imageUrl);
+  if (!imageUrl) {
+    console.log("No image URL provided");
+    return placeholderImage;
+  }
   
   try {
-  if (imageUrl.startsWith('http')) {
-    return imageUrl.replace(/http:\/\/\d+\.\d+\.\d+\.\d+:\d+/, BASE_URL);
-  }
-  return `${BASE_URL}${imageUrl}`;
+    // Log for debugging
+    console.log("Processing image URL:", imageUrl);
+    
+    // Handle already complete URLs
+    if (imageUrl.startsWith('http')) {
+      // If it's a local development URL, replace with BASE_URL
+      if (imageUrl.match(/http:\/\/\d+\.\d+\.\d+\.\d+:\d+/)) {
+        return imageUrl.replace(/http:\/\/\d+\.\d+\.\d+\.\d+:\d+/, BASE_URL);
+      }
+      // Otherwise return as is (it's already a complete URL)
+      return imageUrl;
+    }
+    
+    // Handle relative URLs
+    if (imageUrl.startsWith('/')) {
+      return `${BASE_URL}${imageUrl}`;
+    }
+    
+    // Default case - prepend BASE_URL
+    return `${BASE_URL}/${imageUrl}`;
   } catch (error) {
     console.error("Error processing image URL:", error);
-    return null;
+    return placeholderImage;
   }
 };
 
@@ -61,44 +80,26 @@ const formatUserName = (user, author) => {
   console.log('Formatting name for:', JSON.stringify({
     user: user ? {
       hasUsername: !!user.username,
-      hasFirstName: !!user.firstName,
-      hasLastName: !!user.lastName,
       firstName: user.firstName,
       lastName: user.lastName,
-      username: user.username
+      role: user.role,
     } : null,
     author: author ? {
       hasUsername: !!author.username,
-      hasFirstName: !!author.firstName,
-      hasLastName: !!author.lastName,
       firstName: author.firstName,
       lastName: author.lastName,
-      username: author.username
+      role: author.role,
     } : null
-  }, null, 2));
+  }));
 
-  // First priority: author's full name
-  if (author?.firstName && author?.lastName) {
-    return `${author.firstName} ${author.lastName}`;
-  }
+  // First, determine which data source to use
+  const userData = user || author || {};
   
-  // Second priority: author's first name only
-  if (author?.firstName) {
-    return author.firstName;
-  }
-  
-  // Third priority: user's full name
-  if (user?.firstName && user?.lastName) {
-    return `${user.firstName} ${user.lastName}`;
-  }
-  
-  // Fourth priority: user's first name only
-  if (user?.firstName) {
-    return user.firstName;
-  }
-  
-  // Last resort fallbacks
-  return author?.username || user?.username || 'Anonymous';
+  // Show appropriate available name
+  return userData.username || 
+    (userData.firstName && userData.lastName 
+      ? `${userData.firstName} ${userData.lastName}`
+      : 'Anonymous');
 };
 
 // Gallery component for post images
@@ -208,6 +209,93 @@ const CommentImageGallery = ({ media }) => {
   );
 };
 
+// First, add the parseTextForHashtags function near the top of the file, after the imports
+const parseTextForHashtags = (text) => {
+  if (!text) return [{ type: 'text', content: '' }];
+  
+  // Improved regex that better matches hashtags
+  const hashtagRegex = /#[a-zA-Z0-9_]+\b/g;
+  
+  // Find all hashtags in the text
+  const hashtags = text.match(hashtagRegex) || [];
+  
+  // If no hashtags, return just the original text
+  if (hashtags.length === 0) {
+    return [{ type: 'text', content: text }];
+  }
+  
+  // Split text into parts with hashtags preserved
+  let result = [];
+  let lastIndex = 0;
+  
+  // Find each hashtag position and split accordingly
+  for (const hashtag of hashtags) {
+    const hashtagIndex = text.indexOf(hashtag, lastIndex);
+    
+    // Add any text before the hashtag
+    if (hashtagIndex > lastIndex) {
+      result.push({ 
+        type: 'text', 
+        content: text.substring(lastIndex, hashtagIndex)
+      });
+    }
+    
+    // Add the hashtag
+    result.push({ 
+      type: 'hashtag', 
+      content: hashtag
+    });
+    
+    lastIndex = hashtagIndex + hashtag.length;
+  }
+  
+  // Add any remaining text after the last hashtag
+  if (lastIndex < text.length) {
+    result.push({
+      type: 'text',
+      content: text.substring(lastIndex)
+    });
+  }
+  
+  return result;
+};
+
+// Add this function to debug and handle profile picture display
+const getProfilePictureUrl = (postData) => {
+  // Log the data we're working with for debugging
+  console.log("Getting profile picture from:", {
+    hasUserData: !!postData?.user,
+    hasAuthorData: !!postData?.author,
+    userProfilePic: postData?.user?.profilePicture,
+    authorProfilePic: postData?.author?.profilePicture
+  });
+  
+  // Try multiple possible sources for profile picture
+  const profilePicture = 
+    postData?.user?.profilePicture || 
+    postData?.author?.profilePicture ||
+    postData?.user?.profileImage ||
+    postData?.author?.profileImage;
+  
+  if (profilePicture) {
+    console.log("Found profile picture:", profilePicture);
+    return getImageUrl(profilePicture);
+  }
+  
+  console.log("No profile picture found, using placeholder");
+  return placeholderImage;
+};
+
+// In your formatUserName function or add a new function to check for advisor role
+const isUserAdvisor = (user, author, currentUser) => {
+  // Check from post data or current user data if this is the post author
+  return (
+    user?.role?.toUpperCase() === 'ADVISOR' || 
+    author?.role?.toUpperCase() === 'ADVISOR' ||
+    (currentUser?.id === (user?.id || author?.id) && currentUser?.role?.toUpperCase() === 'ADVISOR')
+  );
+};
+
 const PostDetail = ({ route, navigation }) => {
   const { postId } = route.params;
   const [post, setPost] = useState(null);
@@ -224,6 +312,8 @@ const PostDetail = ({ route, navigation }) => {
   const [customReason, setCustomReason] = useState('');
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
   const commentInputRef = useRef(null);
+  const [content, setContent] = useState('');
+  const [likeCount, setLikeCount] = useState(0);
 
   // Add the report reasons array
   const reportReasons = [
@@ -239,106 +329,40 @@ const PostDetail = ({ route, navigation }) => {
   // Fetch post details including comments
   const fetchPostDetails = async () => {
     try {
-      setLoading(true);
-      setError(null);
+      // Get user data from storage
+      const userData = await storage.getUser();
+      const token = userData?.token;
+      setCurrentUser(userData);
+
+      // Make API request with token if available
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const response = await axios.get(`${API_URL}/posts/${postId}`, { headers });
       
-      console.log(`Fetching post details for ID: ${postId}`);
-      
-      const response = await axios.get(`${API_URL}/posts/${postId}`);
       const postData = response.data;
-      
-      console.log('Post data structure:', 
-        JSON.stringify({
-          userInfo: postData.user ? {
-            hasUsername: !!postData.user.username,
-            hasFirstName: !!postData.user.firstName,
-            hasLastName: !!postData.user.lastName,
-            firstName: postData.user.firstName,
-            lastName: postData.user.lastName
-          } : 'No user',
-          authorInfo: postData.author ? {
-            hasUsername: !!postData.author.username,
-            hasFirstName: !!postData.author.firstName,
-            hasLastName: !!postData.author.lastName,
-            firstName: postData.author.firstName,
-            lastName: postData.author.lastName
-          } : 'No author'
-        }, null, 2)
-      );
-      
-      // Log the first comment as well if available
-      if (postData.comments && postData.comments.length > 0) {
-        const firstComment = postData.comments[0];
-        console.log('First comment data:', 
-          JSON.stringify({
-            userInfo: firstComment.user ? {
-              hasUsername: !!firstComment.user.username,
-              hasFirstName: !!firstComment.user.firstName,
-              hasLastName: !!firstComment.user.lastName
-            } : 'No user',
-            authorInfo: firstComment.author ? {
-              hasUsername: !!firstComment.author.username,
-              hasFirstName: !!firstComment.author.firstName,
-              hasLastName: !!firstComment.author.lastName
-            } : 'No author'
-          }, null, 2)
-        );
-      }
-      
-      // Continue with your existing code...
       setPost(postData);
+      setContent(postData.content);
+      setLikeCount(postData.likesCount || 0);
       
-      // Check if the current user has liked the post
-      if (postData.likes && postData.likes.length > 0) {
-        setLiked(postData.likes.some(like => like.isClicked));
+      // Update likes and comments
+      if (postData.likes?.length > 0) {
+        setLiked(postData.likes.some(like => like.userId === userData?.id));
       }
       
-      // Extract comments from the post data
       if (postData.comments) {
-        console.log(`Post has ${postData.comments.length} comments`);
         setComments(postData.comments);
       }
       
       setLoading(false);
-    } catch (err) {
-      setLoading(false);
-      console.error('Error fetching post details:', err);
-      
-      if (err.response) {
-        setError(`Server error: ${err.response.status}`);
-      } else if (err.request) {
-        setError(`Network error: Could not connect to server`);
-      } else {
-        setError(`Error: ${err.message}`);
-      }
-    }
-  };
-
-  // Add this function to get the current user from storage
-  const getCurrentUser = async () => {
-    try {
-      const user = await storage.getUser();
-      
-      if (user) {
-        console.log('Current user from storage:', JSON.stringify({
-          hasUsername: !!user.username,
-          hasFirstName: !!user.firstName,
-          hasLastName: !!user.lastName,
-          firstName: user.firstName,
-          lastName: user.lastName
-        }, null, 2));
-        
-        setCurrentUser(user);
-      }
     } catch (error) {
-      console.error('Error getting current user:', error);
+      console.error('Error fetching post:', error);
+      setError('Failed to load post');
+      setLoading(false);
     }
   };
 
   // Update useEffect to also get the current user
   useEffect(() => {
     fetchPostDetails();
-    getCurrentUser(); // Get current user when component mounts
   }, [postId]);
 
   // Toggle like 
@@ -593,42 +617,27 @@ const PostDetail = ({ route, navigation }) => {
     return (
       <View style={styles.commentContainer}>
         <View style={styles.commentHeader}>
-          {(item.user?.profilePicture || item.author?.profilePicture) ? (
-              <Image
-              source={{ uri: getProfilePictureUrl(item.user?.profilePicture || item.author?.profilePicture) }} 
-                style={styles.commentAvatar}
-              />
-            ) : (
-              <View style={styles.commentAvatarPlaceholder}>
-              <Text style={styles.commentAvatarInitial}>
-                {(item.user?.firstName || item.author?.firstName) ? 
-                  (item.user?.firstName || item.author?.firstName).charAt(0).toUpperCase() : 
-                  (item.user?.lastName || item.author?.lastName) ?
-                  (item.user?.lastName || item.author?.lastName).charAt(0).toUpperCase() : '?'}
-              </Text>
-              </View>
-            )}
-            
-          <View style={styles.commentContentContainer}>
+          <View style={styles.commentAuthorContainer}>
             <Text style={styles.commentUsername}>
               {formatUserName(item.user, item.author)}
-              </Text>
-            <Text style={styles.commentText}>{item.content}</Text>
-            
-            {/* Render comment images if present */}
-        {item.media && item.media.length > 0 && (
-              <CommentImageGallery media={item.media} />
+            </Text>
+              
+            {/* Verify icon for advisor comments */}
+            {isUserAdvisor(item.user, item.author, currentUser) && (
+              <MaterialIcons 
+                name="verified" 
+                size={14} 
+                color="#1F6AFF" 
+                style={{ marginLeft: 4 }}
+              />
             )}
-            
-            <View style={styles.commentFooter}>
-              <Text style={styles.commentTime}>
-                {timeAgo(item.createdAt)}
-          </Text>
+          </View>
+          <Text style={styles.commentTime}>{timeAgo(item.createdAt)}</Text>
         </View>
+        
+        {/* Rest of comment content... */}
       </View>
-      </View>
-    </View>
-  );
+    );
   };
 
   // Share post function
@@ -779,38 +788,38 @@ const PostDetail = ({ route, navigation }) => {
             <View style={styles.postContainer}>
               {/* Post header with author info - enhanced design */}
               <View style={styles.postHeader}>
-                {/* Try both user and author properties */}
-                {(post.author?.profilePicture || post.user?.profilePicture) ? (
-                  <Image 
-                    source={{ uri: getImageUrl(post.author?.profilePicture || post.user?.profilePicture) }} 
-                    style={styles.authorAvatar} 
-                  />
-                ) : (
-                  <View style={styles.authorAvatarPlaceholder}>
-                    <Text style={styles.authorAvatarInitial}>
-                      {(post.author?.firstName || post.user?.firstName) ? 
-                        (post.author?.firstName || post.user?.firstName).charAt(0).toUpperCase() : 
-                        (post.author?.lastName || post.user?.lastName) ?
-                        (post.author?.lastName || post.user?.lastName).charAt(0).toUpperCase() : '?'}
-                    </Text>
-      </View>
-                )}
-                
-                <View style={styles.postHeaderInfo}>
-                  <Text style={styles.authorName}>
-                    {formatUserName(post.user, post.author)}
-                  </Text>
-                  <View style={styles.postMetaInfo}>
-                    <Text style={styles.postTime}>
-                      {timeAgo(post.createdAt)}
-                    </Text>
+                {/* Author info section with verified badge */}
+                <View style={styles.postAuthorSection}>
+                  <View style={styles.authorContainer}>
+                    {/* Author image with better error handling */}
+                    <Image 
+                      source={{ uri: getProfilePictureUrl(post) }}
+                      style={styles.authorAvatar}
+                      onError={(e) => {
+                        console.log("Profile image load error:", e.nativeEvent.error);
+                        // You could set a state to use a fallback here if needed
+                      }}
+                    />
                     
-                    {post.category && (
-                      <View style={styles.categoryBadge}>
-                        <MaterialIcons name="category" size={12} color={theme.colors.primary.base} style={{marginRight: 4}} />
-                        <Text style={styles.categoryText}>{post.category}</Text>
+                    <View style={styles.authorDetails}>
+                      <View style={styles.authorNameRow}>
+                        <Text style={styles.authorName}>
+                          {formatUserName(post?.user, post?.author)}
+                        </Text>
+                        
+                        {/* Show verified icon for advisors */}
+                        {isUserAdvisor(post?.user, post?.author, currentUser) && (
+                          <MaterialIcons 
+                            name="verified" 
+                            size={16} 
+                            color="#1DA1F2"
+                            style={{ marginLeft: 4 }}
+                          />
+                        )}
                       </View>
-                    )}
+                      
+                      <Text style={styles.postTime}>{timeAgo(post?.createdAt)}</Text>
+                    </View>
                   </View>
                 </View>
               </View>
@@ -818,7 +827,13 @@ const PostDetail = ({ route, navigation }) => {
               {/* Post content - enhanced styling */}
               <View style={styles.postContent}>
                 <Text style={styles.postTitle}>{post.title}</Text>
-            <Text style={styles.postDescription}>{post.description}</Text>
+                <Text style={styles.postDescription}>
+                  {parseTextForHashtags(post.description).map((part, index) => (
+                    part.type === 'hashtag' ? 
+                      <Text key={index} style={styles.hashtag}>{part.content}</Text> : 
+                      <Text key={index}>{part.content}</Text>
+                  ))}
+                </Text>
           
                 {/* Post images - kept as is */}
           {post.media && post.media.length > 0 && (
@@ -900,11 +915,8 @@ const PostDetail = ({ route, navigation }) => {
             </View>
             
                 {comments.length > 0 ? (
-                  comments.map((comment, index) => (
-                    <View key={comment.id || index} style={[
-                      styles.commentContainer,
-                      index === comments.length - 1 && styles.lastComment
-                    ]}>
+                  comments.map((comment) => (
+                    <View key={comment.id} style={styles.commentContainer}>
                       {renderComment({ item: comment })}
                     </View>
                   ))
@@ -1155,19 +1167,19 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   authorAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    marginRight: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 10,
   },
   authorAvatarPlaceholder: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: theme.colors.primary.base,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 10,
   },
   authorAvatarInitial: {
     fontSize: 20,
@@ -1177,21 +1189,25 @@ const styles = StyleSheet.create({
   postHeaderInfo: {
     flex: 1,
   },
+  authorInfoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  authorNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   authorName: {
     fontSize: 16,
     fontFamily: theme.fonts.medium,
     color: theme.colors.neutral.textPrimary,
     marginBottom: 4,
   },
-  postMetaInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  postTime: {
+  postTimestamp: {
     fontSize: 13,
     fontFamily: theme.fonts.regular,
     color: theme.colors.neutral.textSecondary,
-    marginRight: 8,
+    marginLeft: 8,
   },
   categoryBadge: {
     flexDirection: 'row',
@@ -1344,46 +1360,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
   },
-  commentAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-  },
-  commentAvatarPlaceholder: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: theme.colors.primary.base,
-    justifyContent: 'center',
+  commentAuthorContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
-  },
-  commentAvatarInitial: {
-    fontSize: 16,
-    color: 'white',
-    fontFamily: theme.fonts.bold,
-  },
-  commentContentContainer: {
-    flex: 1,
-    marginLeft: 10,
-    backgroundColor: theme.colors.neutral.gray.lighter,
-    borderRadius: 16,
-    padding: 12,
   },
   commentUsername: {
     fontSize: 14,
     fontFamily: theme.fonts.bold,
     color: theme.colors.neutral.textPrimary,
     marginBottom: 2,
-  },
-  commentText: {
-    fontSize: 14,
-    fontFamily: theme.fonts.regular,
-    color: theme.colors.neutral.textPrimary,
-    lineHeight: 20,
-  },
-  commentFooter: {
-    flexDirection: 'row',
-    marginTop: 6,
   },
   commentTime: {
     fontSize: 12,
@@ -1608,6 +1593,28 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 12,
     fontFamily: theme.fonts.medium,
+  },
+  hashtag: {
+    color: theme.colors.primary.base,
+    fontWeight: 'bold',
+    textDecorationLine: 'none',
+  },
+  postAuthorSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  authorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  authorDetails: {
+    flex: 1,
+  },
+  postTime: {
+    fontSize: 13,
+    fontFamily: theme.fonts.regular,
+    color: theme.colors.neutral.textSecondary,
   },
 });
 

@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
-  TouchableOpacity, 
-  Image, 
-  ActivityIndicator, 
-  SafeAreaView, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+  ActivityIndicator,
+  SafeAreaView,
   StatusBar,
   Alert,
   ImageBackground
@@ -24,6 +24,7 @@ import WalletScreen from '../Wallet/Wallet';
 import DictionaryScreen from '../dictionary/dictionary';
 import ChatScreen from '../Chat/Chat';
 import { DictionaryNavigator } from '../../navigation/DictionaryNavigator';
+import Marketplace from '../Marketplace/marketplace';
 import { WEATHER_CONFIG } from '../../api/apiConfig';
 
 
@@ -79,10 +80,10 @@ export const HomeContent = ({ navigation }) => {
   const fetchWeatherData = async () => {
     try {
       setLoading(true);
-      
+
       // Try to get user's location for more accurate weather
       let locationQuery = 'Tunisia'; // Default to Tunisia
-      
+
       try {
         let { status } = await Location.requestForegroundPermissionsAsync();
         if (status === 'granted') {
@@ -92,17 +93,17 @@ export const HomeContent = ({ navigation }) => {
       } catch (locationError) {
         console.log('Location permission not granted, using default location');
       }
-      
+
       // Fetch weather data
       const response = await axios.get(WEATHER_API_URL, {
         params: {
           key: WEATHER_API_KEY,
           q: locationQuery,
           days: 7,
-          aqi: 'no'
-        }
+          aqi: 'no',
+        },
       });
-      
+
       setWeather(response.data);
       setError(null);
     } catch (err) {
@@ -115,11 +116,24 @@ export const HomeContent = ({ navigation }) => {
 
   // Format date to display as "Today, 3 Mar"
   const formatDate = () => {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     const now = new Date();
     const date = now.getDate();
     const month = months[now.getMonth()];
-    
+
     return `Today, ${date} ${month}`;
   };
 
@@ -151,7 +165,7 @@ export const HomeContent = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={theme.colors.neutral.surface} />
-      
+
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* Weather Card */}
         <View style={styles.weatherSection}>
@@ -220,26 +234,40 @@ export const HomeContent = ({ navigation }) => {
                 </View>
                 <Text style={styles.stepText}>Take a picture</Text>
               </View>
-              
-              <MaterialIcons name="chevron-right" size={24} color={theme.colors.neutral.gray.base} style={styles.stepArrow} />
-              
+
+              <MaterialIcons
+                name="chevron-right"
+                size={24}
+                color={theme.colors.neutral.gray.base}
+                style={styles.stepArrow}
+              />
+
               <View style={styles.stepItem}>
                 <View style={styles.stepIconContainer}>
                   <Feather name="file-text" size={24} color={theme.colors.primary.base} />
                 </View>
                 <Text style={styles.stepText}>See diagnosis</Text>
               </View>
-              
-              <MaterialIcons name="chevron-right" size={24} color={theme.colors.neutral.gray.base} style={styles.stepArrow} />
-              
+
+              <MaterialIcons
+                name="chevron-right"
+                size={24}
+                color={theme.colors.neutral.gray.base}
+                style={styles.stepArrow}
+              />
+
               <View style={styles.stepItem}>
                 <View style={styles.stepIconContainer}>
-                  <MaterialIcons name="medical-services" size={24} color={theme.colors.primary.base} />
+                  <MaterialIcons
+                    name="medical-services"
+                    size={24}
+                    color={theme.colors.primary.base}
+                  />
                 </View>
                 <Text style={styles.stepText}>Get medicine</Text>
               </View>
             </View>
-            
+
             <TouchableOpacity style={styles.takePictureButton} onPress={goToPlantDoctor}>
               <Text style={styles.takePictureButtonText}>Take a picture</Text>
             </TouchableOpacity>
@@ -254,31 +282,51 @@ export const HomeContent = ({ navigation }) => {
                 <FontAwesome5 name="calculator" size={20} color={theme.colors.primary.base} />
               </View>
               <Text style={styles.featureTitle}>Fertilizer calculator</Text>
-              <MaterialIcons name="chevron-right" size={20} color={theme.colors.neutral.gray.base} />
+              <MaterialIcons
+                name="chevron-right"
+                size={20}
+                color={theme.colors.neutral.gray.base}
+              />
             </TouchableOpacity>
-            
+
             <TouchableOpacity style={styles.featureCard} onPress={goToPestsAndDiseases}>
               <View style={styles.featureIconContainer}>
-                <MaterialCommunityIcons name="bug-outline" size={20} color={theme.colors.primary.base} />
+                <MaterialCommunityIcons
+                  name="bug-outline"
+                  size={20}
+                  color={theme.colors.primary.base}
+                />
               </View>
               <Text style={styles.featureTitle}>Pests & diseases</Text>
-              <MaterialIcons name="chevron-right" size={20} color={theme.colors.neutral.gray.base} />
+              <MaterialIcons
+                name="chevron-right"
+                size={20}
+                color={theme.colors.neutral.gray.base}
+              />
             </TouchableOpacity>
-            
+
             <TouchableOpacity style={styles.featureCard} onPress={goToCultivationTips}>
               <View style={styles.featureIconContainer}>
                 <MaterialCommunityIcons name="sprout" size={20} color={theme.colors.primary.base} />
               </View>
               <Text style={styles.featureTitle}>Cultivation Tips</Text>
-              <MaterialIcons name="chevron-right" size={20} color={theme.colors.neutral.gray.base} />
+              <MaterialIcons
+                name="chevron-right"
+                size={20}
+                color={theme.colors.neutral.gray.base}
+              />
             </TouchableOpacity>
-            
+
             <TouchableOpacity style={styles.featureCard} onPress={goToPestAlert}>
               <View style={styles.featureIconContainer}>
                 <MaterialIcons name="warning" size={20} color={theme.colors.primary.base} />
               </View>
               <Text style={styles.featureTitle}>Pests and Disease Alert</Text>
-              <MaterialIcons name="chevron-right" size={20} color={theme.colors.neutral.gray.base} />
+              <MaterialIcons
+                name="chevron-right"
+                size={20}
+                color={theme.colors.neutral.gray.base}
+              />
             </TouchableOpacity>
           </View>
         </View>
@@ -302,6 +350,7 @@ const HomeScreen = () => {
         component={DictionaryNavigator}
         options={{ title: 'القاموس الزراعي' }}
       />
+      <Drawer.Screen name="Marketplace" component={Marketplace} />
     </Drawer.Navigator>
   );
 };

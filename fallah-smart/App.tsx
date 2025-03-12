@@ -12,6 +12,7 @@ import AddIncome from './screens/Wallet/components/AddIncome';
 import AddExpense from './screens/Wallet/components/AddExpense';
 import EditExpense from './screens/Wallet/components/EditExpense';
 import EditIncome from './screens/Wallet/components/EditIncome'; // New import
+import AdvisorApplicationScreen from './screens/Advisor/AdvisorApplicationScreen';
 
 // Define the navigation param list
 type RootStackParamList = {
@@ -20,6 +21,7 @@ type RootStackParamList = {
   AddExpense: undefined;
   EditExpense: { transaction: Transaction };
   EditIncome: { transaction: Transaction }; // Added EditIncome
+  AdvisorApplication: undefined;
 };
 
 // Define the Transaction interface
@@ -58,6 +60,14 @@ export const RootNavigator: React.FC = () => {
       <Stack.Screen name="AddExpense" component={AddExpense} />
       <Stack.Screen name="EditExpense" component={EditExpense} />
       <Stack.Screen name="EditIncome" component={EditIncome} />
+      <Stack.Screen 
+        name="AdvisorApplication" 
+        component={AdvisorApplicationScreen} 
+        options={{
+          title: "Become an Advisor",
+          headerShown: true
+        }}
+      />
     </Stack.Navigator>
   );
 };
