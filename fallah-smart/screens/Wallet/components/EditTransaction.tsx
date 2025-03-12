@@ -5,11 +5,11 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, Activity
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useNavigation, useRoute } from "@react-navigation/native"
 import Icon from "react-native-vector-icons/MaterialIcons"
-import { FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons"
 import { theme } from "../../../theme/theme"
 import DateTimePicker from "@react-native-community/datetimepicker"
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import axios from 'axios'
+import { RenderIcon } from "./RenderIcon" // Adjust path as needed
 
 // Get screen dimensions
 const { width, height } = Dimensions.get('window')
@@ -366,10 +366,6 @@ export default function EditExpense() {
   }
 
   const renderCategoryItem = ({ item }: { item: Category }) => {
-    const isCustomIcon = item.icon.includes('-alt') || 
-                        item.icon === 'shopping-basket' ||
-                        item.icon === 'glass-martini-alt'
-
     return (
       <TouchableOpacity
         style={[
@@ -380,21 +376,13 @@ export default function EditExpense() {
         disabled={isSubmitting}
       >
         <View style={[styles.iconContainer, { backgroundColor: `${item.color}20` }]}>
-          {isCustomIcon ? (
-            <FontAwesome5 
-              name={item.icon.replace('-alt', '')}
-              size={width * 0.06}
-              color={item.color} 
-              style={styles.categoryIcon}
-            />
-          ) : (
-            <MaterialCommunityIcons 
-              name={item.icon} 
-              size={width * 0.06}
-              color={item.color} 
-              style={styles.categoryIcon}
-            />
-          )}
+          <RenderIcon 
+            icon={item.icon} 
+            type={item.type} 
+            size={width * 0.06} 
+            color={item.color} 
+            style={styles.categoryIcon}
+          />
         </View>
         <Text style={styles.categoryCardText}>{item.name}</Text>
       </TouchableOpacity>
