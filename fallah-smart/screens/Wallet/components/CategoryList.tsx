@@ -1,65 +1,71 @@
-import React, { useState } from "react"
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native"
-import { useNavigation, NavigationProp } from "@react-navigation/native"
-import { theme } from "../../../theme/theme"
-import { RenderIcon } from "./RenderIcon" // Adjust path as needed
-import { RootStackParamList } from "../../../App" // Adjust path based on your project structure
+import React, { useState } from "react";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { useNavigation, NavigationProp } from "@react-navigation/native";
+import { theme } from "../../../theme/theme";
+import { RenderIcon } from "./RenderIcon"; // Adjust path as needed
+import { RootStackParamList } from "../../../App"; // Adjust path based on your project structure
 
 interface Transaction {
-  id?: number
-  accountId?: number
-  amount?: number
-  note?: string
-  date?: string
-  type?: string
+  id?: number;
+  accountId?: number;
+  amount?: number;
+  note?: string;
+  date?: string;
+  type?: string;
   category: {
-    id?: number
-    name?: string
-    icon?: string
-    type?: string
-    color?: string
-    isIncome?: boolean
-  }
+    id?: number;
+    name?: string;
+    icon?: string;
+    type?: string;
+    color?: string;
+    isIncome?: boolean;
+  };
 }
 
 interface Category {
-  id?: number
-  name?: string
-  icon?: string
-  type?: string
-  color?: string
-  amount?: number
-  count?: number
-  isIncome?: boolean
+  id?: number;
+  name?: string;
+  icon?: string;
+  type?: string;
+  color?: string;
+  amount?: number;
+  count?: number;
+  isIncome?: boolean;
 }
 
 interface CategoryListProps {
-  categories: Category[]
-  transactions: Transaction[]
+  categories: Category[];
+  transactions: Transaction[];
 }
 
 export const CategoryList: React.FC<CategoryListProps> = ({ categories, transactions }) => {
-  const [expandedCategories, setExpandedCategories] = useState<number[]>([])
-  const navigation = useNavigation<NavigationProp<RootStackParamList>>()
+  const [expandedCategories, setExpandedCategories] = useState<number[]>([]);
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
   const toggleCategory = (categoryId: number) => {
     setExpandedCategories((prev) =>
       prev.includes(categoryId) ? prev.filter((id) => id !== categoryId) : [...prev, categoryId]
-    )
-  }
+    );
+  };
 
+  // Updated formatDate function to show day: number, month: long, year: last 2 digits
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString("en-US", { day: "numeric", month: "short" })
-  }
+    if (!dateString) return "Date unavailable";
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "Invalid date";
+    const day = date.getDate(); // Get day as number
+    const month = date.toLocaleDateString("en-US", { month: "long" }); // Get month as long text
+    const year = date.getFullYear().toString().slice(-2); // Get last 2 digits of year
+    return `${day} ${month} ${year}`;
+  };
 
   const handleTransactionPress = (transaction: Transaction) => {
     // Navigate to EditTransaction with the transaction object
-    navigation.navigate("EditTransaction", { transaction })
-  }
+    navigation.navigate("EditTransaction", { transaction });
+  };
 
   // Ensure categories is an array
-  const safeCategories = Array.isArray(categories) ? categories : []
+  const safeCategories = Array.isArray(categories) ? categories : [];
 
   return (
     <View style={styles.container}>
@@ -137,8 +143,8 @@ export const CategoryList: React.FC<CategoryListProps> = ({ categories, transact
         ))
       )}
     </View>
-  )
-}
+  );
+};
 
 const styles = StyleSheet.create({
   container: { paddingHorizontal: 15 },
@@ -187,4 +193,4 @@ const styles = StyleSheet.create({
   transactionDate: { fontSize: 12, color: "#888888", marginTop: 2 },
   transactionAmount: { fontSize: 14, fontWeight: "bold" },
   emptyText: { textAlign: "center", padding: 20, color: theme.colors.neutral.textSecondary },
-})
+});
