@@ -1,15 +1,15 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, ActivityIndicator, Platform, Dimensions } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useNavigation, useRoute } from "@react-navigation/native"
 import Icon from "react-native-vector-icons/MaterialIcons"
+import { FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons"
 import { theme } from "../../../theme/theme"
 import DateTimePicker from "@react-native-community/datetimepicker"
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import axios from 'axios'
-import { RenderIcon } from "./RenderIcon" // Adjust path as needed
 
 // Get screen dimensions
 const { width, height } = Dimensions.get('window')
@@ -35,7 +35,7 @@ interface Transaction {
   category: Category
 }
 
-export default function EditIncome() {
+export default function EditExpense() {
   const [showCategories, setShowCategories] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(false)
@@ -67,6 +67,35 @@ export default function EditIncome() {
     default: process.env.EXPO_PUBLIC_API_URL 
   })
 
+  useEffect(() => {
+    if (transaction) {
+      setAmount(transaction.amount.toString())
+      setNote(transaction.note || "Add expense")
+      setSelectedCategory({
+        id: transaction.category.id,
+        name: transaction.category.name,
+        icon: transaction.category.icon,
+        type: transaction.category.type,
+        color: transaction.category.color
+      })
+      setSelectedAccountId(transaction.accountId)
+      const transDate = new Date(transaction.date)
+      setDate(transDate)
+      setCurrentDate(transDate.toLocaleDateString("en-US", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric"
+      }))
+      // Verify transaction type matches component
+      if (transaction.type.toLowerCase() !== 'expense') {
+        console.warn(`Mismatch: Editing an ${transaction.type} transaction in EditExpense`)
+      }
+    }
+    fetchAccounts()
+    fetchCategories()
+  }, [transaction])
+
   const getUserIdFromToken = async () => {
     try {
       const userStr = await AsyncStorage.getItem('@user')
@@ -97,77 +126,48 @@ export default function EditIncome() {
         }
       })
       setAccounts(response.data)
-      if (response.data.length > 0) {
-        setSelectedAccountId(transaction.accountId || response.data[0].id)
-      }
     } catch (error) {
       setError('Error fetching accounts: ' + (error.response?.data?.message || error.message))
     }
   }
 
-  useEffect(() => {
-    fetchAccounts()
-
-    // Initialize with transaction data
-    setAmount(transaction.amount.toString())
-    setNote(transaction.note || "Add income")
-    const transactionDate = new Date(transaction.date)
-    setDate(transactionDate)
-    const options = { weekday: "long", day: "numeric", month: "long", year: "numeric" }
-    setCurrentDate(transactionDate.toLocaleDateString("en-US", options))
-    setSelectedCategory(transaction.category)
-
-    let isMounted = true
-
-    const fetchCategories = async () => {
-      try {
-        setLoading(true)
-        const token = await AsyncStorage.getItem('@access_token')
-        if (!token) {
-          setError("No authentication token found")
-          return
-        }
-        const response = await axios.get(`${API_BASE_URL}/categories/type/Income`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        })
-        if (isMounted) {
-          if (Array.isArray(response.data)) {
-            const validCategories = response.data.filter(
-              (category: any) => category && typeof category === 'object' && category.id && category.name
-            )
-            setCategories(validCategories)
-            if (validCategories.length === 0) {
-              setError("No valid categories found")
-            }
-          } else {
-            setError("Invalid response format: Categories data is not an array")
-            setCategories([])
-          }
-        }
-      } catch (err) {
-        if (isMounted) {
-          setError("Failed to fetch categories: " + err.message)
-          setCategories([])
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false)
-        }
+  const fetchCategories = async () => {
+    try {
+      setLoading(true)
+      const token = await AsyncStorage.getItem('@access_token')
+      if (!token) {
+        setError("No authentication token found")
+        return
       }
+      // Dynamically fetch based on transaction.type
+      const categoryType = transaction.type.toLowerCase() === 'income' ? 'Income' : 'Expense'
+      const response = await axios.get(`${API_BASE_URL}/categories/type/${categoryType}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      console.log(`Fetched ${categoryType} categories response (EditExpense):`, response.data)
+      if (Array.isArray(response.data)) {
+        const validCategories = response.data.filter(
+          (category: any) => category && typeof category === 'object' && category.id && category.name
+        )
+        setCategories(validCategories)
+        if (validCategories.length === 0) {
+          setError(`No valid ${categoryType} categories found`)
+        }
+      } else {
+        setError("Invalid response format: Categories data is not an array")
+        setCategories([])
+      }
+    } catch (err) {
+      setError("Failed to fetch categories: " + err.message)
+      setCategories([])
+    } finally {
+      setLoading(false)
     }
+  }
 
-    if (showCategories) {
-      fetchCategories()
-    }
-
-    return () => {
-      isMounted = false
-    }
-  }, [showCategories, transaction])
-
-  const handleUpdateTransaction = async (category: Category) => {
+  const handleUpdateTransaction = useCallback(async (category: Category) => {
     try {
       setIsSubmitting(true)
       setSubmitError("")
@@ -177,21 +177,25 @@ export default function EditIncome() {
       
       if (!token || !userStr) {
         setSubmitError('Please login first')
+        console.log("Missing token or user data")
         return
       }
 
       if (!selectedAccountId) {
         setSubmitError('No account selected. Please try again.')
+        console.log("No selectedAccountId")
         return
       }
 
       if (!category || !category.id) {
         setSubmitError('Please select a category')
+        console.log("Invalid category:", category)
         return
       }
 
       if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
         setSubmitError('Please enter a valid amount')
+        console.log("Invalid amount:", amount)
         return
       }
 
@@ -199,10 +203,12 @@ export default function EditIncome() {
         accountId: selectedAccountId,
         categoryId: category.id,
         amount: parseFloat(amount),
-        type: 'income',
+        type: transaction.type.toLowerCase(), // Use transaction.type dynamically
         note: note || "",
         date: date.toISOString()
       }
+
+      console.log("Sending update request with data:", transactionData)
 
       const response = await axios.put(
         `${API_BASE_URL}/transactions/${transaction.id}`,
@@ -215,13 +221,48 @@ export default function EditIncome() {
         }
       )
 
+      console.log("API Response:", response.data, "Status:", response.status)
+
       if (response.data.success) {
+        console.log("Transaction updated successfully")
         navigation.goBack()
       } else {
         setSubmitError(response.data.message || 'Failed to update transaction')
+        console.log("Update failed with message:", response.data.message)
       }
     } catch (error) {
-      setSubmitError(error.response?.data?.message || 'Failed to update transaction: ' + error.message)
+      const errorMessage = error.response?.data?.message || error.message || 'Unknown error'
+      setSubmitError(`Failed to update transaction: ${errorMessage}`)
+      console.error("Update error:", error.response?.data || error)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }, [selectedAccountId, amount, note, date, transaction.id, transaction.type, navigation])
+
+  const handleCategorySelect = useCallback((category: Category) => {
+    console.log("Category selected:", category)
+    setSelectedCategory(category)
+    setShowCategories(false)
+    setTimeout(() => handleUpdateTransaction(category), 100) // Slight delay to ensure state settles
+  }, [handleUpdateTransaction])
+
+  const handleDeleteTransaction = async () => {
+    try {
+      setIsSubmitting(true)
+      const token = await AsyncStorage.getItem('@access_token')
+      
+      console.log("Deleting transaction:", transaction.id)
+      await axios.delete(`${API_BASE_URL}/transactions/${transaction.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      console.log("Transaction deleted successfully")
+      navigation.goBack()
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Failed to delete transaction'
+      setSubmitError(errorMessage)
+      console.error("Delete error:", error.response?.data || error)
     } finally {
       setIsSubmitting(false)
     }
@@ -282,7 +323,7 @@ export default function EditIncome() {
       case "×":
         return first * second
       case "÷":
-        return second !== 0 ? first / second : NaN // Handle division by zero
+        return second !== 0 ? first / second : NaN
       default:
         return second
     }
@@ -325,27 +366,35 @@ export default function EditIncome() {
   }
 
   const renderCategoryItem = ({ item }: { item: Category }) => {
+    const isCustomIcon = item.icon.includes('-alt') || 
+                        item.icon === 'shopping-basket' ||
+                        item.icon === 'glass-martini-alt'
+
     return (
       <TouchableOpacity
         style={[
           styles.categoryCard,
           selectedCategory?.id === item.id && styles.selectedCategoryCard
         ]}
-        onPress={() => {
-          setSelectedCategory(item)
-          setShowCategories(false)
-          handleUpdateTransaction(item)
-        }}
+        onPress={() => handleCategorySelect(item)}
         disabled={isSubmitting}
       >
         <View style={[styles.iconContainer, { backgroundColor: `${item.color}20` }]}>
-          <RenderIcon 
-            icon={item.icon} 
-            type={item.type} 
-            size={width * 0.06} 
-            color={item.color} 
-            style={styles.categoryIcon}
-          />
+          {isCustomIcon ? (
+            <FontAwesome5 
+              name={item.icon.replace('-alt', '')}
+              size={width * 0.06}
+              color={item.color} 
+              style={styles.categoryIcon}
+            />
+          ) : (
+            <MaterialCommunityIcons 
+              name={item.icon} 
+              size={width * 0.06}
+              color={item.color} 
+              style={styles.categoryIcon}
+            />
+          )}
         </View>
         <Text style={styles.categoryCardText}>{item.name}</Text>
       </TouchableOpacity>
@@ -398,9 +447,9 @@ export default function EditIncome() {
         <TouchableOpacity onPress={goBack} style={styles.backButton}>
           <Icon name="arrow-back" color={theme.colors.neutral.surface} size={width * 0.06} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Edit income</Text>
-        <TouchableOpacity style={styles.refreshButton} onPress={handleClear}>
-          <Icon name="refresh" color={theme.colors.neutral.surface} size={width * 0.06} />
+        <Text style={styles.headerTitle}>Edit Expense</Text>
+        <TouchableOpacity onPress={handleDeleteTransaction} style={styles.deleteButton}>
+          <Icon name="delete" color={theme.colors.neutral.surface} size={width * 0.06} />
         </TouchableOpacity>
       </View>
 
@@ -523,7 +572,7 @@ const styles = StyleSheet.create({
     fontSize: width * 0.05,
     fontWeight: "500",
   },
-  refreshButton: {
+  deleteButton: {
     padding: width * 0.02,
   },
   dateContainer: {

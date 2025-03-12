@@ -3,13 +3,13 @@
 import { useState, useEffect } from "react"
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, ActivityIndicator, Platform, Dimensions } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
-import { useNavigation } from "@react-navigation/native"
+import { useNavigation, useRoute } from "@react-navigation/native"
 import Icon from "react-native-vector-icons/MaterialIcons"
 import { theme } from "../../../theme/theme"
 import DateTimePicker from "@react-native-community/datetimepicker"
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import axios from 'axios'
-import { RenderIcon } from "./RenderIcon" // Import the new RenderIcon component
+import { RenderIcon } from "./RenderIcon" // Adjust path as needed
 
 // Get screen dimensions
 const { width, height } = Dimensions.get('window')
@@ -25,13 +25,17 @@ interface Category {
   isIncome?: boolean
 }
 
-export default function AddExpense() {
+interface AddTransactionRouteParams {
+  transactionType: 'income' | 'expense'
+}
+
+export default function AddTransaction() {
   const [showCategories, setShowCategories] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [amount, setAmount] = useState("")
-  const [note, setNote] = useState("Add expense")
+  const [note, setNote] = useState("") // Initialize note as empty
   const [currentDate, setCurrentDate] = useState(() => {
     const date = new Date()
     const options = { weekday: "long", day: "numeric", month: "long", year: "numeric" }
@@ -53,6 +57,8 @@ export default function AddExpense() {
   const [waitingForSecondOperand, setWaitingForSecondOperand] = useState(false)
 
   const navigation = useNavigation()
+  const route = useRoute()
+  const { transactionType } = route.params as AddTransactionRouteParams
 
   const API_BASE_URL = Platform.select({
     web: process.env.WEB_PUBLIC_API,
@@ -110,12 +116,11 @@ export default function AddExpense() {
           setError("No authentication token found")
           return
         }
-        const response = await axios.get(`${API_BASE_URL}/categories/type/Expense`, {
+        const response = await axios.get(`${API_BASE_URL}/categories/type/${transactionType === 'income' ? 'Income' : 'Expense'}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         })
-        console.log("Fetched categories response (AddExpense):", response.data)
         if (isMounted) {
           if (Array.isArray(response.data)) {
             const validCategories = response.data.filter(
@@ -149,7 +154,7 @@ export default function AddExpense() {
     return () => {
       isMounted = false
     }
-  }, [showCategories])
+  }, [showCategories, transactionType])
 
   const handleCreateTransaction = async (category: Category) => {
     try {
@@ -183,8 +188,8 @@ export default function AddExpense() {
         accountId: selectedAccountId,
         categoryId: category.id,
         amount: parseFloat(amount),
-        type: 'expense',
-        note: note || "",
+        type: transactionType,
+        note: note, // Use the note state directly
         date: date.toISOString()
       }
 
@@ -201,7 +206,7 @@ export default function AddExpense() {
 
       if (response.data.success) {
         setAmount("")
-        setNote("Add expense")
+        setNote("") // Clear the note field
         setSelectedCategory(null)
         setShowCategories(false)
         navigation.goBack()
@@ -386,7 +391,7 @@ export default function AddExpense() {
         <TouchableOpacity onPress={goBack} style={styles.backButton}>
           <Icon name="arrow-back" color={theme.colors.neutral.surface} size={width * 0.06} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>New expense</Text>
+        <Text style={styles.headerTitle}>New {transactionType}</Text>
         <TouchableOpacity style={styles.refreshButton} onPress={handleClear}>
           <Icon name="refresh" color={theme.colors.neutral.surface} size={width * 0.06} />
         </TouchableOpacity>
@@ -439,7 +444,7 @@ export default function AddExpense() {
             style={styles.noteInput} 
             value={note} 
             onChangeText={setNote} 
-            placeholder="Add note" 
+            placeholder={`Add ${transactionType}`} // Use placeholder instead of setting note
           />
         </View>
       </View>
