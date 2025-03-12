@@ -19,7 +19,7 @@ import {
 import axios from 'axios';
 import { storage } from '../../utils/storage';
 import { theme } from '../../theme/theme';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { FontAwesome } from '@expo/vector-icons';
 
@@ -33,6 +33,7 @@ type UserProfile = {
   phoneNumber: string;
   gender: string;
   profilePicture?: string;
+  role: string;
 };
 
 // Add gender options
@@ -109,6 +110,13 @@ const Profile = () => {
         setProfile(response.data);
         setEditedProfile(response.data);
         await storage.setUser(response.data);
+        if (response.data.profilePicture) {
+          const fullImageUrl = getFullImageUrl(response.data.profilePicture);
+          console.log('Profile picture URL:', {
+            original: response.data.profilePicture,
+            full: fullImageUrl
+          });
+        }
       }
     } catch (error) {
       // Improved error logging
@@ -262,11 +270,24 @@ const Profile = () => {
     }
   };
 
-  // Add this helper function inside your component
+  // Fix the getFullImageUrl function to properly handle different URL formats
   const getFullImageUrl = (imageUrl) => {
     if (!imageUrl) return null;
+    
+    // Already a complete URL (starts with http/https)
     if (imageUrl.startsWith('http')) return imageUrl;
-    return `${process.env.EXPO_PUBLIC_API}${imageUrl}`;
+    
+    // Handle relative paths from the server
+    // Make sure we don't add double slashes
+    const baseUrl = process.env.EXPO_PUBLIC_API.endsWith('/')
+      ? process.env.EXPO_PUBLIC_API.slice(0, -1)
+      : process.env.EXPO_PUBLIC_API;
+      
+    const imagePath = imageUrl.startsWith('/')
+      ? imageUrl
+      : `/${imageUrl}`;
+      
+    return `${baseUrl}${imagePath}`;
   };
 
   // Pull-to-refresh handler
@@ -483,24 +504,41 @@ const Profile = () => {
             >
               <View style={styles.avatar}>
                 {localProfileImage ? (
-                  // Show local image preview immediately
                   <Image 
                     source={localProfileImage} 
-                    style={styles.avatarImage} 
+                    style={styles.avatar}
+                    onError={() => console.log('Error loading local profile image')}
                   />
                 ) : profile?.profilePicture ? (
                   <Image 
-                    source={{ uri: getFullImageUrl(profile?.profilePicture) }} 
-                    style={styles.avatarImage} 
+                    source={{ 
+                      uri: getFullImageUrl(profile.profilePicture),
+                      // Add cache control to prevent stale images
+                      cache: 'reload'
+                    }} 
+                    style={styles.avatar}
+                    onError={(e) => {
+                      console.log('Error loading profile image:', e.nativeEvent.error);
+                      // Could set a fallback image here
+                    }}
                   />
                 ) : (
-                  <FontAwesome 
-                    name="user-circle" 
-                    size={84} 
-                    color={theme.colors.primary.base} 
-                  />
+                  <View style={[styles.avatar, styles.placeholderAvatar]}>
+                    <Text style={styles.avatarText}>
+                      {profile?.firstName && profile?.lastName
+                        ? `${profile.firstName[0]}${profile.lastName[0]}`
+                        : profile?.username?.[0] || '?'}
+                    </Text>
+                  </View>
                 )}
               </View>
+              
+              {/* Verification badge for advisors */}
+              {profile?.role === 'ADVISOR' && (
+                <View style={styles.verificationBadge}>
+                  <MaterialIcons name="verified" size={24} color={theme.colors.primary.base} />
+                </View>
+              )}
             </TouchableOpacity>
           </View>
           
@@ -1209,6 +1247,31 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: theme.colors.primary.base,
     fontFamily: theme.fonts.medium,
+  },
+  verificationBadge: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 2,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    borderWidth: 2,
+    borderColor: theme.colors.neutral.surface,
+  },
+  placeholderAvatar: {
+    backgroundColor: '#f0f0f0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    fontSize: 48,
+    fontFamily: theme.fonts.bold,
+    color: theme.colors.neutral.textPrimary,
   },
 });
 

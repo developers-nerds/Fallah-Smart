@@ -170,6 +170,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 5,
+    maxWidth: '90%',
+    minWidth: 250,
   },
   iconContainer: {
     width: 100,

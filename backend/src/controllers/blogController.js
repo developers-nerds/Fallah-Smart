@@ -19,7 +19,7 @@ const blogController = {
           {
             model: Users,
             as: 'author',
-            attributes: ['id', 'username', 'firstName', 'lastName', 'profilePicture']
+            attributes: ['id', 'username', 'firstName', 'lastName', 'profilePicture', 'role']
           },
           {
             model: Media,
@@ -202,7 +202,7 @@ const blogController = {
           {
             model: Users,
             as: 'author',
-            attributes: ['id', 'username', 'firstName', 'lastName', 'profilePicture']
+            attributes: ['id', 'username', 'firstName', 'lastName', 'profilePicture', 'role']
           },
           {
             model: Media,
@@ -834,10 +834,11 @@ const blogController = {
         };
       });
 
+      // Without additional role info processing
       res.status(200).json(postsWithCounts);
     } catch (error) {
       console.error('Error fetching posts:', error);
-      res.status(500).json({ message: 'Error fetching posts', error: error.message });
+      res.status(500).json({ message: 'Failed to fetch posts', error: error.message });
     }
   },
 

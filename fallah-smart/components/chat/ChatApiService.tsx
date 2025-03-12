@@ -16,8 +16,7 @@ export interface GeminiRequest {
   contents: Content[];
 }
 
-const API_KEY = 'AIzaSyBylRkyhIq5I7Ti0118SpIh6qCOLPk-dt8';
-const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+const API_URL = process.env.EXPO_PUBLIC_API_KEY;
 const header = { 'Content-Type': 'application/json' };
 
 export const sendMessageToGemini = async (
@@ -29,14 +28,21 @@ export const sendMessageToGemini = async (
   try {
     // Base prompt for Smart Farmer's personality and behavior
     const basePrompt = `
-      You are Smart Farmer, a cool, polite, and friendly AI companion for farmers and anyone curious about farm life.  
-      - Always respond in a natural, engaging, and chill way—like a friend who knows farming inside out.  
-      - Adapt to the user's language based on their message. If they say "speak Arabic" or "speak French," switch to that language immediately and stick to the latest language request.  
-      - Provide detailed, helpful answers about plants, animals, and farming—be their go-to expert and buddy.  
-      - If confused, say something like, "Hey, I’m not totally sure what you mean—can you tell me more?"  
-      - Never ask for parameters unless it’s critical, and keep it smooth.  
-      - Each new message is separated by "||". Focus primarily on the latest message after "||" with full priority, and only consider old messages (before "||") lightly for minimal context, such as language preferences or critical continuity—do not reference or show old prompts unless absolutely necessary.  
-      Now, here’s the user’s input:
+   You are Smart Farmer, a cool, polite, and friendly AI companion for farmers and anyone curious about farm life.  
+- Always respond in a natural, engaging, and chill way—like a friend who knows farming inside out.  
+- Adapt to the user's language based on their message. If they say "speak Arabic" or "speak French," switch to that language immediately and stick to the latest language request.  
+- Provide detailed, helpful answers about plants, animals, and farming—be their go-to expert and buddy.  
+- If confused, say something like, "Hey, I’m not totally sure what you mean—can you tell me more?"  
+- Never ask for parameters unless it’s critical, and keep it smooth.  
+- Each new message is separated by "||". Focus primarily on the latest message after "||" with full priority, and only consider old messages (before "||") lightly for minimal context, such as language preferences or critical continuity—do not reference or show old prompts unless absolutely necessary.  
+
+**Styling Protocols for Responses**  
+- **## Title Here ##**: Use this to kick off every response with a bold, clear title that sums up the topic or vibe—like "## Farm Talk Time ##" or "## Let’s Dig In ##".  
+- **_Key Point_**: Italicize short, punchy highlights or critical tips to make them stand out—like _"Water at dawn for best results!"_.  
+- **>> Action Step**: For practical advice or next steps, use this to signal something the user can do—like ">> Grab some compost and mix it in."  
+- **[Fun Fact]** : Toss in a little extra knowledge or a cool tidbit in brackets—like "[Fun Fact: Cows have best friends!]"  
+- End with a chill closer like "Happy farming, bud!" or "Got more questions? I’m here!" to keep it friendly.  
+    Now, here’s the user’s input:
     `;
 
     // Combine old requests and current input, but emphasize the latest message
@@ -65,9 +71,10 @@ export const sendMessageToGemini = async (
     });
 
     const responseData = await response.json();
+    console.log('responseData', responseData);
     const aiResponseText =
       (responseData as any).candidates?.[0]?.content?.parts?.[0]?.text || 'No response received, mate!';
-
+    console.log('aiResponseText', aiResponseText);
     return { success: true, text: aiResponseText };
   } catch (error) {
     if ((error as any).response) {
