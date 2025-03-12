@@ -260,7 +260,7 @@ const parseTextForHashtags = (text) => {
   return result;
 };
 
-// Add this function to debug and handle profile picture display
+// Add this helper function to get profile picture URL
 const getProfilePictureUrl = (postData) => {
   // Log the data we're working with for debugging
   console.log("Getting profile picture from:", {
@@ -270,30 +270,33 @@ const getProfilePictureUrl = (postData) => {
     authorProfilePic: postData?.author?.profilePicture
   });
   
-  // Try multiple possible sources for profile picture
+  // Try to get profile picture from user or author
   const profilePicture = 
     postData?.user?.profilePicture || 
-    postData?.author?.profilePicture ||
-    postData?.user?.profileImage ||
-    postData?.author?.profileImage;
+    postData?.author?.profilePicture;
   
-  if (profilePicture) {
-    console.log("Found profile picture:", profilePicture);
-    return getImageUrl(profilePicture);
+  if (!profilePicture) {
+    return placeholderImage;
   }
   
-  console.log("No profile picture found, using placeholder");
-  return placeholderImage;
+  return getImageUrl(profilePicture);
 };
 
-// In your formatUserName function or add a new function to check for advisor role
-const isUserAdvisor = (user, author, currentUser) => {
-  // Check from post data or current user data if this is the post author
-  return (
+// Add this improved function to check for advisor role
+const isUserAdvisor = (user, author) => {
+  // Debug log the data we're checking
+  console.log('Checking advisor status for:', {
+    userRole: user?.role,
+    authorRole: author?.role,
+  });
+  
+  // Check from post data if this is an advisor - use uppercase comparison
+  const isAdvisor = 
     user?.role?.toUpperCase() === 'ADVISOR' || 
-    author?.role?.toUpperCase() === 'ADVISOR' ||
-    (currentUser?.id === (user?.id || author?.id) && currentUser?.role?.toUpperCase() === 'ADVISOR')
-  );
+    author?.role?.toUpperCase() === 'ADVISOR';
+  
+  console.log('Is advisor result:', isAdvisor);
+  return isAdvisor;
 };
 
 const PostDetail = ({ route, navigation }) => {
@@ -329,16 +332,28 @@ const PostDetail = ({ route, navigation }) => {
   // Fetch post details including comments
   const fetchPostDetails = async () => {
     try {
-      // Get user data from storage
-      const userData = await storage.getUser();
-      const token = userData?.token;
-      setCurrentUser(userData);
-
-      // Make API request with token if available
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
-      const response = await axios.get(`${API_URL}/posts/${postId}`, { headers });
+      setLoading(true);
       
+      // Get current user data for authentication
+      const userData = await storage.getUser();
+      setCurrentUser(userData);
+      console.log('Current user data:', userData);
+      
+      // Make authenticated API request
+      const token = userData?.token;
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      
+      const response = await axios.get(`${API_URL}/posts/${postId}`, { headers });
       const postData = response.data;
+      
+      // Debug log the complete post data to see if roles are included
+      console.log('Post author data:', {
+        user: postData.user,
+        author: postData.author,
+        hasUserRole: !!postData.user?.role,
+        hasAuthorRole: !!postData.author?.role
+      });
+      
       setPost(postData);
       setContent(postData.content);
       setLikeCount(postData.likesCount || 0);
@@ -608,34 +623,69 @@ const PostDetail = ({ route, navigation }) => {
     return `${Math.floor(diffInSeconds / 604800)}w`;
   };
 
-  // Render a comment
+  // Update the renderComment function
   const renderComment = ({ item }) => {
-    const getProfilePictureUrl = (profilePicture) => {
-      return profilePicture ? getImageUrl(profilePicture) : null;
-    };
-
+    // Get user data from the comment
+    const userData = item.user || item.author || {};
+    
+    // Debug log user data including role
+    console.log('Comment user data:', {
+      username: userData.username,
+      role: userData.role,
+      isAdvisor: isUserAdvisor(item.user, item.author)
+    });
+    
     return (
       <View style={styles.commentContainer}>
         <View style={styles.commentHeader}>
-          <View style={styles.commentAuthorContainer}>
-            <Text style={styles.commentUsername}>
-              {formatUserName(item.user, item.author)}
-            </Text>
+          {/* Comment author avatar */}
+          {userData.profilePicture ? (
+            <Image
+              source={{ uri: getImageUrl(userData.profilePicture) }}
+              style={styles.commentAvatar}
+            />
+          ) : (
+            <View style={styles.commentAvatarPlaceholder}>
+              <Text style={styles.commentAvatarInitial}>
+                {(userData.firstName || userData.username || 'A').charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
+          
+          <View style={styles.commentContentContainer}>
+            {/* Comment author name with advisor badge */}
+            <View style={styles.commentAuthorRow}>
+              <Text style={styles.commentUsername}>
+                {formatUserName(item.user, item.author)}
+              </Text>
               
-            {/* Verify icon for advisor comments */}
-            {isUserAdvisor(item.user, item.author, currentUser) && (
-              <MaterialIcons 
-                name="verified" 
-                size={14} 
-                color="#1F6AFF" 
-                style={{ marginLeft: 4 }}
-              />
+              {/* Verified icon for advisor comments */}
+              {isUserAdvisor(item.user, item.author) && (
+                <MaterialIcons 
+                  name="verified" 
+                  size={14} 
+                  color="#1F6AFF" 
+                  style={{ marginLeft: 4 }}
+                />
+              )}
+            </View>
+            
+            {/* Comment content */}
+            <Text style={styles.commentText}>{item.content}</Text>
+            
+            {/* Comment images */}
+            {item.media && item.media.length > 0 && (
+              <CommentImageGallery media={item.media} />
             )}
+            
+            {/* Comment footer with timestamp */}
+            <View style={styles.commentFooter}>
+              <Text style={styles.commentTime}>
+                {timeAgo(item.createdAt)}
+              </Text>
+            </View>
           </View>
-          <Text style={styles.commentTime}>{timeAgo(item.createdAt)}</Text>
         </View>
-        
-        {/* Rest of comment content... */}
       </View>
     );
   };
@@ -791,15 +841,24 @@ const PostDetail = ({ route, navigation }) => {
                 {/* Author info section with verified badge */}
                 <View style={styles.postAuthorSection}>
                   <View style={styles.authorContainer}>
-                    {/* Author image with better error handling */}
-                    <Image 
-                      source={{ uri: getProfilePictureUrl(post) }}
-                      style={styles.authorAvatar}
-                      onError={(e) => {
-                        console.log("Profile image load error:", e.nativeEvent.error);
-                        // You could set a state to use a fallback here if needed
-                      }}
-                    />
+                    {/* Author avatar */}
+                    <View style={styles.authorImageWrapper}>
+                      {post?.user?.profilePicture || post?.author?.profilePicture ? (
+                        <Image
+                          source={{ uri: getProfilePictureUrl(post) }}
+                          style={styles.authorImage}
+                          onError={(e) => {
+                            console.log("Profile image load error:", e.nativeEvent.error);
+                          }}
+                        />
+                      ) : (
+                        <View style={styles.defaultAvatar}>
+                          <Text style={styles.avatarText}>
+                            {(formatUserName(post?.user, post?.author)).charAt(0).toUpperCase()}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
                     
                     <View style={styles.authorDetails}>
                       <View style={styles.authorNameRow}>
@@ -808,11 +867,11 @@ const PostDetail = ({ route, navigation }) => {
                         </Text>
                         
                         {/* Show verified icon for advisors */}
-                        {isUserAdvisor(post?.user, post?.author, currentUser) && (
+                        {isUserAdvisor(post?.user, post?.author) && (
                           <MaterialIcons 
                             name="verified" 
                             size={16} 
-                            color="#1DA1F2"
+                            color="#1F6AFF"
                             style={{ marginLeft: 4 }}
                           />
                         )}
@@ -1615,6 +1674,70 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: theme.fonts.regular,
     color: theme.colors.neutral.textSecondary,
+  },
+  authorImageWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 10,
+    overflow: 'hidden',
+  },
+  authorImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 20,
+  },
+  defaultAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.primary.base,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarText: {
+    fontSize: 20,
+    color: 'white',
+    fontFamily: theme.fonts.bold,
+  },
+  commentAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
+  commentAvatarPlaceholder: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: theme.colors.primary.base,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  commentAvatarInitial: {
+    fontSize: 16,
+    color: 'white',
+    fontFamily: theme.fonts.bold,
+  },
+  commentContentContainer: {
+    flex: 1,
+    marginLeft: 10,
+    backgroundColor: theme.colors.neutral.gray.lighter,
+    borderRadius: 16,
+    padding: 12,
+  },
+  commentAuthorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  commentText: {
+    fontSize: 14,
+    fontFamily: theme.fonts.regular,
+    color: theme.colors.neutral.textPrimary,
+    lineHeight: 20,
+  },
+  commentFooter: {
+    flexDirection: 'row',
+    marginTop: 6,
   },
 });
 
