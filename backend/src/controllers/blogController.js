@@ -71,7 +71,7 @@ const blogController = {
           {
             model: Users,
             as: 'author',
-            attributes: ['id', 'username', 'firstName', 'lastName', 'profilePicture']
+            attributes: ['id', 'username', 'firstName', 'lastName', 'profilePicture', 'role']
           },
           {
             model: Media,
@@ -85,7 +85,7 @@ const blogController = {
               {
                 model: Users,
                 as: 'user',
-                attributes: ['id', 'username', 'firstName', 'lastName', 'profilePicture']
+                attributes: ['id', 'username', 'firstName', 'lastName', 'profilePicture', 'role']
               },
               {
                 model: Media,

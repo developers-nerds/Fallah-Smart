@@ -29,6 +29,7 @@ import { theme } from '../../theme/theme';
 import { storage } from '../../utils/storage';
 
 import * as ImagePicker from 'expo-image-picker';
+import { LinearGradient } from 'expo-linear-gradient';
 
 // Update API URL constants
 const BASE_URL = process.env.EXPO_PUBLIC_API;
@@ -95,63 +96,93 @@ const PostItem = ({ item, navigation, handlePostLike, handleCommentAdded, timeAg
   // Get the user data from the post
   const userData = item.user || item.author || {};
   
-  // Log the complete user data to see what we're working with
-  console.log('Complete user data for post:', JSON.stringify(userData));
-  
-  // More robust check for advisor role - check from multiple possible sources
-  const isAdvisor = 
-    userData.role?.toUpperCase() === 'ADVISOR' || 
-    (currentUser?.id === userData.id && currentUser?.role?.toUpperCase() === 'ADVISOR');
-  
-  // Log for debugging if needed
-  console.log(`Post by ${userData.username || 'unknown'}, role: ${userData.role}, isAdvisor: ${isAdvisor}`);
+  // Check if this post is from an advisor
+  const isAdvisor = userData.role?.toUpperCase() === 'ADVISOR';
   
   return (
     <TouchableOpacity
-      style={styles.postCard}
-      activeOpacity={0.9}
+      style={[
+        styles.postCard,
+        // Apply refined styling for advisor posts
+        isAdvisor && styles.advisorPostCard
+      ]}
+      activeOpacity={0.8}
       onPress={() => navigation.navigate('PostDetail', { postId: item.id })}
     >
-      {/* Post Header with author info and category chip */}
-      <View style={styles.postHeader}>
+      {/* Elegant advisor badge with refined styling */}
+      {isAdvisor && (
+        <View style={styles.advisorBadge}>
+          <LinearGradient
+            colors={['#3172FF', '#1F6AFF']}
+            start={[0, 0]}
+            end={[1, 0]}
+            style={styles.advisorBadgeGradient}
+          >
+            <MaterialIcons name="verified" size={14} color="#FFFFFF" />
+            <Text style={styles.advisorBadgeText}>ADVISOR</Text>
+          </LinearGradient>
+        </View>
+      )}
+      
+      {/* Post Header with enhanced styling */}
+      <View style={[
+        styles.postHeader,
+        isAdvisor && styles.advisorPostHeader
+      ]}>
         <View style={styles.authorContainer}>
-          {/* Author avatar */}
-          <View style={styles.authorImageWrapper}>
+          {/* Author avatar with elegant styling */}
+          <View style={[
+            styles.authorImageWrapper,
+            isAdvisor && styles.advisorImageWrapper
+          ]}>
             {userData.profilePicture ? (
               <Image 
                 source={{ uri: getImageUrl(userData.profilePicture) }} 
-                style={styles.authorImage} 
+                style={styles.authorImage}
               />
             ) : (
-              <View style={styles.defaultAvatar}>
-                <Text style={styles.avatarText}>
-                  {(userData.username || userData.firstName || 'U').charAt(0).toUpperCase()}
+              <LinearGradient
+                colors={isAdvisor ? ['#4F8DFF', '#1F6AFF'] : ['#6D7B93', '#505A69']}
+                style={[
+                  styles.authorImagePlaceholder,
+                  isAdvisor && styles.advisorImagePlaceholder
+                ]}
+              >
+                <Text style={styles.authorImageInitial}>
+                  {(userData.firstName || userData.username || 'A').charAt(0).toUpperCase()}
                 </Text>
-              </View>
+              </LinearGradient>
             )}
           </View>
           
-          {/* Author name and post time */}
           <View style={styles.authorInfo}>
             <View style={styles.nameRow}>
-              <Text style={styles.authorName}>
+              <Text style={[
+                styles.authorName,
+                isAdvisor && styles.advisorName
+              ]}>
                 {userData.username || 
                   (userData.firstName && userData.lastName 
                     ? `${userData.firstName} ${userData.lastName}`
                     : 'Anonymous')}
               </Text>
               
-              {/* Verified icon for ADVISOR role */}
+              {/* Refined verification icon with subtle animation */}
               {isAdvisor && (
                 <MaterialIcons 
                   name="verified" 
                   size={16} 
                   color="#1F6AFF" 
-                  style={{ marginLeft: 4 }}
+                  style={styles.verifiedIcon}
                 />
               )}
             </View>
-            <Text style={styles.postTime}>{timeAgo(item.createdAt)}</Text>
+            <Text style={[
+              styles.postTime,
+              isAdvisor && styles.advisorPostTime
+            ]}>
+              {timeAgo(item.createdAt)}
+            </Text>
           </View>
         </View>
         
@@ -164,14 +195,23 @@ const PostItem = ({ item, navigation, handlePostLike, handleCommentAdded, timeAg
         )}
       </View>
       
-      {/* Post content with modified styling for advisors */}
-      <View style={styles.postContent}>
-        {/* Title */}
-        <Text style={styles.postTitle}>{item.title || ''}</Text>
+      {/* Content with refined typography for advisor posts */}
+      <View style={[
+        styles.postContent,
+        isAdvisor && styles.advisorPostContent
+      ]}>
+        <Text style={[
+          styles.postTitle,
+          isAdvisor && styles.advisorPostTitle
+        ]}>
+          {item.title || ''}
+        </Text>
         
-        {/* Description */}
         <Text 
-          style={styles.postDescription} 
+          style={[
+            styles.postDescription,
+            isAdvisor && styles.advisorPostDescription
+          ]} 
           numberOfLines={3}
         >
           {item.description || ''}
@@ -1841,6 +1881,99 @@ const styles = StyleSheet.create({
   becomeAdvisorButton: {
     bottom: 80, // Lower position (was 150, now 80)
     backgroundColor: '#1F6AFF', // Different color to distinguish it
+  },
+  advisorPostCard: {
+    borderWidth: 1,
+    borderColor: '#e8f1ff',
+    backgroundColor: '#f2f8ff',
+    borderRadius: 12,
+    shadowColor: '#1F6AFF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+    marginVertical: 10,
+    overflow: 'hidden',
+  },
+  advisorPostHeader: {
+    backgroundColor: 'transparent',
+    borderBottomWidth: 0,
+    paddingVertical: 12,
+  },
+  advisorImageWrapper: {
+    borderWidth: 0,
+    shadowColor: 'transparent',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+  },
+  advisorImagePlaceholder: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#1a73e8',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  advisorImageInitial: {
+    color: 'white',
+    fontSize: 18,
+    fontFamily: theme.fonts.bold,
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 1,
+  },
+  advisorName: {
+    color: '#1a73e8',
+    fontFamily: theme.fonts.semibold,
+    fontSize: 16,
+  },
+  verifiedIcon: {
+    marginLeft: 4,
+    color: '#1a73e8',
+  },
+  advisorPostTime: {
+    color: '#5D82B3',
+  },
+  advisorPostContent: {
+    padding: 16,
+    backgroundColor: 'rgba(240, 247, 255, 0.3)',
+  },
+  advisorPostTitle: {
+    color: '#0B3D96',
+    fontFamily: theme.fonts.bold,
+    fontSize: 18,
+    letterSpacing: 0.3,
+  },
+  advisorPostDescription: {
+    color: '#2B5C9E',
+    fontFamily: theme.fonts.regular,
+    lineHeight: 22,
+  },
+  advisorBadge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    borderRadius: 50,
+    overflow: 'hidden',
+    elevation: 2,
+    zIndex: 10,
+  },
+  advisorBadgeGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 50,
+    backgroundColor: '#1a73e8',
+  },
+  advisorBadgeText: {
+    color: 'white',
+    fontSize: 14,
+    fontFamily: theme.fonts.medium,
+    marginLeft: 6,
   },
 });
 
