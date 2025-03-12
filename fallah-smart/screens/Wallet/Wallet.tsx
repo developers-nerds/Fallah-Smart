@@ -12,12 +12,13 @@ import {
   ActivityIndicator,
   Dimensions,
   Platform,
+  Modal,
+  FlatList,
 } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useNavigation, NavigationProp as NavProp, useFocusEffect } from "@react-navigation/native"
 import Icon from "react-native-vector-icons/MaterialIcons"
 import { FontAwesome5 } from "@expo/vector-icons"
-import DateTimePicker from "@react-native-community/datetimepicker"
 import { ChartView } from "./components/ChartView"
 import { CategoryList } from "./components/CategoryList"
 import AsyncStorage from "@react-native-async-storage/async-storage"
@@ -63,14 +64,16 @@ const HomeScreen: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [screenWidth, setScreenWidth] = useState(Dimensions.get("window").width)
-  const [filter, setFilter] = useState<"Daily" | "Weekly" | "Monthly" | "Yearly" | "All" | "Interval">("Monthly")
+  const [filter, setFilter] = useState<"Daily" | "Weekly" | "Monthly" | "Yearly" | "All">("Monthly")
   const [startDate, setStartDate] = useState<Date | null>(null)
   const [endDate, setEndDate] = useState<Date | null>(null)
   const [dateDisplay, setDateDisplay] = useState("")
-  const [showMonthPicker, setShowMonthPicker] = useState(false)
-  const [showYearPicker, setShowYearPicker] = useState(false)
+  const [showMonthSelector, setShowMonthSelector] = useState(false)
+  const [showYearSelector, setShowYearSelector] = useState(false)
   const [selectedMonthDate, setSelectedMonthDate] = useState(new Date())
   const [selectedYearDate, setSelectedYearDate] = useState(new Date())
+  const [selectedCategoryTooltip, setSelectedCategoryTooltip] = useState<Category | null>(null)
+  const [tooltipAnim] = useState(new Animated.Value(0)) // Animation for tooltip
 
   const navigation = useNavigation<NavProp<RootStackParamList>>()
 
@@ -210,7 +213,7 @@ const HomeScreen: React.FC = () => {
     }
   }
 
-  const setDateRange = (filterType: "Daily" | "Weekly" | "Monthly" | "Yearly" | "All" | "Interval") => {
+  const setDateRange = (filterType: "Daily" | "Weekly" | "Monthly" | "Yearly" | "All") => {
     const today = new Date()
     let newStartDate: Date | null = null
     let newEndDate: Date | null = null
@@ -218,31 +221,32 @@ const HomeScreen: React.FC = () => {
 
     if (filterType === "Daily") {
       newStartDate = new Date(today)
+      newStartDate.setHours(0, 0, 0, 0)
       newEndDate = new Date(today)
+      newEndDate.setHours(23, 59, 59, 999)
       displayText = today.toLocaleDateString("en-US", {
         weekday: "long",
         month: "long",
         day: "numeric",
-        // year: "numeric",
       })
     } else if (filterType === "Weekly") {
       newStartDate = new Date(today)
       newStartDate.setDate(today.getDate() - 7)
-      newEndDate = today
+      newStartDate.setHours(0, 0, 0, 0) // Set to midnight of start day
+      newEndDate = new Date(today)
+      newEndDate.setHours(23, 59, 59, 999) // Set to end of today's day
       displayText = `${newStartDate.toLocaleDateString("en-US", {
-        // weekday: "short",
         day: "numeric",
         month: "long",
-        // year: "numeric",
       })} - ${newEndDate.toLocaleDateString("en-US", {
-        // weekday: "long",
         month: "long",
         day: "numeric",
-        // year: "numeric",
       })}`
     } else if (filterType === "Monthly") {
       newStartDate = new Date(today.getFullYear(), today.getMonth(), 1)
+      newStartDate.setHours(0, 0, 0, 0)
       newEndDate = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+      newEndDate.setHours(23, 59, 59, 999)
       setSelectedMonthDate(newStartDate)
       displayText = newStartDate.toLocaleDateString("en-US", {
         month: "long",
@@ -250,16 +254,15 @@ const HomeScreen: React.FC = () => {
       })
     } else if (filterType === "Yearly") {
       newStartDate = new Date(today.getFullYear(), 0, 1)
+      newStartDate.setHours(0, 0, 0, 0)
       newEndDate = new Date(today.getFullYear(), 11, 31)
+      newEndDate.setHours(23, 59, 59, 999)
       setSelectedYearDate(newStartDate)
       displayText = newStartDate.getFullYear().toString()
     } else if (filterType === "All") {
       newStartDate = null
       newEndDate = null
       displayText = "All"
-    } else if (filterType === "Interval") {
-      // Custom interval handled separately
-      return
     }
 
     setStartDate(newStartDate)
@@ -275,54 +278,53 @@ const HomeScreen: React.FC = () => {
     }
   }
 
-  const handleFilterSelect = (filterType: "Daily" | "Weekly" | "Monthly" | "Yearly" | "All" | "Interval") => {
+  const handleFilterSelect = (filterType: "Daily" | "Weekly" | "Monthly" | "Yearly" | "All") => {
     setFilter(filterType)
-    if (filterType !== "Interval") {
-      setDateRange(filterType)
-    }
+    setDateRange(filterType)
     setSidebarVisible(false)
   }
 
-  const onMonthChange = (event: any, selectedDate?: Date) => {
-    setShowMonthPicker(false)
-    if (selectedDate) {
-      setSelectedMonthDate(selectedDate)
-      const newStartDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1)
-      const newEndDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0)
-      setStartDate(newStartDate)
-      setEndDate(newEndDate)
-      setDateDisplay(newStartDate.toLocaleDateString("en-US", {
-        month: "long",
-        year: "numeric",
-      }))
-      if (selectedAccountId) {
-        fetchTransactions(
-          selectedAccountId,
-          "monthly",
-          newStartDate.toISOString(),
-          newEndDate.toISOString()
-        )
-      }
+  const handleMonthSelect = (month: number) => {
+    const year = new Date().getFullYear() // Use current year for month selection
+    const newStartDate = new Date(year, month, 1)
+    newStartDate.setHours(0, 0, 0, 0)
+    const newEndDate = new Date(year, month + 1, 0)
+    newEndDate.setHours(23, 59, 59, 999)
+    setStartDate(newStartDate)
+    setEndDate(newEndDate)
+    setSelectedMonthDate(newStartDate)
+    setDateDisplay(newStartDate.toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    }))
+    setShowMonthSelector(false)
+    if (selectedAccountId) {
+      fetchTransactions(
+        selectedAccountId,
+        "monthly",
+        newStartDate.toISOString(),
+        newEndDate.toISOString()
+      )
     }
   }
 
-  const onYearChange = (event: any, selectedDate?: Date) => {
-    setShowYearPicker(false)
-    if (selectedDate) {
-      setSelectedYearDate(selectedDate)
-      const newStartDate = new Date(selectedDate.getFullYear(), 0, 1)
-      const newEndDate = new Date(selectedDate.getFullYear(), 11, 31)
-      setStartDate(newStartDate)
-      setEndDate(newEndDate)
-      setDateDisplay(newStartDate.getFullYear().toString())
-      if (selectedAccountId) {
-        fetchTransactions(
-          selectedAccountId,
-          "yearly",
-          newStartDate.toISOString(),
-          newEndDate.toISOString()
-        )
-      }
+  const handleYearSelect = (year: number) => {
+    const newStartDate = new Date(year, 0, 1)
+    newStartDate.setHours(0, 0, 0, 0)
+    const newEndDate = new Date(year, 11, 31)
+    newEndDate.setHours(23, 59, 59, 999)
+    setStartDate(newStartDate)
+    setEndDate(newEndDate)
+    setSelectedYearDate(newStartDate)
+    setDateDisplay(year.toString())
+    setShowYearSelector(false)
+    if (selectedAccountId) {
+      fetchTransactions(
+        selectedAccountId,
+        "yearly",
+        newStartDate.toISOString(),
+        newEndDate.toISOString()
+      )
     }
   }
 
@@ -330,7 +332,7 @@ const HomeScreen: React.FC = () => {
   useFocusEffect(
     useCallback(() => {
       fetchAccounts()
-      setDateRange("Daily") // Set default filter to Monthly
+      setDateRange("Monthly") // Set default filter to Monthly
     }, [])
   )
 
@@ -384,6 +386,49 @@ const HomeScreen: React.FC = () => {
     })
   }
 
+  const handleCategoryIconPress = (category: Category) => {
+    setSelectedCategoryTooltip(category)
+    Animated.spring(tooltipAnim, {
+      toValue: 1,
+      friction: 5,
+      useNativeDriver: true,
+    }).start()
+  }
+
+  const closeTooltip = () => {
+    Animated.timing(tooltipAnim, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => setSelectedCategoryTooltip(null))
+  }
+
+  const months = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ]
+
+  const currentYear = new Date().getFullYear()
+  const years = Array.from({ length: 21 }, (_, i) => currentYear - 10 + i) // ±10 years from current year
+
+  const renderMonthItem = ({ item, index }: { item: string, index: number }) => (
+    <TouchableOpacity
+      style={styles.pickerItem}
+      onPress={() => handleMonthSelect(index)}
+    >
+      <Text style={styles.pickerItemText}>{item}</Text>
+    </TouchableOpacity>
+  )
+
+  const renderYearItem = ({ item }: { item: number }) => (
+    <TouchableOpacity
+      style={styles.pickerItem}
+      onPress={() => handleYearSelect(item)}
+    >
+      <Text style={styles.pickerItemText}>{item}</Text>
+    </TouchableOpacity>
+  )
+
   const currentAccount = accounts.find((acc) => acc.id === selectedAccountId)
   const displayedBalance = currentAccount?.balance?.toFixed(2) || "0.00"
   const filteredBalance = allTransactions
@@ -431,9 +476,6 @@ const HomeScreen: React.FC = () => {
           <TouchableOpacity style={styles.sidebarItem} onPress={() => handleFilterSelect("All")}>
             <Text style={styles.sidebarText}>All</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.sidebarItem} onPress={() => handleFilterSelect("Interval")}>
-            <Text style={styles.sidebarText}>Custom Interval</Text>
-          </TouchableOpacity>
         </View>
       )}
 
@@ -441,8 +483,8 @@ const HomeScreen: React.FC = () => {
         <View style={styles.monthContainer}>
           <TouchableOpacity
             onPress={() => {
-              if (filter === "Monthly") setShowMonthPicker(true)
-              if (filter === "Yearly") setShowYearPicker(true)
+              if (filter === "Monthly") setShowMonthSelector(true)
+              if (filter === "Yearly") setShowYearSelector(true)
             }}
             disabled={filter !== "Monthly" && filter !== "Yearly"}
           >
@@ -450,23 +492,51 @@ const HomeScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        {showMonthPicker && (
-          <DateTimePicker
-            value={selectedMonthDate}
-            mode="date"
-            display="default"
-            onChange={onMonthChange}
-          />
-        )}
+        <Modal
+          visible={showMonthSelector}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowMonthSelector(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.pickerContainer}>
+              <FlatList
+                data={months}
+                renderItem={renderMonthItem}
+                keyExtractor={(item) => item}
+              />
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setShowMonthSelector(false)}
+              >
+                <Text style={styles.closeButtonText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
 
-        {showYearPicker && (
-          <DateTimePicker
-            value={selectedYearDate}
-            mode="date"
-            display="default"
-            onChange={onYearChange}
-          />
-        )}
+        <Modal
+          visible={showYearSelector}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowYearSelector(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.pickerContainer}>
+              <FlatList
+                data={years}
+                renderItem={renderYearItem}
+                keyExtractor={(item) => item.toString()}
+              />
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setShowYearSelector(false)}
+              >
+                <Text style={styles.closeButtonText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
 
         {showList && (
           <View style={{ alignItems: "center" }}>
@@ -484,7 +554,10 @@ const HomeScreen: React.FC = () => {
           ) : showList ? (
             <CategoryList categories={processTransactionsIntoCategories()} transactions={transactions} />
           ) : (
-            <ChartView categories={processTransactionsIntoCategories()} />
+            <ChartView
+              categories={processTransactionsIntoCategories()}
+              onCategoryIconPress={handleCategoryIconPress}
+            />
           )}
           {error && <Text style={styles.errorText}>{error}</Text>}
         </Animated.View>
@@ -513,6 +586,28 @@ const HomeScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      <Modal
+        visible={!!selectedCategoryTooltip}
+        transparent={true}
+        animationType="none"
+        onRequestClose={closeTooltip}
+      >
+        <TouchableOpacity
+          style={styles.tooltipOverlay}
+          onPress={closeTooltip}
+        >
+          <Animated.View style={[styles.tooltipContainer, { transform: [{ scale: tooltipAnim }] }]}>
+            <Text style={styles.tooltipTitle}>{selectedCategoryTooltip?.name}</Text>
+            <Text style={styles.tooltipText}>
+              Amount: ${selectedCategoryTooltip?.amount?.toFixed(2) || "0.00"}
+            </Text>
+            <Text style={styles.tooltipText}>
+              Transactions: {selectedCategoryTooltip?.count || 0}
+            </Text>
+          </Animated.View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   )
 }
@@ -552,7 +647,7 @@ const styles = StyleSheet.create({
     borderBottomColor: theme.colors.neutral.surface,
   },
   sidebarText: {
-    color: theme.colors.neutral.surface,
+    color: "white",
     fontSize: theme.fontSizes.body,
     textAlign: "center",
   },
@@ -560,6 +655,64 @@ const styles = StyleSheet.create({
     color: theme.colors.error,
     textAlign: "center",
     marginTop: theme.spacing.md,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  pickerContainer: {
+    backgroundColor: theme.colors.neutral.surface,
+    borderRadius: theme.borderRadius.medium,
+    padding: theme.spacing.md,
+    width: "80%",
+    maxHeight: "60%",
+  },
+  pickerItem: {
+    paddingVertical: theme.spacing.sm,
+    alignItems: "center",
+  },
+  pickerItemText: {
+    fontSize: theme.fontSizes.body,
+    color: theme.colors.primary.base,
+  },
+  closeButton: {
+    marginTop: theme.spacing.md,
+    padding: theme.spacing.sm,
+    backgroundColor: theme.colors.primary.base,
+    borderRadius: theme.borderRadius.small,
+    alignItems: "center",
+  },
+  closeButtonText: {
+    color: theme.colors.neutral.surface,
+    fontSize: theme.fontSizes.button,
+  },
+  tooltipOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  tooltipContainer: {
+    backgroundColor: theme.colors.neutral.surface,
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.medium,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  tooltipTitle: {
+    fontSize: theme.fontSizes.h3,
+    fontWeight: "bold",
+    color: theme.colors.primary.base,
+    marginBottom: theme.spacing.sm,
+  },
+  tooltipText: {
+    fontSize: theme.fontSizes.body,
+    color: theme.colors.neutral.textPrimary,
   },
 })
 

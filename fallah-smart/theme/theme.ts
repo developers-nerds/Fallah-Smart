@@ -97,6 +97,9 @@ export const theme = {
         fontWeight: 'normal',
         letterSpacing: 0.25,
       },
+      body1: {
+        fontSize: 16,
+      },
     },
   },
   shadows: {

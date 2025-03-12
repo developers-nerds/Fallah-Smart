@@ -1,6 +1,10 @@
-import React from "react"
-import { View, StyleSheet } from "react-native"
-import { Svg, Circle, Path, Text } from "react-native-svg" // Import Text instead of SvgText
+"use client"
+
+import type React from "react"
+import { useEffect, useRef } from "react"
+import { View, StyleSheet, Animated, Text, useWindowDimensions } from "react-native"
+import { Svg, Circle, Path, Text as SvgText } from "react-native-svg"
+import { FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons"
 import { theme } from "../../../theme/theme"
 
 interface ChartViewProps {
@@ -14,32 +18,49 @@ interface ChartViewProps {
     count?: number
     isIncome?: boolean
   }[]
+  onCategoryIconPress?: (category: any) => void
 }
 
-export const ChartView: React.FC<ChartViewProps> = ({ categories }) => {
+export const ChartView: React.FC<ChartViewProps> = ({ categories, onCategoryIconPress }) => {
+  // Get window dimensions for responsive sizing
+  const { width, height } = useWindowDimensions()
+
+  // Calculate chart size based on screen dimensions
+  // Use 85% of the smallest dimension to ensure it fits on screen
+  const chartSize = Math.min(width, height) * 0.85
+  const centerPoint = chartSize / 2
+
+  // Calculate other dimensions based on chart size
+  const outerRadius = chartSize * 0.35 // 35% of chart size
+  const innerRadius = chartSize * 0.2 // 20% of chart size
+  const iconRadius = chartSize * 0.28 // 28% of chart size
+
+  // Font sizes based on chart size
+  const centerTextSize = chartSize * 0.05
+  const percentageTextSize = chartSize * 0.03
+
   // Ensure categories is an array
   const safeCategories = Array.isArray(categories) ? categories : []
 
-  const totalIncome = safeCategories
-    .filter((cat) => cat?.isIncome)
-    .reduce((sum, cat) => sum + (cat?.amount || 0), 0)
+  const totalIncome = safeCategories.filter((cat) => cat?.isIncome).reduce((sum, cat) => sum + (cat?.amount || 0), 0)
 
-  const totalExpenses = safeCategories
-    .filter((cat) => !cat?.isIncome)
-    .reduce((sum, cat) => sum + (cat?.amount || 0), 0)
+  const totalExpenses = safeCategories.filter((cat) => !cat?.isIncome).reduce((sum, cat) => sum + (cat?.amount || 0), 0)
 
   const expenseCategories = safeCategories.filter((cat) => !cat?.isIncome)
   const totalExpenseAmount = expenseCategories.reduce((sum, cat) => sum + (cat?.amount || 0), 0)
 
   let startAngle = 0
-  const segments = expenseCategories.map((category) => {
+  const segments = expenseCategories.map((category, index) => {
     const percentage = totalExpenseAmount ? (category.amount / totalExpenseAmount) * 100 : 0
     const angle = (percentage / 100) * 360
+    const midAngle = startAngle + angle / 2 // Middle of the segment for icon placement
     const segment = {
-      color: category.color || '#000000', // Fallback color
+      color: category.color || "#CCCCCC", // Use category color from backend with fallback
       startAngle,
       endAngle: startAngle + angle,
       percentage: Math.round(percentage),
+      midAngle,
+      category,
     }
     startAngle += angle
     return segment
@@ -61,38 +82,119 @@ export const ChartView: React.FC<ChartViewProps> = ({ categories }) => {
     }
   }
 
+  // Animation for chart fade-in
+  const fadeAnim = useRef(new Animated.Value(0)).current
+
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: true,
+    }).start()
+  }, [])
+
+  // Animation for icon scaling
+  const animatedValues = useRef(segments.map(() => new Animated.Value(1))).current
+
+  const handlePressIn = (index: number) => {
+    Animated.spring(animatedValues[index], {
+      toValue: 1.2,
+      friction: 3,
+      useNativeDriver: true,
+    }).start()
+  }
+
+  const handlePressOut = (index: number) => {
+    Animated.spring(animatedValues[index], {
+      toValue: 1,
+      friction: 3,
+      useNativeDriver: true,
+    }).start()
+  }
+
+  // Function to render category icons with percentages
+  const renderIcons = (segments: any[]) => {
+    return segments.map((segment, index) => {
+      const { midAngle, category, percentage } = segment
+
+      // Skip rendering if percentage is too small
+      if (percentage < 3) return null
+
+      // Calculate icon position
+      const angleInRadians = (midAngle - 90) * (Math.PI / 180)
+      const x = centerPoint + iconRadius * Math.cos(angleInRadians)
+      const y = centerPoint + iconRadius * Math.sin(angleInRadians)
+
+      // Calculate icon size based on chart size
+      const iconSize = chartSize * 0.06 // 6% of chart size
+      const iconOffset = iconSize / 2
+
+      return (
+        <View
+          key={index}
+          style={[
+            styles.iconContainer,
+            {
+              position: "absolute",
+              left: x - iconOffset,
+              top: y - iconOffset,
+              width: iconSize,
+              height: iconSize,
+              borderRadius: iconSize / 2,
+            },
+          ]}
+        >
+          {category.type === "material-community" ? (
+            <MaterialCommunityIcons name={category.icon || "help"} size={iconSize} color={category.color || "#000"} />
+          ) : (
+            <FontAwesome5 name={category.icon || "question"} size={iconSize} color={category.color || "#000"} />
+          )}
+          <View style={styles.percentageContainer}>
+            <Text style={[styles.percentageText, { fontSize: percentageTextSize }]}>{`${percentage}%`}</Text>
+          </View>
+        </View>
+      )
+    })
+  }
+
   return (
     <View style={styles.container}>
-      <Svg height="350" width="350" viewBox="0 0 100 100">
-        {segments.map((segment, index) => (
-          <Path
-            key={index}
-            d={createArc(50, 50, 40, segment.startAngle, segment.endAngle)}
-            fill={segment.color}
-          />
-        ))}
-        <Circle cx="50" cy="50" r="25" fill={theme.colors.neutral.surface} />
-        <Text
-          x="50"
-          y="45"
-          fontSize="5"
-          fontWeight="bold"
-          fill={theme.colors.success}
-          textAnchor="middle"
-        >
-          {totalIncome.toFixed(2)}
-        </Text>
-        <Text
-          x="50"
-          y="55"
-          fontSize="5"
-          fontWeight="bold"
-          fill={theme.colors.error}
-          textAnchor="middle"
-        >
-          {totalExpenses.toFixed(2)}
-        </Text>
-      </Svg>
+      <View style={[styles.chartWrapper, { width: chartSize, height: chartSize }]}>
+        <Svg width={chartSize} height={chartSize} viewBox={`0 0 ${chartSize} ${chartSize}`}>
+          {/* Render chart segments */}
+          {segments.map((segment, index) => (
+            <Path
+              key={index}
+              d={createArc(centerPoint, centerPoint, outerRadius, segment.startAngle, segment.endAngle)}
+              fill={segment.color}
+            />
+          ))}
+          {/* Inner circle for total income/expense */}
+          <Circle cx={centerPoint} cy={centerPoint} r={innerRadius} fill={theme.colors.neutral.surface} />
+          <SvgText
+            x={centerPoint}
+            y={centerPoint - centerTextSize / 2}
+            fontSize={centerTextSize}
+            fontWeight="bold"
+            fill={theme.colors.success}
+            textAnchor="middle"
+          >
+            {totalIncome.toFixed(2)}
+          </SvgText>
+          <SvgText
+            x={centerPoint}
+            y={centerPoint + centerTextSize}
+            fontSize={centerTextSize}
+            fontWeight="bold"
+            fill={theme.colors.error}
+            textAnchor="middle"
+          >
+            {totalExpenses.toFixed(2)}
+          </SvgText>
+        </Svg>
+        {/* Render icons outside of SVG */}
+        {renderIcons(segments)}
+      </View>
     </View>
   )
 }
@@ -104,4 +206,37 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: theme.colors.neutral.background,
   },
+  chartWrapper: {
+    position: "relative",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  iconContainer: {
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: "rgba(0, 0, 0, 0.1)",
+    zIndex: 10,
+  },
+  percentageContainer: {
+    position: "absolute",
+    top: -20,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+  },
+  percentageText: {
+    fontWeight: "bold",
+    color: theme.colors.neutral.textPrimary,
+    textShadowColor: "rgba(255, 255, 255, 0.8)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
 })
+
