@@ -5,11 +5,11 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, Activity
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useNavigation, useRoute } from "@react-navigation/native"
 import Icon from "react-native-vector-icons/MaterialIcons"
-import { FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons"
 import { theme } from "../../../theme/theme"
 import DateTimePicker from "@react-native-community/datetimepicker"
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import axios from 'axios'
+import { RenderIcon } from "./RenderIcon" // Adjust path as needed
 
 // Get screen dimensions
 const { width, height } = Dimensions.get('window')
@@ -67,31 +67,6 @@ export default function EditIncome() {
     default: process.env.EXPO_PUBLIC_API_URL 
   })
 
-  useEffect(() => {
-    if (transaction) {
-      setAmount(transaction.amount.toString())
-      setNote(transaction.note || "Add income")
-      setSelectedCategory({
-        id: transaction.category.id,
-        name: transaction.category.name,
-        icon: transaction.category.icon,
-        type: transaction.category.type,
-        color: transaction.category.color
-      })
-      setSelectedAccountId(transaction.accountId)
-      const transDate = new Date(transaction.date)
-      setDate(transDate)
-      setCurrentDate(transDate.toLocaleDateString("en-US", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-        year: "numeric"
-      }))
-    }
-    fetchAccounts()
-    fetchCategories()
-  }, [transaction])
-
   const getUserIdFromToken = async () => {
     try {
       const userStr = await AsyncStorage.getItem('@user')
@@ -122,44 +97,75 @@ export default function EditIncome() {
         }
       })
       setAccounts(response.data)
+      if (response.data.length > 0) {
+        setSelectedAccountId(transaction.accountId || response.data[0].id)
+      }
     } catch (error) {
       setError('Error fetching accounts: ' + (error.response?.data?.message || error.message))
     }
   }
 
-  const fetchCategories = async () => {
-    try {
-      setLoading(true)
-      const token = await AsyncStorage.getItem('@access_token')
-      if (!token) {
-        setError("No authentication token found")
-        return
-      }
-      const response = await axios.get(`${API_BASE_URL}/categories/type/Income`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
+  useEffect(() => {
+    fetchAccounts()
+
+    // Initialize with transaction data
+    setAmount(transaction.amount.toString())
+    setNote(transaction.note || "Add income")
+    const transactionDate = new Date(transaction.date)
+    setDate(transactionDate)
+    const options = { weekday: "long", day: "numeric", month: "long", year: "numeric" }
+    setCurrentDate(transactionDate.toLocaleDateString("en-US", options))
+    setSelectedCategory(transaction.category)
+
+    let isMounted = true
+
+    const fetchCategories = async () => {
+      try {
+        setLoading(true)
+        const token = await AsyncStorage.getItem('@access_token')
+        if (!token) {
+          setError("No authentication token found")
+          return
         }
-      })
-      console.log("Fetched categories response (EditIncome):", response.data)
-      if (Array.isArray(response.data)) {
-        const validCategories = response.data.filter(
-          (category: any) => category && typeof category === 'object' && category.id && category.name
-        )
-        setCategories(validCategories)
-        if (validCategories.length === 0) {
-          setError("No valid categories found")
+        const response = await axios.get(`${API_BASE_URL}/categories/type/Income`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+        if (isMounted) {
+          if (Array.isArray(response.data)) {
+            const validCategories = response.data.filter(
+              (category: any) => category && typeof category === 'object' && category.id && category.name
+            )
+            setCategories(validCategories)
+            if (validCategories.length === 0) {
+              setError("No valid categories found")
+            }
+          } else {
+            setError("Invalid response format: Categories data is not an array")
+            setCategories([])
+          }
         }
-      } else {
-        setError("Invalid response format: Categories data is not an array")
-        setCategories([])
+      } catch (err) {
+        if (isMounted) {
+          setError("Failed to fetch categories: " + err.message)
+          setCategories([])
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false)
+        }
       }
-    } catch (err) {
-      setError("Failed to fetch categories: " + err.message)
-      setCategories([])
-    } finally {
-      setLoading(false)
     }
-  }
+
+    if (showCategories) {
+      fetchCategories()
+    }
+
+    return () => {
+      isMounted = false
+    }
+  }, [showCategories, transaction])
 
   const handleUpdateTransaction = async (category: Category) => {
     try {
@@ -221,24 +227,6 @@ export default function EditIncome() {
     }
   }
 
-  const handleDeleteTransaction = async () => {
-    try {
-      setIsSubmitting(true)
-      const token = await AsyncStorage.getItem('@access_token')
-      
-      await axios.delete(`${API_BASE_URL}/transactions/${transaction.id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-      navigation.goBack()
-    } catch (error) {
-      setSubmitError(error.response?.data?.message || 'Failed to delete transaction')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
   const handleNumberPress = (num: string) => {
     if (waitingForSecondOperand) {
       setAmount(num)
@@ -294,7 +282,7 @@ export default function EditIncome() {
       case "×":
         return first * second
       case "÷":
-        return second !== 0 ? first / second : NaN
+        return second !== 0 ? first / second : NaN // Handle division by zero
       default:
         return second
     }
@@ -337,10 +325,6 @@ export default function EditIncome() {
   }
 
   const renderCategoryItem = ({ item }: { item: Category }) => {
-    const isCustomIcon = item.icon.includes('-alt') || 
-                        item.icon === 'shopping-basket' ||
-                        item.icon === 'glass-martini-alt'
-
     return (
       <TouchableOpacity
         style={[
@@ -355,21 +339,13 @@ export default function EditIncome() {
         disabled={isSubmitting}
       >
         <View style={[styles.iconContainer, { backgroundColor: `${item.color}20` }]}>
-          {isCustomIcon ? (
-            <FontAwesome5 
-              name={item.icon.replace('-alt', '')}
-              size={width * 0.06}
-              color={item.color} 
-              style={styles.categoryIcon}
-            />
-          ) : (
-            <MaterialCommunityIcons 
-              name={item.icon} 
-              size={width * 0.06}
-              color={item.color} 
-              style={styles.categoryIcon}
-            />
-          )}
+          <RenderIcon 
+            icon={item.icon} 
+            type={item.type} 
+            size={width * 0.06} 
+            color={item.color} 
+            style={styles.categoryIcon}
+          />
         </View>
         <Text style={styles.categoryCardText}>{item.name}</Text>
       </TouchableOpacity>
@@ -422,9 +398,9 @@ export default function EditIncome() {
         <TouchableOpacity onPress={goBack} style={styles.backButton}>
           <Icon name="arrow-back" color={theme.colors.neutral.surface} size={width * 0.06} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Edit Income</Text>
-        <TouchableOpacity onPress={handleDeleteTransaction} style={styles.deleteButton}>
-          <Icon name="delete" color={theme.colors.neutral.surface} size={width * 0.06} />
+        <Text style={styles.headerTitle}>Edit income</Text>
+        <TouchableOpacity style={styles.refreshButton} onPress={handleClear}>
+          <Icon name="refresh" color={theme.colors.neutral.surface} size={width * 0.06} />
         </TouchableOpacity>
       </View>
 
@@ -547,7 +523,7 @@ const styles = StyleSheet.create({
     fontSize: width * 0.05,
     fontWeight: "500",
   },
-  deleteButton: {
+  refreshButton: {
     padding: width * 0.02,
   },
   dateContainer: {
