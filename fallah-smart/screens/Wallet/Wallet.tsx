@@ -18,13 +18,13 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useNavigation, NavigationProp as NavProp, useFocusEffect } from "@react-navigation/native"
 import Icon from "react-native-vector-icons/MaterialIcons"
-import { FontAwesome5 } from "@expo/vector-icons"
 import { ChartView } from "./components/ChartView"
 import { CategoryList } from "./components/CategoryList"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import axios from "axios"
 import { theme } from "../../theme/theme"
 import { RootStackParamList } from '../../../App' // Adjust path based on your project structure
+import { RenderIcon } from "./components/RenderIcon" // Import RenderIcon (adjust path as needed)
 
 // Define interfaces
 interface Transaction {
@@ -250,7 +250,6 @@ const HomeScreen: React.FC = () => {
       setSelectedMonthDate(newStartDate)
       displayText = newStartDate.toLocaleDateString("en-US", {
         month: "long",
-        // year: "numeric",
       })
     } else if (filterType === "Yearly") {
       newStartDate = new Date(today.getFullYear(), 0, 1)
@@ -366,7 +365,7 @@ const HomeScreen: React.FC = () => {
             id: category.id,
             name: category.name || "Unknown",
             icon: category.icon || "question-mark",
-            type: category.type || "font-awesome-5",
+            type: category.type || "material-community", // Default to material-community for consistency
             color: category.color || "#7BC29A",
             amount: 0,
             count: 0,
@@ -444,23 +443,10 @@ const HomeScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar backgroundColor={theme.colors.primary.base} barStyle="light-content" />
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.menuButton} onPress={toggleSidebar}>
-          <Icon name="menu" color="white" size={28} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>your wallet</Text>
-        <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.iconButton}>
-            <Icon name="search" color="white" size={28} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton}>
-            <Icon name="more-vert" color="white" size={28} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
+      
+      {/* Side Bar */}
       {sidebarVisible && (
-        <View style={[styles.sidebar, { width: sidebarWidth }]}>
+        <View style={[styles.sidebar, { width: sidebarWidth, top: 0 }]}>
           <TouchableOpacity style={styles.sidebarItem} onPress={() => handleFilterSelect("Daily")}>
             <Text style={styles.sidebarText}>Daily</Text>
           </TouchableOpacity>
@@ -478,6 +464,31 @@ const HomeScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
       )}
+
+      {/* Lovely Button to Toggle Side Bar */}
+      <View style={{ position: "absolute", top: 10, right: 10, zIndex: 11 }}>
+        <TouchableOpacity
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            backgroundColor: theme.colors.primary.base,
+            justifyContent: "center",
+            alignItems: "center",
+            shadowColor: "#000",
+            shadowOffset: {
+              width: 0,
+              height: 2,
+            },
+            shadowOpacity: 0.25,
+            shadowRadius: 3.84,
+            elevation: 5,
+          }}
+          onPress={toggleSidebar}
+        >
+          <RenderIcon icon="menu" type="material" size={24} color="white" />
+        </TouchableOpacity>
+      </View>
 
       <ScrollView style={styles.scrollView}>
         <View style={styles.monthContainer}>
@@ -614,11 +625,6 @@ const HomeScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.neutral.background },
-  header: { height: 60, backgroundColor: theme.colors.primary.base, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: theme.spacing.md },
-  menuButton: { padding: theme.spacing.xs },
-  headerTitle: { color: theme.colors.neutral.surface, fontSize: theme.fontSizes.h1, fontWeight: "bold", fontStyle: "italic" },
-  headerRight: { flexDirection: "row" },
-  iconButton: { padding: theme.spacing.xs, marginLeft: theme.spacing.sm },
   scrollView: { flex: 1 },
   monthContainer: { alignItems: "center", paddingVertical: theme.spacing.md },
   monthText: { fontSize: theme.fontSizes.h2, color: theme.colors.primary.base, textDecorationLine: "underline" },

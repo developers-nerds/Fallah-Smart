@@ -5,11 +5,11 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, Activity
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useNavigation } from "@react-navigation/native"
 import Icon from "react-native-vector-icons/MaterialIcons"
-import { FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons"
 import { theme } from "../../../theme/theme"
 import DateTimePicker from "@react-native-community/datetimepicker"
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import axios from 'axios'
+import { RenderIcon } from "./RenderIcon" // Adjust path as needed
 
 // Get screen dimensions
 const { width, height } = Dimensions.get('window')
@@ -31,7 +31,7 @@ export default function AddIncome() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [amount, setAmount] = useState("")
-  const [note, setNote] = useState("")
+  const [note, setNote] = useState("Add income")
   const [currentDate, setCurrentDate] = useState(() => {
     const date = new Date()
     const options = { weekday: "long", day: "numeric", month: "long", year: "numeric" }
@@ -115,7 +115,6 @@ export default function AddIncome() {
             'Authorization': `Bearer ${token}`
           }
         })
-        console.log("Fetched categories response (AddIncome):", response.data)
         if (isMounted) {
           if (Array.isArray(response.data)) {
             const validCategories = response.data.filter(
@@ -313,10 +312,6 @@ export default function AddIncome() {
   }
 
   const renderCategoryItem = ({ item }: { item: Category }) => {
-    const isCustomIcon = item.icon.includes('-alt') || 
-                        item.icon === 'shopping-basket' ||
-                        item.icon === 'glass-martini-alt'
-
     return (
       <TouchableOpacity
         style={[
@@ -331,21 +326,13 @@ export default function AddIncome() {
         disabled={isSubmitting}
       >
         <View style={[styles.iconContainer, { backgroundColor: `${item.color}20` }]}>
-          {isCustomIcon ? (
-            <FontAwesome5 
-              name={item.icon.replace('-alt', '')}
-              size={width * 0.06}
-              color={item.color} 
-              style={styles.categoryIcon}
-            />
-          ) : (
-            <MaterialCommunityIcons 
-              name={item.icon} 
-              size={width * 0.06}
-              color={item.color} 
-              style={styles.categoryIcon}
-            />
-          )}
+          <RenderIcon 
+            icon={item.icon} 
+            type={item.type} 
+            size={width * 0.06} 
+            color={item.color} 
+            style={styles.categoryIcon}
+          />
         </View>
         <Text style={styles.categoryCardText}>{item.name}</Text>
       </TouchableOpacity>

@@ -1,8 +1,8 @@
 import React, { useState } from "react"
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native"
 import { useNavigation } from "@react-navigation/native"
-import { MaterialCommunityIcons, FontAwesome5 } from "@expo/vector-icons"
 import { theme } from "../../../theme/theme"
+import { RenderIcon } from "./RenderIcon" // Import the new RenderIcon component
 
 interface Transaction {
   id?: number
@@ -77,25 +77,19 @@ export const CategoryList: React.FC<CategoryListProps> = ({ categories, transact
               onPress={() => toggleCategory(category.id || 0)}
             >
               <View style={styles.leftContent}>
-                <MaterialCommunityIcons
-                  name={expandedCategories.includes(category.id || 0) ? "chevron-up" : "chevron-down"}
+                <RenderIcon
+                  icon={expandedCategories.includes(category.id || 0) ? "chevron-up" : "chevron-down"}
+                  type="material-community"
                   size={24}
                   color="#BBBBBB"
                 />
                 <View style={[styles.iconContainer, { backgroundColor: (category.color || "#000000") + "20" }]}>
-                  {category.type === "material-community" ? (
-                    <MaterialCommunityIcons
-                      name={category.icon || "help"}
-                      size={24}
-                      color={category.color || "#000"}
-                    />
-                  ) : (
-                    <FontAwesome5
-                      name={category.icon || "question"}
-                      size={20}
-                      color={category.color || "#000"}
-                    />
-                  )}
+                  <RenderIcon
+                    icon={category.icon || "help"}
+                    type={category.type}
+                    size={24}
+                    color={category.color || "#000"}
+                  />
                 </View>
                 <Text style={styles.categoryName}>{category.name || "Unknown"}</Text>
                 <View style={styles.countBadge}>

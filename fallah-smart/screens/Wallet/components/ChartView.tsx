@@ -4,8 +4,8 @@ import type React from "react"
 import { useEffect, useRef } from "react"
 import { View, StyleSheet, Animated, Text, useWindowDimensions } from "react-native"
 import { Svg, Circle, Path, Text as SvgText } from "react-native-svg"
-import { FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons"
 import { theme } from "../../../theme/theme"
+import { RenderIcon } from "./RenderIcon" // Import the new RenderIcon component
 
 interface ChartViewProps {
   categories: {
@@ -144,11 +144,12 @@ export const ChartView: React.FC<ChartViewProps> = ({ categories, onCategoryIcon
             },
           ]}
         >
-          {category.type === "material-community" ? (
-            <MaterialCommunityIcons name={category.icon || "help"} size={iconSize} color={category.color || "#000"} />
-          ) : (
-            <FontAwesome5 name={category.icon || "question"} size={iconSize} color={category.color || "#000"} />
-          )}
+          <RenderIcon
+            icon={category.icon || "help"}
+            type={category.type}
+            size={iconSize}
+            color={category.color || "#000"}
+          />
           <View style={styles.percentageContainer}>
             <Text style={[styles.percentageText, { fontSize: percentageTextSize }]}>{`${percentage}%`}</Text>
           </View>
@@ -239,4 +240,3 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
   },
 })
-
