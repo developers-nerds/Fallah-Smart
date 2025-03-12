@@ -1,5 +1,5 @@
 import React from "react";
-import { MaterialCommunityIcons, FontAwesome5 } from "@expo/vector-icons";
+import { MaterialCommunityIcons, FontAwesome5, MaterialIcons } from "@expo/vector-icons";
 
 interface RenderIconProps {
   icon: string;
@@ -21,6 +21,14 @@ export const RenderIcon: React.FC<RenderIconProps> = ({
     icon === "shopping-basket" ||
     icon === "glass-martini-alt";
 
+  // Handle MaterialIcons for type="material"
+  if (type === "material") {
+    return (
+      <MaterialIcons name={icon} size={size} color={color} style={style} />
+    );
+  }
+
+  // Handle FontAwesome5 for custom icons or type="font-awesome"
   if (isCustomIcon || type === "font-awesome") {
     return (
       <FontAwesome5
@@ -32,6 +40,7 @@ export const RenderIcon: React.FC<RenderIconProps> = ({
     );
   }
 
+  // Default to MaterialCommunityIcons
   return (
     <MaterialCommunityIcons name={icon} size={size} color={color} style={style} />
   );

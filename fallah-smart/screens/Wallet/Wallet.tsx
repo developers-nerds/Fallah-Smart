@@ -347,8 +347,7 @@ const HomeScreen: React.FC = () => {
     setSidebarVisible(!sidebarVisible)
   }
 
-  const navigateToAddIncome = () => navigation.navigate("AddIncome")
-  const navigateToAddExpense = () => navigation.navigate("AddExpense")
+  const navigateToAddTransaction = (type: 'income' | 'expense') => navigation.navigate("AddTransaction", { transactionType: type })
 
   const getCurrentDate = () => {
     const date = new Date()
@@ -467,28 +466,29 @@ const HomeScreen: React.FC = () => {
 
       {/* Lovely Button to Toggle Side Bar */}
       <View style={{ position: "absolute", top: 10, right: 10, zIndex: 11 }}>
-        <TouchableOpacity
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 20,
-            backgroundColor: theme.colors.primary.base,
-            justifyContent: "center",
-            alignItems: "center",
-            shadowColor: "#000",
-            shadowOffset: {
-              width: 0,
-              height: 2,
-            },
-            shadowOpacity: 0.25,
-            shadowRadius: 3.84,
-            elevation: 5,
-          }}
-          onPress={toggleSidebar}
-        >
-          <RenderIcon icon="menu" type="material" size={24} color="white" />
-        </TouchableOpacity>
-      </View>
+  <TouchableOpacity
+    style={{
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: theme.colors.primary.base,
+      justifyContent: "center",
+      alignItems: "center",
+      shadowColor: "#000",
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
+      elevation: 5,
+    }}
+    onPress={toggleSidebar}
+  >
+    {/* Replace 'menu' with 'filter-list' */}
+    <RenderIcon icon="filter-list" type="material" size={24} color="white" />
+  </TouchableOpacity>
+</View>
 
       <ScrollView style={styles.scrollView}>
         <View style={styles.monthContainer}>
@@ -576,7 +576,7 @@ const HomeScreen: React.FC = () => {
         <View style={styles.actionButtons}>
           <TouchableOpacity
             style={[styles.actionButton, styles.expenseButton, { width: buttonSize, height: buttonSize, borderRadius: buttonSize / 2, marginRight: screenWidth * 0.04 }]}
-            onPress={navigateToAddExpense}
+            onPress={() => navigateToAddTransaction('expense')}
           >
             <Text style={[styles.actionButtonText, { fontSize }]}>−</Text>
           </TouchableOpacity>
@@ -591,7 +591,7 @@ const HomeScreen: React.FC = () => {
 
           <TouchableOpacity
             style={[styles.actionButton, styles.incomeButton, { width: buttonSize, height: buttonSize, borderRadius: buttonSize / 2, marginLeft: screenWidth * 0.04 }]}
-            onPress={navigateToAddIncome}
+            onPress={() => navigateToAddTransaction('income')}
           >
             <Text style={[styles.actionButtonText, { fontSize }]}>+</Text>
           </TouchableOpacity>
@@ -614,7 +614,7 @@ const HomeScreen: React.FC = () => {
               Amount: ${selectedCategoryTooltip?.amount?.toFixed(2) || "0.00"}
             </Text>
             <Text style={styles.tooltipText}>
-              Transactions: {selectedCategoryTooltip?.count || 0}
+              Transactions: ${selectedCategoryTooltip?.count || 0}
             </Text>
           </Animated.View>
         </TouchableOpacity>

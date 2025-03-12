@@ -1,8 +1,9 @@
 import React, { useState } from "react"
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native"
-import { useNavigation } from "@react-navigation/native"
+import { useNavigation, NavigationProp } from "@react-navigation/native"
 import { theme } from "../../../theme/theme"
-import { RenderIcon } from "./RenderIcon" // Import the new RenderIcon component
+import { RenderIcon } from "./RenderIcon" // Adjust path as needed
+import { RootStackParamList } from "../../../App" // Adjust path based on your project structure
 
 interface Transaction {
   id?: number
@@ -21,27 +22,25 @@ interface Transaction {
   }
 }
 
-interface CategoryListProps {
-  categories: {
-    id?: number
-    name?: string
-    icon?: string
-    type?: string
-    color?: string
-    amount?: number
-    count?: number
-    isIncome?: boolean
-  }[]
-  transactions: Transaction[]
+interface Category {
+  id?: number
+  name?: string
+  icon?: string
+  type?: string
+  color?: string
+  amount?: number
+  count?: number
+  isIncome?: boolean
 }
 
-type NavProp<RootStackParamList> = {
-  navigate: (screen: keyof RootStackParamList, params?: any) => void
+interface CategoryListProps {
+  categories: Category[]
+  transactions: Transaction[]
 }
 
 export const CategoryList: React.FC<CategoryListProps> = ({ categories, transactions }) => {
   const [expandedCategories, setExpandedCategories] = useState<number[]>([])
-  const navigation = useNavigation<NavProp<any>>()
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>()
 
   const toggleCategory = (categoryId: number) => {
     setExpandedCategories((prev) =>
@@ -51,15 +50,12 @@ export const CategoryList: React.FC<CategoryListProps> = ({ categories, transact
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })
+    return date.toLocaleDateString("en-US", { day: "numeric", month: "short" })
   }
 
   const handleTransactionPress = (transaction: Transaction) => {
-    if (transaction.category?.type === "Expense") {
-      navigation.navigate('EditExpense', { transaction })
-    } else if (transaction.category?.type === "Income") {
-      navigation.navigate('EditIncome', { transaction })
-    }
+    // Navigate to EditTransaction with the transaction object
+    navigation.navigate("EditTransaction", { transaction })
   }
 
   // Ensure categories is an array
@@ -86,7 +82,7 @@ export const CategoryList: React.FC<CategoryListProps> = ({ categories, transact
                 <View style={[styles.iconContainer, { backgroundColor: (category.color || "#000000") + "20" }]}>
                   <RenderIcon
                     icon={category.icon || "help"}
-                    type={category.type}
+                    type={category.type || "material-community"} // Default type if not provided
                     size={24}
                     color={category.color || "#000"}
                   />
