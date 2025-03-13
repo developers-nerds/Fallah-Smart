@@ -83,7 +83,7 @@ export default function App() {
                       <FeedProvider>
                         <HarvestProvider>
                           <FertilizerProvider>
-                            <StockNavigator />
+                            <RootNavigator />
                           </FertilizerProvider>
                         </HarvestProvider>
                       </FeedProvider>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,9 @@ import {
   Modal,
   Switch,
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  StatusBar
 } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
 import { StockCategory, StockUnit, PesticideType } from '../types';
@@ -28,15 +30,22 @@ import Animated, {
   withSpring,
   useSharedValue,
   withTiming,
+  FadeInDown
 } from 'react-native-reanimated';
 import * as Yup from 'yup';
 import { Pesticide } from '../types';
 import { pesticideApi } from '../../../services/api';
 import { useAuth } from '../../../context/AuthContext';
+import { useNavigation } from '@react-navigation/native';
+import { PESTICIDE_TYPE_ICONS, SAFETY_ICONS, UNIT_ICONS } from './constants';
 
 type AddPesticideScreenProps = {
   navigation: StackNavigationProp<StockStackParamList, 'AddPesticide'>;
+  mode?: 'add' | 'edit';
+  initialData?: Pesticide;
 };
+
+type MaterialIconName = keyof typeof MaterialCommunityIcons.glyphMap;
 
 const UNITS = [
   { label: 'كيلوغرام (kg)', value: 'kg' },
@@ -126,6 +135,7 @@ const validationSchema = Yup.object().shape({
 interface FormData {
   name: string;
   type: PesticideType;
+  customTypeName: string;
   activeIngredients: string;
   targetPests: string;
   applicationRate: string;
@@ -147,6 +157,7 @@ interface FormData {
 const initialFormData: FormData = {
   name: '',
   type: 'insecticide',
+  customTypeName: '',
   activeIngredients: '',
   targetPests: '',
   applicationRate: '',
@@ -171,14 +182,38 @@ const pesticideTypes: { value: PesticideType; label: string }[] = [
   { value: 'other', label: 'أخرى' }
 ];
 
-const AddPesticideScreen = ({ navigation }: AddPesticideScreenProps) => {
+const convertPesticideToFormData = (pesticide: Pesticide): FormData => ({
+  name: pesticide.name,
+  type: pesticide.type,
+  customTypeName: pesticide.type === 'other' ? (pesticide as any).customTypeName || '' : '',
+  activeIngredients: pesticide.activeIngredients || '',
+  targetPests: pesticide.targetPests || '',
+  applicationRate: pesticide.applicationRate?.toString() || '',
+  safetyInterval: pesticide.safetyInterval?.toString() || '',
+  manufacturer: pesticide.manufacturer || '',
+  registrationNumber: pesticide.registrationNumber || '',
+  storageConditions: pesticide.storageConditions || '',
+  safetyPrecautions: pesticide.safetyPrecautions || '',
+  emergencyProcedures: pesticide.emergencyProcedures || '',
+  quantity: pesticide.quantity.toString(),
+  unit: pesticide.unit as StockUnit,
+  minQuantityAlert: pesticide.minQuantityAlert.toString(),
+  price: pesticide.price?.toString() || '',
+  isNatural: pesticide.isNatural || false,
+  supplier: pesticide.supplier || '',
+  expiryDate: pesticide.expiryDate || undefined,
+});
+
+const AddPesticideScreen = ({ navigation, mode = 'add', initialData }: AddPesticideScreenProps) => {
   const theme = useTheme();
-  const { addPesticide } = usePesticide();
-  const { user } = useAuth();
+  const { addPesticide, updatePesticide } = usePesticide();
+  const { user, isAuthenticated } = useAuth();
   const [currentPage, setCurrentPage] = useState(0);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showUnitPicker, setShowUnitPicker] = useState(false);
-  const [formData, setFormData] = useState<FormData>(initialFormData);
+  const [formData, setFormData] = useState<FormData>(() => 
+    initialData ? convertPesticideToFormData(initialData) : initialFormData
+  );
   const [error, setError] = useState<string | null>(null);
   const progress = useSharedValue(0);
   const [loading, setLoading] = useState(false);
@@ -211,6 +246,11 @@ const AddPesticideScreen = ({ navigation }: AddPesticideScreenProps) => {
       }
     }
 
+    // Add validation for custom type name
+    if (formData.type === 'other' && !formData.customTypeName.trim()) {
+      errors.customTypeName = 'يرجى إدخال نوع المبيد المخصص';
+    }
+
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -240,27 +280,29 @@ const AddPesticideScreen = ({ navigation }: AddPesticideScreenProps) => {
 
     try {
       setIsSubmitting(true);
-      if (!user) {
-        Alert.alert('خطأ', 'يجب تسجيل الدخول أولاً');
-        return;
-      }
+      console.log('Starting form submission with data:', formData);
 
-      // Validate pesticide type
-      if (!pesticideTypes.map(t => t.value).includes(formData.type as PesticideType)) {
+      if (!Object.keys(PESTICIDE_TYPE_ICONS).includes(formData.type)) {
         Alert.alert('خطأ', 'نوع المبيد غير صالح');
         return;
       }
 
-      // Helper function to convert string to number or null
+      // Add validation for custom type
+      if (formData.type === 'other' && !formData.customTypeName.trim()) {
+        Alert.alert('خطأ', 'يرجى إدخال نوع المبيد المخصص');
+        return;
+      }
+
       const toNumber = (value: string) => {
         const num = Number(value);
         return isNaN(num) ? null : num;
       };
 
       const now = new Date().toISOString();
-      const pesticide = {
+      const pesticideData = {
         name: formData.name.trim(),
         type: formData.type,
+        customTypeName: formData.type === 'other' ? formData.customTypeName.trim() : null,
         quantity: toNumber(formData.quantity) || 0,
         unit: formData.unit,
         minQuantityAlert: toNumber(formData.minQuantityAlert) || 10,
@@ -277,31 +319,33 @@ const AddPesticideScreen = ({ navigation }: AddPesticideScreenProps) => {
         emergencyProcedures: formData.emergencyProcedures || null,
         supplier: formData.supplier.trim() || null,
         expiryDate: formData.expiryDate || null,
-        userId: user.id.toString(),
-        createdAt: now,
-        updatedAt: now
-      };
-
-      console.log('Submitting pesticide:', JSON.stringify(pesticide, null, 2));
+        userId: user?.id.toString() || '1',
+        createdAt: mode === 'add' ? now : (initialData?.createdAt || now),
+        updatedAt: now,
+      } as const;
 
       try {
-        await addPesticide(pesticide);
-        console.log('Pesticide added successfully');
-        Alert.alert('نجاح', 'تمت إضافة المبيد بنجاح', [
-          { text: 'حسناً', onPress: () => navigation.goBack() }
-        ]);
-      } catch (apiError) {
-        console.error('API Error:', apiError);
-        if (apiError instanceof Error) {
-          Alert.alert('خطأ', `فشل في إضافة المبيد: ${apiError.message}`);
+        if (mode === 'edit' && initialData) {
+          await updatePesticide(initialData.id, pesticideData);
+          Alert.alert('نجاح', 'تم تحديث المبيد بنجاح', [
+            { text: 'حسناً', onPress: () => navigation.goBack() }
+          ]);
         } else {
-          Alert.alert('خطأ', 'فشل في إضافة المبيد: خطأ غير معروف');
+          await addPesticide(pesticideData);
+          Alert.alert('نجاح', 'تمت إضافة المبيد بنجاح', [
+            { text: 'حسناً', onPress: () => navigation.goBack() }
+          ]);
         }
-        throw apiError;
+      } catch (apiError) {
+        if (apiError instanceof Error) {
+          Alert.alert('خطأ', `فشل في ${mode === 'edit' ? 'تحديث' : 'إضافة'} المبيد: ${apiError.message}`);
+        } else {
+          Alert.alert('خطأ', `فشل في ${mode === 'edit' ? 'تحديث' : 'إضافة'} المبيد: خطأ غير معروف`);
+        }
       }
     } catch (error) {
       console.error('Error submitting pesticide:', error);
-      Alert.alert('خطأ', 'فشل في إضافة المبيد');
+      Alert.alert('خطأ', `فشل في ${mode === 'edit' ? 'تحديث' : 'إضافة'} المبيد`);
     } finally {
       setIsSubmitting(false);
     }
@@ -312,198 +356,385 @@ const AddPesticideScreen = ({ navigation }: AddPesticideScreenProps) => {
   };
 
   const renderField = (field: keyof FormData) => {
+    const typeInfo = PESTICIDE_TYPE_ICONS[formData.type as keyof typeof PESTICIDE_TYPE_ICONS];
+    const unitInfo = UNIT_ICONS[formData.unit.toLowerCase() as keyof typeof UNIT_ICONS];
+
     switch (field) {
       case 'name':
         return (
-          <TextInput
-            style={styles.input}
-            placeholder="اسم المبيد"
-            value={formData.name}
-            onChangeText={(text) => setFormData(prev => ({ ...prev, name: text }))}
-          />
+          <Animated.View entering={FadeInDown.delay(100)}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+              اسم المبيد
+            </Text>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.colors.neutral.surface,
+                color: theme.colors.neutral.textPrimary 
+              }]}
+              placeholder="اسم المبيد"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+              value={formData.name}
+              onChangeText={(text) => setFormData(prev => ({ ...prev, name: text }))}
+            />
+          </Animated.View>
         );
       case 'type':
         return (
-          <View style={styles.inputGroup}>
+          <Animated.View entering={FadeInDown.delay(200)} style={styles.inputGroup}>
             <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
               نوع المبيد
             </Text>
             <View style={styles.typeContainer}>
-              {pesticideTypes.map((type) => (
+              {Object.entries(PESTICIDE_TYPE_ICONS).map(([type, info]) => (
                 <TouchableOpacity
-                  key={type.value}
+                  key={type}
                   style={[
                     styles.typeButton,
-                    formData.type === type.value && styles.selectedTypeButton,
+                    { backgroundColor: theme.colors.neutral.surface },
+                    formData.type === type && { 
+                      backgroundColor: info.color + '20',
+                      borderColor: info.color 
+                    },
                   ]}
-                  onPress={() => setFormData(prev => ({ ...prev, type: type.value }))}
+                  onPress={() => {
+                    setFormData(prev => ({ 
+                      ...prev, 
+                      type: type as PesticideType,
+                      customTypeName: type === 'other' ? prev.customTypeName : ''
+                    }));
+                  }}
                 >
+                  <Text style={styles.typeIcon}>{info.icon}</Text>
                   <Text style={[
                     styles.typeButtonText,
-                    formData.type === type.value && styles.selectedTypeButtonText
+                    { color: formData.type === type ? info.color : theme.colors.neutral.textPrimary }
                   ]}>
-                    {type.label}
+                    {info.label}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
-          </View>
+            {formData.type === 'other' && (
+              <Animated.View 
+                entering={FadeInDown} 
+                style={[styles.customTypeContainer, { backgroundColor: theme.colors.neutral.surface }]}
+              >
+                <TextInput
+                  style={[styles.input, { 
+                    backgroundColor: theme.colors.neutral.surface,
+                    color: theme.colors.neutral.textPrimary,
+                    marginBottom: 0
+                  }]}
+                  placeholder="ادخل نوع المبيد"
+                  placeholderTextColor={theme.colors.neutral.textSecondary}
+                  value={formData.customTypeName}
+                  onChangeText={(text) => setFormData(prev => ({ ...prev, customTypeName: text }))}
+                />
+              </Animated.View>
+            )}
+          </Animated.View>
         );
       case 'activeIngredients':
         return (
-          <TextInput
-            style={styles.input}
-            placeholder="المكونات النشطة"
-            value={formData.activeIngredients}
-            onChangeText={(text) => setFormData(prev => ({ ...prev, activeIngredients: text }))}
-          />
+          <Animated.View entering={FadeInDown.delay(300)}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+              المكونات النشطة
+            </Text>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.colors.neutral.surface,
+                color: theme.colors.neutral.textPrimary 
+              }]}
+              placeholder="المكونات النشطة"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+              value={formData.activeIngredients}
+              onChangeText={(text) => setFormData(prev => ({ ...prev, activeIngredients: text }))}
+            />
+          </Animated.View>
         );
       case 'targetPests':
         return (
-          <TextInput
-            style={styles.input}
-            placeholder="الآفات المستهدفة"
-            value={formData.targetPests}
-            onChangeText={(text) => setFormData(prev => ({ ...prev, targetPests: text }))}
-          />
+          <Animated.View entering={FadeInDown.delay(400)}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+              الآفات المستهدفة
+            </Text>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.colors.neutral.surface,
+                color: theme.colors.neutral.textPrimary 
+              }]}
+              placeholder="الآفات المستهدفة"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+              value={formData.targetPests}
+              onChangeText={(text) => setFormData(prev => ({ ...prev, targetPests: text }))}
+            />
+          </Animated.View>
         );
       case 'applicationRate':
         return (
-          <TextInput
-            style={styles.input}
-            placeholder="معدل التطبيق"
-            value={formData.applicationRate}
-            onChangeText={(text) => setFormData(prev => ({ ...prev, applicationRate: text }))}
-          />
+          <Animated.View entering={FadeInDown.delay(500)}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+              معدل التطبيق
+            </Text>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.colors.neutral.surface,
+                color: theme.colors.neutral.textPrimary 
+              }]}
+              placeholder="معدل التطبيق"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+              value={formData.applicationRate}
+              onChangeText={(text) => setFormData(prev => ({ ...prev, applicationRate: text }))}
+            />
+          </Animated.View>
         );
       case 'safetyInterval':
         return (
-          <TextInput
-            style={styles.input}
-            placeholder="فترة الأمان"
-            value={formData.safetyInterval}
-            onChangeText={(text) => setFormData(prev => ({ ...prev, safetyInterval: text }))}
-          />
+          <Animated.View entering={FadeInDown.delay(600)}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+              فترة الأمان
+            </Text>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.colors.neutral.surface,
+                color: theme.colors.neutral.textPrimary 
+              }]}
+              placeholder="فترة الأمان"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+              value={formData.safetyInterval}
+              onChangeText={(text) => setFormData(prev => ({ ...prev, safetyInterval: text }))}
+            />
+          </Animated.View>
         );
       case 'manufacturer':
         return (
-          <TextInput
-            style={styles.input}
-            placeholder="الشركة المصنعة"
-            value={formData.manufacturer}
-            onChangeText={(text) => setFormData(prev => ({ ...prev, manufacturer: text }))}
-          />
+          <Animated.View entering={FadeInDown.delay(700)}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+              الشركة المصنعة
+            </Text>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.colors.neutral.surface,
+                color: theme.colors.neutral.textPrimary 
+              }]}
+              placeholder="الشركة المصنعة"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+              value={formData.manufacturer}
+              onChangeText={(text) => setFormData(prev => ({ ...prev, manufacturer: text }))}
+            />
+          </Animated.View>
         );
       case 'registrationNumber':
         return (
-          <TextInput
-            style={styles.input}
-            placeholder="رقم التسجيل"
-            value={formData.registrationNumber}
-            onChangeText={(text) => setFormData(prev => ({ ...prev, registrationNumber: text }))}
-          />
+          <Animated.View entering={FadeInDown.delay(800)}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+              رقم التسجيل
+            </Text>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.colors.neutral.surface,
+                color: theme.colors.neutral.textPrimary 
+              }]}
+              placeholder="رقم التسجيل"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+              value={formData.registrationNumber}
+              onChangeText={(text) => setFormData(prev => ({ ...prev, registrationNumber: text }))}
+            />
+          </Animated.View>
         );
       case 'storageConditions':
         return (
-          <TextInput
-            style={styles.input}
-            placeholder="ظروف التخزين"
-            value={formData.storageConditions}
-            onChangeText={(text) => setFormData(prev => ({ ...prev, storageConditions: text }))}
-          />
+          <Animated.View entering={FadeInDown.delay(900)}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+              ظروف التخزين
+            </Text>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.colors.neutral.surface,
+                color: theme.colors.neutral.textPrimary 
+              }]}
+              placeholder="ظروف التخزين"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+              value={formData.storageConditions}
+              onChangeText={(text) => setFormData(prev => ({ ...prev, storageConditions: text }))}
+            />
+          </Animated.View>
         );
       case 'safetyPrecautions':
         return (
-          <TextInput
-            style={styles.input}
-            placeholder="احتياطات السلامة"
-            value={formData.safetyPrecautions}
-            onChangeText={(text) => setFormData(prev => ({ ...prev, safetyPrecautions: text }))}
-          />
+          <Animated.View entering={FadeInDown.delay(1000)}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+              احتياطات السلامة
+            </Text>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.colors.neutral.surface,
+                color: theme.colors.neutral.textPrimary 
+              }]}
+              placeholder="احتياطات السلامة"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+              value={formData.safetyPrecautions}
+              onChangeText={(text) => setFormData(prev => ({ ...prev, safetyPrecautions: text }))}
+            />
+          </Animated.View>
         );
       case 'emergencyProcedures':
         return (
-          <TextInput
-            style={styles.input}
-            placeholder="إجراءات الطوارئ"
-            value={formData.emergencyProcedures}
-            onChangeText={(text) => setFormData(prev => ({ ...prev, emergencyProcedures: text }))}
-          />
+          <Animated.View entering={FadeInDown.delay(1100)}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+              إجراءات الطوارئ
+            </Text>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.colors.neutral.surface,
+                color: theme.colors.neutral.textPrimary 
+              }]}
+              placeholder="إجراءات الطوارئ"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+              value={formData.emergencyProcedures}
+              onChangeText={(text) => setFormData(prev => ({ ...prev, emergencyProcedures: text }))}
+            />
+          </Animated.View>
         );
       case 'quantity':
         return (
-          <TextInput
-            style={styles.input}
-            placeholder="الكمية"
-            value={formData.quantity}
-            onChangeText={(text) => setFormData(prev => ({ ...prev, quantity: text }))}
-            keyboardType="numeric"
-          />
+          <Animated.View entering={FadeInDown.delay(1200)}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+              الكمية
+            </Text>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.colors.neutral.surface,
+                color: theme.colors.neutral.textPrimary 
+              }]}
+              placeholder="الكمية"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+              value={formData.quantity}
+              onChangeText={(text) => setFormData(prev => ({ ...prev, quantity: text }))}
+              keyboardType="numeric"
+            />
+          </Animated.View>
         );
       case 'unit':
         return (
-          <View>
-            <Text>الوحدة</Text>
+          <Animated.View entering={FadeInDown.delay(1300)}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+              الوحدة
+            </Text>
             <View style={styles.unitSelector}>
               {units.map((unit) => (
                 <TouchableOpacity
                   key={unit.value}
                   style={[
                     styles.unitButton,
-                    formData.unit === unit.value && styles.selectedUnitButton,
+                    { backgroundColor: theme.colors.neutral.surface },
+                    formData.unit === unit.value && { 
+                      backgroundColor: unitInfo.color + '20',
+                      borderColor: unitInfo.color 
+                    },
                   ]}
                   onPress={() => handleUnitChange(unit.value as StockUnit)}
                 >
-                  <Text>{unit.label}</Text>
+                  <Text style={[
+                    styles.unitButtonText,
+                    { color: formData.unit === unit.value ? unitInfo.color : theme.colors.neutral.textPrimary }
+                  ]}>
+                    {unit.label}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
-          </View>
+          </Animated.View>
         );
       case 'minQuantityAlert':
         return (
-          <TextInput
-            style={styles.input}
-            placeholder="الحد الأدنى للتنبيه"
-            value={formData.minQuantityAlert}
-            onChangeText={(text) => setFormData(prev => ({ ...prev, minQuantityAlert: text }))}
-            keyboardType="numeric"
-          />
+          <Animated.View entering={FadeInDown.delay(1400)}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+              الحد الأدنى للتنبيه
+            </Text>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.colors.neutral.surface,
+                color: theme.colors.neutral.textPrimary 
+              }]}
+              placeholder="الحد الأدنى للتنبيه"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+              value={formData.minQuantityAlert}
+              onChangeText={(text) => setFormData(prev => ({ ...prev, minQuantityAlert: text }))}
+              keyboardType="numeric"
+            />
+          </Animated.View>
         );
       case 'price':
         return (
-          <TextInput
-            style={styles.input}
-            placeholder="السعر"
-            value={formData.price}
-            onChangeText={(text) => setFormData(prev => ({ ...prev, price: text }))}
-            keyboardType="numeric"
-          />
+          <Animated.View entering={FadeInDown.delay(1500)}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+              السعر
+            </Text>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.colors.neutral.surface,
+                color: theme.colors.neutral.textPrimary 
+              }]}
+              placeholder="السعر"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+              value={formData.price}
+              onChangeText={(text) => setFormData(prev => ({ ...prev, price: text }))}
+              keyboardType="numeric"
+            />
+          </Animated.View>
         );
       case 'isNatural':
         return (
-          <View style={styles.checkboxContainer}>
-            <Text>مبيد طبيعي</Text>
+          <Animated.View entering={FadeInDown.delay(1600)} style={styles.checkboxContainer}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+              مبيد طبيعي
+            </Text>
             <TouchableOpacity
-              style={[styles.checkbox, formData.isNatural && styles.checkboxChecked]}
+              style={[
+                styles.checkbox,
+                { backgroundColor: theme.colors.neutral.surface },
+                formData.isNatural && { backgroundColor: theme.colors.success },
+              ]}
               onPress={() => setFormData(prev => ({ ...prev, isNatural: !prev.isNatural }))}
             />
-          </View>
+          </Animated.View>
         );
       case 'supplier':
         return (
-          <TextInput
-            style={styles.input}
-            placeholder="المورد"
-            value={formData.supplier}
-            onChangeText={(text) => setFormData(prev => ({ ...prev, supplier: text }))}
-          />
+          <Animated.View entering={FadeInDown.delay(1700)}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+              المورد
+            </Text>
+            <TextInput
+              style={[styles.input, { 
+                backgroundColor: theme.colors.neutral.surface,
+                color: theme.colors.neutral.textPrimary 
+              }]}
+              placeholder="المورد"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+              value={formData.supplier}
+              onChangeText={(text) => setFormData(prev => ({ ...prev, supplier: text }))}
+            />
+          </Animated.View>
         );
       case 'expiryDate':
         return (
-          <View>
-            <TouchableOpacity onPress={() => setShowDatePicker(true)}>
-              <Text>
+          <Animated.View entering={FadeInDown.delay(1800)}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
+              تاريخ انتهاء الصلاحية
+            </Text>
+            <TouchableOpacity
+              style={[styles.input, { 
+                backgroundColor: theme.colors.neutral.surface,
+                color: theme.colors.neutral.textPrimary 
+              }]}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <Text style={[
+                styles.inputText,
+                { color: formData.expiryDate ? theme.colors.success : theme.colors.neutral.textSecondary }
+              ]}>
                 {formData.expiryDate
                   ? new Date(formData.expiryDate).toLocaleDateString()
                   : 'تاريخ انتهاء الصلاحية'}
@@ -522,7 +753,7 @@ const AddPesticideScreen = ({ navigation }: AddPesticideScreenProps) => {
                 }}
               />
             )}
-          </View>
+          </Animated.View>
         );
       default:
         return null;
@@ -530,10 +761,13 @@ const AddPesticideScreen = ({ navigation }: AddPesticideScreenProps) => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}
+    >
       <View style={[styles.header, { backgroundColor: theme.colors.neutral.surface }]}>
         <Text style={[styles.headerTitle, { color: theme.colors.neutral.textPrimary }]}>
-          {FORM_PAGES[currentPage].icon} {FORM_PAGES[currentPage].title}
+          <Text>{FORM_PAGES[currentPage].icon}</Text> {mode === 'edit' ? 'تعديل المبيد' : 'إضافة مبيد جديد'}
         </Text>
         <TouchableOpacity
           style={styles.backButton}
@@ -586,7 +820,12 @@ const AddPesticideScreen = ({ navigation }: AddPesticideScreenProps) => {
           </TouchableOpacity>
         )}
         <TouchableOpacity
-          style={[styles.button, styles.nextButton, { backgroundColor: theme.colors.primary.base }]}
+          style={[
+            styles.button, 
+            styles.nextButton, 
+            { backgroundColor: theme.colors.primary.base },
+            isSubmitting && { opacity: 0.7 }
+          ]}
           onPress={currentPage === FORM_PAGES.length - 1 ? handleSubmit : handleNext}
           disabled={isSubmitting}
         >
@@ -599,176 +838,225 @@ const AddPesticideScreen = ({ navigation }: AddPesticideScreenProps) => {
           )}
         </TouchableOpacity>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 
-const styles = createThemedStyles((theme) => ({
-  container: {
-    flex: 1,
-    padding: 16,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: Platform.OS === 'ios' ? 44 : 0,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.neutral.border,
-  } as ViewStyle,
-  backButton: {
-    padding: 8,
-    marginRight: 16,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-  },
-  progressContainer: {
-    padding: 16,
-  },
-  progressBar: {
-    height: 4,
-    borderRadius: 2,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 2,
-  },
-  progressText: {
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  content: {
-    flex: 1,
-  },
-  form: {
-    padding: 16,
-  },
-  inputGroup: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 16,
-    marginBottom: 8,
-  },
-  input: {
-    height: 40,
-    borderWidth: 1,
-    borderColor: theme.colors.neutral.border,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    marginBottom: 16,
-  },
-  textArea: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 12,
-    fontSize: 16,
-    minHeight: 120,
-    textAlignVertical: 'top',
-  },
-  checkboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderRadius: 8,
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderWidth: 1,
-    borderRadius: 4,
-    marginLeft: 8,
-  },
-  checkboxChecked: {
-    backgroundColor: theme.colors.success,
-  },
-  footer: {
-    flexDirection: 'row',
-    padding: 16,
-    gap: 8,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.neutral.border,
-  },
-  errorText: {
-    fontSize: 12,
-    marginTop: 4,
-    marginRight: 4,
-  },
-  button: {
-    flex: 1,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 8,
-  },
-  previousButton: {
-    borderWidth: 1,
-    borderColor: theme.colors.neutral.border,
-  },
-  nextButton: {
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  typeContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 16,
-  },
-  typeButton: {
-    flex: 1,
-    minWidth: '48%',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: theme.colors.neutral.border,
-    alignItems: 'center',
-    backgroundColor: theme.colors.neutral.background,
-  },
-  selectedTypeButton: {
-    backgroundColor: theme.colors.primary.base,
-    borderColor: theme.colors.primary.base,
-  },
-  typeButtonText: {
-    color: theme.colors.neutral.textPrimary,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  selectedTypeButtonText: {
-    color: '#FFFFFF',
-  },
-  unitSelector: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  unitButton: {
-    padding: 8,
-    borderWidth: 1,
-    borderColor: theme.colors.neutral.border,
-    borderRadius: 8,
-  },
-  selectedUnitButton: {
-    backgroundColor: theme.colors.primary.base,
-  },
-}));
+const styles = createThemedStyles((theme) => {
+  // Define fallback values for typography to prevent undefined errors
+  const getTypographySize = (typePath: string, fallback: number) => {
+    try {
+      const paths = typePath.split('.');
+      let result: any = theme; // Type as any to avoid index signature errors
+      for (const path of paths) {
+        if (!result || result[path] === undefined) return fallback;
+        result = result[path];
+      }
+      return result;
+    } catch (e) {
+      return fallback;
+    }
+  };
+
+  return {
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.neutral.background,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingTop: Platform.OS === 'ios' ? 44 : StatusBar.currentHeight,
+      paddingHorizontal: theme.spacing.md,
+      paddingBottom: theme.spacing.md,
+      backgroundColor: theme.colors.neutral.surface,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.neutral.border,
+    },
+    backButton: {
+      padding: theme.spacing.sm,
+    },
+    headerTitle: {
+      fontSize: getTypographySize('typography.arabic.h3.fontSize', 28),
+      fontWeight: '600',
+      color: theme.colors.neutral.textPrimary,
+    },
+    progressContainer: {
+      padding: theme.spacing.md,
+    },
+    progressBar: {
+      height: 4,
+      borderRadius: 2,
+      overflow: 'hidden',
+      backgroundColor: theme.colors.neutral.border,
+      marginBottom: theme.spacing.sm,
+    },
+    progressFill: {
+      height: '100%',
+      borderRadius: 2,
+      backgroundColor: theme.colors.primary.base,
+    },
+    progressText: {
+      fontSize: theme.fontSizes.caption,
+      textAlign: 'center',
+      color: theme.colors.neutral.textSecondary,
+    },
+    content: {
+      flex: 1,
+      padding: theme.spacing.md,
+    },
+    form: {
+      padding: theme.spacing.md,
+    },
+    inputGroup: {
+      marginBottom: theme.spacing.md,
+    },
+    label: {
+      fontSize: getTypographySize('typography.arabic.caption.fontSize', 18),
+      marginBottom: theme.spacing.xs,
+      fontWeight: '500',
+      color: theme.colors.neutral.textPrimary,
+    },
+    input: {
+      height: 48,
+      borderWidth: 1,
+      borderColor: theme.colors.neutral.border,
+      borderRadius: theme.borderRadius.medium,
+      paddingHorizontal: theme.spacing.md,
+      marginBottom: theme.spacing.md,
+      fontSize: theme.fontSizes.body,
+      backgroundColor: theme.colors.neutral.surface,
+      color: theme.colors.neutral.textPrimary,
+    },
+    textArea: {
+      borderWidth: 1,
+      borderRadius: theme.borderRadius.medium,
+      paddingHorizontal: theme.spacing.md,
+      paddingTop: theme.spacing.sm,
+      paddingBottom: theme.spacing.sm,
+      fontSize: theme.fontSizes.body,
+      minHeight: 120,
+      textAlignVertical: 'top',
+      backgroundColor: theme.colors.neutral.surface,
+      color: theme.colors.neutral.textPrimary,
+    },
+    checkboxContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: theme.spacing.md,
+      padding: theme.spacing.md,
+      borderWidth: 1,
+      borderRadius: theme.borderRadius.medium,
+      backgroundColor: theme.colors.neutral.surface,
+      borderColor: theme.colors.neutral.border,
+    },
+    checkbox: {
+      width: 24,
+      height: 24,
+      borderWidth: 1,
+      borderRadius: 4,
+      marginLeft: theme.spacing.sm,
+      backgroundColor: theme.colors.neutral.surface,
+      borderColor: theme.colors.neutral.border,
+    },
+    checkboxChecked: {
+      backgroundColor: theme.colors.success,
+    },
+    footer: {
+      flexDirection: 'row',
+      padding: theme.spacing.md,
+      gap: theme.spacing.sm,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.neutral.border,
+    },
+    errorText: {
+      fontSize: theme.fontSizes.caption,
+      marginTop: -theme.spacing.sm,
+      marginBottom: theme.spacing.md,
+      marginRight: theme.spacing.xs,
+      color: theme.colors.error,
+    },
+    button: {
+      flex: 1,
+      height: 48,
+      borderRadius: 24,
+      justifyContent: 'center',
+      alignItems: 'center',
+      ...theme.shadows.small,
+    },
+    previousButton: {
+      borderWidth: 1,
+      borderColor: theme.colors.neutral.border,
+      backgroundColor: theme.colors.neutral.surface,
+    },
+    nextButton: {
+      backgroundColor: theme.colors.primary.base,
+    },
+    buttonText: {
+      color: theme.colors.neutral.surface,
+      fontSize: theme.fontSizes.button,
+      fontWeight: '600',
+    },
+    typeContainer: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: theme.spacing.sm,
+    },
+    typeIcon: {
+      fontSize: 24,
+    },
+    typeButton: {
+      flex: 1,
+      minWidth: '48%',
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: theme.spacing.md,
+      borderRadius: theme.borderRadius.medium,
+      borderWidth: 1,
+      borderColor: theme.colors.neutral.border,
+      backgroundColor: theme.colors.neutral.surface,
+      gap: theme.spacing.sm,
+    },
+    typeButtonText: {
+      fontSize: theme.fontSizes.body,
+      fontWeight: '500',
+    },
+    unitSelector: {
+      flexDirection: 'row',
+      gap: theme.spacing.sm,
+    },
+    unitButton: {
+      padding: theme.spacing.sm,
+      borderWidth: 1,
+      borderColor: theme.colors.neutral.border,
+      borderRadius: theme.borderRadius.small,
+      backgroundColor: theme.colors.neutral.surface,
+    },
+    unitButtonText: {
+      fontSize: theme.fontSizes.body,
+      fontWeight: '500',
+    },
+    inputText: {
+      fontSize: theme.fontSizes.body,
+    },
+    sectionIcon: {
+      fontSize: 24,
+    },
+    customTypeContainer: {
+      marginTop: theme.spacing.sm,
+      padding: theme.spacing.sm,
+      borderRadius: theme.borderRadius.medium,
+      borderWidth: 1,
+      borderColor: theme.colors.neutral.border,
+      backgroundColor: theme.colors.neutral.surface,
+    },
+    submitButtonText: {
+      fontSize: getTypographySize('typography.arabic.body.fontSize', 20),
+      fontWeight: '600',
+      color: '#FFF',
+    },
+  };
+});
 
 export default AddPesticideScreen; 

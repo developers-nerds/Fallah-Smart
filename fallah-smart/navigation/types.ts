@@ -5,6 +5,7 @@ export type StockStackParamList = {
   PesticideList: undefined;
   AddPesticide: undefined;
   PesticideDetail: { pesticideId: string };
+  EditPesticide: { pesticideId: string };
   Animals: undefined;
   AddAnimal: { animalId?: string; mode?: 'edit' | 'add' };
   AnimalDetail: { animalId: string };

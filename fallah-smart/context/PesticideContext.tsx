@@ -10,6 +10,8 @@ interface PesticideContextType {
   addPesticide: (pesticide: Omit<Pesticide, 'id'>) => Promise<void>;
   updatePesticide: (id: string, pesticide: Partial<Pesticide>) => Promise<void>;
   deletePesticide: (id: string) => Promise<void>;
+  addPesticideQuantity: (id: string, quantity: number, notes?: string) => Promise<void>;
+  removePesticideQuantity: (id: string, quantity: number, notes?: string) => Promise<void>;
 }
 
 const PesticideContext = createContext<PesticideContextType | undefined>(undefined);
@@ -75,6 +77,42 @@ export const PesticideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
+  const addPesticideQuantity = async (id: string, quantity: number, notes?: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const updatedPesticide = await pesticideApi.updatePesticide(id, {
+        quantity: (pesticides.find(p => p.id === id)?.quantity || 0) + quantity
+      });
+      setPesticides(prev => prev.map(p => p.id === id ? updatedPesticide : p));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add pesticide quantity');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const removePesticideQuantity = async (id: string, quantity: number, notes?: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const currentPesticide = pesticides.find(p => p.id === id);
+      if (!currentPesticide) throw new Error('Pesticide not found');
+      if (currentPesticide.quantity < quantity) throw new Error('Insufficient quantity');
+      
+      const updatedPesticide = await pesticideApi.updatePesticide(id, {
+        quantity: currentPesticide.quantity - quantity
+      });
+      setPesticides(prev => prev.map(p => p.id === id ? updatedPesticide : p));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to remove pesticide quantity');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchPesticides();
   }, []);
@@ -89,6 +127,8 @@ export const PesticideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         addPesticide,
         updatePesticide,
         deletePesticide,
+        addPesticideQuantity,
+        removePesticideQuantity
       }}
     >
       {children}
