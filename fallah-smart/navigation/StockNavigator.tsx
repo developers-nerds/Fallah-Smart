@@ -16,6 +16,7 @@ import { StockItem, StockFormValues } from '../screens/Stock/types';
 import { View, ActivityIndicator, Text } from 'react-native';
 import { PesticideDetail } from '../screens/Stock/Pesticides/PesticideDetail';
 import AddPesticideScreen from '../screens/Stock/Pesticides/AddPesticide';
+import EditPesticideScreen from '../screens/Stock/Pesticides/EditPesticide';
 import PesticideListScreen from '../screens/Stock/Pesticides/PesticideList';
 import { PesticideProvider } from '../context/PesticideContext';
 import Blogs from '../screens/blogs/blogs';
@@ -118,11 +119,13 @@ export const StockNavigator = () => {
                         component={StockDetail}
                         options={{ title: 'تفاصيل المخزون', headerShown: true }}
                       />
-                      <Stack.Screen 
-                        name="AddStock" 
-                        component={AddStockScreenContainer}
-                        options={{ title: 'إضافة مخزون', headerShown: true }}
-                      />
+                      <Stack.Screen name="AddStock">
+                        {(props) => (
+                          <AddStockScreenContainer 
+                            {...props}
+                          />
+                        )}
+                      </Stack.Screen>
                       <Stack.Screen 
                         name="Animals" 
                         component={AnimalsScreen}
@@ -158,6 +161,11 @@ export const StockNavigator = () => {
                         name="AddPesticide" 
                         component={AddPesticideScreen}
                         options={{ title: 'إضافة مبيد', headerShown: true }}
+                      />
+                      <Stack.Screen 
+                        name="EditPesticide" 
+                        component={EditPesticideScreen}
+                        options={{ title: 'تعديل المبيد', headerShown: true }}
                       />
                       <Stack.Screen 
                         name="ToolList" 
