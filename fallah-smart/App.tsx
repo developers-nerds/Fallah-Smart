@@ -7,12 +7,19 @@ import { StockProvider } from './context/StockContext';
 import { StockNavigator } from './navigation/StockNavigator';
 import AddTransaction from './screens/Wallet/components/AddTransaction';
 import EditTransaction from './screens/Wallet/components/EditTransaction';
+import Wallet from './screens/Wallet/Wallet'; // Import the Wallet screen
+import { I18nManager } from 'react-native';
+
+// Force RTL and allow RTL globally
+I18nManager.forceRTL(true);
+I18nManager.allowRTL(true);
 
 // Define the navigation param list
 type RootStackParamList = {
   Main: undefined;
   AddTransaction: { transactionType: 'income' | 'expense' };
   EditTransaction: { transaction: Transaction };
+  Wallet: undefined; // Add Wallet to the param list
 };
 
 // Define the Transaction interface
@@ -49,6 +56,11 @@ export const RootNavigator: React.FC = () => {
       />
       <Stack.Screen name="AddTransaction" component={AddTransaction} />
       <Stack.Screen name="EditTransaction" component={EditTransaction} />
+      <Stack.Screen 
+        name="Wallet" 
+        component={Wallet} 
+        options={{ title: 'محفظتي' }} // Set the header title here
+      />
     </Stack.Navigator>
   );
 };

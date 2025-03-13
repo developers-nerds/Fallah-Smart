@@ -35,7 +35,7 @@ interface Transaction {
   category: Category
 }
 
-export default function EditExpense() {
+export default function EditTransaction() {
   const [showCategories, setShowCategories] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(false)
@@ -70,7 +70,7 @@ export default function EditExpense() {
   useEffect(() => {
     if (transaction) {
       setAmount(transaction.amount.toString())
-      setNote(transaction.note || "Add expense")
+      setNote(transaction.note || "أضف ملاحظة")
       setSelectedCategory({
         id: transaction.category.id,
         name: transaction.category.name,
@@ -81,15 +81,11 @@ export default function EditExpense() {
       setSelectedAccountId(transaction.accountId)
       const transDate = new Date(transaction.date)
       setDate(transDate)
-      setCurrentDate(transDate.toLocaleDateString("en-US", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-        year: "numeric"
-      }))
+      const options = { weekday: "long", day: "numeric", month: "long", year: "numeric" }
+      setCurrentDate(transDate.toLocaleDateString("ar", options))
       // Verify transaction type matches component
-      if (transaction.type.toLowerCase() !== 'expense') {
-        console.warn(`Mismatch: Editing an ${transaction.type} transaction in EditExpense`)
+      if (transaction.type.toLowerCase() !== 'expense' && transaction.type.toLowerCase() !== 'income') {
+        console.warn(`Mismatch: Editing an ${transaction.type} transaction in EditTransaction`)
       }
     }
     fetchAccounts()
@@ -100,14 +96,14 @@ export default function EditExpense() {
     try {
       const userStr = await AsyncStorage.getItem('@user')
       if (!userStr) {
-        setError('No user data found. Please log in.')
+        setError('لم يتم العثور على بيانات المستخدم. الرجاء تسجيل الدخول.')
         setLoading(false)
         return null
       }
       const userData = JSON.parse(userStr)
       return userData.id
     } catch (error) {
-      setError('Invalid user data. Please log in again.')
+      setError('بيانات المستخدم غير صالحة. الرجاء تسجيل الدخول مرة أخرى.')
       setLoading(false)
       return null
     }
@@ -127,7 +123,7 @@ export default function EditExpense() {
       })
       setAccounts(response.data)
     } catch (error) {
-      setError('Error fetching accounts: ' + (error.response?.data?.message || error.message))
+      setError('خطأ في جلب الحسابات: ' + (error.response?.data?.message || error.message))
     }
   }
 
@@ -136,7 +132,7 @@ export default function EditExpense() {
       setLoading(true)
       const token = await AsyncStorage.getItem('@access_token')
       if (!token) {
-        setError("No authentication token found")
+        setError("لم يتم العثور على رمز التوثيق")
         return
       }
       // Dynamically fetch based on transaction.type
@@ -146,21 +142,21 @@ export default function EditExpense() {
           'Authorization': `Bearer ${token}`
         }
       })
-      console.log(`Fetched ${categoryType} categories response (EditExpense):`, response.data)
+      console.log(`Fetched ${categoryType} categories response (EditTransaction):`, response.data)
       if (Array.isArray(response.data)) {
         const validCategories = response.data.filter(
           (category: any) => category && typeof category === 'object' && category.id && category.name
         )
         setCategories(validCategories)
         if (validCategories.length === 0) {
-          setError(`No valid ${categoryType} categories found`)
+          setError(`لم يتم العثور على فئات صالحة لـ ${categoryType === 'Income' ? 'الدخل' : 'المصروف'}`)
         }
       } else {
-        setError("Invalid response format: Categories data is not an array")
+        setError("تنسيق الاستجابة غير صالح: بيانات الفئات ليست مصفوفة")
         setCategories([])
       }
     } catch (err) {
-      setError("Failed to fetch categories: " + err.message)
+      setError("فشل في جلب الفئات: " + err.message)
       setCategories([])
     } finally {
       setLoading(false)
@@ -176,25 +172,25 @@ export default function EditExpense() {
       const userStr = await AsyncStorage.getItem('@user')
       
       if (!token || !userStr) {
-        setSubmitError('Please login first')
+        setSubmitError('الرجاء تسجيل الدخول أولاً')
         console.log("Missing token or user data")
         return
       }
 
       if (!selectedAccountId) {
-        setSubmitError('No account selected. Please try again.')
+        setSubmitError('لم يتم اختيار حساب. الرجاء المحاولة مرة أخرى.')
         console.log("No selectedAccountId")
         return
       }
 
       if (!category || !category.id) {
-        setSubmitError('Please select a category')
+        setSubmitError('الرجاء اختيار فئة')
         console.log("Invalid category:", category)
         return
       }
 
       if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
-        setSubmitError('Please enter a valid amount')
+        setSubmitError('الرجاء إدخال مبلغ صالح')
         console.log("Invalid amount:", amount)
         return
       }
@@ -227,12 +223,12 @@ export default function EditExpense() {
         console.log("Transaction updated successfully")
         navigation.goBack()
       } else {
-        setSubmitError(response.data.message || 'Failed to update transaction')
+        setSubmitError(response.data.message || 'فشل في تحديث المعاملة')
         console.log("Update failed with message:", response.data.message)
       }
     } catch (error) {
-      const errorMessage = error.response?.data?.message || error.message || 'Unknown error'
-      setSubmitError(`Failed to update transaction: ${errorMessage}`)
+      const errorMessage = error.response?.data?.message || error.message || 'خطأ غير معروف'
+      setSubmitError(`فشل في تحديث المعاملة: ${errorMessage}`)
       console.error("Update error:", error.response?.data || error)
     } finally {
       setIsSubmitting(false)
@@ -260,7 +256,7 @@ export default function EditExpense() {
       console.log("Transaction deleted successfully")
       navigation.goBack()
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Failed to delete transaction'
+      const errorMessage = error.response?.data?.message || 'فشل في حذف المعاملة'
       setSubmitError(errorMessage)
       console.error("Delete error:", error.response?.data || error)
     } finally {
@@ -349,8 +345,8 @@ export default function EditExpense() {
     setShowDatePicker(false)
     setDate(currentDate)
     const options = { weekday: "long", day: "numeric", month: "long", year: "numeric" }
-    setCurrentDate(currentDate.toLocaleDateString("en-US", options))
-    setManualDate(currentDate.toLocaleDateString("en-US", options))
+    setCurrentDate(currentDate.toLocaleDateString("ar", options))
+    setManualDate(currentDate.toLocaleDateString("ar", options))
   }
 
   const handleManualDateChange = (text: string) => {
@@ -435,7 +431,7 @@ export default function EditExpense() {
         <TouchableOpacity onPress={goBack} style={styles.backButton}>
           <Icon name="arrow-back" color={theme.colors.neutral.surface} size={width * 0.06} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Edit Expense</Text>
+        <Text style={styles.headerTitle}>تعديل {transaction.type.toLowerCase() === 'income' ? 'الدخل' : 'المصروف'}</Text>
         <TouchableOpacity onPress={handleDeleteTransaction} style={styles.deleteButton}>
           <Icon name="delete" color={theme.colors.neutral.surface} size={width * 0.06} />
         </TouchableOpacity>
@@ -455,11 +451,11 @@ export default function EditExpense() {
             style={styles.manualDateInput}
             value={manualDate}
             onChangeText={handleManualDateChange}
-            placeholder="Enter date (e.g., March 5, 2025)"
+            placeholder="أدخل التاريخ (مثال: ٥ مارس ٢٠٢٥)"
             keyboardType="default"
           />
           <TouchableOpacity onPress={toggleManualDateInput} style={styles.doneButton}>
-            <Text style={styles.doneButtonText}>Done</Text>
+            <Text style={styles.doneButtonText}>تم</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -481,14 +477,14 @@ export default function EditExpense() {
       </View>
 
       <View style={styles.noteContainer}>
-        <Text style={styles.noteLabel}>Note</Text>
+        <Text style={styles.noteLabel}>ملاحظة</Text>
         <View style={styles.noteInputContainer}>
           <Icon name="edit" size={width * 0.05} color={theme.colors.success} style={styles.editIcon} />
           <TextInput 
             style={styles.noteInput} 
             value={note} 
             onChangeText={setNote} 
-            placeholder="Add note" 
+            placeholder="أضف ملاحظة"
           />
         </View>
       </View>
@@ -504,18 +500,18 @@ export default function EditExpense() {
         onPress={() => setShowCategories(!showCategories)}
       >
         <Text style={styles.categoryButtonText}>
-          {selectedCategory ? selectedCategory.name : 'CHOOSE CATEGORY'}
+          {selectedCategory ? selectedCategory.name : 'اختر فئة'}
         </Text>
       </TouchableOpacity>
 
       {showCategories && (
         <View style={styles.categoriesContainer}>
           {loading ? (
-            <Text style={styles.messageText}>Loading categories...</Text>
+            <Text style={styles.messageText}>جارٍ تحميل الفئات...</Text>
           ) : error ? (
             <Text style={styles.errorText}>{error}</Text>
           ) : categories.length === 0 ? (
-            <Text style={styles.messageText}>No categories found</Text>
+            <Text style={styles.messageText}>لم يتم العثور على فئات</Text>
           ) : (
             <FlatList
               data={categories}
@@ -524,7 +520,7 @@ export default function EditExpense() {
               numColumns={Math.floor(width / 120)}
               contentContainerStyle={styles.categoryGrid}
               showsVerticalScrollIndicator={true}
-              ListEmptyComponent={<Text style={styles.messageText}>No valid categories to display</Text>}
+              ListEmptyComponent={<Text style={styles.messageText}>لا توجد فئات صالحة للعرض</Text>}
             />
           )}
         </View>
@@ -559,6 +555,7 @@ const styles = StyleSheet.create({
     color: theme.colors.neutral.surface,
     fontSize: width * 0.05,
     fontWeight: "500",
+    textAlign: "right",
   },
   deleteButton: {
     padding: width * 0.02,
@@ -575,6 +572,7 @@ const styles = StyleSheet.create({
   dateText: {
     fontSize: width * 0.045,
     color: theme.colors.neutral.textPrimary,
+    textAlign: "right",
   },
   penButton: {
     marginLeft: width * 0.03,
@@ -590,6 +588,7 @@ const styles = StyleSheet.create({
     fontSize: width * 0.04,
     color: theme.colors.neutral.textPrimary,
     paddingVertical: height * 0.01,
+    textAlign: "right",
   },
   doneButton: {
     marginTop: height * 0.01,
@@ -602,6 +601,7 @@ const styles = StyleSheet.create({
     color: theme.colors.neutral.surface,
     fontSize: width * 0.04,
     fontWeight: "500",
+    textAlign: "right",
   },
   amountContainer: {
     flexDirection: "row",
@@ -635,6 +635,7 @@ const styles = StyleSheet.create({
     fontSize: width * 0.04,
     color: theme.colors.neutral.textSecondary,
     marginBottom: height * 0.005,
+    textAlign: "right",
   },
   noteInputContainer: {
     flexDirection: "row",
@@ -650,6 +651,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: width * 0.04,
     color: theme.colors.neutral.textPrimary,
+    textAlign: "right",
   },
   keypadContainer: {
     flex: 1,
@@ -700,6 +702,7 @@ const styles = StyleSheet.create({
     fontSize: width * 0.04,
     color: theme.colors.neutral.textSecondary,
     fontWeight: "500",
+    textAlign: "right",
   },
   categoriesContainer: {
     position: 'absolute',
@@ -717,13 +720,13 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
   },
   messageText: {
-    textAlign: 'center',
+    textAlign: 'right',
     padding: width * 0.04,
     color: theme.colors.neutral.textSecondary,
     fontSize: width * 0.04,
   },
   errorText: {
-    textAlign: 'center',
+    textAlign: 'right',
     padding: width * 0.04,
     color: theme.colors.error,
     fontSize: width * 0.04,
