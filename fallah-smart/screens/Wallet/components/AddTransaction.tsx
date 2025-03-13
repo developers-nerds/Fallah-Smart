@@ -35,11 +35,11 @@ export default function AddTransaction() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [amount, setAmount] = useState("")
-  const [note, setNote] = useState("") // Initialize note as empty
+  const [note, setNote] = useState("")
   const [currentDate, setCurrentDate] = useState(() => {
     const date = new Date()
     const options = { weekday: "long", day: "numeric", month: "long", year: "numeric" }
-    return date.toLocaleDateString("en-US", options)
+    return date.toLocaleDateString("ar", options)
   })
   const [date, setDate] = useState(new Date())
   const [showDatePicker, setShowDatePicker] = useState(false)
@@ -69,14 +69,14 @@ export default function AddTransaction() {
     try {
       const userStr = await AsyncStorage.getItem('@user')
       if (!userStr) {
-        setError('No user data found. Please log in.')
+        setError('لم يتم العثور على بيانات المستخدم. الرجاء تسجيل الدخول.')
         setLoading(false)
         return null
       }
       const userData = JSON.parse(userStr)
       return userData.id
     } catch (error) {
-      setError('Invalid user data. Please log in again.')
+      setError('بيانات المستخدم غير صالحة. الرجاء تسجيل الدخول مرة أخرى.')
       setLoading(false)
       return null
     }
@@ -99,7 +99,7 @@ export default function AddTransaction() {
         setSelectedAccountId(response.data[0].id)
       }
     } catch (error) {
-      setError('Error fetching accounts: ' + (error.response?.data?.message || error.message))
+      setError('خطأ في جلب الحسابات: ' + (error.response?.data?.message || error.message))
     }
   }
 
@@ -113,7 +113,7 @@ export default function AddTransaction() {
         setLoading(true)
         const token = await AsyncStorage.getItem('@access_token')
         if (!token) {
-          setError("No authentication token found")
+          setError("لم يتم العثور على رمز التوثيق")
           return
         }
         const response = await axios.get(`${API_BASE_URL}/categories/type/${transactionType === 'income' ? 'Income' : 'Expense'}`, {
@@ -128,16 +128,16 @@ export default function AddTransaction() {
             )
             setCategories(validCategories)
             if (validCategories.length === 0) {
-              setError("No valid categories found")
+              setError("لم يتم العثور على فئات صالحة")
             }
           } else {
-            setError("Invalid response format: Categories data is not an array")
+            setError("تنسيق الاستجابة غير صالح: بيانات الفئات ليست مصفوفة")
             setCategories([])
           }
         }
       } catch (err) {
         if (isMounted) {
-          setError("Failed to fetch categories: " + err.message)
+          setError("فشل في جلب الفئات: " + err.message)
           setCategories([])
         }
       } finally {
@@ -165,22 +165,22 @@ export default function AddTransaction() {
       const userStr = await AsyncStorage.getItem('@user')
       
       if (!token || !userStr) {
-        setSubmitError('Please login first')
+        setSubmitError('الرجاء تسجيل الدخول أولاً')
         return
       }
 
       if (!selectedAccountId) {
-        setSubmitError('No account selected. Please try again.')
+        setSubmitError('لم يتم اختيار حساب. الرجاء المحاولة مرة أخرى.')
         return
       }
 
       if (!category || !category.id) {
-        setSubmitError('Please select a category')
+        setSubmitError('الرجاء اختيار فئة')
         return
       }
 
       if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
-        setSubmitError('Please enter a valid amount')
+        setSubmitError('الرجاء إدخال مبلغ صالح')
         return
       }
 
@@ -189,7 +189,7 @@ export default function AddTransaction() {
         categoryId: category.id,
         amount: parseFloat(amount),
         type: transactionType,
-        note: note, // Use the note state directly
+        note: note,
         date: date.toISOString()
       }
 
@@ -206,15 +206,15 @@ export default function AddTransaction() {
 
       if (response.data.success) {
         setAmount("")
-        setNote("") // Clear the note field
+        setNote("")
         setSelectedCategory(null)
         setShowCategories(false)
         navigation.goBack()
       } else {
-        setSubmitError(response.data.message || 'Failed to create transaction')
+        setSubmitError(response.data.message || 'فشل في إنشاء المعاملة')
       }
     } catch (error) {
-      setSubmitError(error.response?.data?.message || 'Failed to create transaction: ' + error.message)
+      setSubmitError(error.response?.data?.message || 'فشل في إنشاء المعاملة: ' + error.message)
     } finally {
       setIsSubmitting(false)
     }
@@ -275,7 +275,7 @@ export default function AddTransaction() {
       case "×":
         return first * second
       case "÷":
-        return second !== 0 ? first / second : NaN // Handle division by zero
+        return second !== 0 ? first / second : NaN
       default:
         return second
     }
@@ -301,8 +301,8 @@ export default function AddTransaction() {
     setShowDatePicker(false)
     setDate(currentDate)
     const options = { weekday: "long", day: "numeric", month: "long", year: "numeric" }
-    setCurrentDate(currentDate.toLocaleDateString("en-US", options))
-    setManualDate(currentDate.toLocaleDateString("en-US", options))
+    setCurrentDate(currentDate.toLocaleDateString("ar", options))
+    setManualDate(currentDate.toLocaleDateString("ar", options))
   }
 
   const handleManualDateChange = (text: string) => {
@@ -391,7 +391,7 @@ export default function AddTransaction() {
         <TouchableOpacity onPress={goBack} style={styles.backButton}>
           <Icon name="arrow-back" color={theme.colors.neutral.surface} size={width * 0.06} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>New {transactionType}</Text>
+        <Text style={styles.headerTitle}>إضافة {transactionType === 'income' ? 'دخل' : 'مصروف'}</Text>
         <TouchableOpacity style={styles.refreshButton} onPress={handleClear}>
           <Icon name="refresh" color={theme.colors.neutral.surface} size={width * 0.06} />
         </TouchableOpacity>
@@ -411,11 +411,11 @@ export default function AddTransaction() {
             style={styles.manualDateInput}
             value={manualDate}
             onChangeText={handleManualDateChange}
-            placeholder="Enter date (e.g., March 5, 2025)"
+            placeholder="أدخل التاريخ (مثال: ٥ مارس ٢٠٢٥)"
             keyboardType="default"
           />
           <TouchableOpacity onPress={toggleManualDateInput} style={styles.doneButton}>
-            <Text style={styles.doneButtonText}>Done</Text>
+            <Text style={styles.doneButtonText}>تم</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -437,14 +437,14 @@ export default function AddTransaction() {
       </View>
 
       <View style={styles.noteContainer}>
-        <Text style={styles.noteLabel}>Note</Text>
+        <Text style={styles.noteLabel}>ملاحظة</Text>
         <View style={styles.noteInputContainer}>
           <Icon name="edit" size={width * 0.05} color={theme.colors.success} style={styles.editIcon} />
           <TextInput 
             style={styles.noteInput} 
             value={note} 
             onChangeText={setNote} 
-            placeholder={`Add ${transactionType}`} // Use placeholder instead of setting note
+            placeholder={`أضف ${transactionType === 'income' ? 'دخل' : 'مصروف'}`}
           />
         </View>
       </View>
@@ -460,18 +460,18 @@ export default function AddTransaction() {
         onPress={() => setShowCategories(!showCategories)}
       >
         <Text style={styles.categoryButtonText}>
-          {selectedCategory ? selectedCategory.name : 'CHOOSE CATEGORY'}
+          {selectedCategory ? selectedCategory.name : 'اختر فئة'}
         </Text>
       </TouchableOpacity>
 
       {showCategories && (
         <View style={styles.categoriesContainer}>
           {loading ? (
-            <Text style={styles.messageText}>Loading categories...</Text>
+            <Text style={styles.messageText}>جارٍ تحميل الفئات...</Text>
           ) : error ? (
             <Text style={styles.errorText}>{error}</Text>
           ) : categories.length === 0 ? (
-            <Text style={styles.messageText}>No categories found</Text>
+            <Text style={styles.messageText}>لم يتم العثور على فئات</Text>
           ) : (
             <FlatList
               data={categories}
@@ -480,7 +480,7 @@ export default function AddTransaction() {
               numColumns={Math.floor(width / 120)}
               contentContainerStyle={styles.categoryGrid}
               showsVerticalScrollIndicator={true}
-              ListEmptyComponent={<Text style={styles.messageText}>No valid categories to display</Text>}
+              ListEmptyComponent={<Text style={styles.messageText}>لا توجد فئات صالحة للعرض</Text>}
             />
           )}
         </View>
@@ -515,6 +515,7 @@ const styles = StyleSheet.create({
     color: theme.colors.neutral.surface,
     fontSize: width * 0.05,
     fontWeight: "500",
+    textAlign: "right",
   },
   refreshButton: {
     padding: width * 0.02,
@@ -531,6 +532,7 @@ const styles = StyleSheet.create({
   dateText: {
     fontSize: width * 0.045,
     color: theme.colors.neutral.textPrimary,
+    textAlign: "right",
   },
   penButton: {
     marginLeft: width * 0.03,
@@ -546,6 +548,7 @@ const styles = StyleSheet.create({
     fontSize: width * 0.04,
     color: theme.colors.neutral.textPrimary,
     paddingVertical: height * 0.01,
+    textAlign: "right",
   },
   doneButton: {
     marginTop: height * 0.01,
@@ -558,6 +561,7 @@ const styles = StyleSheet.create({
     color: theme.colors.neutral.surface,
     fontSize: width * 0.04,
     fontWeight: "500",
+    textAlign: "right",
   },
   amountContainer: {
     flexDirection: "row",
@@ -591,6 +595,7 @@ const styles = StyleSheet.create({
     fontSize: width * 0.04,
     color: theme.colors.neutral.textSecondary,
     marginBottom: height * 0.005,
+    textAlign: "right",
   },
   noteInputContainer: {
     flexDirection: "row",
@@ -606,6 +611,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: width * 0.04,
     color: theme.colors.neutral.textPrimary,
+    textAlign: "right",
   },
   keypadContainer: {
     flex: 1,
@@ -656,6 +662,7 @@ const styles = StyleSheet.create({
     fontSize: width * 0.04,
     color: theme.colors.neutral.textSecondary,
     fontWeight: "500",
+    textAlign: "right",
   },
   categoriesContainer: {
     position: 'absolute',
@@ -673,13 +680,13 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
   },
   messageText: {
-    textAlign: 'center',
+    textAlign: 'right',
     padding: width * 0.04,
     color: theme.colors.neutral.textSecondary,
     fontSize: width * 0.04,
   },
   errorText: {
-    textAlign: 'center',
+    textAlign: 'right',
     padding: width * 0.04,
     color: theme.colors.error,
     fontSize: width * 0.04,

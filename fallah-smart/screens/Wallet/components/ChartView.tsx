@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useEffect, useRef } from "react"
-import { View, StyleSheet, Animated, Text, useWindowDimensions } from "react-native"
+import { View, Text, StyleSheet, Animated, useWindowDimensions } from "react-native"
 import { Svg, Circle, Path, Text as SvgText } from "react-native-svg"
 import { theme } from "../../../theme/theme"
 import { RenderIcon } from "./RenderIcon" // Import the new RenderIcon component
@@ -26,14 +26,13 @@ export const ChartView: React.FC<ChartViewProps> = ({ categories, onCategoryIcon
   const { width, height } = useWindowDimensions()
 
   // Calculate chart size based on screen dimensions
-  // Use 85% of the smallest dimension to ensure it fits on screen
   const chartSize = Math.min(width, height) * 0.85
   const centerPoint = chartSize / 2
 
   // Calculate other dimensions based on chart size
-  const outerRadius = chartSize * 0.35 // 35% of chart size
-  const innerRadius = chartSize * 0.2 // 20% of chart size
-  const iconRadius = chartSize * 0.28 // 28% of chart size
+  const outerRadius = chartSize * 0.35
+  const innerRadius = chartSize * 0.2
+  const iconRadius = chartSize * 0.28
 
   // Font sizes based on chart size
   const centerTextSize = chartSize * 0.05
@@ -43,7 +42,6 @@ export const ChartView: React.FC<ChartViewProps> = ({ categories, onCategoryIcon
   const safeCategories = Array.isArray(categories) ? categories : []
 
   const totalIncome = safeCategories.filter((cat) => cat?.isIncome).reduce((sum, cat) => sum + (cat?.amount || 0), 0)
-
   const totalExpenses = safeCategories.filter((cat) => !cat?.isIncome).reduce((sum, cat) => sum + (cat?.amount || 0), 0)
 
   const expenseCategories = safeCategories.filter((cat) => !cat?.isIncome)
@@ -53,9 +51,9 @@ export const ChartView: React.FC<ChartViewProps> = ({ categories, onCategoryIcon
   const segments = expenseCategories.map((category, index) => {
     const percentage = totalExpenseAmount ? (category.amount / totalExpenseAmount) * 100 : 0
     const angle = (percentage / 100) * 360
-    const midAngle = startAngle + angle / 2 // Middle of the segment for icon placement
+    const midAngle = startAngle + angle / 2
     const segment = {
-      color: category.color || "#CCCCCC", // Use category color from backend with fallback
+      color: category.color || "#CCCCCC",
       startAngle,
       endAngle: startAngle + angle,
       percentage: Math.round(percentage),
@@ -117,16 +115,13 @@ export const ChartView: React.FC<ChartViewProps> = ({ categories, onCategoryIcon
     return segments.map((segment, index) => {
       const { midAngle, category, percentage } = segment
 
-      // Skip rendering if percentage is too small
       if (percentage < 3) return null
 
-      // Calculate icon position
       const angleInRadians = (midAngle - 90) * (Math.PI / 180)
       const x = centerPoint + iconRadius * Math.cos(angleInRadians)
       const y = centerPoint + iconRadius * Math.sin(angleInRadians)
 
-      // Calculate icon size based on chart size
-      const iconSize = chartSize * 0.06 // 6% of chart size
+      const iconSize = chartSize * 0.06
       const iconOffset = iconSize / 2
 
       return (
@@ -136,7 +131,7 @@ export const ChartView: React.FC<ChartViewProps> = ({ categories, onCategoryIcon
             styles.iconContainer,
             {
               position: "absolute",
-              left: x - iconOffset,
+              left: x - iconOffset, // RTL adjustment not needed here as it's radial
               top: y - iconOffset,
               width: iconSize,
               height: iconSize,
@@ -176,21 +171,21 @@ export const ChartView: React.FC<ChartViewProps> = ({ categories, onCategoryIcon
             x={centerPoint}
             y={centerPoint - centerTextSize / 2}
             fontSize={centerTextSize}
-            fontWeight="bold"
+            fontFamily={theme.fonts.bold} // Added Arabic font
             fill={theme.colors.success}
-            textAnchor="middle"
+            textAnchor="middle" // Kept as middle for center alignment
           >
-            {totalIncome.toFixed(2)}
+            {`${totalIncome.toFixed(2)} د.ت`} {/* Changed to Arabic currency */}
           </SvgText>
           <SvgText
             x={centerPoint}
             y={centerPoint + centerTextSize}
             fontSize={centerTextSize}
-            fontWeight="bold"
+            fontFamily={theme.fonts.bold} // Added Arabic font
             fill={theme.colors.error}
-            textAnchor="middle"
+            textAnchor="middle" // Kept as middle for center alignment
           >
-            {totalExpenses.toFixed(2)}
+            {`${totalExpenses.toFixed(2)} د.ت`} {/* Changed to Arabic currency */}
           </SvgText>
         </Svg>
         {/* Render icons outside of SVG */}
@@ -206,6 +201,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: theme.colors.neutral.background,
+    flexDirection: 'row-reverse', // Added for RTL
   },
   chartWrapper: {
     position: "relative",
@@ -238,5 +234,7 @@ const styles = StyleSheet.create({
     textShadowColor: "rgba(255, 255, 255, 0.8)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
+    fontFamily: theme.fonts.regular, // Added Arabic font
+    textAlign: 'right', // Added for RTL
   },
 })

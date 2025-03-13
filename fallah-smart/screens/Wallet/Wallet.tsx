@@ -19,6 +19,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, NavigationProp as NavProp, useFocusEffect } from "@react-navigation/native";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { ChartView } from "./components/ChartView";
+import { CategoryList } from "./components/CategoryList";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import { theme } from "../../theme/theme";
@@ -51,164 +52,6 @@ interface Account {
   id: number;
   balance: number;
 }
-
-// Updated CategoryList Component (Integrated for completeness)
-const CategoryList: React.FC<{ categories: Category[]; transactions: Transaction[] }> = ({ categories, transactions }) => {
-  const [expandedCategories, setExpandedCategories] = useState<number[]>([]);
-  const navigation = useNavigation<NavProp<RootStackParamList>>();
-
-  const toggleCategory = (categoryId: number) => {
-    setExpandedCategories((prev) =>
-      prev.includes(categoryId) ? prev.filter((id) => id !== categoryId) : [...prev, categoryId]
-    );
-  };
-
-  // Updated formatDate function to show day: number, month: long, year: last 2 digits
-  const formatDate = (dateString: string) => {
-    if (!dateString) return "Date unavailable";
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return "Invalid date";
-    const day = date.getDate(); // Get day as number
-    const month = date.toLocaleDateString("en-US", { month: "long" }); // Get month as long text
-    const year = date.getFullYear().toString().slice(-2); // Get last 2 digits of year
-    return `${day} ${month} ${year}`;
-  };
-
-  const handleTransactionPress = (transaction: Transaction) => {
-    // Navigate to EditTransaction with the transaction object
-    navigation.navigate("EditTransaction", { transaction });
-  };
-
-  // Ensure categories is an array
-  const safeCategories = Array.isArray(categories) ? categories : [];
-
-  return (
-    <View style={categoryStyles.container}>
-      {safeCategories.length === 0 ? (
-        <Text style={categoryStyles.emptyText}>No categories to display</Text>
-      ) : (
-        safeCategories.map((category) => (
-          <View key={category?.id?.toString() || Math.random().toString()}>
-            <TouchableOpacity
-              style={categoryStyles.categoryItem}
-              onPress={() => toggleCategory(category.id || 0)}
-            >
-              <View style={categoryStyles.leftContent}>
-                <RenderIcon
-                  icon={expandedCategories.includes(category.id || 0) ? "chevron-up" : "chevron-down"}
-                  type="material-community"
-                  size={24}
-                  color="#BBBBBB"
-                />
-                <View style={[categoryStyles.iconContainer, { backgroundColor: (category.color || "#000000") + "20" }]}>
-                  <RenderIcon
-                    icon={category.icon || "help"}
-                    type={category.type || "material-community"} // Default type if not provided
-                    size={24}
-                    color={category.color || "#000"}
-                  />
-                </View>
-                <Text style={categoryStyles.categoryName}>{category.name || "Unknown"}</Text>
-                <View style={categoryStyles.countBadge}>
-                  <Text style={categoryStyles.countText}>{category.count || 0}</Text>
-                </View>
-              </View>
-              <Text
-                style={[
-                  categoryStyles.amount,
-                  { color: category.isIncome ? theme.colors.success : theme.colors.error },
-                ]}
-              >
-                ${category.amount?.toFixed(2) || "0.00"}
-              </Text>
-            </TouchableOpacity>
-            {expandedCategories.includes(category.id || 0) && (
-              <View style={categoryStyles.transactionsList}>
-                {transactions
-                  .filter((t) => t.category?.id === category.id)
-                  .map((transaction) => (
-                    <TouchableOpacity
-                      key={transaction.id?.toString() || Math.random().toString()}
-                      style={categoryStyles.transactionItem}
-                      onPress={() => handleTransactionPress(transaction)}
-                    >
-                      <View style={categoryStyles.transactionLeft}>
-                        <Text style={categoryStyles.transactionNote}>{transaction.note || "No note"}</Text>
-                        <Text style={categoryStyles.transactionDate}>
-                          {formatDate(transaction.date || "")}
-                        </Text>
-                      </View>
-                      <Text
-                        style={[
-                          categoryStyles.transactionAmount,
-                          {
-                            color: transaction.category?.isIncome
-                              ? theme.colors.success
-                              : theme.colors.error,
-                          },
-                        ]}
-                      >
-                        ${transaction.amount?.toFixed(2) || "0.00"}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-              </View>
-            )}
-          </View>
-        ))
-      )}
-    </View>
-  );
-};
-
-const categoryStyles = StyleSheet.create({
-  container: { paddingHorizontal: 15 },
-  categoryItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#EEEEEE",
-  },
-  leftContent: { flexDirection: "row", alignItems: "center" },
-  iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  categoryName: { fontSize: 16, color: "#333333" },
-  countBadge: {
-    backgroundColor: "#7BC29A",
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    marginLeft: 8,
-  },
-  countText: { color: "white", fontSize: 12, fontWeight: "bold" },
-  amount: { fontSize: 16, fontWeight: "bold" },
-  transactionsList: {
-    paddingLeft: 45,
-    backgroundColor: theme.colors.neutral.background,
-  },
-  transactionItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: "#EEEEEE",
-  },
-  transactionLeft: { flex: 1 },
-  transactionNote: { fontSize: 14, color: "#333333" },
-  transactionDate: { fontSize: 12, color: "#888888", marginTop: 2 },
-  transactionAmount: { fontSize: 14, fontWeight: "bold" },
-  emptyText: { textAlign: "center", padding: 20, color: theme.colors.neutral.textSecondary },
-});
 
 // HomeScreen Component
 const HomeScreen: React.FC = () => {
@@ -252,14 +95,14 @@ const HomeScreen: React.FC = () => {
     try {
       const userStr = await AsyncStorage.getItem("@user");
       if (!userStr) {
-        setError("No user data found. Please log in.");
+        setError("لم يتم العثور على بيانات المستخدم. الرجاء تسجيل الدخول.");
         setLoading(false);
         return null;
       }
       const userData = JSON.parse(userStr);
       return userData.id;
     } catch (error) {
-      setError("Invalid user data. Please log in again.");
+      setError("بيانات المستخدم غير صالحة. الرجاء تسجيل الدخول مرة أخرى.");
       setLoading(false);
       return null;
     }
@@ -283,7 +126,7 @@ const HomeScreen: React.FC = () => {
         await fetchAllTransactions(response.data[0].id);
       }
     } catch (error) {
-      setError("Error fetching accounts: " + (error.response?.data?.message || error.message));
+      setError("خطأ في جلب الحسابات: " + (error.response?.data?.message || error.message));
     } finally {
       setLoading(false);
     }
@@ -304,10 +147,10 @@ const HomeScreen: React.FC = () => {
         setTransactions(response.data.data);
         await calculateAndUpdateBalance(response.data.data);
       } else {
-        setError("Error fetching all transactions: " + response.data.message);
+        setError("خطأ في جلب جميع المعاملات: " + response.data.message);
       }
     } catch (error) {
-      setError("Network error: " + (error.response?.data?.message || error.message));
+      setError("خطأ في الشبكة: " + (error.response?.data?.message || error.message));
     }
   };
 
@@ -324,10 +167,10 @@ const HomeScreen: React.FC = () => {
       if (response.data.success) {
         setTransactions(response.data.data);
       } else {
-        setError("Error fetching transactions: " + response.data.message);
+        setError("خطأ في جلب المعاملات: " + response.data.message);
       }
     } catch (error) {
-      setError("Network error: " + (error.response?.data?.message || error.message));
+      setError("خطأ في الشبكة: " + (error.response?.data?.message || error.message));
     }
   };
 
@@ -367,7 +210,7 @@ const HomeScreen: React.FC = () => {
       }
       return newBalance;
     } catch (error) {
-      setError("Error updating balance: " + (error.response?.data?.message || error.message));
+      setError("خطأ في تحديث الرصيد: " + (error.response?.data?.message || error.message));
     }
   };
 
@@ -382,7 +225,7 @@ const HomeScreen: React.FC = () => {
       newStartDate.setHours(0, 0, 0, 0);
       newEndDate = new Date(today);
       newEndDate.setHours(23, 59, 59, 999);
-      displayText = today.toLocaleDateString("en-US", {
+      displayText = today.toLocaleDateString("ar", {
         weekday: "long",
         month: "long",
         day: "numeric",
@@ -390,13 +233,13 @@ const HomeScreen: React.FC = () => {
     } else if (filterType === "Weekly") {
       newStartDate = new Date(today);
       newStartDate.setDate(today.getDate() - 7);
-      newStartDate.setHours(0, 0, 0, 0); // Set to midnight of start day
+      newStartDate.setHours(0, 0, 0, 0);
       newEndDate = new Date(today);
-      newEndDate.setHours(23, 59, 59, 999); // Set to end of today's day
-      displayText = `${newStartDate.toLocaleDateString("en-US", {
+      newEndDate.setHours(23, 59, 59, 999);
+      displayText = `${newStartDate.toLocaleDateString("ar", {
         day: "numeric",
         month: "long",
-      })} - ${newEndDate.toLocaleDateString("en-US", {
+      })} - ${newEndDate.toLocaleDateString("ar", {
         month: "long",
         day: "numeric",
       })}`;
@@ -406,7 +249,7 @@ const HomeScreen: React.FC = () => {
       newEndDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
       newEndDate.setHours(23, 59, 59, 999);
       setSelectedMonthDate(newStartDate);
-      displayText = newStartDate.toLocaleDateString("en-US", {
+      displayText = newStartDate.toLocaleDateString("ar", {
         month: "long",
       });
     } else if (filterType === "Yearly") {
@@ -419,7 +262,7 @@ const HomeScreen: React.FC = () => {
     } else if (filterType === "All") {
       newStartDate = null;
       newEndDate = null;
-      displayText = "All";
+      displayText = "الكل";
     }
 
     setStartDate(newStartDate);
@@ -442,7 +285,7 @@ const HomeScreen: React.FC = () => {
   };
 
   const handleMonthSelect = (month: number) => {
-    const year = new Date().getFullYear(); // Use current year for month selection
+    const year = new Date().getFullYear();
     const newStartDate = new Date(year, month, 1);
     newStartDate.setHours(0, 0, 0, 0);
     const newEndDate = new Date(year, month + 1, 0);
@@ -450,7 +293,7 @@ const HomeScreen: React.FC = () => {
     setStartDate(newStartDate);
     setEndDate(newEndDate);
     setSelectedMonthDate(newStartDate);
-    setDateDisplay(newStartDate.toLocaleDateString("en-US", {
+    setDateDisplay(newStartDate.toLocaleDateString("ar", {
       month: "long",
       year: "numeric",
     }));
@@ -485,11 +328,10 @@ const HomeScreen: React.FC = () => {
     }
   };
 
-  // Refresh data when screen is focused
   useFocusEffect(
     useCallback(() => {
       fetchAccounts();
-      setDateRange("Monthly"); // Set default filter to Monthly
+      setDateRange("Monthly");
     }, [])
   );
 
@@ -509,7 +351,7 @@ const HomeScreen: React.FC = () => {
 
   const getCurrentDate = () => {
     const date = new Date();
-    return date.toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long" });
+    return date.toLocaleDateString("ar", { weekday: "long", day: "numeric", month: "long" });
   };
 
   const processTransactionsIntoCategories = (): Category[] => {
@@ -520,9 +362,9 @@ const HomeScreen: React.FC = () => {
         if (!categoryMap.has(category.id)) {
           categoryMap.set(category.id, {
             id: category.id,
-            name: category.name || "Unknown",
+            name: category.name || "غير معروف",
             icon: category.icon || "question-mark",
-            type: category.type || "material-community", // Default to material-community for consistency
+            type: category.type || "material-community",
             color: category.color || "#7BC29A",
             amount: 0,
             count: 0,
@@ -533,7 +375,7 @@ const HomeScreen: React.FC = () => {
         categoryData.amount += transaction.amount;
         categoryData.count += 1;
       } else {
-        console.warn("Transaction missing category or category.id:", transaction);
+        console.warn("معاملة بدون فئة أو معرف فئة:", transaction);
       }
     });
     return Array.from(categoryMap.values()).sort((a, b) => {
@@ -560,12 +402,12 @@ const HomeScreen: React.FC = () => {
   };
 
   const months = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December"
+    "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
+    "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"
   ];
 
   const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 21 }, (_, i) => currentYear - 10 + i); // ±10 years from current year
+  const years = Array.from({ length: 21 }, (_, i) => currentYear - 10 + i);
 
   const renderMonthItem = ({ item, index }: { item: string, index: number }) => (
     <TouchableOpacity
@@ -605,19 +447,19 @@ const HomeScreen: React.FC = () => {
       {sidebarVisible && (
         <View style={[styles.sidebar, { width: sidebarWidth, top: 0 }]}>
           <TouchableOpacity style={styles.sidebarItem} onPress={() => handleFilterSelect("Daily")}>
-            <Text style={styles.sidebarText}>Daily</Text>
+            <Text style={styles.sidebarText}>يومي</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.sidebarItem} onPress={() => handleFilterSelect("Weekly")}>
-            <Text style={styles.sidebarText}>Weekly</Text>
+            <Text style={styles.sidebarText}>أسبوعي</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.sidebarItem} onPress={() => handleFilterSelect("Monthly")}>
-            <Text style={styles.sidebarText}>Monthly</Text>
+            <Text style={styles.sidebarText}>شهري</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.sidebarItem} onPress={() => handleFilterSelect("Yearly")}>
-            <Text style={styles.sidebarText}>Yearly</Text>
+            <Text style={styles.sidebarText}>سنوي</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.sidebarItem} onPress={() => handleFilterSelect("All")}>
-            <Text style={styles.sidebarText}>All</Text>
+            <Text style={styles.sidebarText}>الكل</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -677,7 +519,7 @@ const HomeScreen: React.FC = () => {
                 style={styles.closeButton}
                 onPress={() => setShowMonthSelector(false)}
               >
-                <Text style={styles.closeButtonText}>Close</Text>
+                <Text style={styles.closeButtonText}>إغلاق</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -700,7 +542,7 @@ const HomeScreen: React.FC = () => {
                 style={styles.closeButton}
                 onPress={() => setShowYearSelector(false)}
               >
-                <Text style={styles.closeButtonText}>Close</Text>
+                <Text style={styles.closeButtonText}>إغلاق</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -710,7 +552,7 @@ const HomeScreen: React.FC = () => {
           <View style={{ alignItems: "center" }}>
             <TouchableOpacity onPress={toggleView}>
               <View style={[styles.balanceBox, styles.balanceBoxList, { width: balanceWidth }]}>
-                <Text style={styles.balanceText}>Balance {filteredBalance} DT </Text>
+                <Text style={styles.balanceText}>الرصيد {filteredBalance} د.ت</Text>
               </View>
             </TouchableOpacity>
           </View>
@@ -741,7 +583,7 @@ const HomeScreen: React.FC = () => {
           {!showList && (
             <TouchableOpacity onPress={toggleView}>
               <View style={[styles.balanceBox, { marginHorizontal: screenWidth * 0.01, width: balanceWidth }]}>
-                <Text style={styles.balanceText}>Balance {filteredBalance} DT</Text>
+                <Text style={styles.balanceText}>الرصيد {filteredBalance} د.ت</Text>
               </View>
             </TouchableOpacity>
           )}
@@ -768,10 +610,10 @@ const HomeScreen: React.FC = () => {
           <Animated.View style={[styles.tooltipContainer, { transform: [{ scale: tooltipAnim }] }]}>
             <Text style={styles.tooltipTitle}>{selectedCategoryTooltip?.name}</Text>
             <Text style={styles.tooltipText}>
-              Amount: ${selectedCategoryTooltip?.amount?.toFixed(2) || "0.00"}
+              المبلغ: ${selectedCategoryTooltip?.amount?.toFixed(2) || "0.00"}
             </Text>
             <Text style={styles.tooltipText}>
-              Transactions: ${selectedCategoryTooltip?.count || 0}
+              المعاملات: ${selectedCategoryTooltip?.count || 0}
             </Text>
           </Animated.View>
         </TouchableOpacity>
@@ -784,10 +626,10 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.neutral.background },
   scrollView: { flex: 1 },
   monthContainer: { alignItems: "center", paddingVertical: theme.spacing.md },
-  monthText: { fontSize: theme.fontSizes.h2, color: theme.colors.primary.base, textDecorationLine: "underline" },
+  monthText: { fontSize: theme.fontSizes.h2, color: theme.colors.primary.base, textDecorationLine: "underline", textAlign: "right" },
   contentContainer: { flex: 1, marginVertical: theme.spacing.lg },
   balanceBox: { backgroundColor: theme.colors.primary.base, paddingVertical: theme.spacing.sm, paddingHorizontal: theme.spacing.md, borderRadius: theme.borderRadius.small, alignItems: "center", justifyContent: "center", marginHorizontal: theme.spacing.sm },
-  balanceText: { color: theme.colors.neutral.surface, fontSize: theme.fontSizes.button, fontWeight: "bold" },
+  balanceText: { color: theme.colors.neutral.surface, fontSize: theme.fontSizes.button, fontWeight: "bold", textAlign: "right" },
   actionButtons: { flexDirection: "row", justifyContent: "center", alignItems: "center", marginVertical: theme.spacing.lg, paddingHorizontal: theme.spacing.lg },
   actionButton: { alignItems: "center", justifyContent: "center" },
   expenseButton: { backgroundColor: theme.colors.error, borderWidth: 5, borderColor: theme.colors.neutral.surface },
@@ -797,7 +639,7 @@ const styles = StyleSheet.create({
   sidebar: {
     position: "absolute",
     top: 60,
-    left: 0,
+    right: 0, // Changed from left to right for RTL
     bottom: 0,
     backgroundColor: theme.colors.primary.base,
     paddingVertical: theme.spacing.md,
@@ -805,6 +647,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   sidebarItem: {
+    marginTop : 20,
     paddingVertical: theme.spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.neutral.surface,
@@ -812,11 +655,11 @@ const styles = StyleSheet.create({
   sidebarText: {
     color: "white",
     fontSize: theme.fontSizes.body,
-    textAlign: "center",
+    textAlign: "right",
   },
   errorText: {
     color: theme.colors.error,
-    textAlign: "center",
+    textAlign: "right",
     marginTop: theme.spacing.md,
   },
   modalContainer: {
@@ -839,6 +682,7 @@ const styles = StyleSheet.create({
   pickerItemText: {
     fontSize: theme.fontSizes.body,
     color: theme.colors.primary.base,
+    textAlign: "right",
   },
   closeButton: {
     marginTop: theme.spacing.md,
@@ -850,6 +694,7 @@ const styles = StyleSheet.create({
   closeButtonText: {
     color: theme.colors.neutral.surface,
     fontSize: theme.fontSizes.button,
+    textAlign: "right",
   },
   tooltipOverlay: {
     flex: 1,
@@ -871,11 +716,12 @@ const styles = StyleSheet.create({
     fontSize: theme.fontSizes.h3,
     fontWeight: "bold",
     color: theme.colors.primary.base,
-    marginBottom: theme.spacing.sm,
+    textAlign: "right",
   },
   tooltipText: {
     fontSize: theme.fontSizes.body,
     color: theme.colors.neutral.textPrimary,
+    textAlign: "right",
   },
 });
 
