@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { StockSeed } from '../screens/Stock/types';
-import { stockSeedApi } from '../services/api';
+import { seedApi } from '../services/api';
 import { useAuth } from './AuthContext';
 
 interface SeedContextType {
@@ -27,7 +27,7 @@ export const SeedProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setLoading(true);
       setError(null);
-      const data = await stockSeedApi.getAllSeeds();
+      const data = await seedApi.getAllSeeds();
       setSeeds(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch seeds');
@@ -42,12 +42,24 @@ export const SeedProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setLoading(true);
       setError(null);
-      const newSeed = await stockSeedApi.createSeed({
+      
+      // Log debugging information
+      console.log('Adding seed with user:', user);
+      console.log('Seed data before API call:', seed);
+      
+      // Ensure userId is properly sent and type is correct
+      const seedData = {
         ...seed,
-        userId: user.id.toString(),
-      });
+        userId: typeof seed.userId === 'string' ? parseInt(seed.userId, 10) : seed.userId,
+      };
+      
+      console.log('Modified seed data being sent to API:', seedData);
+      const newSeed = await seedApi.createSeed(seedData);
+      console.log('API response for new seed:', newSeed);
+      
       setSeeds(prev => [...prev, newSeed]);
     } catch (err) {
+      console.error('Error in addSeed function:', err);
       setError(err instanceof Error ? err.message : 'Failed to add seed');
       throw err;
     } finally {
@@ -59,7 +71,7 @@ export const SeedProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setLoading(true);
       setError(null);
-      const updatedSeed = await stockSeedApi.updateSeed(id, seed);
+      const updatedSeed = await seedApi.updateSeed(id, seed);
       setSeeds(prev => prev.map(s => s.id === id ? updatedSeed : s));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update seed');
@@ -73,7 +85,7 @@ export const SeedProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setLoading(true);
       setError(null);
-      await stockSeedApi.deleteSeed(id);
+      await seedApi.deleteSeed(id);
       setSeeds(prev => prev.filter(s => s.id !== id));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete seed');

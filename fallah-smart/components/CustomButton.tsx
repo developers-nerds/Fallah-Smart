@@ -1,59 +1,74 @@
 import React from 'react';
-import { 
-  TouchableOpacity, 
-  Text, 
-  StyleSheet, 
-  ActivityIndicator,
-  ViewStyle,
-  TextStyle
-} from 'react-native';
-import { useTheme } from '../context/ThemeContext';
+import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, ViewStyle } from 'react-native';
 
-interface CustomButtonProps {
+export interface CustomButtonProps {
   title: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary';
-  loading?: boolean;
   disabled?: boolean;
+  type?: 'primary' | 'secondary' | 'outline';
   style?: ViewStyle;
-  textStyle?: TextStyle;
+  loading?: boolean;
 }
 
 export const CustomButton: React.FC<CustomButtonProps> = ({
   title,
   onPress,
-  variant = 'primary',
-  loading = false,
   disabled = false,
+  type = 'primary',
   style,
-  textStyle
+  loading = false,
 }) => {
-  const theme = useTheme();
+  const getBackgroundColor = () => {
+    if (disabled) return '#ccc';
+    switch (type) {
+      case 'primary':
+        return '#5CA73C';
+      case 'secondary':
+        return '#E9EFF6';
+      case 'outline':
+        return 'transparent';
+      default:
+        return '#5CA73C';
+    }
+  };
 
-  const buttonStyle = [
-    styles.button,
-    variant === 'primary' && { backgroundColor: theme.colors.primary.base },
-    variant === 'secondary' && { backgroundColor: theme.colors.neutral.surface },
-    disabled && { opacity: 0.5 },
-    style
-  ];
+  const getTextColor = () => {
+    if (disabled) return '#888';
+    switch (type) {
+      case 'primary':
+        return '#FFFFFF';
+      case 'secondary':
+        return '#4A4A4A';
+      case 'outline':
+        return '#5CA73C';
+      default:
+        return '#FFFFFF';
+    }
+  };
 
-  const textColor = variant === 'primary' 
-    ? theme.colors.neutral.surface 
-    : theme.colors.neutral.textPrimary;
+  const getBorderColor = () => {
+    if (disabled) return '#ccc';
+    return type === 'outline' ? '#5CA73C' : 'transparent';
+  };
 
   return (
     <TouchableOpacity
-      style={buttonStyle}
+      style={[
+        styles.button,
+        {
+          backgroundColor: getBackgroundColor(),
+          borderColor: getBorderColor(),
+          borderWidth: type === 'outline' ? 1 : 0,
+        },
+        style,
+      ]}
       onPress={onPress}
       disabled={disabled || loading}
     >
       {loading ? (
-        <ActivityIndicator color={textColor} />
+        <ActivityIndicator color={getTextColor()} size="small" />
       ) : (
-        <Text style={[styles.text, { color: textColor }, textStyle]}>
-          {title}
-        </Text>
+        <Text style={[styles.text, { color: getTextColor() }]}>{title}</Text>
       )}
     </TouchableOpacity>
   );
@@ -61,11 +76,12 @@ export const CustomButton: React.FC<CustomButtonProps> = ({
 
 const styles = StyleSheet.create({
   button: {
-    height: 48,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
+    paddingVertical: 12,
     paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 120,
   },
   text: {
     fontSize: 16,

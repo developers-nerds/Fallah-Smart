@@ -18,6 +18,7 @@ import AddIncome from './screens/Wallet/components/AddIncome';
 import AddExpense from './screens/Wallet/components/AddExpense';
 import EditExpense from './screens/Wallet/components/EditExpense';
 import EditIncome from './screens/Wallet/components/EditIncome'; // New import
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 // Define the navigation param list
 type RootStackParamList = {
@@ -71,30 +72,32 @@ export const RootNavigator: React.FC = () => {
 // Default export remains the App component
 export default function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <NavigationContainer>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider>
+        <AuthProvider>
           <StockProvider>
             <AnimalProvider>
-              <PesticideProvider>
-                <ToolProvider>
-                  <EquipmentProvider>
-                    <SeedProvider>
+              <SeedProvider>
+                <PesticideProvider>
+                  <ToolProvider>
+                    <EquipmentProvider>
                       <FeedProvider>
                         <HarvestProvider>
                           <FertilizerProvider>
-                            <RootNavigator />
+                            <NavigationContainer>
+                              <RootNavigator />
+                            </NavigationContainer>
                           </FertilizerProvider>
                         </HarvestProvider>
                       </FeedProvider>
-                    </SeedProvider>
-                  </EquipmentProvider>
-                </ToolProvider>
-              </PesticideProvider>
+                    </EquipmentProvider>
+                  </ToolProvider>
+                </PesticideProvider>
+              </SeedProvider>
             </AnimalProvider>
           </StockProvider>
-        </NavigationContainer>
-      </AuthProvider>
-    </ThemeProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
