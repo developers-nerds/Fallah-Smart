@@ -1,14 +1,25 @@
 import React from 'react';
 import 'react-native-gesture-handler';
 import { NavigationContainer } from '@react-navigation/native';
-import { createStackNavigator } from '@react-navigation/stack';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ThemeProvider } from './context/ThemeContext';
+import { AuthProvider } from './context/AuthContext';
 import { StockProvider } from './context/StockContext';
+import { AnimalProvider } from './context/AnimalContext';
+import { PesticideProvider } from './context/PesticideContext';
+import { ToolProvider } from './context/ToolContext';
+import { EquipmentProvider } from './context/EquipmentContext';
+import { SeedProvider } from './context/SeedContext';
+import { FeedProvider } from './context/FeedContext';
+import { HarvestProvider } from './context/HarvestContext';
+import { FertilizerProvider } from './context/FertilizerContext';
+import { createStackNavigator } from '@react-navigation/stack';
 import { StockNavigator } from './navigation/StockNavigator';
 import AddTransaction from './screens/Wallet/components/AddTransaction';
 import { EducationNavigator } from "./navigation/EducationNavigator"
 import EditTransaction from './screens/Wallet/components/EditTransaction';
 import Wallet from './screens/Wallet/Wallet'; // Import the Wallet screen
+import AdvisorApplication from './screens/AdvisorApplication/AdvisorApplication';
 import { I18nManager } from 'react-native';
 
 // Force RTL and allow RTL globally
@@ -21,6 +32,8 @@ type RootStackParamList = {
   AddTransaction: { transactionType: 'income' | 'expense' };
   EditTransaction: { transaction: Transaction };
   Wallet: undefined; // Add Wallet to the param list
+  Education: undefined;
+  AdvisorApplication: undefined;
 };
 
 // Define the Transaction interface
@@ -62,7 +75,12 @@ export const RootNavigator: React.FC = () => {
         component={Wallet} 
         options={{ title: 'محفظتي' }} // Set the header title here
       />
-          <Stack.Screen name="Education" component={EducationNavigator} />
+      <Stack.Screen name="Education" component={EducationNavigator} />
+      <Stack.Screen 
+        name="AdvisorApplication" 
+        component={AdvisorApplication}
+        options={{ title: 'تطبيق مستشار' }}
+      />
     </Stack.Navigator>
   );
 };
@@ -70,10 +88,32 @@ export const RootNavigator: React.FC = () => {
 // Default export remains the App component
 export default function App() {
   return (
-    <ThemeProvider>
-      <NavigationContainer>
-        <RootNavigator />
-      </NavigationContainer>
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider>
+        <AuthProvider>
+          <StockProvider>
+            <AnimalProvider>
+              <SeedProvider>
+                <PesticideProvider>
+                  <ToolProvider>
+                    <EquipmentProvider>
+                      <FeedProvider>
+                        <HarvestProvider>
+                          <FertilizerProvider>
+                            <NavigationContainer>
+                              <RootNavigator />
+                            </NavigationContainer>
+                          </FertilizerProvider>
+                        </HarvestProvider>
+                      </FeedProvider>
+                    </EquipmentProvider>
+                  </ToolProvider>
+                </PesticideProvider>
+              </SeedProvider>
+            </AnimalProvider>
+          </StockProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }

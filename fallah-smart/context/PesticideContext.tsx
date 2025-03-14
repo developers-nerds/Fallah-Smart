@@ -1,16 +1,17 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
-import { Pesticide, pesticideService } from '../services/pesticideService';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { pesticideApi } from '../services/api';
+import { Pesticide } from '../screens/Stock/types';
 
 interface PesticideContextType {
   pesticides: Pesticide[];
   loading: boolean;
   error: string | null;
-  refreshPesticides: () => Promise<void>;
-  addPesticideQuantity: (id: number, quantity: number, notes?: string) => Promise<void>;
-  removePesticideQuantity: (id: number, quantity: number, notes?: string) => Promise<void>;
-  createPesticide: (pesticide: Omit<Pesticide, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => Promise<void>;
-  updatePesticide: (id: number, pesticide: Partial<Pesticide>) => Promise<void>;
-  deletePesticide: (id: number) => Promise<void>;
+  fetchPesticides: () => Promise<void>;
+  addPesticide: (pesticide: Omit<Pesticide, 'id'>) => Promise<void>;
+  updatePesticide: (id: string, pesticide: Partial<Pesticide>) => Promise<void>;
+  deletePesticide: (id: string) => Promise<void>;
+  addPesticideQuantity: (id: string, quantity: number, notes?: string) => Promise<void>;
+  removePesticideQuantity: (id: string, quantity: number, notes?: string) => Promise<void>;
 }
 
 const PesticideContext = createContext<PesticideContextType | undefined>(undefined);
@@ -20,113 +21,116 @@ export const PesticideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const refreshPesticides = useCallback(async () => {
+  const fetchPesticides = async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await pesticideService.getAllPesticides();
+      const data = await pesticideApi.getAllPesticides();
       setPesticides(data);
     } catch (err) {
-      setError('Failed to fetch pesticides');
+      setError(err instanceof Error ? err.message : 'Failed to fetch pesticides');
       console.error('Error fetching pesticides:', err);
     } finally {
       setLoading(false);
     }
-  }, []);
-
-  const addPesticideQuantity = useCallback(async (id: number, quantity: number, notes?: string) => {
-    try {
-      setLoading(true);
-      setError(null);
-      await pesticideService.updatePesticideQuantity(id, quantity, 'add');
-      await refreshPesticides();
-    } catch (err) {
-      setError('Failed to add quantity');
-      console.error('Error adding quantity:', err);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [refreshPesticides]);
-
-  const removePesticideQuantity = useCallback(async (id: number, quantity: number, notes?: string) => {
-    try {
-      setLoading(true);
-      setError(null);
-      await pesticideService.updatePesticideQuantity(id, quantity, 'remove');
-      await refreshPesticides();
-    } catch (err) {
-      setError('Failed to remove quantity');
-      console.error('Error removing quantity:', err);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [refreshPesticides]);
-
-  const createPesticide = useCallback(async (pesticide: Omit<Pesticide, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => {
-    try {
-      setLoading(true);
-      setError(null);
-      await pesticideService.createPesticide(pesticide);
-      await refreshPesticides();
-    } catch (err) {
-      setError('Failed to create pesticide');
-      console.error('Error creating pesticide:', err);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [refreshPesticides]);
-
-  const updatePesticide = useCallback(async (id: number, pesticide: Partial<Pesticide>) => {
-    try {
-      setLoading(true);
-      setError(null);
-      await pesticideService.updatePesticide(id, pesticide);
-      await refreshPesticides();
-    } catch (err) {
-      setError('Failed to update pesticide');
-      console.error('Error updating pesticide:', err);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [refreshPesticides]);
-
-  const deletePesticide = useCallback(async (id: number) => {
-    try {
-      setLoading(true);
-      setError(null);
-      await pesticideService.deletePesticide(id);
-      await refreshPesticides();
-    } catch (err) {
-      setError('Failed to delete pesticide');
-      console.error('Error deleting pesticide:', err);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [refreshPesticides]);
-
-  React.useEffect(() => {
-    refreshPesticides();
-  }, [refreshPesticides]);
-
-  const value = {
-    pesticides,
-    loading,
-    error,
-    refreshPesticides,
-    addPesticideQuantity,
-    removePesticideQuantity,
-    createPesticide,
-    updatePesticide,
-    deletePesticide,
   };
 
+  const addPesticide = async (pesticide: Omit<Pesticide, 'id'>) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const newPesticide = await pesticideApi.createPesticide(pesticide);
+      setPesticides(prev => [...prev, newPesticide]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add pesticide');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updatePesticide = async (id: string, pesticide: Partial<Pesticide>) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const updatedPesticide = await pesticideApi.updatePesticide(id, pesticide);
+      setPesticides(prev => prev.map(p => p.id === id ? updatedPesticide : p));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update pesticide');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deletePesticide = async (id: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      await pesticideApi.deletePesticide(id);
+      setPesticides(prev => prev.filter(p => p.id !== id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete pesticide');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addPesticideQuantity = async (id: string, quantity: number, notes?: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const updatedPesticide = await pesticideApi.updatePesticide(id, {
+        quantity: (pesticides.find(p => p.id === id)?.quantity || 0) + quantity
+      });
+      setPesticides(prev => prev.map(p => p.id === id ? updatedPesticide : p));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add pesticide quantity');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const removePesticideQuantity = async (id: string, quantity: number, notes?: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const currentPesticide = pesticides.find(p => p.id === id);
+      if (!currentPesticide) throw new Error('Pesticide not found');
+      if (currentPesticide.quantity < quantity) throw new Error('Insufficient quantity');
+      
+      const updatedPesticide = await pesticideApi.updatePesticide(id, {
+        quantity: currentPesticide.quantity - quantity
+      });
+      setPesticides(prev => prev.map(p => p.id === id ? updatedPesticide : p));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to remove pesticide quantity');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPesticides();
+  }, []);
+
   return (
-    <PesticideContext.Provider value={value}>
+    <PesticideContext.Provider
+      value={{
+        pesticides,
+        loading,
+        error,
+        fetchPesticides,
+        addPesticide,
+        updatePesticide,
+        deletePesticide,
+        addPesticideQuantity,
+        removePesticideQuantity
+      }}
+    >
       {children}
     </PesticideContext.Provider>
   );

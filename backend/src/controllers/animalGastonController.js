@@ -8,6 +8,7 @@ const animalGastonController = {
         where: { userId: req.user.id },
         include: [{ model: Media, as: 'media' }]
       });
+      console.log('Fetched animals:', JSON.stringify(animals, null, 2));
       res.json(animals);
     } catch (error) {
       console.error('Error fetching animals:', error);
@@ -40,6 +41,8 @@ const animalGastonController = {
   // Create a new animal
   createAnimal: async (req, res) => {
     try {
+      console.log('Received create animal request with body:', JSON.stringify(req.body, null, 2));
+      
       const {
         type,
         count,
@@ -51,7 +54,14 @@ const animalGastonController = {
         diseases,
         medications,
         vaccination,
-        notes
+        notes,
+        birthDate,
+        weight,
+        dailyFeedConsumption,
+        breedingStatus,
+        lastBreedingDate,
+        expectedBirthDate,
+        nextVaccinationDate
       } = req.body;
 
       const animal = await AnimalGaston.create({
@@ -66,8 +76,19 @@ const animalGastonController = {
         diseases,
         medications,
         vaccination,
-        notes
+        notes,
+        birthDate,
+        weight,
+        dailyFeedConsumption,
+        breedingStatus,
+        lastBreedingDate,
+        expectedBirthDate,
+        nextVaccinationDate,
+        vaccinationHistory: [],
+        offspringCount: 0
       });
+
+      console.log('Created animal:', JSON.stringify(animal, null, 2));
 
       const createdAnimal = await AnimalGaston.findOne({
         where: { id: animal.id },
@@ -84,6 +105,8 @@ const animalGastonController = {
   // Update an animal
   updateAnimal: async (req, res) => {
     try {
+      console.log('Received update animal request with body:', JSON.stringify(req.body, null, 2));
+      
       const {
         type,
         count,
@@ -95,7 +118,14 @@ const animalGastonController = {
         diseases,
         medications,
         vaccination,
-        notes
+        notes,
+        birthDate,
+        weight,
+        dailyFeedConsumption,
+        breedingStatus,
+        lastBreedingDate,
+        expectedBirthDate,
+        nextVaccinationDate
       } = req.body;
 
       await req.animal.update({
@@ -109,8 +139,17 @@ const animalGastonController = {
         diseases,
         medications,
         vaccination,
-        notes
+        notes,
+        birthDate,
+        weight,
+        dailyFeedConsumption,
+        breedingStatus,
+        lastBreedingDate,
+        expectedBirthDate,
+        nextVaccinationDate
       });
+
+      console.log('Updated animal:', JSON.stringify(req.animal, null, 2));
 
       const updatedAnimal = await AnimalGaston.findOne({
         where: { id: req.params.id },

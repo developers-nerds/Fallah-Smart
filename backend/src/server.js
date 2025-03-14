@@ -24,6 +24,13 @@ const animalDetailsRoutes = require("./routes/animalsDetails");
 const animal = require("./routes/animal");
 const stockStatisticsRoutes = require("./routes/stockStatisticsRoutes");
 
+// New stock management routes
+const stockFeedRoutes = require("./routes/stockFeedRoutes");
+const stockSeedsRoutes = require("./routes/stockSeedsRoutes");
+const stockFertilizerRoutes = require("./routes/stockFertilizerRoutes");
+const stockEquipmentRoutes = require("./routes/stockEquipmentRoutes");
+const stockToolsRoutes = require("./routes/stockToolsRoutes");
+const stockHarvestRoutes = require("./routes/stockHarvestRoutes");
 
 ///////////////////////Education Routes///////////////////////
 const Education_AnimalsRoute = require("./routes/Education_AnimalsRoute");
@@ -95,6 +102,13 @@ app.use("/api/animal", animal);
 app.use("/api/stock-statistics", stockStatisticsRoutes);
 app.use("/api/categories", categoryRoutes);
 
+// New stock management routes
+app.use("/api/stock/feed", stockFeedRoutes);
+app.use("/api/stock/seeds", stockSeedsRoutes);
+app.use("/api/stock/fertilizer", stockFertilizerRoutes);
+app.use("/api/stock/equipment", stockEquipmentRoutes);
+app.use("/api/stock/tools", stockToolsRoutes);
+app.use("/api/stock/harvest", stockHarvestRoutes);
 
 ///////////////////////Education Routes///////////////////////
 app.use("/api/education/animals", Education_AnimalsRoute);

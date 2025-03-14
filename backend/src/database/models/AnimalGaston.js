@@ -1,5 +1,5 @@
-module.exports = (connection, DataTypes) => {
-  const AnimalGaston = connection.define(
+module.exports = (sequelize, DataTypes) => {
+  const AnimalGaston = sequelize.define(
     "AnimalGaston",
     {
       type: {
@@ -47,6 +47,60 @@ module.exports = (connection, DataTypes) => {
         type: DataTypes.TEXT,
         allowNull: true,
       },
+      birthDate: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      },
+      weight: {
+        type: DataTypes.FLOAT,
+        allowNull: true,
+      },
+      lastWeightUpdate: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      },
+      dailyFeedConsumption: {
+        type: DataTypes.FLOAT,
+        allowNull: true,
+        comment: "Daily feed consumption in kg",
+      },
+      lastFeedingTime: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      },
+      breedingStatus: {
+        type: DataTypes.ENUM('not_breeding', 'in_heat', 'pregnant', 'nursing'),
+        defaultValue: 'not_breeding',
+      },
+      lastBreedingDate: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      },
+      expectedBirthDate: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      },
+      offspringCount: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0,
+      },
+      nextVaccinationDate: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      },
+      vaccinationHistory: {
+        type: DataTypes.JSON,
+        allowNull: true,
+        comment: "Array of vaccination records with dates and types",
+      },
+      motherId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        references: {
+          model: 'animal_gaston',
+          key: 'id'
+        }
+      },
       userId: {
         type: DataTypes.INTEGER,
         allowNull: false,
@@ -61,5 +115,27 @@ module.exports = (connection, DataTypes) => {
       timestamps: true,
     }
   );
+
+  AnimalGaston.associate = function(models) {
+    // User association
+    AnimalGaston.belongsTo(models.Users, {
+      foreignKey: 'userId',
+      as: 'user'
+    });
+
+   
+
+    // Self-referential associations for breeding tracking
+    AnimalGaston.belongsTo(sequelize.models.AnimalGaston, {
+      foreignKey: 'motherId',
+      as: 'mother'
+    });
+
+    AnimalGaston.hasMany(sequelize.models.AnimalGaston, {
+      foreignKey: 'motherId',
+      as: 'offspring'
+    });
+  };
+
   return AnimalGaston;
 };

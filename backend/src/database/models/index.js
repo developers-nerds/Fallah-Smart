@@ -14,7 +14,7 @@ const sequelize = new Sequelize(
   {
     host: process.env.DB_HOST,
     port: process.env.DB_PORT,
-    dialect: "postgres",
+    dialect: 'postgres',
     logging: false,
     dialectOptions: {
       ssl: process.env.DB_SSL === "true",
@@ -22,24 +22,21 @@ const sequelize = new Sequelize(
   }
 );
 
-// Read all model files
-fs.readdirSync(__dirname)
-  .filter((file) => {
-    return (
-      file.indexOf(".") !== 0 && file !== basename && file.slice(-3) === ".js"
-    );
-  })
-  .forEach((file) => {
-    const modelDefinition = require(path.join(__dirname, file));
-    const model =
-      typeof modelDefinition === "function"
-        ? modelDefinition(sequelize, Sequelize.DataTypes)
-        : modelDefinition;
-    db[model.name] = model;
+// First, read and initialize all models
+const modelFiles = fs
+  .readdirSync(__dirname)
+  .filter(file => {
+    return (file.indexOf('.') !== 0) && (file !== basename) && (file.slice(-3) === '.js');
   });
 
-// Set up associations after all models are loaded
-Object.keys(db).forEach((modelName) => {
+// Initialize models
+modelFiles.forEach(file => {
+  const model = require(path.join(__dirname, file))(sequelize, Sequelize.DataTypes);
+  db[model.name] = model;
+});
+
+// Then, set up associations after all models are loaded and initialized
+Object.keys(db).forEach(modelName => {
   if (db[modelName].associate) {
     db[modelName].associate(db);
   }
