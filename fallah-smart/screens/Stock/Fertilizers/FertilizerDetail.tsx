@@ -493,7 +493,7 @@ const FertilizerDetailScreen: React.FC<FertilizerDetailScreenProps> = ({ navigat
               title={`${STOCK_ICONS.delete} حذف`}
               onPress={handleDelete}
               variant="primary"
-              style={[styles.button, styles.updateButton, { backgroundColor: theme.colors.error }]}
+              style={[styles.button, styles.deleteButton]}
             />
           </View>
         </View>
@@ -711,6 +711,10 @@ const styles = StyleSheet.create({
   },
   backButton: {
     minWidth: 120,
+  },
+  deleteButton: {
+    borderRadius: 12,
+    backgroundColor: '#FF0000',
   },
 });
 

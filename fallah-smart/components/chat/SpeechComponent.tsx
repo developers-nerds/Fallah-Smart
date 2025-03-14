@@ -9,7 +9,7 @@ export default function SpeechComponent() {
 
   return (
     <View style={styles.container}>
-      <Button title="Press to hear some words" onPress={speak} />
+      <Button title="اضغط لسماع بعض الكلمات" onPress={speak} />
     </View>
   );
 }

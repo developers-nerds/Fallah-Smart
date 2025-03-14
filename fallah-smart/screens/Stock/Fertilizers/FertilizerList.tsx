@@ -197,8 +197,8 @@ const FertilizerListScreen: React.FC<FertilizerListScreenProps> = ({ navigation 
       console.error('Error refreshing fertilizers with direct API:', err);
       
       // Try context as fallback
-      try {
-        await fetchFertilizers();
+    try {
+      await fetchFertilizers();
         setFertilizers(contextFertilizers);
         console.log('Fertilizers refreshed with context method');
       } catch (contextErr) {
@@ -345,8 +345,8 @@ const FertilizerListScreen: React.FC<FertilizerListScreenProps> = ({ navigation 
             style={styles.cardContent}
             onPress={() => navigation.navigate('FertilizerDetail', { fertilizerId: item.id })}
             activeOpacity={0.7}
-          >
-            <View style={styles.cardHeader}>
+      >
+        <View style={styles.cardHeader}>
               <View style={[
                 styles.iconContainer, 
                 { 
@@ -366,8 +366,8 @@ const FertilizerListScreen: React.FC<FertilizerListScreenProps> = ({ navigation 
               
               <View style={styles.headerInfo}>
                 <Text style={[styles.fertilizerName, { color: theme.colors.neutral.textPrimary }]}>
-                  {item.name}
-                </Text>
+              {item.name}
+            </Text>
                 <View style={styles.subtitleContainer}>
                   <Text style={[styles.fertilizerType, { color: theme.colors.neutral.textSecondary }]}>
                     {fertilizerType.name}
@@ -382,8 +382,8 @@ const FertilizerListScreen: React.FC<FertilizerListScreenProps> = ({ navigation 
                     </Text>
                   </View>
                 </View>
-              </View>
-            </View>
+          </View>
+        </View>
 
             <View style={styles.cardFooter}>
               <View style={styles.quantityContainer}>
@@ -391,12 +391,12 @@ const FertilizerListScreen: React.FC<FertilizerListScreenProps> = ({ navigation 
                   styles.fertilizerQuantity, 
                   { color: isLowStock ? theme.colors.error : theme.colors.primary.base }
                 ]}>
-                  {item.quantity} {item.unit}
-                </Text>
+              {item.quantity} {item.unit}
+            </Text>
                 <Text style={[styles.fertilizerPrice, { color: theme.colors.accent.base }]}>
                   {item.price} د.ج
-                </Text>
-              </View>
+            </Text>
+          </View>
 
               {isLowStock && (
                 <View style={[styles.statusBadge, { backgroundColor: theme.colors.error + '20' }]}>
@@ -407,7 +407,7 @@ const FertilizerListScreen: React.FC<FertilizerListScreenProps> = ({ navigation 
                   />
                   <Text style={[styles.statusText, { color: theme.colors.error }]}>
                     مخزون منخفض
-                  </Text>
+            </Text>
                 </View>
               )}
 
@@ -420,8 +420,8 @@ const FertilizerListScreen: React.FC<FertilizerListScreenProps> = ({ navigation 
                   />
                   <Text style={[styles.statusText, { color: theme.colors.error }]}>
                     منتهية الصلاحية
-                  </Text>
-                </View>
+            </Text>
+          </View>
               )}
 
               {isNearExpiry && !isExpired && (
@@ -434,14 +434,14 @@ const FertilizerListScreen: React.FC<FertilizerListScreenProps> = ({ navigation 
                   <Text style={[styles.statusText, { color: theme.colors.warning }]}>
                     قريبة الإنتهاء
                   </Text>
-                </View>
+        </View>
               )}
 
               {item.expiryDate && !isNearExpiry && !isExpired && (
                 <View style={styles.expiryContainer}>
-                  <MaterialCommunityIcons
+            <MaterialCommunityIcons
                     name="calendar" 
-                    size={16}
+              size={16}
                     color={theme.colors.neutral.textSecondary} 
                   />
                   <Text style={[styles.expiryText, { color: theme.colors.neutral.textSecondary }]}>
@@ -450,11 +450,11 @@ const FertilizerListScreen: React.FC<FertilizerListScreenProps> = ({ navigation 
                       month: '2-digit',
                       day: '2-digit'
                     })}
-                  </Text>
-                </View>
-              )}
+            </Text>
+          </View>
+        )}
             </View>
-          </TouchableOpacity>
+      </TouchableOpacity>
         </SwipeableRow>
       </Animated.View>
     );
@@ -462,7 +462,7 @@ const FertilizerListScreen: React.FC<FertilizerListScreenProps> = ({ navigation 
 
   // Function to render category filters
   const renderCategoryFilters = useCallback(() => {
-    return (
+  return (
       <ScrollView 
         horizontal 
         showsHorizontalScrollIndicator={false}
@@ -590,7 +590,7 @@ const FertilizerListScreen: React.FC<FertilizerListScreenProps> = ({ navigation 
               <MaterialCommunityIcons name="refresh" size={24} color="#FFF" />
             </TouchableOpacity>
           </Animated.View>
-        </View>
+          </View>
       </SafeAreaView>
     );
   }
@@ -655,8 +655,8 @@ const FertilizerListScreen: React.FC<FertilizerListScreenProps> = ({ navigation 
             bottom: 0,
             backgroundColor: theme.colors.primary.base
           }}
-        />
-      </View>
+      />
+    </View>
     </SafeAreaView>
   );
 };

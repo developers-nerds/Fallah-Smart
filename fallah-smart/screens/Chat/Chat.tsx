@@ -51,7 +51,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const keyboardTimer = useRef<NodeJS.Timeout | null>(null);
   const [showMessageLimitAlert, setShowMessageLimitAlert] = useState(false);
-  const MESSAGE_LIMIT = 10;
+  const MESSAGE_LIMIT = 20;
   const [refreshing, setRefreshing] = useState(false);
 
   const toggleSidebar = () => {
@@ -152,7 +152,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
 
       try {
         if (!conversationId && messageNumber > 2) {
-          throw new Error('No active conversation. Please start a new conversation.');
+          throw new Error('لا توجد محادثة نشطة. يرجى بدء محادثة جديدة.');
         }
 
         // Store user message in database - only from message 2 onwards (which creates message pair)
@@ -396,17 +396,17 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
               <LoadingAnimation
                 message={
                   isNewConversation
-                    ? 'Starting a fresh conversation...'
+                    ? 'بدء محادثة جديدة...'
                     : isImageLoading
-                      ? 'Processing your image...'
-                      : 'Preparing your farming assistant...'
+                      ? 'جارٍ معالجة صورتك...'
+                      : 'جارٍ تجهيز مساعد الزراعة الخاص بك...'
                 }
               />
             </View>
           )}
           <MessageAlert
             visible={showMessageLimitAlert}
-            message="You've reached the maximum limit of 5 messages. Please start a new conversation."
+            message="لقد وصلت إلى الحد الأقصى البالغ 10 رسائل. يرجى بدء محادثة جديدة."
             type="warning"
           />
           <View style={styles.inputContainer}>
