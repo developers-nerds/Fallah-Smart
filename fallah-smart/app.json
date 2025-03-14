@@ -15,29 +15,39 @@
       "backgroundColor": "#ffffff"
     },
     "assetBundlePatterns": [
-      "**/*"
+      "**/*",
+      "assets/images/weather/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.fallahsmart",
+      "associatedDomains": ["applinks:fallahsmart.com"]
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.fallahsmart"
+      "package": "com.fallahsmart",
+      "permissions": ["INTERNET"],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "category": ["DEFAULT", "BROWSABLE"],
+          "data": {
+            "scheme": "fallahsmart"
+          }
+        }
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": [
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "The app needs access to your photos to share them.",
-          "cameraPermission": "The app needs access to your camera to take photos."
-        }
-      ]
-    ]
+    "extra": {
+      "eas": {
+        "projectId": "fallahsmart-c62d4"
+      }
+    },
+    "scheme": "fallahsmart"
   }
 }

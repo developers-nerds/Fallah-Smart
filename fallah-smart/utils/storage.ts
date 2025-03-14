@@ -10,17 +10,19 @@ export const storage = {
   // Store user data
   setUser: async (user: any) => {
     try {
-      await AsyncStorage.setItem(StorageKeys.USER, JSON.stringify(user));
+      const userString = JSON.stringify(user);
+      await AsyncStorage.setItem(StorageKeys.USER, userString);
     } catch (error) {
       console.error('Error storing user:', error);
+      throw error;
     }
   },
 
   // Get user data
   getUser: async () => {
     try {
-      const user = await AsyncStorage.getItem(StorageKeys.USER);
-      return user ? JSON.parse(user) : null;
+      const userString = await AsyncStorage.getItem(StorageKeys.USER);
+      return userString ? JSON.parse(userString) : null;
     } catch (error) {
       console.error('Error getting user:', error);
       return null;
@@ -36,6 +38,7 @@ export const storage = {
       ]);
     } catch (error) {
       console.error('Error storing tokens:', error);
+      throw error;
     }
   },
 
@@ -47,12 +50,12 @@ export const storage = {
         StorageKeys.REFRESH_TOKEN,
       ]);
       return {
-        accessToken: tokens[0][1],
-        refreshToken: tokens[1][1],
+        access: tokens[0][1],
+        refresh: tokens[1][1],
       };
     } catch (error) {
       console.error('Error getting tokens:', error);
-      return { accessToken: null, refreshToken: null };
+      return { access: null, refresh: null };
     }
   },
 
@@ -66,6 +69,7 @@ export const storage = {
       ]);
     } catch (error) {
       console.error('Error clearing auth data:', error);
+      throw error;
     }
   },
 }; 

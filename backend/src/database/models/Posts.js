@@ -11,8 +11,16 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
       },
       category: {
-        type: DataTypes.ENUM("Question", "Market", "News"),
+        type: DataTypes.ENUM(
+          "CROPS", 
+          "LIVESTOCK", 
+          "EQUIPMENT", 
+          "WEATHER", 
+          "MARKET", 
+          "TIPS"
+        ),
         allowNull: false,
+        defaultValue: "CROPS"
       },
       counter: {
         type: DataTypes.INTEGER,

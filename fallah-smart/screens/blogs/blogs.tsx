@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   View, 
   Text, 
@@ -15,29 +15,388 @@ import {
   Platform,
   SafeAreaView,
   RefreshControl,
-  StatusBar
+  StatusBar,
+  Button,
+  Dimensions,
+  Share,
+  Animated
 } from 'react-native';
-import { FontAwesome, MaterialCommunityIcons, Feather, MaterialIcons, Ionicons } from '@expo/vector-icons';
+import { FontAwesome, MaterialCommunityIcons, Feather, MaterialIcons, Ionicons, FontAwesome5, AntDesign } from '@expo/vector-icons';
 import { launchImageLibraryAsync, MediaTypeOptions } from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';
 import axios from 'axios';
 import { theme } from '../../theme/theme';
+import { storage } from '../../utils/storage';
 
 import * as ImagePicker from 'expo-image-picker';
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
+import { LinearGradient } from 'expo-linear-gradient';
 
-// API Base URL
+// Update API URL constants
+const BASE_URL = process.env.EXPO_PUBLIC_API;
+const BLOG_URL = process.env.EXPO_PUBLIC_BlOG;
+const API_URL = `${BASE_URL}/api/blog`;
 
-// Post category options for creation only, not filtering
+// Define blog categories with farmer-friendly icons
 const CATEGORIES = [
-  { label: 'Questions', value: 'Question', icon: 'help-circle', iconType: 'feather' },
-  { label: 'Market', value: 'Market', icon: 'shopping', iconType: 'material' },
-  { label: 'News', value: 'News', icon: 'newspaper', iconType: 'material' }
+  { 
+    value: 'CROPS',
+    label: 'Crops',
+    icon: 'sprout',
+    iconType: 'material' 
+  },
+  { 
+    value: 'LIVESTOCK',
+    label: 'Livestock',
+    icon: 'cow',
+    iconType: 'material'
+  },
+  { 
+    value: 'EQUIPMENT',
+    label: 'Equipment',
+    icon: 'tractor',
+    iconType: 'fontawesome'
+  },
+  { 
+    value: 'WEATHER',
+    label: 'Weather',
+    icon: 'weather-sunny',
+    iconType: 'material'
+  },
+  { 
+    value: 'MARKET',
+    label: 'Market',
+    icon: 'store',
+    iconType: 'material'
+  },
+  { 
+    value: 'TIPS',
+    label: 'Tips & Tricks',
+    icon: 'lightbulb-outline',
+    iconType: 'material'
+  }
 ];
+
+// Update the image URL handling in the PostItem component
+const getImageUrl = (imageUrl) => {
+  if (!imageUrl) return null;
+  if (imageUrl.startsWith('http')) {
+    return imageUrl.replace(/http:\/\/\d+\.\d+\.\d+\.\d+:\d+/, BASE_URL);
+  }
+  return `${BASE_URL}${imageUrl}`;
+};
+
+// First, create a new PostItem component at the top of your file (after imports)
+const PostItem = ({ item, navigation, handlePostLike, handleCommentAdded, timeAgo, renderCategoryIcon, BASE_URL, openReportModal, handleSharePost, isCurrentUserPost, currentUserRole, currentUser }) => {
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  
+  const handleImagePress = (e) => {
+    e.stopPropagation();
+  };
+  
+  // Get the user data from the post
+  const userData = item.user || item.author || {};
+  
+  // Check if this post is from an advisor
+  const isAdvisor = userData.role?.toUpperCase() === 'ADVISOR';
+  
+  return (
+    <TouchableOpacity
+      style={[
+        styles.postCard,
+        // Apply refined styling for advisor posts
+        isAdvisor && styles.advisorPostCard
+      ]}
+      activeOpacity={0.8}
+      onPress={() => navigation.navigate('PostDetail', { postId: item.id })}
+    >
+      {/* Elegant advisor badge with refined styling */}
+      {isAdvisor && (
+        <View style={styles.advisorBadge}>
+          <LinearGradient
+            colors={['#3172FF', '#1F6AFF']}
+            start={[0, 0]}
+            end={[1, 0]}
+            style={styles.advisorBadgeGradient}
+          >
+            <MaterialIcons name="verified" size={14} color="#FFFFFF" />
+            <Text style={styles.advisorBadgeText}>ADVISOR</Text>
+          </LinearGradient>
+        </View>
+      )}
+      
+      {/* Post Header with enhanced styling */}
+      <View style={[
+        styles.postHeader,
+        isAdvisor && styles.advisorPostHeader
+      ]}>
+        <View style={styles.authorContainer}>
+          {/* Author avatar with elegant styling */}
+          <View style={[
+            styles.authorImageWrapper,
+            isAdvisor && styles.advisorImageWrapper
+          ]}>
+            {userData.profilePicture ? (
+              <Image 
+                source={{ uri: getImageUrl(userData.profilePicture) }} 
+                style={styles.authorImage}
+              />
+            ) : (
+              <LinearGradient
+                colors={isAdvisor ? ['#4F8DFF', '#1F6AFF'] : ['#6D7B93', '#505A69']}
+                style={[
+                  styles.authorImagePlaceholder,
+                  isAdvisor && styles.advisorImagePlaceholder
+                ]}
+              >
+                <Text style={styles.authorImageInitial}>
+                  {(userData.firstName || userData.username || 'A').charAt(0).toUpperCase()}
+                </Text>
+              </LinearGradient>
+            )}
+          </View>
+          
+          <View style={styles.authorInfo}>
+            <View style={styles.nameRow}>
+              <Text style={[
+                styles.authorName,
+                isAdvisor && styles.advisorName
+              ]}>
+                {userData.username || 
+                  (userData.firstName && userData.lastName 
+                    ? `${userData.firstName} ${userData.lastName}`
+                    : 'Anonymous')}
+              </Text>
+              
+              {/* Refined verification icon with subtle animation */}
+              {isAdvisor && (
+                <MaterialIcons 
+                  name="verified" 
+                  size={16} 
+                  color="#1F6AFF" 
+                  style={styles.verifiedIcon}
+                />
+              )}
+            </View>
+            <Text style={[
+              styles.postTime,
+              isAdvisor && styles.advisorPostTime
+            ]}>
+              {timeAgo(item.createdAt)}
+            </Text>
+          </View>
+        </View>
+        
+        {/* Category chip */}
+        {item.category && (
+          <View style={styles.categoryChipContainer}>
+            {renderCategoryIcon(item.category)}
+            <Text style={styles.categoryText}>{item.category}</Text>
+          </View>
+        )}
+      </View>
+      
+      {/* Content with refined typography for advisor posts */}
+      <View style={[
+        styles.postContent,
+        isAdvisor && styles.advisorPostContent
+      ]}>
+        <Text style={[
+          styles.postTitle,
+          isAdvisor && styles.advisorPostTitle
+        ]}>
+          {item.title || ''}
+        </Text>
+        
+        <Text 
+          style={[
+            styles.postDescription,
+            isAdvisor && styles.advisorPostDescription
+          ]} 
+          numberOfLines={3}
+        >
+          {item.description || ''}
+        </Text>
+      </View>
+      
+      {/* Post images */}
+      {item.media && item.media.length > 0 && (
+        <View style={styles.mediaContainer}>
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onScroll={(event) => {
+              const offset = event.nativeEvent.contentOffset.x;
+              const newIndex = Math.round(offset / event.nativeEvent.layoutMeasurement.width);
+              setActiveImageIndex(newIndex);
+            }}
+            scrollEventThrottle={200}
+            onTouchStart={handleImagePress}
+            onTouchEnd={handleImagePress}
+            style={styles.imageScrollView}
+          >
+            {item.media.map((media, index) => (
+              <Image 
+                key={index} 
+                source={{ 
+                  uri: getImageUrl(media.url)
+                }} 
+                style={styles.postImage} 
+                resizeMode="cover"
+              />
+            ))}
+          </ScrollView>
+          
+          {/* Pagination indicators */}
+          {item.media.length > 1 && (
+            <View style={styles.paginationContainer}>
+              {item.media.map((_, index) => (
+                <View 
+                  key={index} 
+                  style={[
+                    styles.paginationDot, 
+                    index === activeImageIndex && styles.paginationDotActive
+                  ]} 
+                />
+              ))}
+            </View>
+          )}
+        </View>
+      )}
+      
+      {/* Post footer with interactions */}
+      <View style={styles.postFooter}>
+        {/* Left side: Like and comment counts */}
+        <View style={styles.postStats}>
+          {/* Like button with farm-themed icon */}
+          <TouchableOpacity 
+            style={styles.postAction}
+            onPress={() => handlePostLike(item.id)}
+            activeOpacity={0.7}
+          >
+            {item.userLiked ? (
+              <MaterialCommunityIcons 
+                name="sprout" 
+                size={22} 
+                color={theme.colors.primary.base} 
+              />
+            ) : (
+              <MaterialCommunityIcons 
+                name="sprout-outline" 
+                size={22} 
+                color={theme.colors.neutral.textSecondary} 
+              />
+            )}
+            <Text style={styles.postActionText}>
+              {item.likesCount || 0}
+            </Text>
+          </TouchableOpacity>
+          
+          {/* Comment button with farm-themed icon */}
+          <TouchableOpacity 
+            style={styles.postAction}
+            onPress={() => navigation.navigate('PostDetail', { postId: item.id })}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons 
+              name="leaf" 
+              size={22} 
+              color={theme.colors.neutral.textSecondary} 
+            />
+            <Text style={styles.postActionText}>
+              {item.commentsCount || 0}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        
+        {/* Right side: Share and report buttons */}
+        <View style={styles.postActions}>
+          {/* Share button with original icon */}
+          <TouchableOpacity 
+            style={styles.postAction}
+            onPress={() => handleSharePost(item)}
+            activeOpacity={0.7}
+          >
+            <Feather 
+              name="share" 
+              size={20} 
+              color={theme.colors.neutral.textSecondary} 
+            />
+          </TouchableOpacity>
+          
+          {/* Report button */}
+          <TouchableOpacity 
+            style={styles.iconButton} 
+            onPress={() => openReportModal(item)}
+            activeOpacity={0.7}
+          >
+            <Feather 
+              name="flag" 
+              size={20} 
+              color={theme.colors.neutral.textSecondary} 
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
+
+// Add proper types at the top of the file
+interface Author {
+  firstName?: string;
+  lastName?: string;
+  username: string;
+  profilePicture?: string;
+}
+
+interface Post {
+  id: string;
+  title: string;
+  description?: string;
+  category: string;
+  author: Author;
+  media?: Array<{ url: string }>;
+  createdAt: string;
+  likesCount: number;
+  commentsCount: number;
+  userLiked: boolean;
+}
+
+// Update the SearchBar component to a simpler version
+const SearchBar = ({ searchTerm, setSearchTerm }) => {
+  return (
+    <View style={styles.searchContainer}>
+      <MaterialIcons 
+        name="search" 
+        size={24} 
+        color={theme.colors.neutral.textSecondary} 
+      />
+      <TextInput
+        style={styles.searchInput}
+        placeholder="Search posts..."
+        placeholderTextColor={theme.colors.neutral.textSecondary}
+        value={searchTerm}
+        onChangeText={setSearchTerm}
+      />
+      {searchTerm ? (
+        <TouchableOpacity onPress={() => setSearchTerm('')}>
+          <MaterialIcons 
+            name="close" 
+            size={20} 
+            color={theme.colors.neutral.textSecondary} 
+          />
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  );
+};
 
 const Blogs = () => {
   const navigation = useNavigation();
-  const [posts, setPosts] = useState([]);
+  const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -45,11 +404,35 @@ const Blogs = () => {
   const [newPost, setNewPost] = useState({
     title: '',
     description: '',
-    category: 'Question'
+    category: 'CROPS'
   });
   const [selectedImages, setSelectedImages] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [cameraPermission, setCameraPermission] = useState(null);
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+  const [postToReport, setPostToReport] = useState(null);
+  const [customReason, setCustomReason] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const searchInputRef = useRef<TextInput>(null);
+  const searchDebounceTimeout = useRef<NodeJS.Timeout | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentUser, setCurrentUser] = useState(null);
+  const [userRole, setUserRole] = useState(null);
+  
+  // Add the report reasons array
+  const reportReasons = [
+    'Inappropriate content',
+    'Spam',
+    'Misleading information',
+    'Harassment or bullying',
+    'Violence',
+    'Hate speech',
+    'Other'
+  ];
 
   // Fetch posts on component mount
   useEffect(() => {
@@ -62,37 +445,34 @@ const Blogs = () => {
       setLoading(true);
       setError(null);
       
-      console.log('🔄 Fetching posts from:', `${API_URL}/blog/posts`);
-      const response = await axios.get(`${API_URL}/blog/posts`, {
-        timeout: 10000, // 10 second timeout
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        }
-      });
+      // Get current user for authorization header
+      const userData = await storage.getUser();
+      console.log('Current user data:', userData);
       
-      console.log('✅ Posts fetched successfully');
+      // Set user data in state
+      if (userData) {
+        setCurrentUser(userData);
+        setUserRole(userData.role);
+      }
+      
+      // Make the API request with auth token if available
+      const token = userData?.token;
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      
+      const response = await axios.get(`${API_URL}/posts`, { headers });
+      
+      // Log the first post's complete data structure to see what we're receiving
+      if (response.data.length > 0) {
+        console.log('First post data structure:', JSON.stringify(response.data[0], null, 2));
+        console.log('User object in post:', response.data[0].user || response.data[0].author);
+      }
+      
       setPosts(response.data);
     } catch (err) {
-      console.error('❌ Error fetching posts:', err);
-      
-      // More detailed error reporting
-      if (err.response) {
-        // The request was made and the server responded with a status code
-        console.error('Response data:', err.response.data);
-        console.error('Response status:', err.response.status);
-        setError(`Server error: ${err.response.status}. Please try again later.`);
-      } else if (err.request) {
-        // The request was made but no response was received
-        console.error('No response received from server');
-        setError('Network error. Please check your connection and ensure the server is running.');
-      } else {
-        // Something happened in setting up the request
-        setError('Failed to load posts. Please try again later.');
-      }
+      console.error('Error fetching posts:', err);
+      setError('Failed to load posts. Please try again later.');
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   };
 
@@ -281,7 +661,7 @@ const Blogs = () => {
       setNewPost({
         title: '',
         description: '',
-        category: 'Question'
+        category: 'CROPS'
       });
       setSelectedImages([]);
       setModalVisible(false);
@@ -310,149 +690,132 @@ const Blogs = () => {
 
   // Render category icon
   const renderCategoryIcon = (category) => {
-    if (!category) return null;
-    
     const categoryConfig = CATEGORIES.find(c => c.value === category);
     if (!categoryConfig) return null;
-    
-    if (categoryConfig.iconType === 'feather') {
-      return <Feather name={categoryConfig.icon} size={14} color={theme.colors.neutral.textSecondary} />;
-    } else {
-      return <MaterialCommunityIcons name={categoryConfig.icon} size={14} color={theme.colors.neutral.textSecondary} />;
+
+    switch (categoryConfig.iconType) {
+      case 'material':
+        return (
+          <MaterialCommunityIcons 
+            name={categoryConfig.icon} 
+            size={24} 
+            color={theme.colors.primary.base}
+            style={styles.categoryIcon} 
+          />
+        );
+      case 'fontawesome':
+        return (
+          <FontAwesome5 
+            name={categoryConfig.icon} 
+            size={20} 
+            color={theme.colors.primary.base}
+            style={styles.categoryIcon} 
+          />
+        );
+      default:
+        return null;
     }
   };
 
   // Add a function to handle post likes within the Blogs component
   const handlePostLike = async (postId) => {
-  try {
-    const response = await axios.post(`${API_URL}/posts/${postId}/like`);
+    // Skip API calls for duplicated posts
+    if (postId.toString().includes('enhanced-')) {
+      // Extract the original post ID
+      const originalId = postId.toString().split('-')[1];
+      // Handle the original post instead
+      return handlePostLike(originalId);
+    }
     
-    // Update the post in state to reflect the new like count
+    try {
+      const response = await axios.post(`${API_URL}/posts/${postId}/like`);
+      
+      // Update the post in state to reflect the new like count
+      setPosts(prevPosts => prevPosts.map(post => {
+        if (post.id === postId) {
+          return {
+            ...post,
+            likesCount: post.userLiked 
+              ? Math.max(0, post.likesCount - 1) // If unliking, decrease
+              : post.likesCount + 1, // If liking, increase
+            userLiked: !post.userLiked // Toggle liked status
+          };
+        }
+        return post;
+      }));
+    } catch (error) {
+      console.error('Error toggling like:', error);
+    }
+  };
+
+  // Now use this simplified renderPostItem that returns our PostItem component
+  const renderPostItem = ({ item }) => {
+    const isCurrentUserPost = currentUser && item.userId === currentUser.id;
+    
+    return (
+      <PostItem 
+        item={item}
+        navigation={navigation}
+        handlePostLike={handlePostLike}
+        handleCommentAdded={handleCommentAdded}
+        timeAgo={timeAgo}
+        renderCategoryIcon={renderCategoryIcon}
+        BASE_URL={BASE_URL}
+        openReportModal={openReportModal}
+        handleSharePost={handleSharePost}
+        isCurrentUserPost={isCurrentUserPost}
+        currentUserRole={userRole}
+        currentUser={currentUser}
+      />
+    );
+  };
+
+  // Function to handle comment additions
+  const handleCommentAdded = (postId) => {
+    // Update the post's comment count in state
     setPosts(prevPosts => prevPosts.map(post => {
       if (post.id === postId) {
         return {
           ...post,
-          likesCount: post.userLiked 
-            ? Math.max(0, post.likesCount - 1) // If unliking, decrease
-            : post.likesCount + 1, // If liking, increase
-          userLiked: !post.userLiked // Toggle liked status
+          commentsCount: (post.commentsCount || 0) + 1
         };
       }
       return post;
     }));
-  } catch (error) {
-    console.error('Error toggling like:', error);
-  }
-};
+  };
 
-// Update the renderPostItem function to use the handlePostLike function
-const renderPostItem = ({ item }) => (
-  <TouchableOpacity 
-    style={styles.postCard}
-    onPress={() => navigation.navigate('PostDetail', { 
-      postId: item.id,
-      onCommentAdded: () => handleCommentAdded(item.id)
-    })}
-    activeOpacity={0.9}
-  >
-    <View style={styles.postHeader}>
-      <View style={styles.authorInfo}>
-        {item.author?.profilePicture ? (
-          <Image 
-            source={{ 
-              uri: item.author.profilePicture.startsWith('http') 
-                ? item.author.profilePicture 
-                : `http://192.168.11.225:5000${item.author.profilePicture}` // Fixed URL
-            }} 
-            style={styles.authorAvatar} 
-          />
-        ) : (
-          <View style={styles.authorAvatarPlaceholder}>
-            <MaterialCommunityIcons name="account" size={18} color="#fff" />
-          </View>
-        )}
-        <View>
-          <Text style={styles.authorName}>
-            {item.author?.firstName 
-              ? `${item.author.firstName} ${item.author.lastName}` 
-              : item.author?.username || 'Anonymous'}
-          </Text>
-          <Text style={styles.postDate}>{timeAgo(item.createdAt)}</Text>
-        </View>
-      </View>
-      
-      {item.category && (
-        <View style={styles.categoryBadge}>
-          {renderCategoryIcon(item.category)}
-          <Text style={styles.categoryText}>{item.category}</Text>
-        </View>
-      )}
-    </View>
-    
-    <Text style={styles.postTitle}>{item.title}</Text>
-    
-    {item.description && (
-      <Text style={styles.postDescription} numberOfLines={3}>
-        {item.description}
-      </Text>
-    )}
-    
-    {item.media && item.media.length > 0 && (
-      <View style={styles.mediaContainer}>
-        {item.media.slice(0, 1).map((media, index) => (
-          <Image 
-            key={index} 
-            source={{ uri: media.url }} 
-            style={styles.postImage} 
-            resizeMode="cover"
-          />
-        ))}
-        {item.media.length > 1 && (
-          <View style={styles.mediaCountBadge}>
-            <Text style={styles.mediaCountText}>+{item.media.length - 1}</Text>
-          </View>
-        )}
-      </View>
-    )}
-    
-    <View style={styles.postFooter}>
-      <TouchableOpacity 
-        style={styles.footerAction}
-        onPress={(e) => {
-          e.stopPropagation(); // Prevent post navigation
-          handlePostLike(item.id);
-        }}
-      >
-        <MaterialCommunityIcons 
-          name={item.userLiked ? "heart" : "heart-outline"} 
-          size={20} 
-          color={item.userLiked ? theme.colors.error : theme.colors.neutral.textSecondary} 
-        />
-        <Text style={styles.footerActionText}>{item.likesCount || 0} Likes</Text>
-      </TouchableOpacity>
-      
-      <View style={styles.footerAction}>
-        <MaterialCommunityIcons name="comment-outline" size={20} color={theme.colors.neutral.textSecondary} />
-        <Text style={styles.footerActionText}>{item.commentsCount || 0} Comments</Text>
-      </View>
-    </View>
-  </TouchableOpacity>
-);
-
-// Function to handle comment additions
-const handleCommentAdded = (postId) => {
-  // Update the post's comment count in state
-  setPosts(prevPosts => prevPosts.map(post => {
-    if (post.id === postId) {
-      return {
-        ...post,
-        commentsCount: (post.commentsCount || 0) + 1
-      };
+  // Add a function to handle reporting
+  const handleReportPost = async () => {
+    if (!reportReason || (reportReason === 'Other' && !customReason)) {
+      Alert.alert('Error', 'Please provide a reason for reporting this post');
+      return;
     }
-    return post;
-  }));
-};
+    
+    setIsSubmittingReport(true);
+    
+    try {
+      await axios.post(`${API_URL}/posts/${postToReport.id}/report`, {
+        reason: reportReason === 'Other' ? customReason : reportReason
+      });
+      
+      setReportModalVisible(false);
+      setReportReason('');
+      setCustomReason('');
+      setPostToReport(null);
+      Alert.alert('Success', 'Thank you for your report. Our team will review it shortly.');
+    } catch (error) {
+      console.error('Error reporting post:', error);
+      Alert.alert('Error', 'Failed to submit report. Please try again later.');
+    } finally {
+      setIsSubmittingReport(false);
+    }
+  };
 
+  // Add a function to open the report modal
+  const openReportModal = (post) => {
+    setPostToReport(post);
+    setReportModalVisible(true);
+  };
 
   // Update the navigation to PostDetail to include a callback for when comments are added
   // Add this inside the Blogs component, possibly in useEffect or a navigation function
@@ -466,83 +829,391 @@ const handleCommentAdded = (postId) => {
     return unsubscribe;
   }, [navigation]);
 
+  // Update the handleSharePost function
+  const handleSharePost = async (post) => {
+    try {
+      // Include post author if available
+      const author = post.author?.firstName 
+        ? `${post.author.firstName} ${post.author.lastName}` 
+        : 'A Fallah Smart user';
+
+      // Create the share content
+      const title = post.title || 'Check out this post';
+      const message = `${title}\n\n${post.description || ''}\n\nShared by ${author} via Fallah Smart app`;
+
+      // Get the first image URL if available
+      let imageUrl = null;
+      if (post.media && post.media.length > 0) {
+        imageUrl = getImageUrl(post.media[0].url);
+      }
+
+      // Configure share options based on platform
+      const shareOptions = Platform.select({
+        ios: {
+          activityItemSources: [
+            {
+              placeholderItem: { type: 'text', content: message },
+              item: {
+                default: { type: 'text', content: message },
+              },
+              linkMetadata: {
+                title: title,
+              },
+            },
+            imageUrl && {
+              placeholderItem: { type: 'url', content: imageUrl },
+              item: {
+                default: { type: 'url', content: imageUrl },
+              },
+              linkMetadata: {
+                title: title,
+                icon: imageUrl
+              },
+            },
+          ].filter(Boolean),
+        },
+        android: {
+          title,
+          message,
+          ...(imageUrl && { url: imageUrl }),
+        },
+        default: {
+          title,
+          message,
+        },
+      });
+
+      const result = await Share.share(shareOptions, {
+        dialogTitle: 'Share this post',
+        subject: title,
+      });
+
+      if (result.action === Share.sharedAction) {
+        if (result.activityType) {
+          console.log('Shared with activity type:', result.activityType);
+        } else {
+          console.log('Shared successfully');
+        }
+      } else if (result.action === Share.dismissedAction) {
+        console.log('Share dialog dismissed');
+      }
+    } catch (error) {
+      console.error('Error sharing post:', error);
+      Alert.alert(
+        'Sharing Failed', 
+        'Unable to share this post. Please try again or use a different sharing method.'
+      );
+    }
+  };
+
+  // Add this function to get filtered posts with improved searching
+  const getFilteredPosts = useMemo(() => {
+    console.log('Filtering posts with:', { searchTerm, selectedCategory });
+    
+    // Start with all posts
+    let filtered = [...posts];
+    
+    // Apply category filter if not "all"
+    if (selectedCategory !== 'all') {
+      filtered = filtered.filter(post => 
+        post.category && post.category.toUpperCase() === selectedCategory
+      );
+    }
+    
+    // Apply search term filter
+    if (searchTerm.trim()) {
+      const searchTermLower = searchTerm.toLowerCase().trim();
+      filtered = filtered.filter(post => {
+        // Search in title, description, and author name
+        const titleMatch = post.title && post.title.toLowerCase().includes(searchTermLower);
+        const descMatch = post.description && post.description.toLowerCase().includes(searchTermLower);
+        
+        // Search in author name if available
+        const authorName = post.author?.firstName && post.author?.lastName 
+          ? `${post.author.firstName} ${post.author.lastName}`.toLowerCase()
+          : post.author?.username?.toLowerCase() || '';
+        const authorMatch = authorName.includes(searchTermLower);
+        
+        return titleMatch || descMatch || authorMatch;
+      });
+    }
+    
+    return filtered;
+  }, [posts, searchTerm, selectedCategory]);
+
+  // Prepare data for FlatList with enhanced advisor visibility
+  const enhancedPostsData = useMemo(() => {
+    if (!posts || posts.length === 0) return [];
+    
+    // Create a new array with advisor posts duplicated for more visibility
+    const enhancedPosts = [...posts];
+    
+    // Find advisor posts
+    const advisorPosts = posts.filter(post => post.user?.role === 'ADVISOR');
+    
+    // Only enhance if we have advisor posts and regular posts
+    if (advisorPosts.length > 0 && advisorPosts.length < posts.length) {
+      // For every 3 regular posts, insert an advisor post
+      for (let i = 2; i < enhancedPosts.length; i += 3) {
+        // Pick a random advisor post to insert
+        const randomAdvisorPost = advisorPosts[Math.floor(Math.random() * advisorPosts.length)];
+        // Insert a copy with a unique temporary id for React keys
+        enhancedPosts.splice(i, 0, {
+          ...randomAdvisorPost,
+          id: `enhanced-${randomAdvisorPost.id}-${i}`,
+          _isEnhancedDuplicate: true // Flag to identify duplicates
+        });
+      }
+    }
+    
+    return enhancedPosts;
+  }, [posts]);
+
+  // Update the CategoryFilter component to use our improved handling
+  const CategoryFilter = () => (
+    <ScrollView 
+      horizontal 
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.categoryList}
+    >
+      <TouchableOpacity
+        style={[
+          styles.categoryChip,
+          selectedCategory === 'all' && styles.categoryChipSelected,
+          { marginLeft: 16 } // Add left margin to first item
+        ]}
+        onPress={() => handleCategoryChange('all')}
+        activeOpacity={0.7}
+      >
+        <MaterialIcons 
+          name="apps" 
+          size={18} 
+          color={selectedCategory === 'all' ? 
+            theme.colors.neutral.surface : 
+            theme.colors.primary.base
+          }
+          style={styles.categoryChipIcon}
+        />
+        <Text style={[
+          styles.categoryChipText,
+          selectedCategory === 'all' && styles.categoryChipTextSelected
+        ]}>
+          All
+        </Text>
+      </TouchableOpacity>
+      
+      {CATEGORIES.map(category => (
+        <TouchableOpacity
+          key={category.value}
+          style={[
+            styles.categoryChip,
+            selectedCategory === category.value && styles.categoryChipSelected
+          ]}
+          onPress={() => handleCategoryChange(category.value)}
+          activeOpacity={0.7}
+        >
+          {category.iconType === 'material' ? (
+            <MaterialCommunityIcons
+              name={category.icon}
+              size={18}
+              color={selectedCategory === category.value ? 
+                theme.colors.neutral.surface : 
+                theme.colors.primary.base
+              }
+              style={styles.categoryChipIcon}
+            />
+          ) : (
+            <FontAwesome5
+              name={category.icon}
+              size={16}
+              color={selectedCategory === category.value ? 
+                theme.colors.neutral.surface : 
+                theme.colors.primary.base
+              }
+              style={styles.categoryChipIcon}
+            />
+          )}
+          <Text style={[
+            styles.categoryChipText,
+            selectedCategory === category.value && styles.categoryChipTextSelected
+          ]}>
+            {category.label}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </ScrollView>
+  );
+
+  // Enhanced search function
+  const handleSearch = (text) => {
+    // Update search term state
+    setSearchTerm(text);
+    
+    // Reset to first page if implementing pagination
+    // setCurrentPage(1);
+    
+    // Log search activity
+    console.log('Searching for:', text);
+    
+    // Clear previous search timeout if it exists
+    if (searchDebounceTimeout.current) {
+      clearTimeout(searchDebounceTimeout.current);
+    }
+    
+    // Set loading state for search
+    setIsSearching(true);
+    
+    // Debounce the search to avoid too many renders
+    searchDebounceTimeout.current = setTimeout(() => {
+      // Could make an API call here for server-side search
+      // For now, we rely on client-side filtering in filteredPosts
+      setIsSearching(false);
+    }, 500);
+  };
+
+  // Clear search function
+  const clearSearch = () => {
+    setSearchTerm('');
+    setIsSearching(false);
+    
+    // Dismiss keyboard
+    if (searchInputRef.current) {
+      searchInputRef.current.blur();
+    }
+    
+    // Fetch all posts again if needed
+    // fetchPosts();
+  };
+
+  // Category selection function
+  const handleCategoryChange = (category) => {
+    // If selecting the same category, reset to 'all'
+    if (selectedCategory === category && category !== 'all') {
+      setSelectedCategory('all');
+      console.log('Showing all categories');
+    } else {
+      setSelectedCategory(category);
+      console.log('Filtering by category:', category);
+      
+      // Optional: You could make a specific API call here to filter on the server
+      // For example:
+      // if (category !== 'all') {
+      //   fetchPostsByCategory(category);
+      // } else {
+      //   fetchPosts();
+    }
+    
+    // Reset search if implementing combined filtering
+    // setSearchTerm('');
+    
+    // Reset to first page if implementing pagination
+    // setCurrentPage(1);
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar backgroundColor={theme.colors.neutral.surface} barStyle="dark-content" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.neutral.background }}>
+      <StatusBar backgroundColor={theme.colors.neutral.background} barStyle="dark-content" />
       
-      {/* Header with spacer to push down content */}
-      <View style={styles.headerSpacer} />
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Community</Text>
-      </View>
-      
-      {/* Main content */}
-      {loading && !refreshing ? (
+      {loading && !posts.length ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={theme.colors.primary.base} />
-          <Text style={styles.loadingText}>Loading posts...</Text>
         </View>
       ) : error ? (
         <View style={styles.centerContainer}>
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity 
-            style={styles.retryButton}
-            onPress={fetchPosts}
-          >
-            <Text style={styles.retryButtonText}>Try Again</Text>
-          </TouchableOpacity>
+          <Button title="Try Again" onPress={fetchPosts} style={{ marginTop: 16 }} />
         </View>
       ) : (
-        <FlatList
-          data={posts}
+        <AnimatedFlatList
+          data={getFilteredPosts}
           renderItem={renderPostItem}
           keyExtractor={item => item.id.toString()}
           contentContainerStyle={styles.postsList}
-          showsVerticalScrollIndicator={false}
+          showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="none"
+          ListHeaderComponent={
+            <>
+              <SearchBar searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+              {isSearching && (
+                <View style={styles.searchingIndicator}>
+                  <ActivityIndicator size="small" color={theme.colors.primary.base} />
+                  <Text style={styles.searchingText}>Searching...</Text>
+                </View>
+              )}
+              <CategoryFilter />
+            </>
+          }
           refreshControl={
             <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
+              refreshing={loading}
+              onRefresh={fetchPosts}
               colors={[theme.colors.primary.base]}
-              tintColor={theme.colors.primary.base}
             />
           }
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+            { useNativeDriver: true }
+          )}
+          scrollEventThrottle={16}
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <MaterialCommunityIcons 
-                name="post-outline" 
-                size={64} 
-                color={theme.colors.neutral.gray.base} 
-              />
-              <Text style={styles.emptyTitle}>No Posts Yet</Text>
-              <Text style={styles.emptyDescription}>
-                Be the first to share something with the community!
-              </Text>
-              <TouchableOpacity 
-                style={styles.createPostButton}
-                onPress={() => setModalVisible(true)}
-              >
-                <Text style={styles.createPostButtonText}>Create Post</Text>
-              </TouchableOpacity>
-            </View>
+            !loading && (
+              <View style={styles.emptyContainer}>
+                <MaterialCommunityIcons 
+                  name={searchTerm ? "file-search-outline" : "post-outline"}
+                  size={48} 
+                  color={theme.colors.neutral.textSecondary} 
+                />
+                <Text style={styles.emptyTitle}>
+                  {searchTerm ? "No matching posts found" : "No posts yet"}
+                </Text>
+                <Text style={styles.emptyText}>
+                  {searchTerm 
+                    ? "Try adjusting your search or category filter"
+                    : "Be the first to share something with the community!"}
+                </Text>
+              </View>
+            )
           }
         />
       )}
       
-      {/* Floating ask community button */}
-      <TouchableOpacity 
-        style={styles.askCommunityButton}
-        onPress={() => setModalVisible(true)}
-        activeOpacity={0.9}
+      {/* Become an Advisor button */}
+      <TouchableOpacity
+        style={[styles.askCommunityButton, styles.becomeAdvisorButton]}
+        onPress={() => navigation.navigate('AdvisorApplication')}
+        activeOpacity={0.8}
       >
-        <Feather name="edit" size={18} color={theme.colors.neutral.surface} style={styles.editIcon} />
-        <Text style={styles.askCommunityButtonText}>Ask Community</Text>
+        <MaterialIcons name="verified-user" size={24} color="white" />
+        <Text style={styles.askCommunityText}>Become an Advisor</Text>
       </TouchableOpacity>
       
-      {/* Create Post Modal */}
+      {/* Ask Community button with verified badge overlay */}
+      <View style={{position: 'relative'}}>
+        {/* Verified badge positioned ABOVE the button */}
+        <View style={styles.advisorBadgeOverlay}>
+          <MaterialIcons 
+            name="verified" 
+            size={24} 
+            color="#1F6AFF" 
+          />
+        </View>
+        
+        <TouchableOpacity
+          style={styles.askCommunityButton}
+          onPress={() => setModalVisible(true)}
+          activeOpacity={0.8}
+        >
+          <MaterialCommunityIcons name="comment-question-outline" size={24} color="white" />
+          <Text style={styles.askCommunityText}>Ask Community</Text>
+        </TouchableOpacity>
+      </View>
+      
+      {/* New Post Modal */}
       <Modal
-        visible={modalVisible}
         animationType="slide"
+        transparent={false}
+        visible={modalVisible}
         onRequestClose={() => setModalVisible(false)}
       >
         <SafeAreaView style={styles.modalContainer}>
@@ -657,6 +1328,98 @@ const handleCommentAdded = (postId) => {
           </KeyboardAvoidingView>
         </SafeAreaView>
       </Modal>
+      
+      {/* Report Modal */}
+      <Modal
+        visible={reportModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => {
+          setReportModalVisible(false);
+          setReportReason('');
+          setCustomReason('');
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.reportModalContainer}>
+            <View style={styles.reportModalHeader}>
+              <Text style={styles.reportModalTitle}>Report Post</Text>
+              <TouchableOpacity 
+                onPress={() => {
+                  setReportModalVisible(false);
+                  setReportReason('');
+                  setCustomReason('');
+                }}
+              >
+                <MaterialCommunityIcons name="close" size={24} color={theme.colors.neutral.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            
+            <Text style={styles.reportModalSubtitle}>Why are you reporting this post?</Text>
+            
+            <ScrollView style={styles.reportReasonsList}>
+              {reportReasons.map((reason) => (
+                <TouchableOpacity
+                  key={reason}
+                  style={[
+                    styles.reportReasonItem,
+                    reportReason === reason && styles.reportReasonItemSelected
+                  ]}
+                  onPress={() => setReportReason(reason)}
+                >
+                  <Text style={styles.reportReasonText}>{reason}</Text>
+                  {reportReason === reason && (
+                    <MaterialCommunityIcons name="check" size={20} color={theme.colors.primary.base} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            
+            {/* Add custom reason input when 'Other' is selected */}
+            {reportReason === 'Other' && (
+              <View style={styles.customReasonContainer}>
+                <TextInput
+                  style={styles.customReasonInput}
+                  placeholder="Please specify your reason"
+                  value={customReason}
+                  onChangeText={setCustomReason}
+                  multiline
+                  maxLength={200}
+                />
+              </View>
+            )}
+            
+            <View style={styles.reportModalActions}>
+              <TouchableOpacity
+                style={styles.reportCancelButton}
+                onPress={() => {
+                  setReportModalVisible(false);
+                  setReportReason('');
+                  setCustomReason('');
+                }}
+              >
+                <Text style={styles.reportCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.reportSubmitButton,
+                  (!reportReason || (reportReason === 'Other' && !customReason) || isSubmittingReport) && 
+                    styles.reportSubmitButtonDisabled
+                ]}
+                onPress={handleReportPost}
+                disabled={!reportReason || (reportReason === 'Other' && !customReason) || isSubmittingReport}
+              >
+                {isSubmittingReport ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Text style={styles.reportSubmitButtonText}>Submit</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -680,10 +1443,10 @@ const styles = StyleSheet.create({
     color: theme.colors.neutral.textPrimary,
   },
   postCard: {
-    backgroundColor: theme.colors.neutral.surface,
-    borderRadius: theme.borderRadius.medium,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    marginBottom: 16,
+    overflow: 'hidden',
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -694,197 +1457,145 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: theme.spacing.sm,
+    padding: 12,
+  },
+  authorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  authorImageWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    overflow: 'hidden',
+    backgroundColor: theme.colors.neutral.gray.light,
+  },
+  authorImage: {
+    width: '100%',
+    height: '100%',
+  },
+  defaultAvatar: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: theme.colors.primary.light,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarText: {
+    color: 'white',
+    fontSize: 20,
+    fontWeight: 'bold',
   },
   authorInfo: {
+    marginLeft: 10,
+    flex: 1,
+  },
+  nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  authorAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 10,
-  },
-  authorAvatarPlaceholder: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: theme.colors.neutral.gray.base,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
   },
   authorName: {
-    fontSize: 14,
-    fontFamily: theme.fonts.medium,
+    fontSize: 15,
+    fontWeight: '600',
     color: theme.colors.neutral.textPrimary,
   },
-  postDate: {
-    fontSize: theme.fontSizes.caption,
-    fontFamily: theme.fonts.regular,
+  postTime: {
+    fontSize: 12,
     color: theme.colors.neutral.textSecondary,
+    marginTop: 2,
   },
-  categoryBadge: {
+  categoryChipContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.neutral.gray.light,
-    paddingVertical: 4,
+    backgroundColor: 'rgba(0,0,0,0.05)',
     paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 12,
   },
   categoryText: {
-    fontSize: theme.fontSizes.caption,
-    fontFamily: theme.fonts.regular,
-    color: theme.colors.neutral.textSecondary,
+    fontSize: 12,
+    color: theme.colors.neutral.textPrimary,
     marginLeft: 4,
+    fontWeight: '500',
+  },
+  postContent: {
+    paddingHorizontal: 12,
+    paddingBottom: 12,
   },
   postTitle: {
-    fontSize: theme.fontSizes.h2,
-    fontFamily: theme.fonts.medium,
+    fontSize: 16,
+    fontWeight: 'bold',
     color: theme.colors.neutral.textPrimary,
-    marginBottom: theme.spacing.sm,
+    marginBottom: 4,
   },
   postDescription: {
-    fontSize: theme.fontSizes.body,
-    fontFamily: theme.fonts.regular,
+    fontSize: 14,
     color: theme.colors.neutral.textSecondary,
-    marginBottom: theme.spacing.md,
+    lineHeight: 20,
   },
   mediaContainer: {
-    position: 'relative',
     width: '100%',
-    borderRadius: theme.borderRadius.medium,
-    overflow: 'hidden',
-    marginBottom: theme.spacing.md,
+    position: 'relative',
+  },
+  imageScrollView: {
+    width: '100%',
   },
   postImage: {
-    width: '100%',
+    width: Dimensions.get('window').width - 32, // Full width minus padding
     height: 200,
-    borderRadius: theme.borderRadius.medium,
   },
-  moreImagesOverlay: {
+  paginationContainer: {
+    flexDirection: 'row',
     position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    bottom: 10,
+    alignSelf: 'center',
   },
-  moreImagesText: {
-    fontSize: theme.fontSizes.h2,
-    fontFamily: theme.fonts.bold,
-    color: 'white',
+  paginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    marginHorizontal: 4,
+  },
+  paginationDotActive: {
+    backgroundColor: 'white',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
   postFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingTop: 12,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
     borderTopWidth: 1,
     borderTopColor: theme.colors.neutral.border,
   },
-  footerAction: {
+  postStats: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  footerActionText: {
+  postActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  postActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  postActionText: {
+    marginLeft: 6,
     fontSize: 14,
     color: theme.colors.neutral.textSecondary,
-    marginLeft: 6,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: theme.spacing.xl,
-  },
-  loadingText: {
-    marginTop: theme.spacing.md,
-    fontSize: theme.fontSizes.body,
     fontFamily: theme.fonts.regular,
-    color: theme.colors.neutral.textSecondary,
   },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: theme.spacing.xl,
-  },
-  errorText: {
-    fontSize: theme.fontSizes.body,
-    fontFamily: theme.fonts.regular,
-    color: theme.colors.error,
-    textAlign: 'center',
-    marginBottom: theme.spacing.md,
-  },
-  retryButton: {
-    backgroundColor: theme.colors.primary.base,
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.borderRadius.small,
-  },
-  retryButtonText: {
-    fontSize: theme.fontSizes.body,
-    fontFamily: theme.fonts.medium,
-    color: theme.colors.neutral.surface,
-  },
-  emptyContainer: {
-    padding: theme.spacing.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyTitle: {
-    fontSize: theme.fontSizes.h2,
-    fontFamily: theme.fonts.medium,
-    color: theme.colors.neutral.textPrimary,
-    marginTop: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
-  },
-  emptyDescription: {
-    fontSize: theme.fontSizes.body,
-    fontFamily: theme.fonts.regular,
-    color: theme.colors.neutral.textSecondary,
-    textAlign: 'center',
-    marginBottom: theme.spacing.lg,
-  },
-  createPostButton: {
-    backgroundColor: theme.colors.primary.base,
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.borderRadius.small,
-  },
-  createPostButtonText: {
-    color: theme.colors.neutral.surface,
-    fontFamily: theme.fonts.medium,
-    fontSize: theme.fontSizes.body,
-  },
-  askCommunityButton: {
-    position: 'absolute',
-    bottom: 20,
-    right: 20,
-    backgroundColor: theme.colors.primary.base,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 30,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  askCommunityButtonText: {
-    color: theme.colors.neutral.surface,
-    fontFamily: theme.fonts.medium,
-    fontSize: theme.fontSizes.body,
+  iconButton: {
+    padding: 6,
     marginLeft: 8,
-  },
-  editIcon: {
-    marginRight: 4,
   },
   modalContainer: {
     flex: 1,
@@ -1009,18 +1720,381 @@ const styles = StyleSheet.create({
     padding: theme.spacing.md,
     paddingTop: theme.spacing.sm,
   },
-  mediaCountBadge: {
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+  },
+  emptyText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: theme.colors.neutral.textSecondary,
+    textAlign: 'center',
+    fontFamily: theme.fonts.medium,
+  },
+  createPostButton: {
+    backgroundColor: theme.colors.primary.base,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.small,
+  },
+  createPostButtonText: {
+    color: theme.colors.neutral.surface,
+    fontFamily: theme.fonts.medium,
+    fontSize: theme.fontSizes.body,
+  },
+  errorText: {
+    color: theme.colors.error.text,
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.regular,
+    marginBottom: theme.spacing.md,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  reportModalContainer: {
+    width: '100%',
+    backgroundColor: theme.colors.neutral.surface,
+    borderRadius: theme.borderRadius.large,
+    padding: 16,
+    maxHeight: '80%',
+  },
+  reportModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  reportModalTitle: {
+    fontSize: theme.fontSizes.h3,
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.neutral.textPrimary,
+  },
+  reportModalSubtitle: {
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.regular,
+    color: theme.colors.neutral.textSecondary,
+    marginBottom: 16,
+  },
+  reportReasonsList: {
+    maxHeight: 300,
+  },
+  reportReasonItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.neutral.gray.light,
+  },
+  reportReasonItemSelected: {
+    backgroundColor: theme.colors.primary.fade,
+  },
+  reportReasonText: {
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.regular,
+    color: theme.colors.neutral.textPrimary,
+  },
+  reportModalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 16,
+  },
+  reportCancelButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginRight: 8,
+  },
+  reportCancelButtonText: {
+    fontSize: theme.fontSizes.button,
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.neutral.textSecondary,
+  },
+  reportSubmitButton: {
+    backgroundColor: theme.colors.primary.base,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: theme.borderRadius.small,
+  },
+  reportSubmitButtonDisabled: {
+    backgroundColor: theme.colors.primary.disabled,
+  },
+  reportSubmitButtonText: {
+    fontSize: theme.fontSizes.button,
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.neutral.surface,
+  },
+  customReasonContainer: {
+    marginTop: 16,
+    marginBottom: 8,
+    padding: 16,
+    backgroundColor: theme.colors.neutral.gray.lighter,
+    borderRadius: theme.borderRadius.medium,
+  },
+  customReasonInput: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.regular,
+    color: theme.colors.neutral.textPrimary,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+  },
+  actionText: {
+    marginLeft: 4,
+    fontSize: theme.fontSizes.small,
+    color: theme.colors.neutral.textSecondary,
+  },
+  categoryContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.primary.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  categoryIcon: {
+    marginRight: 6,
+  },
+  dateText: {
+    color: theme.colors.neutral.textSecondary,
+    fontSize: 12,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.neutral.border,
+    paddingTop: 12,
+  },
+  categoryFilterContainer: {
+    backgroundColor: theme.colors.neutral.surface,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.neutral.border,
+    zIndex: 1,
+  },
+  categoryList: {
+    paddingHorizontal: 16,
+  },
+  categoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(25, 118, 210, 0.08)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  categoryChipSelected: {
+    backgroundColor: theme.colors.primary.base,
+    borderColor: theme.colors.primary.dark,
+    shadowColor: theme.colors.primary.base,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  categoryChipText: {
+    color: theme.colors.primary.base,
+    fontSize: 14,
+    fontFamily: theme.fonts.medium,
+  },
+  categoryChipTextSelected: {
+    color: theme.colors.neutral.surface,
+    fontFamily: theme.fonts.bold,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.neutral.textPrimary,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.neutral.surface,
+    borderRadius: theme.borderRadius.medium,
+    paddingHorizontal: 12,
+    margin: 16,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.neutral.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  searchInput: {
+    flex: 1,
+    padding: 10,
+    fontSize: 16,
+    color: theme.colors.neutral.textPrimary,
+    fontFamily: theme.fonts.regular,
+  },
+  askCommunityButton: {
+    backgroundColor: theme.colors.primary.base,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 24,
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  askCommunityText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  advisorBadgeOverlay: {
     position: 'absolute',
     top: 0,
+    left: 0,
     right: 0,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    padding: 4,
-    borderRadius: 12,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
   },
-  mediaCountText: {
-    fontSize: theme.fontSizes.caption,
-    fontFamily: theme.fonts.bold,
+  becomeAdvisorButton: {
+    bottom: 80, // Lower position (was 150, now 80)
+    backgroundColor: '#1F6AFF', // Different color to distinguish it
+  },
+  advisorPostCard: {
+    borderWidth: 1,
+    borderColor: '#e8f1ff',
+    backgroundColor: '#f2f8ff',
+    borderRadius: 12,
+    shadowColor: '#1F6AFF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+    marginVertical: 10,
+    overflow: 'hidden',
+  },
+  advisorPostHeader: {
+    backgroundColor: 'transparent',
+    borderBottomWidth: 0,
+    paddingVertical: 12,
+  },
+  advisorImageWrapper: {
+    borderWidth: 0,
+    shadowColor: 'transparent',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+  },
+  advisorImagePlaceholder: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#1a73e8',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  advisorImageInitial: {
     color: 'white',
+    fontSize: 18,
+    fontFamily: theme.fonts.bold,
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 1,
+  },
+  advisorName: {
+    color: '#1a73e8',
+    fontFamily: theme.fonts.semibold,
+    fontSize: 16,
+  },
+  verifiedIcon: {
+    marginLeft: 4,
+    color: '#1a73e8',
+  },
+  advisorPostTime: {
+    color: '#5D82B3',
+  },
+  advisorPostContent: {
+    padding: 16,
+    backgroundColor: 'rgba(240, 247, 255, 0.3)',
+  },
+  advisorPostTitle: {
+    color: '#0B3D96',
+    fontFamily: theme.fonts.bold,
+    fontSize: 18,
+    letterSpacing: 0.3,
+  },
+  advisorPostDescription: {
+    color: '#2B5C9E',
+    fontFamily: theme.fonts.regular,
+    lineHeight: 22,
+  },
+  advisorBadge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    borderRadius: 50,
+    overflow: 'hidden',
+    elevation: 2,
+    zIndex: 10,
+  },
+  advisorBadgeGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 50,
+    backgroundColor: '#1a73e8',
+  },
+  advisorBadgeText: {
+    color: 'white',
+    fontSize: 14,
+    fontFamily: theme.fonts.medium,
+    marginLeft: 6,
+  },
+  searchingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  searchingText: {
+    fontSize: 14,
+    color: theme.colors.neutral.textSecondary,
+    marginLeft: 8,
+  },
+  clearButton: {
+    padding: 6,
+  },
+  clearSearchButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.05)',
   },
 });
 
