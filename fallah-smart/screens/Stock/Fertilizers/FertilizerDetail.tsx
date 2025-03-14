@@ -493,8 +493,7 @@ const FertilizerDetailScreen: React.FC<FertilizerDetailScreenProps> = ({ navigat
               title={`${STOCK_ICONS.delete} حذف`}
               onPress={handleDelete}
               variant="primary"
-              style={styles.button}
-              backgroundColor="red"
+              style={[styles.button, styles.updateButton, { backgroundColor: theme.colors.error }]}
             />
           </View>
         </View>
