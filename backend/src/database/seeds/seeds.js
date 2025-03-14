@@ -83,7 +83,7 @@ async function seedAll() {
     await seedEducationAdditionalVideos();
     await seedEducationCrops();
     await seedEducationAnimals();
-    
+    ///////////////////////////SEEDS FOR STOCK//////////////////////////
     console.log('✅ All data seeded successfully!');
     return true;
   } catch (error) {

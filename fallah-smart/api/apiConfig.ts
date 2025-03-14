@@ -29,7 +29,7 @@ export const WEATHER_CONFIG = {
 
 // Other API configurations
 export const API_CONFIG = {
-  BASE_URL: 'http://192.168.104.24:5000',
-  API_URL: 'http://192.168.104.24:5000/api',
-  BLOG_URL: '192.168.104.24:5000'
+  BASE_URL: 'http://192.168.1.137:5000',
+  API_URL: 'http://192.168.1.137:5000/api',
+  BLOG_URL: '192.168.1.137:5000'
 };
