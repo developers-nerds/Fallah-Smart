@@ -7,22 +7,33 @@ const seedUsers = require('./userSeeds');
 const seedCrops = require('./cropSeeds');  // Keep only one import
 const seedCropDetails = require('./cropDetailsSeeds');
 const seedAnimalDocs = require('./animalDocSeeds');
-const seedUserAnimals = require('./userAnimalSeeds');
-const seedUserAnimalDetails = require('./animalDetailsSeeds');
-const seedPesticides = require('./pesticideSeeds');
-const seedStocks = require('./stockSeeds');
+// const seedUserAnimals = require('./userAnimalSeeds');
+const seedUserAnimalDetails = require('./animalDetailsSeeds');  
+// const seedPesticides = require('./pesticideSeeds');
+// const seedStocks = require('./stockSeeds');
 // const seedStockHistory = require('./stockHistorySeeds');
 const seedPosts = require('./postSeeds');
 const seedComments = require('./commentSeeds');
 const seedLikes = require('./likeSeeds');
-const seedConversations = require('./conversationSeeds');
-const seedMessages = require('./messageSeeds');
+// const seedConversations = require('./conversationSeeds');
+// const seedMessages = require('./messageSeeds');
+// const seedBackupSync = require('./backupSyncSeeds');
+// const seedNotifications = require('./notificationSeeds');
+// const seedMedia = require('./mediaSeeds');
+// const seedRecurringTransactions = require('./recurringTransactionSeeds');
+// const seedTransactions = require('./transactionSeeds');
+// const seedScans = require('./scanSeeds');
 
-const seedNotifications = require('./notificationSeeds');
-const seedMedia = require('./mediaSeeds');
 
 
-const seedScans = require('./scanSeeds');
+//////////////////////SEEDS FOR EDUCATION//////////////////////
+const seedEducationQuizzes = require('./Education_QuizzesSeeds');
+const seedEducationQuestions = require('./Education_QuestionsSeeds');
+const seedEducationVideos = require('./Education_VideosSeeds');
+const seedEducationAdditionalVideos = require('./Education_AdditionalVideosSeeds');
+const seedEducationCrops = require('./Education_CropsSeeds');
+const seedEducationAnimals = require('./EducationAnimalsSeeds');
+
 const initializeDatabase = require('../dbInit');
 
 async function seedAll() {
@@ -37,7 +48,7 @@ async function seedAll() {
     console.log("🌱 Seeding users...");
     await seedCategories();
     console.log("🌱 Seeding categories...");
-    await seedNotifications();
+    // await seedNotifications();
     console.log("🌱 Seeding notifications...");
     // await seedStockHistory();
     // await seedStocks();
@@ -56,14 +67,22 @@ async function seedAll() {
     await seedLikes();
     console.log("🌱 Seeding likes...");
     // await seedScans();
-    await seedMedia();
+    // await seedMedia();
     console.log("🌱 Seeding media...");
     // await seedConversations(); 
-
-
-
-    
+    // await seedAccounts();
+    // await seedTransactions();
+    // await seedRecurringTransactions();
+    // await seedBackupSync();
     // await seedMessages();
+
+    ///////////////////SEEDS FOR EDUCATION//////////////////////
+    await seedEducationQuizzes();
+    await seedEducationQuestions();
+    await seedEducationVideos();
+    await seedEducationAdditionalVideos();
+    await seedEducationCrops();
+    await seedEducationAnimals();
     
     console.log('✅ All data seeded successfully!');
     return true;
