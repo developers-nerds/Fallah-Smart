@@ -5,11 +5,11 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, Activity
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useNavigation, useRoute } from "@react-navigation/native"
 import Icon from "react-native-vector-icons/MaterialIcons"
-import { FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons"
 import { theme } from "../../../theme/theme"
 import DateTimePicker from "@react-native-community/datetimepicker"
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import axios from 'axios'
+import { RenderIcon } from "./RenderIcon" // Adjust path as needed
 
 // Get screen dimensions
 const { width, height } = Dimensions.get('window')
@@ -25,24 +25,22 @@ interface Category {
   isIncome?: boolean
 }
 
-interface Transaction {
-  id: number
-  accountId: number
-  amount: number
-  note: string
-  date: string
-  type: string
-  category: Category
+interface AddTransactionRouteParams {
+  transactionType: 'income' | 'expense'
 }
 
-export default function EditIncome() {
+export default function AddTransaction() {
   const [showCategories, setShowCategories] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [amount, setAmount] = useState("")
   const [note, setNote] = useState("")
-  const [currentDate, setCurrentDate] = useState("")
+  const [currentDate, setCurrentDate] = useState(() => {
+    const date = new Date()
+    const options = { weekday: "long", day: "numeric", month: "long", year: "numeric" }
+    return date.toLocaleDateString("ar", options)
+  })
   const [date, setDate] = useState(new Date())
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [isManualDateInput, setIsManualDateInput] = useState(false)
@@ -53,53 +51,32 @@ export default function EditIncome() {
   const [accounts, setAccounts] = useState([])
   const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null)
   
+  // Calculator-specific states
+  const [firstOperand, setFirstOperand] = useState<string | null>(null)
+  const [currentOperation, setCurrentOperation] = useState<string | null>(null)
+  const [waitingForSecondOperand, setWaitingForSecondOperand] = useState(false)
+
   const navigation = useNavigation()
   const route = useRoute()
-  const { transaction } = route.params as { transaction: Transaction } // Type the route params
+  const { transactionType } = route.params as AddTransactionRouteParams
 
   const API_BASE_URL = Platform.select({
     web: process.env.WEB_PUBLIC_API,
     default: process.env.EXPO_PUBLIC_API_URL 
   })
 
-  useEffect(() => {
-    // Initialize with transaction data
-    if (transaction) {
-      setAmount(transaction.amount.toString())
-      setNote(transaction.note || "Add income")
-      setSelectedCategory({
-        id: transaction.category.id,
-        name: transaction.category.name,
-        icon: transaction.category.icon,
-        type: transaction.category.type,
-        color: transaction.category.color
-      })
-      setSelectedAccountId(transaction.accountId)
-      const transDate = new Date(transaction.date)
-      setDate(transDate)
-      setCurrentDate(transDate.toLocaleDateString("en-US", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-        year: "numeric"
-      }))
-    }
-    fetchAccounts()
-    fetchCategories()
-  }, [transaction])
-
   const getUserIdFromToken = async () => {
     try {
       const userStr = await AsyncStorage.getItem('@user')
       if (!userStr) {
-        setError('No user data found. Please log in.')
+        setError('لم يتم العثور على بيانات المستخدم. الرجاء تسجيل الدخول.')
         setLoading(false)
         return null
       }
       const userData = JSON.parse(userStr)
       return userData.id
     } catch (error) {
-      setError('Invalid user data. Please log in again.')
+      setError('بيانات المستخدم غير صالحة. الرجاء تسجيل الدخول مرة أخرى.')
       setLoading(false)
       return null
     }
@@ -118,46 +95,68 @@ export default function EditIncome() {
         }
       })
       setAccounts(response.data)
+      if (response.data.length > 0) {
+        setSelectedAccountId(response.data[0].id)
+      }
     } catch (error) {
-      setError('Error fetching accounts: ' + (error.response?.data?.message || error.message))
+      setError('خطأ في جلب الحسابات: ' + (error.response?.data?.message || error.message))
     }
   }
 
-  const fetchCategories = async () => {
-    try {
-      setLoading(true)
-      const token = await AsyncStorage.getItem('@access_token')
-      if (!token) {
-        setError("No authentication token found")
-        return
-      }
-      const response = await axios.get(`${API_BASE_URL}/categories/type/Income`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-      console.log("Fetched categories response (EditIncome):", response.data) // Debug the response
-      if (Array.isArray(response.data)) {
-        const validCategories = response.data.filter(
-          (category: any) => category && typeof category === 'object' && category.id && category.name
-        )
-        setCategories(validCategories)
-        if (validCategories.length === 0) {
-          setError("No valid categories found")
-        }
-      } else {
-        setError("Invalid response format: Categories data is not an array")
-        setCategories([])
-      }
-    } catch (err) {
-      setError("Failed to fetch categories: " + err.message)
-      setCategories([])
-    } finally {
-      setLoading(false)
-    }
-  }
+  useEffect(() => {
+    fetchAccounts()
 
-  const handleUpdateTransaction = async (category: Category) => {
+    let isMounted = true
+
+    const fetchCategories = async () => {
+      try {
+        setLoading(true)
+        const token = await AsyncStorage.getItem('@access_token')
+        if (!token) {
+          setError("لم يتم العثور على رمز التوثيق")
+          return
+        }
+        const response = await axios.get(`${API_BASE_URL}/categories/type/${transactionType === 'income' ? 'Income' : 'Expense'}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+        if (isMounted) {
+          if (Array.isArray(response.data)) {
+            const validCategories = response.data.filter(
+              (category: any) => category && typeof category === 'object' && category.id && category.name
+            )
+            setCategories(validCategories)
+            if (validCategories.length === 0) {
+              setError("لم يتم العثور على فئات صالحة")
+            }
+          } else {
+            setError("تنسيق الاستجابة غير صالح: بيانات الفئات ليست مصفوفة")
+            setCategories([])
+          }
+        }
+      } catch (err) {
+        if (isMounted) {
+          setError("فشل في جلب الفئات: " + err.message)
+          setCategories([])
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false)
+        }
+      }
+    }
+
+    if (showCategories) {
+      fetchCategories()
+    }
+
+    return () => {
+      isMounted = false
+    }
+  }, [showCategories, transactionType])
+
+  const handleCreateTransaction = async (category: Category) => {
     try {
       setIsSubmitting(true)
       setSubmitError("")
@@ -166,22 +165,22 @@ export default function EditIncome() {
       const userStr = await AsyncStorage.getItem('@user')
       
       if (!token || !userStr) {
-        setSubmitError('Please login first')
+        setSubmitError('الرجاء تسجيل الدخول أولاً')
         return
       }
 
       if (!selectedAccountId) {
-        setSubmitError('No account selected. Please try again.')
+        setSubmitError('لم يتم اختيار حساب. الرجاء المحاولة مرة أخرى.')
         return
       }
 
       if (!category || !category.id) {
-        setSubmitError('Please select a category')
+        setSubmitError('الرجاء اختيار فئة')
         return
       }
 
       if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
-        setSubmitError('Please enter a valid amount')
+        setSubmitError('الرجاء إدخال مبلغ صالح')
         return
       }
 
@@ -189,13 +188,13 @@ export default function EditIncome() {
         accountId: selectedAccountId,
         categoryId: category.id,
         amount: parseFloat(amount),
-        type: 'income',
-        note: note || "",
+        type: transactionType,
+        note: note,
         date: date.toISOString()
       }
 
-      const response = await axios.put(
-        `${API_BASE_URL}/transactions/${transaction.id}`,
+      const response = await axios.post(
+        `${API_BASE_URL}/transactions`,
         transactionData,
         {
           headers: {
@@ -206,45 +205,91 @@ export default function EditIncome() {
       )
 
       if (response.data.success) {
+        setAmount("")
+        setNote("")
+        setSelectedCategory(null)
+        setShowCategories(false)
         navigation.goBack()
       } else {
-        setSubmitError(response.data.message || 'Failed to update transaction')
+        setSubmitError(response.data.message || 'فشل في إنشاء المعاملة')
       }
     } catch (error) {
-      setSubmitError(error.response?.data?.message || 'Failed to update transaction: ' + error.message)
+      setSubmitError(error.response?.data?.message || 'فشل في إنشاء المعاملة: ' + error.message)
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const handleDeleteTransaction = async () => {
-    try {
-      setIsSubmitting(true)
-      const token = await AsyncStorage.getItem('@access_token')
-      
-      await axios.delete(`${API_BASE_URL}/transactions/${transaction.id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-      navigation.goBack()
-    } catch (error) {
-      setSubmitError(error.response?.data?.message || 'Failed to delete transaction')
-    } finally {
-      setIsSubmitting(false)
+  const handleNumberPress = (num: string) => {
+    if (waitingForSecondOperand) {
+      setAmount(num)
+      setWaitingForSecondOperand(false)
+    } else {
+      setAmount((prev) => (prev === "0" || prev === "" ? num : prev + num))
     }
-  }
-
-  const handleNumberPress = (num: number) => {
-    setAmount((prev) => prev + num.toString())
   }
 
   const handleOperatorPress = (operator: string) => {
-    console.log("Operator pressed:", operator)
+    if (operator === "=") {
+      if (firstOperand !== null && currentOperation !== null && amount !== "") {
+        const result = calculateResult(
+          parseFloat(firstOperand),
+          parseFloat(amount),
+          currentOperation
+        )
+        setAmount(result.toString())
+        setFirstOperand(null)
+        setCurrentOperation(null)
+        setWaitingForSecondOperand(false)
+      }
+    } else if (operator === "C") {
+      handleClear()
+    } else {
+      if (amount !== "") {
+        if (firstOperand === null) {
+          setFirstOperand(amount)
+        } else if (currentOperation !== null) {
+          const result = calculateResult(
+            parseFloat(firstOperand),
+            parseFloat(amount),
+            currentOperation
+          )
+          setFirstOperand(result.toString())
+        }
+        setCurrentOperation(operator)
+        setWaitingForSecondOperand(true)
+      }
+    }
+  }
+
+  const calculateResult = (
+    first: number,
+    second: number,
+    operation: string
+  ): number => {
+    switch (operation) {
+      case "+":
+        return first + second
+      case "-":
+        return first - second
+      case "×":
+        return first * second
+      case "÷":
+        return second !== 0 ? first / second : NaN
+      default:
+        return second
+    }
   }
 
   const handleClear = () => {
     setAmount("")
+    setFirstOperand(null)
+    setCurrentOperation(null)
+    setWaitingForSecondOperand(false)
+  }
+
+  const handleBackspace = () => {
+    setAmount((prev) => prev.slice(0, -1))
   }
 
   const goBack = () => {
@@ -256,8 +301,8 @@ export default function EditIncome() {
     setShowDatePicker(false)
     setDate(currentDate)
     const options = { weekday: "long", day: "numeric", month: "long", year: "numeric" }
-    setCurrentDate(currentDate.toLocaleDateString("en-US", options))
-    setManualDate(currentDate.toLocaleDateString("en-US", options))
+    setCurrentDate(currentDate.toLocaleDateString("ar", options))
+    setManualDate(currentDate.toLocaleDateString("ar", options))
   }
 
   const handleManualDateChange = (text: string) => {
@@ -273,10 +318,6 @@ export default function EditIncome() {
   }
 
   const renderCategoryItem = ({ item }: { item: Category }) => {
-    const isCustomIcon = item.icon.includes('-alt') || 
-                        item.icon === 'shopping-basket' ||
-                        item.icon === 'glass-martini-alt'
-
     return (
       <TouchableOpacity
         style={[
@@ -286,31 +327,63 @@ export default function EditIncome() {
         onPress={() => {
           setSelectedCategory(item)
           setShowCategories(false)
-          handleUpdateTransaction(item)
+          handleCreateTransaction(item)
         }}
         disabled={isSubmitting}
       >
         <View style={[styles.iconContainer, { backgroundColor: `${item.color}20` }]}>
-          {isCustomIcon ? (
-            <FontAwesome5 
-              name={item.icon.replace('-alt', '')}
-              size={width * 0.06}
-              color={item.color} 
-              style={styles.categoryIcon}
-            />
-          ) : (
-            <MaterialCommunityIcons 
-              name={item.icon} 
-              size={width * 0.06}
-              color={item.color} 
-              style={styles.categoryIcon}
-            />
-          )}
+          <RenderIcon 
+            icon={item.icon} 
+            type={item.type} 
+            size={width * 0.06} 
+            color={item.color} 
+            style={styles.categoryIcon}
+          />
         </View>
         <Text style={styles.categoryCardText}>{item.name}</Text>
       </TouchableOpacity>
     )
   }
+
+  const keypadButtons = [
+    ["1", "2", "3", "+"],
+    ["4", "5", "6", "-"],
+    ["7", "8", "9", "×"],
+    [".", "0", "C", "÷"],
+    ["="],
+  ]
+
+  const renderKeypad = () => (
+    <View style={styles.keypadContainer}>
+      {keypadButtons.map((row, rowIndex) => (
+        <View style={styles.keypadRow} key={rowIndex}>
+          {row.map((item) => (
+            <TouchableOpacity
+              key={item}
+              style={[
+                styles.keypadButton,
+                item === "=" && styles.equalsButton,
+              ]}
+              onPress={() =>
+                item.match(/[0-9.]/)
+                  ? handleNumberPress(item)
+                  : handleOperatorPress(item)
+              }
+            >
+              <Text
+                style={[
+                  styles.keypadText,
+                  item === "=" && styles.equalsText,
+                ]}
+              >
+                {item}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      ))}
+    </View>
+  )
 
   return (
     <SafeAreaView style={styles.container}>
@@ -318,9 +391,9 @@ export default function EditIncome() {
         <TouchableOpacity onPress={goBack} style={styles.backButton}>
           <Icon name="arrow-back" color={theme.colors.neutral.surface} size={width * 0.06} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Edit Income</Text>
-        <TouchableOpacity onPress={handleDeleteTransaction} style={styles.deleteButton}>
-          <Icon name="delete" color={theme.colors.neutral.surface} size={width * 0.06} />
+        <Text style={styles.headerTitle}>إضافة {transactionType === 'income' ? 'دخل' : 'مصروف'}</Text>
+        <TouchableOpacity style={styles.refreshButton} onPress={handleClear}>
+          <Icon name="refresh" color={theme.colors.neutral.surface} size={width * 0.06} />
         </TouchableOpacity>
       </View>
 
@@ -338,11 +411,11 @@ export default function EditIncome() {
             style={styles.manualDateInput}
             value={manualDate}
             onChangeText={handleManualDateChange}
-            placeholder="Enter date (e.g., March 5, 2025)"
+            placeholder="أدخل التاريخ (مثال: ٥ مارس ٢٠٢٥)"
             keyboardType="default"
           />
           <TouchableOpacity onPress={toggleManualDateInput} style={styles.doneButton}>
-            <Text style={styles.doneButtonText}>Done</Text>
+            <Text style={styles.doneButtonText}>تم</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -357,75 +430,26 @@ export default function EditIncome() {
       )}
 
       <View style={styles.amountContainer}>
-        <View style={styles.currencyContainer}>
-          <FontAwesome5 name="money-bill" size={width * 0.06} color={theme.colors.neutral.textSecondary} style={styles.moneyIcon} />
-          <Text style={styles.currencyText}>USD</Text>
-        </View>
         <Text style={styles.amountText}>{amount || "0"}</Text>
-        <TouchableOpacity style={styles.clearButton} onPress={handleClear}>
-          <Icon name="clear" size={width * 0.06} color={theme.colors.neutral.textSecondary} />
+        <TouchableOpacity style={styles.backspaceButton} onPress={handleBackspace}>
+          <Icon name="backspace" size={width * 0.06} color={theme.colors.neutral.textSecondary} />
         </TouchableOpacity>
       </View>
 
       <View style={styles.noteContainer}>
-        <Text style={styles.noteLabel}>Note</Text>
+        <Text style={styles.noteLabel}>ملاحظة</Text>
         <View style={styles.noteInputContainer}>
           <Icon name="edit" size={width * 0.05} color={theme.colors.success} style={styles.editIcon} />
           <TextInput 
             style={styles.noteInput} 
             value={note} 
             onChangeText={setNote} 
-            placeholder="Add note" 
+            placeholder={`أضف ${transactionType === 'income' ? 'دخل' : 'مصروف'}`}
           />
         </View>
       </View>
 
-      <View style={styles.keypadContainer}>
-        <View style={styles.keypadRow}>
-          {[1, 2, 3, "+"].map((item) => (
-            <TouchableOpacity 
-              key={item} 
-              style={styles.keypadButton} 
-              onPress={() => typeof item === "number" ? handleNumberPress(item) : handleOperatorPress(item)}
-            >
-              <Text style={styles.keypadText}>{item}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        <View style={styles.keypadRow}>
-          {[4, 5, 6, "-"].map((item) => (
-            <TouchableOpacity 
-              key={item} 
-              style={styles.keypadButton} 
-              onPress={() => typeof item === "number" ? handleNumberPress(item) : handleOperatorPress(item)}
-            >
-              <Text style={styles.keypadText}>{item}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        <View style={styles.keypadRow}>
-          {[7, 8, 9, "×"].map((item) => (
-            <TouchableOpacity 
-              key={item} 
-              style={styles.keypadButton} 
-              onPress={() => typeof item === "number" ? handleNumberPress(item) : handleOperatorPress(item)}
-            >
-              <Text style={styles.keypadText}>{item}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        <View style={styles.keypadRow}>
-          {[".", 0, "=", "÷"].map((item) => (
-            <TouchableOpacity 
-              key={item} 
-              style={styles.keypadButton} 
-              onPress={() => typeof item === "number" ? handleNumberPress(item) : handleOperatorPress(item)}
-            >
-              <Text style={styles.keypadText}>{item}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
+      {renderKeypad()}
 
       {submitError ? (
         <Text style={styles.errorText}>{submitError}</Text>
@@ -436,18 +460,18 @@ export default function EditIncome() {
         onPress={() => setShowCategories(!showCategories)}
       >
         <Text style={styles.categoryButtonText}>
-          {selectedCategory ? selectedCategory.name : 'CHOOSE CATEGORY'}
+          {selectedCategory ? selectedCategory.name : 'اختر فئة'}
         </Text>
       </TouchableOpacity>
 
       {showCategories && (
         <View style={styles.categoriesContainer}>
           {loading ? (
-            <Text style={styles.messageText}>Loading categories...</Text>
+            <Text style={styles.messageText}>جارٍ تحميل الفئات...</Text>
           ) : error ? (
             <Text style={styles.errorText}>{error}</Text>
           ) : categories.length === 0 ? (
-            <Text style={styles.messageText}>No categories found</Text>
+            <Text style={styles.messageText}>لم يتم العثور على فئات</Text>
           ) : (
             <FlatList
               data={categories}
@@ -456,7 +480,7 @@ export default function EditIncome() {
               numColumns={Math.floor(width / 120)}
               contentContainerStyle={styles.categoryGrid}
               showsVerticalScrollIndicator={true}
-              ListEmptyComponent={<Text style={styles.messageText}>No valid categories to display</Text>}
+              ListEmptyComponent={<Text style={styles.messageText}>لا توجد فئات صالحة للعرض</Text>}
             />
           )}
         </View>
@@ -491,8 +515,9 @@ const styles = StyleSheet.create({
     color: theme.colors.neutral.surface,
     fontSize: width * 0.05,
     fontWeight: "500",
+    textAlign: "right",
   },
-  deleteButton: {
+  refreshButton: {
     padding: width * 0.02,
   },
   dateContainer: {
@@ -507,6 +532,7 @@ const styles = StyleSheet.create({
   dateText: {
     fontSize: width * 0.045,
     color: theme.colors.neutral.textPrimary,
+    textAlign: "right",
   },
   penButton: {
     marginLeft: width * 0.03,
@@ -522,6 +548,7 @@ const styles = StyleSheet.create({
     fontSize: width * 0.04,
     color: theme.colors.neutral.textPrimary,
     paddingVertical: height * 0.01,
+    textAlign: "right",
   },
   doneButton: {
     marginTop: height * 0.01,
@@ -534,6 +561,7 @@ const styles = StyleSheet.create({
     color: theme.colors.neutral.surface,
     fontSize: width * 0.04,
     fontWeight: "500",
+    textAlign: "right",
   },
   amountContainer: {
     flexDirection: "row",
@@ -542,18 +570,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.medium,
     padding: width * 0.04,
     alignItems: "center",
-  },
-  currencyContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    width: width * 0.2,
-  },
-  moneyIcon: {
-    marginRight: width * 0.02,
-  },
-  currencyText: {
-    fontSize: width * 0.05,
-    color: theme.colors.neutral.textPrimary,
+    justifyContent: "space-between",
   },
   amountText: {
     flex: 1,
@@ -561,7 +578,7 @@ const styles = StyleSheet.create({
     color: theme.colors.neutral.surface,
     textAlign: "center",
   },
-  clearButton: {
+  backspaceButton: {
     padding: width * 0.02,
     backgroundColor: theme.colors.neutral.surface,
     borderRadius: width * 0.05,
@@ -578,6 +595,7 @@ const styles = StyleSheet.create({
     fontSize: width * 0.04,
     color: theme.colors.neutral.textSecondary,
     marginBottom: height * 0.005,
+    textAlign: "right",
   },
   noteInputContainer: {
     flexDirection: "row",
@@ -593,6 +611,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: width * 0.04,
     color: theme.colors.neutral.textPrimary,
+    textAlign: "right",
   },
   keypadContainer: {
     flex: 1,
@@ -619,6 +638,16 @@ const styles = StyleSheet.create({
     fontSize: width * 0.06,
     color: theme.colors.neutral.textPrimary,
   },
+  equalsButton: {
+    backgroundColor: theme.colors.success,
+    flex: 4,
+    marginHorizontal: width * 0.01,
+  },
+  equalsText: {
+    color: theme.colors.neutral.surface,
+    fontSize: width * 0.08,
+    fontWeight: "bold",
+  },
   categoryButton: {
     backgroundColor: theme.colors.neutral.surface,
     margin: width * 0.04,
@@ -633,6 +662,7 @@ const styles = StyleSheet.create({
     fontSize: width * 0.04,
     color: theme.colors.neutral.textSecondary,
     fontWeight: "500",
+    textAlign: "right",
   },
   categoriesContainer: {
     position: 'absolute',
@@ -650,13 +680,13 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
   },
   messageText: {
-    textAlign: 'center',
+    textAlign: 'right',
     padding: width * 0.04,
     color: theme.colors.neutral.textSecondary,
     fontSize: width * 0.04,
   },
   errorText: {
-    textAlign: 'center',
+    textAlign: 'right',
     padding: width * 0.04,
     color: theme.colors.error,
     fontSize: width * 0.04,
