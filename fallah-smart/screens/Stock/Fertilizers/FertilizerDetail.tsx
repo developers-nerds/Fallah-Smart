@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
 import { useFertilizer } from '../../../context/FertilizerContext';
-import { StockFertilizer } from '../types';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
@@ -21,6 +20,7 @@ import { StockStackParamList } from '../../../navigation/types';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../../../components/Button';
 import { FERTILIZER_TYPES, FERTILIZER_CATEGORIES, FertilizerType } from './constants';
+import type { Fertilizer } from '../../../types/fertilizer';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import axios from 'axios';
 import { storage } from '../../../utils/storage';
@@ -60,7 +60,7 @@ type FertilizerDetailScreenProps = {
 const FertilizerDetailScreen: React.FC<FertilizerDetailScreenProps> = ({ navigation, route }) => {
   const theme = useTheme();
   const { fertilizers: contextFertilizers, deleteFertilizer: contextDeleteFertilizer } = useFertilizer();
-  const [fertilizer, setFertilizer] = useState<StockFertilizer | null>(null);
+  const [fertilizer, setFertilizer] = useState<Fertilizer | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -191,13 +191,13 @@ const FertilizerDetailScreen: React.FC<FertilizerDetailScreenProps> = ({ navigat
 
   const getFertilizerTypeInfo = (type: string) => {
     return (
-      FERTILIZER_TYPES[type as FertilizerType] ||
+      FERTILIZER_TYPES[type as keyof typeof FERTILIZER_TYPES] ||
       Object.values(FERTILIZER_TYPES).find(fert => fert.name === type) ||
       { icon: '⚗️', name: 'سماد', category: 'chemical' }
     );
   };
 
-  const isLowStock = (fertilizer: StockFertilizer): boolean => {
+  const isLowStock = (fertilizer: Fertilizer): boolean => {
     return fertilizer.quantity <= (fertilizer.minQuantityAlert || 0);
   };
 
@@ -489,12 +489,12 @@ const FertilizerDetailScreen: React.FC<FertilizerDetailScreenProps> = ({ navigat
               variant="primary"
               style={[styles.button, styles.updateButton]}
             />
-            <Button
-              title={`${STOCK_ICONS.delete} حذف`}
+            <TouchableOpacity
               onPress={handleDelete}
-              variant="primary"
-              style={[styles.button, styles.deleteButton]}
-            />
+              style={[styles.button, { backgroundColor: theme.colors.error }]}
+            >
+              <Text style={styles.buttonText}>{`${STOCK_ICONS.delete} حذف`}</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
@@ -712,9 +712,11 @@ const styles = StyleSheet.create({
   backButton: {
     minWidth: 120,
   },
-  deleteButton: {
-    borderRadius: 12,
-    backgroundColor: '#FF0000',
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });
 
