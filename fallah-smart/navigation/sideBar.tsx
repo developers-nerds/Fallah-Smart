@@ -36,7 +36,7 @@ export type DrawerParamList = {
   Chat: undefined;
   Scan: undefined;
   Stock: undefined;
-  Wallet: undefined;
+  محفظتي: undefined;
   Dictionary: undefined;
   Marketplace: undefined;
 };
@@ -204,8 +204,8 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
 
       <MenuItem
         icon="wallet"
-        label="Wallet"
-        active={currentRoute === 'Wallet'}
+        label="محفظتي"
+        active={currentRoute === 'محفظتي'}
         onPress={() => {
           props.navigation.navigate('Wallet');
           props.navigation.closeDrawer();
