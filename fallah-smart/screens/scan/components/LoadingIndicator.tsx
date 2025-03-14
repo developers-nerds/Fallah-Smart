@@ -5,7 +5,7 @@ import { theme } from '../../../theme/theme';
 export const LoadingIndicator = () => {
   return (
     <View style={styles.loadingContainer}>
-      <Text>Loading...</Text>
+      <Text>جاري التحميل...</Text>
     </View>
   );
 };
