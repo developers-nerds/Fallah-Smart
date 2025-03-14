@@ -52,9 +52,9 @@ const ScanHistoryScreen = () => {
   const fetchScanHistory = async () => {
     try {
       setLoading(true);
-      const { accessToken } = await storage.getTokens();
-
-      if (!accessToken) {
+      const tokens = await storage.getTokens();
+      
+      if (!tokens.access) {
         setError('Authentication required');
         setLoading(false);
         return;
@@ -62,7 +62,7 @@ const ScanHistoryScreen = () => {
 
       const response = await axios.get(`${baseUrl}/api/scans/getScans`, {
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${tokens.access}`,
         },
       });
       console.log('Scan response data:', response.data);

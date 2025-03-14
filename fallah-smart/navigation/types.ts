@@ -35,6 +35,8 @@ export type StockStackParamList = {
   Blogs: undefined;
   PostDetail: { postId: string };
   Statistics: undefined;
+  Marketplace: undefined;
+  AdvisorApplication: undefined;
 };
 
 export type DrawerParamList = {

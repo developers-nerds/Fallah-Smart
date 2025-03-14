@@ -61,6 +61,7 @@ import FertilizerListScreen from '../screens/Stock/Fertilizers/FertilizerList';
 import FertilizerDetailScreen from '../screens/Stock/Fertilizers/FertilizerDetail';
 import AddFertilizerScreen from '../screens/Stock/Fertilizers/AddFertilizer';
 
+import AdvisorApplicationScreen from '../screens/Advisor/AdvisorApplicationScreen';
 const Stack = createStackNavigator<StockStackParamList>();
 
 export const StockNavigator = () => {

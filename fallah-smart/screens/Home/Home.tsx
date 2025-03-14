@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   SafeAreaView,
   StatusBar,
   Alert,
+  ImageBackground,
   RefreshControl,
 } from 'react-native';
 import { createDrawerNavigator } from '@react-navigation/drawer';
@@ -33,29 +34,36 @@ import { DrawerNavigationProp } from '@react-navigation/drawer';
 
 const Drawer = createDrawerNavigator();
 
-// Weather API key and base URL
+// Update the weather API configuration
 const WEATHER_API_KEY = WEATHER_CONFIG.API_KEY;
 const WEATHER_API_URL = WEATHER_CONFIG.API_URL;
 
-interface WeatherData {
-  current?: {
-    condition?: {
-      text?: string;
+// Add this helper function at the top of the file
+const getTimeBasedWeatherIcon = () => {
+  const hour = new Date().getHours();
+  
+  if (hour >= 6 && hour < 18) {
+    return {
+      icon: 'weather-sunny',
+      color: '#FDB813',
+      backgroundColor: 'rgba(255, 255, 255, 0.15)', // More transparent
+      text: 'Day',
+      textColor: '#FFFFFF', // White text for better contrast
+      backgroundImage: require('../../assets/images/weather/sun.png')
     };
-    temp_c?: number;
-  };
-  forecast?: {
-    forecastday?: Array<{
-      day?: {
-        mintemp_c?: number;
-      };
-    }>;
-  };
-  location?: {
-    name?: string;
-    country?: string;
-  };
-}
+  } else {
+    return {
+      icon: 'weather-night',
+      color: '#FFFFFF', // White icon for night
+      backgroundColor: 'rgba(0, 0, 0, 0.2)', // Darker, more transparent overlay
+      text: 'Night',
+      textColor: '#FFFFFF',
+      backgroundImage: require('../../assets/images/weather/moon.png')
+    };
+  }
+};
+
+
 
 interface HomeContentProps {
   navigation: DrawerNavigationProp<any>;
@@ -67,14 +75,23 @@ interface HomeContentProps {
 }
 
 export const HomeContent = ({ navigation, route }: HomeContentProps) => {
-  const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [weather, setWeather] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [timeIcon, setTimeIcon] = useState(getTimeBasedWeatherIcon());
+  const [showForecast, setShowForecast] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [scanHistoryRefreshTrigger, setScanHistoryRefreshTrigger] = useState(0);
 
   useEffect(() => {
     fetchWeatherData();
+    
+    // Update time icon every minute
+    const interval = setInterval(() => {
+      setTimeIcon(getTimeBasedWeatherIcon());
+    }, 60000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   // Handle scan history refresh
@@ -181,6 +198,40 @@ export const HomeContent = ({ navigation, route }: HomeContentProps) => {
     Alert.alert('Pest Alerts', 'This feature is coming soon!');
   };
 
+  const toggleForecast = () => {
+    setShowForecast(prevState => !prevState);
+  };
+
+  const renderForecastDay = (day, index) => {
+    const date = new Date(day.date);
+    const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+    
+    return (
+      <View key={index} style={styles.forecastDay}>
+        <Text style={styles.forecastDayName}>{dayName}</Text>
+        <Image 
+          source={{ uri: `https:${day.day.condition.icon}` }} 
+          style={styles.forecastIcon} 
+        />
+        <Text style={styles.forecastTemp}>
+          {Math.round(day.day.maxtemp_c)}°/{Math.round(day.day.mintemp_c)}°
+        </Text>
+        <Text style={styles.forecastCondition}>{day.day.condition.text}</Text>
+      </View>
+    );
+  };
+
+  // Add this dynamic style that uses the state variable
+  const weatherCardStyle = useMemo(() => ({
+    ...styles.weatherCard,
+    height: showForecast ? 320 : 160
+  }), [showForecast]);
+  
+  const refreshScanHistory = () => {
+    console.log('Refreshing scan history');
+    setScanHistoryRefreshTrigger(prev => prev + 1);
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={theme.colors.neutral.surface} />
@@ -198,37 +249,75 @@ export const HomeContent = ({ navigation, route }: HomeContentProps) => {
         }>
         {/* Weather Card */}
         <View style={styles.weatherSection}>
-          <View style={styles.weatherCard}>
-            {loading ? (
-              <ActivityIndicator size="large" color={theme.colors.primary.base} />
-            ) : error ? (
-              <Text style={styles.errorText}>{error}</Text>
-            ) : (
-              <>
-                <View style={styles.weatherHeader}>
-                  <View>
-                    <Text style={styles.weatherDate}>{formatDate()}</Text>
-                    <Text style={styles.weatherCondition}>
-                      {weather?.current?.condition?.text || 'Clear'} •{' '}
-                      {Math.round(weather?.current?.temp_c || 24)}°C /{' '}
-                      {Math.round(weather?.forecast?.forecastday?.[0]?.day?.mintemp_c || 20)}°C
-                    </Text>
-                  </View>
-                  <Text style={styles.weatherTemp}>
-                    {Math.round(weather?.current?.temp_c || 24)}°C
-                  </Text>
-                </View>
-                <View style={styles.locationInfo}>
-                  <MaterialIcons name="location-on" size={18} color={theme.colors.primary.base} />
-                  <Text style={styles.locationText}>
-                    {weather?.location?.name
-                      ? `${weather.location.name}, ${weather.location.country}`
-                      : 'Please activate your GPS to receive weather information'}
-                  </Text>
-                </View>
-              </>
-            )}
-          </View>
+          <TouchableOpacity 
+            activeOpacity={0.9}
+            onPress={toggleForecast}
+          >
+            <ImageBackground
+              source={timeIcon.backgroundImage}
+              style={weatherCardStyle}
+              imageStyle={styles.weatherCardImage}
+              resizeMode="cover"
+            >
+              <View style={[styles.weatherCardOverlay, { backgroundColor: timeIcon.backgroundColor }]}>
+                {loading ? (
+                  <ActivityIndicator size="large" color={theme.colors.primary.base} />
+                ) : error ? (
+                  <Text style={styles.errorText}>{error}</Text>
+                ) : (
+                  <>
+                    <View style={styles.weatherHeader}>
+                      <View style={styles.weatherInfo}>
+                        <View style={styles.timeIconContainer}>
+                          <MaterialCommunityIcons 
+                            name={timeIcon.icon} 
+                            size={24} 
+                            color={timeIcon.color}
+                          />
+                          <Text style={[styles.weatherTime, { color: timeIcon.textColor }]}>
+                            {timeIcon.text}
+                          </Text>
+                        </View>
+                        <Text style={[styles.weatherDate, { color: timeIcon.textColor }]}>
+                          {formatDate()}
+                        </Text>
+                        <Text style={[styles.weatherCondition, { color: timeIcon.textColor }]}>
+                          {weather?.current?.condition?.text || 'Clear'} • {Math.round(weather?.current?.temp_c || 24)}°C / {Math.round(weather?.forecast?.forecastday?.[0]?.day?.mintemp_c || 20)}°C
+                        </Text>
+                      </View>
+                      <Text style={[styles.weatherTemp, { color: timeIcon.textColor }]}>
+                        {Math.round(weather?.current?.temp_c || 24)}°C
+                      </Text>
+                    </View>
+                    <View style={styles.locationInfo}>
+                      <MaterialIcons 
+                        name="location-on" 
+                        size={14} 
+                        color="#FFFFFF"
+                      />
+                      <Text style={[styles.locationText, { color: timeIcon.textColor }]}>
+                        {weather?.location?.name 
+                          ? `${weather.location.name}, ${weather.location.country}` 
+                          : 'Please activate your GPS to receive weather information'}
+                      </Text>
+                    </View>
+
+                    {/* Show forecast when expanded */}
+                    {showForecast && weather?.forecast?.forecastday && (
+                      <View style={styles.forecastContainer}>
+                        <Text style={styles.forecastTitle}>5-Day Forecast</Text>
+                        <View style={styles.forecastDaysContainer}>
+                          {weather.forecast.forecastday.slice(0, 5).map((day, index) => 
+                            renderForecastDay(day, index)
+                          )}
+                        </View>
+                      </View>
+                    )}
+                  </>
+                )}
+              </View>
+            </ImageBackground>
+          </TouchableOpacity>
         </View>
 
         {/* Heal your crop section */}
@@ -392,54 +481,102 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   weatherSection: {
-    marginVertical: 16,
-  },
-  weatherCard: {
-    backgroundColor: theme.colors.neutral.surface,
+    marginVertical: 12,
     borderRadius: 16,
-    padding: 16,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  weatherCard: {
+    height: 160,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  weatherCardImage: {
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+    opacity: 1, // Full opacity for the image
+  },
+  weatherCardOverlay: {
+    padding: 14,
+    flex: 1,
+    borderRadius: 16,
+    background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.4) 100%)',
   },
   weatherHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 10,
+    marginBottom: 12,
+  },
+  weatherInfo: {
+    flex: 1,
+  },
+  timeIconContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    padding: 6,
+    borderRadius: 10,
+    alignSelf: 'flex-start',
+  },
+  weatherTime: {
+    marginLeft: 6,
+    fontSize: 14,
+    fontFamily: theme.fonts.semiBold,
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
   },
   weatherDate: {
     fontSize: 18,
     fontFamily: theme.fonts.bold,
-    color: theme.colors.neutral.textPrimary,
-    marginBottom: 4,
+    marginBottom: 6,
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
   },
   weatherCondition: {
     fontSize: 14,
-    fontFamily: theme.fonts.regular,
-    color: theme.colors.neutral.textSecondary,
+    fontFamily: theme.fonts.medium,
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
+    opacity: 0.9,
   },
   weatherTemp: {
-    fontSize: 24,
+    fontSize: 28,
     fontFamily: theme.fonts.bold,
-    color: theme.colors.neutral.textPrimary,
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 4,
   },
   locationInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF9E6',
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 10,
+    marginTop: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    padding: 6,
+    borderRadius: 10,
+    alignSelf: 'flex-start',
   },
   locationText: {
-    flex: 1,
-    marginLeft: 8,
-    fontSize: 14,
+    marginLeft: 4,
+    fontSize: 12,
     fontFamily: theme.fonts.medium,
-    color: theme.colors.neutral.textPrimary,
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
   },
   okButton: {
     alignSelf: 'flex-end',
@@ -550,6 +687,61 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.medium,
     color: theme.colors.neutral.textPrimary,
     flex: 1,
+  },
+  forecastContainer: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.3)',
+  },
+  forecastTitle: {
+    fontSize: 16,
+    fontFamily: theme.fonts.medium,
+    color: '#FFFFFF',
+    marginBottom: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  forecastDaysContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  forecastDay: {
+    alignItems: 'center',
+    width: '18%', // 5 days with some spacing
+  },
+  forecastDayName: {
+    fontSize: 12,
+    fontFamily: theme.fonts.medium,
+    color: '#FFFFFF',
+    marginBottom: 4,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  forecastIcon: {
+    width: 36,
+    height: 36,
+    marginVertical: 4,
+  },
+  forecastTemp: {
+    fontSize: 12,
+    fontFamily: theme.fonts.medium,
+    color: '#FFFFFF',
+    marginVertical: 2,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  forecastCondition: {
+    fontSize: 10,
+    fontFamily: theme.fonts.regular,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
 });
 

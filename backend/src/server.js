@@ -2,6 +2,8 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
 
 // Route imports
 const animalGastonRoutes = require("./routes/animalGastonRoutes");
@@ -54,8 +56,33 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Static files
-app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+// Create uploads directory if it doesn't exist
+const uploadsDir = path.join(__dirname, '../uploads');
+const profilesDir = path.join(uploadsDir, 'profiles');
+const commentsUploadsDir = path.join(uploadsDir, 'comments');
+
+fs.mkdirSync(uploadsDir, { recursive: true });
+fs.mkdirSync(profilesDir, { recursive: true });
+fs.mkdirSync(commentsUploadsDir, { recursive: true });
+
+// Add this after your middleware setup
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
+// Add error handling for multer
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({
+        message: 'File is too large. Maximum size is 5MB'
+      });
+    }
+    return res.status(400).json({
+      message: 'File upload error',
+      error: err.message
+    });
+  }
+  next(err);
+});
 
 // Routes
 app.use("/api/transactions", transactionRoutes);
@@ -125,6 +152,9 @@ app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ message: "Something went wrong!" });
 });
+
+// Make uploads directory accessible
+app.use('/uploads', express.static('uploads'));
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
