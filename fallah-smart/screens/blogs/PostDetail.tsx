@@ -1,63 +1,303 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   Image,
-  TextInput,
-  TouchableOpacity,
   StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
   Platform,
-  FlatList,
   SafeAreaView,
+  KeyboardAvoidingView,
+  Dimensions,
+  Share,
+  ActionSheetIOS,
+  Linking,
+  Modal,
+  Animated,
   RefreshControl
 } from 'react-native';
-import { MaterialCommunityIcons, Feather, FontAwesome } from '@expo/vector-icons';
-import { launchImageLibraryAsync, MediaTypeOptions } from 'expo-image-picker';
 import axios from 'axios';
+import { 
+  FontAwesome, 
+  MaterialCommunityIcons, 
+  Ionicons, 
+  AntDesign, 
+  Feather,
+  MaterialIcons 
+} from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { theme } from '../../theme/theme';
 import { BackButton } from '../../components/BackButton';
 import { Button } from '../../components/Button';
-import { BLOG_API_URL } from '../../config/api';
+import { storage } from '../../utils/storage';
 
-// Update API URL to use only one specific address
-const getApiBaseUrl = () => {
-  // Always use this specific URL regardless of platform
-  return "http://192.168.11.225:5000/api/blog";
-};
+// Constants
+const BASE_URL = process.env.EXPO_PUBLIC_API;
+const API_URL = `${BASE_URL}/api/blog`;
+const { width } = Dimensions.get('window');
+const placeholderImage = 'https://via.placeholder.com/100';
 
-// Use the function to get the base URL
-const API_URL = getApiBaseUrl();
-
-// Add this utility function for retrying failed API calls
-const fetchWithRetry = async (url, options = {}, maxRetries = 3) => {
-  let lastError;
-  
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      return await axios(url, options);
-    } catch (err) {
-      console.log(`Attempt ${attempt + 1} failed. ${maxRetries - attempt - 1} retries left.`);
-      lastError = err;
-      
-      // Only retry on network errors, not on 4xx/5xx responses
-      if (err.response) {
-        throw err; // Don't retry if server returned an error response
-      }
-      
-      // Wait before retrying (with exponential backoff)
-      await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
-    }
+// Enhanced getImageUrl function with better URL handling
+const getImageUrl = (imageUrl) => {
+  if (!imageUrl) {
+    console.log("No image URL provided");
+    return placeholderImage;
   }
   
-  throw lastError; // All retries failed
+  try {
+    // Log for debugging
+    console.log("Processing image URL:", imageUrl);
+    
+    // Handle already complete URLs
+    if (imageUrl.startsWith('http')) {
+      // If it's a local development URL, replace with BASE_URL
+      if (imageUrl.match(/http:\/\/\d+\.\d+\.\d+\.\d+:\d+/)) {
+        return imageUrl.replace(/http:\/\/\d+\.\d+\.\d+\.\d+:\d+/, BASE_URL);
+      }
+      // Otherwise return as is (it's already a complete URL)
+      return imageUrl;
+    }
+    
+    // Handle relative URLs
+    if (imageUrl.startsWith('/')) {
+      return `${BASE_URL}${imageUrl}`;
+    }
+    
+    // Default case - prepend BASE_URL
+    return `${BASE_URL}/${imageUrl}`;
+  } catch (error) {
+    console.error("Error processing image URL:", error);
+    return placeholderImage;
+  }
 };
 
-// Add this at the top with other constants
-const BASE_URL = "http://192.168.11.225:5000";
+// Helper function to format full name
+const formatUserName = (user, author) => {
+  console.log('Formatting name for:', JSON.stringify({
+    user: user ? {
+      hasUsername: !!user.username,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+    } : null,
+    author: author ? {
+      hasUsername: !!author.username,
+      firstName: author.firstName,
+      lastName: author.lastName,
+      role: author.role,
+    } : null
+  }));
+
+  // First, determine which data source to use
+  const userData = user || author || {};
+  
+  // Show appropriate available name
+  return userData.username || 
+    (userData.firstName && userData.lastName 
+      ? `${userData.firstName} ${userData.lastName}`
+      : 'Anonymous');
+};
+
+// Gallery component for post images
+const PostImageGallery = ({ media }) => {
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  
+  if (!media || media.length === 0) return null;
+  
+  const processMediaUrl = (mediaItem) => {
+    if (typeof mediaItem === 'string') {
+      return getImageUrl(mediaItem);
+    }
+    return mediaItem.url ? getImageUrl(mediaItem.url) : null;
+  };
+
+  return (
+    <View style={styles.galleryContainer}>
+      <ScrollView
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onScroll={(event) => {
+          const offsetX = event.nativeEvent.contentOffset.x;
+          const pageWidth = width - 32; // Adjust for padding
+          const newIndex = Math.round(offsetX / pageWidth);
+          if (newIndex !== activeImageIndex) {
+          setActiveImageIndex(newIndex);
+          }
+        }}
+        scrollEventThrottle={200}
+        style={styles.galleryScrollView}
+      >
+        {media.map((item, idx) => {
+          const mediaUrl = processMediaUrl(item);
+          if (!mediaUrl) return null;
+          
+          return (
+              <Image
+              key={idx}
+                source={{ uri: mediaUrl }}
+                style={styles.galleryImage}
+              resizeMode="cover"
+              onError={(e) => console.error(`Image load error:`, e.nativeEvent.error)}
+              />
+          );
+        })}
+      </ScrollView>
+      
+      {media.length > 1 && (
+        <View style={styles.galleryPaginationContainer}>
+          {media.map((_, index) => (
+            <View 
+              key={index} 
+              style={[
+                styles.galleryPaginationDot, 
+                index === activeImageIndex && styles.galleryPaginationDotActive
+              ]} 
+            />
+          ))}
+        </View>
+      )}
+    </View>
+  );
+};
+
+// Gallery component for comment images
+const CommentImageGallery = ({ media }) => {
+  if (!media || media.length === 0) return null;
+  
+  const getCommentImageUrl = (mediaItem) => {
+    if (typeof mediaItem === 'string') {
+      return getImageUrl(mediaItem);
+    }
+    return mediaItem.url ? getImageUrl(mediaItem.url) : null;
+  };
+
+  // For a single image
+  if (media.length === 1) {
+    const imageUrl = getCommentImageUrl(media[0]);
+    if (!imageUrl) return null;
+    
+    return (
+      <View style={styles.commentImageContainer}>
+        <Image
+          source={{ uri: imageUrl }}
+          style={styles.commentSingleImage}
+          resizeMode="cover"
+        />
+      </View>
+    );
+  }
+
+  // We won't implement multiple images for comments for simplicity
+  return (
+    <View style={styles.commentImageContainer}>
+          <Image
+        source={{ uri: getCommentImageUrl(media[0]) }}
+        style={styles.commentSingleImage}
+            resizeMode="cover"
+          />
+      {media.length > 1 && (
+        <View style={styles.moreImagesIndicator}>
+          <Text style={styles.moreImagesText}>+{media.length - 1}</Text>
+      </View>
+      )}
+    </View>
+  );
+};
+
+// First, add the parseTextForHashtags function near the top of the file, after the imports
+const parseTextForHashtags = (text) => {
+  if (!text) return [{ type: 'text', content: '' }];
+  
+  // Improved regex that better matches hashtags
+  const hashtagRegex = /#[a-zA-Z0-9_]+\b/g;
+  
+  // Find all hashtags in the text
+  const hashtags = text.match(hashtagRegex) || [];
+  
+  // If no hashtags, return just the original text
+  if (hashtags.length === 0) {
+    return [{ type: 'text', content: text }];
+  }
+  
+  // Split text into parts with hashtags preserved
+  let result = [];
+  let lastIndex = 0;
+  
+  // Find each hashtag position and split accordingly
+  for (const hashtag of hashtags) {
+    const hashtagIndex = text.indexOf(hashtag, lastIndex);
+    
+    // Add any text before the hashtag
+    if (hashtagIndex > lastIndex) {
+      result.push({ 
+        type: 'text', 
+        content: text.substring(lastIndex, hashtagIndex)
+      });
+    }
+    
+    // Add the hashtag
+    result.push({ 
+      type: 'hashtag', 
+      content: hashtag
+    });
+    
+    lastIndex = hashtagIndex + hashtag.length;
+  }
+  
+  // Add any remaining text after the last hashtag
+  if (lastIndex < text.length) {
+    result.push({
+      type: 'text',
+      content: text.substring(lastIndex)
+    });
+  }
+  
+  return result;
+};
+
+// Add this helper function to get profile picture URL
+const getProfilePictureUrl = (postData) => {
+  // Log the data we're working with for debugging
+  console.log("Getting profile picture from:", {
+    hasUserData: !!postData?.user,
+    hasAuthorData: !!postData?.author,
+    userProfilePic: postData?.user?.profilePicture,
+    authorProfilePic: postData?.author?.profilePicture
+  });
+  
+  // Try to get profile picture from user or author
+  const profilePicture = 
+    postData?.user?.profilePicture || 
+    postData?.author?.profilePicture;
+  
+  if (!profilePicture) {
+    return placeholderImage;
+  }
+  
+  return getImageUrl(profilePicture);
+};
+
+// Add this improved function to check for advisor role
+const isUserAdvisor = (user, author) => {
+  // Debug log the data we're checking
+  console.log('Checking advisor status for:', {
+    userRole: user?.role,
+    authorRole: author?.role,
+  });
+  
+  // Check from post data if this is an advisor - use uppercase comparison
+  const isAdvisor = 
+    user?.role?.toUpperCase() === 'ADVISOR' || 
+    author?.role?.toUpperCase() === 'ADVISOR';
+  
+  console.log('Is advisor result:', isAdvisor);
+  return isAdvisor;
+};
 
 const PostDetail = ({ route, navigation }) => {
   const { postId } = route.params;
@@ -67,129 +307,129 @@ const PostDetail = ({ route, navigation }) => {
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
   const [commentImage, setCommentImage] = useState(null);
-  const [refreshing, setRefreshing] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [liked, setLiked] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [customReason, setCustomReason] = useState('');
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+  const commentInputRef = useRef(null);
+  const [content, setContent] = useState('');
+  const [likeCount, setLikeCount] = useState(0);
 
-  // Fetch post and comments
+  // Add the report reasons array
+  const reportReasons = [
+    'Inappropriate content',
+    'Spam',
+    'Misleading information',
+    'Harassment or bullying',
+    'Violence',
+    'Hate speech',
+    'Other'
+  ];
+
+  // Fetch post details including comments
   const fetchPostDetails = async () => {
     try {
       setLoading(true);
-      console.log(`Fetching post details for ID: ${postId} from ${API_URL}/posts/${postId}`);
       
-      // Instead of testing the base URL directly, test the health endpoint or skip this check
-      // The base URL might not have a handler, which explains the 404
-      try {
-        // Don't test the base URL directly - it might not exist
-        // Just log the API URL we're going to use
-        console.log('Using API base URL:', API_URL);
-      } catch (testError) {
-        console.error('API base URL test error:', testError);
-        // Continue anyway since this is just a test
-      }
+      // Get current user data for authentication
+      const userData = await storage.getUser();
+      setCurrentUser(userData);
+      console.log('Current user data:', userData);
       
-      // Directly fetch the post with the ID we know
-      const postResponse = await axios.get(`${API_URL}/posts/${postId}`, {
-        timeout: 10000, // 10 second timeout
+      // Make authenticated API request
+      const token = userData?.token;
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      
+      const response = await axios.get(`${API_URL}/posts/${postId}`, { headers });
+      const postData = response.data;
+      
+      // Debug log the complete post data to see if roles are included
+      console.log('Post author data:', {
+        user: postData.user,
+        author: postData.author,
+        hasUserRole: !!postData.user?.role,
+        hasAuthorRole: !!postData.author?.role
       });
       
-      console.log('Post data received:', postResponse.data ? 'Success' : 'Empty response');
-      setPost(postResponse.data);
-      setLiked(postResponse.data.userLiked || false);
+      setPost(postData);
+      setContent(postData.content);
+      setLikeCount(postData.likesCount || 0);
       
-      // Then fetch comments
-      try {
-        const commentsResponse = await axios.get(`${API_URL}/posts/${postId}/comments`);
-        console.log(`Received ${commentsResponse.data.length} comments`);
-        setComments(commentsResponse.data || []);
-      } catch (commentsError) {
-        console.error('Error fetching comments:', commentsError);
-        setComments([]);
+      // Update likes and comments
+      if (postData.likes?.length > 0) {
+        setLiked(postData.likes.some(like => like.userId === userData?.id));
       }
       
-      setError(null);
-    } catch (err) {
-      console.error('Error fetching post details:', err);
-      
-      // Detailed error reporting with API URL for debugging
-      if (err.response) {
-        console.error('Server error:', err.response.status, err.response.data);
-        setError(`Server error (${err.response.status}): ${err.response.data.message || 'Unknown server error'}`);
-      } else if (err.request) {
-        console.error('No response received from:', `${API_URL}/posts/${postId}`);
-        setError(`Network error: Could not connect to ${API_URL}. Please check your connection and ensure the server is running.`);
-      } else {
-        setError(`Error: ${err.message}`);
+      if (postData.comments) {
+        setComments(postData.comments);
       }
-    } finally {
+      
       setLoading(false);
-      setRefreshing(false);
+    } catch (error) {
+      console.error('Error fetching post:', error);
+      setError('Failed to load post');
+      setLoading(false);
     }
   };
 
+  // Update useEffect to also get the current user
   useEffect(() => {
     fetchPostDetails();
   }, [postId]);
 
-  useEffect(() => {
-    if (comments && comments.length > 0) {
-      console.log('Comments loaded, first comment:', JSON.stringify(comments[0], null, 2));
-      
-      // Log if any comments have images
-      const commentsWithImages = comments.filter(c => 
-        c.image || c.imageUrl || (c.media && c.media.length > 0)
-      );
-      
-      if (commentsWithImages.length > 0) {
-        console.log(`Found ${commentsWithImages.length} comments with images`);
-        console.log('First comment with image:', JSON.stringify(commentsWithImages[0], null, 2));
-      } else {
-        console.log('No comments with images found in response');
-      }
-    }
-  }, [comments]);
-
-  // Handle refresh
-  const handleRefresh = () => {
-    setRefreshing(true);
-    fetchPostDetails();
-  };
-
-  // Handle like/unlike post
+  // Toggle like 
   const toggleLike = async () => {
     try {
       const response = await axios.post(`${API_URL}/posts/${postId}/like`);
-      setLiked(response.data.liked);
+      
+      const newLiked = !liked;
+      setLiked(newLiked);
       
       // Update post with new like count
       setPost(prevPost => ({
         ...prevPost,
-        likesCount: liked 
-          ? Math.max(0, (prevPost.likesCount || 0) - 1) 
-          : (prevPost.likesCount || 0) + 1
+        likesCount: newLiked 
+          ? (prevPost.likesCount || 0) + 1 
+          : Math.max(0, (prevPost.likesCount || 0) - 1)
       }));
     } catch (err) {
       console.error('Error toggling like:', err);
-      Alert.alert('Error', 'Failed to process your like. Please try again.');
+      Alert.alert('Error', 'Could not update like status. Please try again.');
     }
   };
 
-  // Pick image for comment
+  // Pick an image for a comment
   const pickCommentImage = async () => {
     try {
-      const result = await launchImageLibraryAsync({
-        mediaTypes: MediaTypeOptions.Images,
+      // Check permissions first
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Please grant camera roll permissions to upload images.');
+        return;
+      }
+
+      // Launch image picker with better options
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.8,
       });
       
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        // Create a consistent object structure
+        console.log('Selected image:', result.assets[0]);
+        
+        // Create a properly formatted file object
         const selectedAsset = {
           uri: result.assets[0].uri,
           type: result.assets[0].type || 'image/jpeg',
           name: result.assets[0].fileName || 'photo.jpg'
         };
+        
+        // Update state with the selected image
         setCommentImage(selectedAsset);
       }
     } catch (err) {
@@ -198,56 +438,179 @@ const PostDetail = ({ route, navigation }) => {
     }
   };
 
-  // Remove comment image
-  const removeCommentImage = () => {
-    setCommentImage(null);
-  };
-
-  // Update the addComment function to handle the response format
-  const handleSubmitComment = async () => {
-    if (!newComment.trim() && !commentImage) return;
-
+  // Add this function to take a photo with the camera
+  const takeCommentPhoto = async () => {
     try {
-      const formData = new FormData();
-      formData.append('content', newComment.trim());
-
-      // Add image to form data if exists
-      if (commentImage) {
-        const fileExtension = commentImage.uri.split('.').pop() || 'jpg';
-        const fileName = `comment_${Date.now()}.${fileExtension}`;
-        
-        formData.append('image', {
-          uri: Platform.OS === 'android' ? commentImage.uri : commentImage.uri.replace('file://', ''),
-          name: fileName,
-          type: `image/${fileExtension}`
-        });
+      // Check camera permissions first
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Please grant camera permissions to take photos.');
+        return;
       }
 
-      // Send request
-      const response = await axios.post(
-        `${API_URL}/posts/${postId}/comments`, 
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-            'Accept': 'application/json'
-          },
-          timeout: 10000
-        }
-      );
+      // Launch camera
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
 
-      // Clear form and refresh comments
-      setNewComment('');
-      setCommentImage(null);
-      fetchPostDetails();
-
-    } catch (error) {
-      console.error('Error posting comment:', error);
-      Alert.alert('Error', 'Failed to post comment. Please try again.');
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        console.log('Photo taken:', result.assets[0]);
+        
+        // Create a properly formatted file object
+        const selectedAsset = {
+          uri: result.assets[0].uri,
+          type: result.assets[0].type || 'image/jpeg',
+          name: `photo_${Date.now()}.jpg`
+        };
+        
+        // Update state with the captured image
+        setCommentImage(selectedAsset);
+      }
+    } catch (err) {
+      console.error('Error taking photo:', err);
+      Alert.alert('Error', 'Failed to take photo. Please try again.');
     }
   };
 
-  // Time ago format
+  // Add function to show image options
+  const showImageOptions = () => {
+    Alert.alert(
+      'Add Image',
+      'Choose an option',
+      [
+        {
+          text: 'Take Photo',
+          onPress: takeCommentPhoto
+        },
+        {
+          text: 'Choose from Gallery',
+          onPress: pickCommentImage
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        }
+      ],
+      { cancelable: true }
+    );
+  };
+
+  // Submit a new comment
+  const submitComment = async () => {
+    if (!newComment.trim() && !commentImage) {
+      Alert.alert('Empty Comment', 'Please write a comment or add an image.');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      
+      // Get auth token
+      const tokens = await storage.getTokens();
+      if (!tokens?.access) {
+        Alert.alert('Login Required', 'Please log in to comment on posts.');
+        setSubmitting(false);
+        return;
+      }
+
+      // Create form data
+      const formData = new FormData();
+      formData.append('text', newComment.trim());
+
+      // Add image if selected
+      if (commentImage) {
+        console.log('Adding image to comment:', commentImage);
+        
+        // Create a properly formatted file object that multer can process
+        const fileUri = Platform.OS === 'android' 
+          ? commentImage.uri 
+          : commentImage.uri.replace('file://', '');
+        
+        // Extract file extension and determine MIME type
+        const uriParts = commentImage.uri.split('.');
+        const fileExtension = uriParts[uriParts.length - 1];
+        
+        let mimeType;
+        if (fileExtension === 'jpg' || fileExtension === 'jpeg') {
+          mimeType = 'image/jpeg';
+        } else if (fileExtension === 'png') {
+          mimeType = 'image/png';
+        } else {
+          mimeType = 'image/jpeg';  // Default to JPEG
+        }
+        
+        // Add the file to form data
+        formData.append('image', {
+          uri: fileUri,
+          name: `comment_image_${Date.now()}.${fileExtension}`,
+          type: mimeType
+        });
+        
+        console.log('Appended image to form data:', {
+          uri: fileUri.substring(0, 50) + '...',
+          type: mimeType
+        });
+      }
+
+      // Log form data for debugging
+      console.log('FormData created with:', {
+        text: newComment.trim(),
+        hasImage: !!commentImage
+      });
+
+      // Submit the comment
+      const response = await axios({
+        method: 'POST',
+        url: `${API_URL}/posts/${postId}/comments`,
+        data: formData,
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${tokens.access}`
+        }
+      });
+
+      console.log('Comment submitted successfully:', response.data);
+      
+      // Update the UI
+      if (response.data) {
+        // Add the new comment to the list
+        const newCommentData = response.data;
+        setComments(prevComments => [newCommentData, ...prevComments]);
+        
+        // Reset the form
+      setNewComment('');
+      setCommentImage(null);
+
+        // Show confirmation
+        console.log('Comment added successfully');
+      }
+    } catch (error) {
+      console.error('Failed to submit comment:', error);
+      
+      // Detailed error logging
+      if (error.response) {
+        console.error('Server response error:', {
+          status: error.response.status,
+          data: error.response.data,
+          headers: error.response.headers
+        });
+        Alert.alert('Error', `Server error: ${error.response.status}. Please try again.`);
+      } else if (error.request) {
+        console.error('Network error: No response received', error.request);
+        Alert.alert('Network Error', 'Could not reach the server. Please check your connection.');
+      } else {
+        console.error('Error setting up request:', error.message);
+        Alert.alert('Error', 'Could not upload comment. Please try again.');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Time ago formatter for dates
   const timeAgo = (date) => {
     const now = new Date();
     const postDate = new Date(date);
@@ -260,644 +623,1138 @@ const PostDetail = ({ route, navigation }) => {
     return `${Math.floor(diffInSeconds / 604800)}w`;
   };
 
-  // Render category icon
-  const renderCategoryIcon = (category) => {
-    switch (category) {
-      case 'Question':
-        return <Feather name="help-circle" size={16} color={theme.colors.primary.base} />;
-      case 'Market':
-        return <MaterialCommunityIcons name="shopping" size={16} color={theme.colors.primary.base} />;
-      case 'News':
-        return <MaterialCommunityIcons name="newspaper" size={16} color={theme.colors.primary.base} />;
-      default:
-        return null;
-    }
-  };
-
-  // Update the renderComment function to properly handle comment images
+  // Update the renderComment function
   const renderComment = ({ item }) => {
-    // Function to get proper profile picture URL
-    const getProfilePictureUrl = (profilePicture) => {
-      if (!profilePicture) return null;
-      if (profilePicture.startsWith('http')) {
-        return profilePicture;
-      }
-      return `${BASE_URL}${profilePicture}`;
-    };
-
-    // Function to get proper comment image URL
-    const getCommentImageUrl = (image) => {
-      if (!image) return null;
-      if (image.startsWith('http')) {
-        return image;
-      }
-      return `${BASE_URL}${image}`;
-    };
-
+    // Get user data from the comment
+    const userData = item.user || item.author || {};
+    
+    // Debug log user data including role
+    console.log('Comment user data:', {
+      username: userData.username,
+      role: userData.role,
+      isAdvisor: isUserAdvisor(item.user, item.author)
+    });
+    
     return (
       <View style={styles.commentContainer}>
         <View style={styles.commentHeader}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            {/* Profile Picture */}
-            {item.user?.profilePicture ? (
-              <Image
-                source={{ 
-                  uri: getProfilePictureUrl(item.user.profilePicture)
-                }}
-                style={styles.commentAvatar}
-              />
-            ) : (
-              <View style={styles.commentAvatarPlaceholder}>
-                <FontAwesome name="user" size={20} color="#FFF" />
-              </View>
+          {/* Comment author avatar */}
+          {userData.profilePicture ? (
+            <Image
+              source={{ uri: getImageUrl(userData.profilePicture) }}
+              style={styles.commentAvatar}
+            />
+          ) : (
+            <View style={styles.commentAvatarPlaceholder}>
+              <Text style={styles.commentAvatarInitial}>
+                {(userData.firstName || userData.username || 'A').charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
+          
+          <View style={styles.commentContentContainer}>
+            {/* Comment author name with advisor badge */}
+            <View style={styles.commentAuthorRow}>
+              <Text style={styles.commentUsername}>
+                {formatUserName(item.user, item.author)}
+              </Text>
+              
+              {/* Verified icon for advisor comments */}
+              {isUserAdvisor(item.user, item.author) && (
+                <MaterialIcons 
+                  name="verified" 
+                  size={14} 
+                  color="#1F6AFF" 
+                  style={{ marginLeft: 4 }}
+                />
+              )}
+            </View>
+            
+            {/* Comment content */}
+            <Text style={styles.commentText}>{item.content}</Text>
+            
+            {/* Comment images */}
+            {item.media && item.media.length > 0 && (
+              <CommentImageGallery media={item.media} />
             )}
             
-            {/* User name and timestamp */}
-            <View>
-              <Text style={styles.userName}>
-                {item.user?.username || 'Anonymous'}
-              </Text>
+            {/* Comment footer with timestamp */}
+            <View style={styles.commentFooter}>
               <Text style={styles.commentTime}>
                 {timeAgo(item.createdAt)}
               </Text>
             </View>
           </View>
         </View>
-
-        {/* Comment content */}
-        <Text style={styles.commentContent}>{item.content}</Text>
-
-        {/* Comment image - check multiple possible image properties */}
-        {(item.image || item.media?.[0] || item.imageUrl) && (
-          <View style={styles.commentImageContainer}>
-            <Image
-              source={{ 
-                uri: getCommentImageUrl(item.image || item.media?.[0]?.url || item.imageUrl)
-              }}
-              style={styles.commentImage}
-              resizeMode="cover"
-            />
-          </View>
-        )}
       </View>
     );
   };
 
-  // Update the post header section to show the author's profile picture
-  const renderPostHeader = () => (
-    <View style={styles.postHeader}>
-      <View style={styles.authorInfo}>
-        {post?.author?.profilePicture ? (
-          <Image
-            source={{ 
-              uri: post.author.profilePicture.startsWith('http') 
-                ? post.author.profilePicture 
-                : `${BASE_URL}${post.author.profilePicture}`
-            }}
-            style={styles.authorAvatar}
-          />
-        ) : (
-          <View style={styles.authorAvatarPlaceholder}>
-            <FontAwesome name="user" size={24} color="#FFF" />
-          </View>
-        )}
-        <View>
-          <Text style={styles.authorName}>
-            {post?.author?.username || 'Anonymous'}
-          </Text>
-          <Text style={styles.postTime}>
-            {timeAgo(post?.createdAt)}
-          </Text>
-        </View>
-      </View>
-    </View>
-  );
-
-  // Add this function to help debug the image structure from your backend
-  const inspectBackendImageStructure = async () => {
+  // Share post function
+  const handleSharePost = async () => {
+    if (!post) return;
+    
     try {
-      console.log('Examining backend image structure...');
+      const url = `${process.env.EXPO_PUBLIC_WEBSITE_URL}/post/${post.id}`;
+      const title = post.title || 'Check out this post';
+      const message = `${title}\n\n${post.description || ''}\n\nShared from Fallah Smart`;
       
-      // Fetch a single comment to inspect its structure
-      const testResponse = await axios.get(`${API_URL}/posts/${postId}/comments`);
-      if (testResponse.data && testResponse.data.length > 0) {
-        const testComment = testResponse.data[0];
-        console.log('Test comment full structure:', JSON.stringify(testComment, null, 2));
-        
-        // Look specifically for image-related properties
-        const imageProps = Object.keys(testComment).filter(key => 
-          key.includes('image') || 
-          key.includes('media') || 
-          key.includes('file') ||
-          key.includes('upload') ||
-          key.includes('photo')
-        );
-        
-        console.log('Image-related properties:', imageProps);
-        imageProps.forEach(prop => {
-          console.log(`Property ${prop}:`, testComment[prop]);
-        });
+      const result = await Share.share(
+        {
+          title: title,
+          message: Platform.OS === 'ios' ? message : message + '\n\n' + url,
+          url: Platform.OS === 'ios' ? url : undefined, // URL only works on iOS
+        },
+        {
+          // Only iOS
+          subject: title,
+          dialogTitle: 'Share this post',
+          // Only Android
+          tintColor: theme.colors.primary.base
+        }
+      );
+      
+      if (result.action === Share.sharedAction) {
+        console.log('Post shared successfully');
+        // You can track analytics here if needed
       }
     } catch (error) {
-      console.error('Error inspecting backend structure:', error);
+      console.error('Error sharing post:', error);
+      Alert.alert('Error', 'Could not share this post. Please try again.');
     }
   };
 
-  // Call this function in useEffect
-  useEffect(() => {
-    inspectBackendImageStructure();
-  }, []);
+  // Replace the handleReportPost function with this version
+  const handleReportPost = () => {
+    setReportModalVisible(true);
+  };
 
-  if (loading) {
+  // Update the submitReport function to match blogs.tsx behavior
+  const submitReport = async () => {
+    if (!post || !reportReason || (reportReason === 'Other' && !customReason)) {
+      Alert.alert('Error', 'Please provide a reason for reporting this post');
+      return;
+    }
+    
+    setIsSubmittingReport(true);
+    
+    try {
+      const tokens = await storage.getTokens();
+      if (!tokens || !tokens.access) {
+        Alert.alert('Authentication Required', 'Please log in to report this post');
+        setIsSubmittingReport(false);
+        return;
+      }
+      
+      // Fix: Use the correct API endpoint matching the backend route
+      const response = await axios({
+        method: 'POST',
+        url: `${API_URL}/posts/${postId}/report`,
+        data: {
+        reason: reportReason === 'Other' ? customReason : reportReason
+        },
+        headers: {
+          'Authorization': `Bearer ${tokens.access}`
+        }
+      });
+      
+      console.log('Report response:', response.data);
+      
+      // Close the modal first
+      setReportModalVisible(false);
+      
+      // Reset form values
+      setReportReason('');
+      setCustomReason('');
+      
+      // Show success message after a brief delay (to allow modal to close)
+      setTimeout(() => {
+        Alert.alert(
+          'Report Submitted',
+          'Thank you for helping us maintain a safe community. We will review this post shortly.',
+          [{ text: 'OK' }]
+        );
+      }, 300);
+      
+    } catch (error) {
+      console.error('Error submitting report:', error);
+      
+      // Show more detailed error message based on the error
+      if (error.response) {
+        Alert.alert('Error', 
+          `Could not submit report (${error.response.status}). ${error.response.data?.message || 'Please try again later.'}`
+        );
+      } else {
+        Alert.alert('Error', 'Could not submit report. Please check your connection and try again.');
+      }
+    } finally {
+      setIsSubmittingReport(false);
+    }
+  };
+
+  // Loading state - enhanced design
+  if (loading && !post) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <BackButton onPress={() => navigation.goBack()} />
-          <Text style={styles.headerTitle}>Post Detail</Text>
-          <View style={{ width: 50 }} />
-        </View>
-        <View style={styles.loadingContainer}>
+      <SafeAreaView style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.primary.base} />
-        </View>
+        <Text style={styles.loadingText}>Loading post...</Text>
       </SafeAreaView>
     );
   }
 
+  // Error state - enhanced design
   if (error) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <BackButton onPress={() => navigation.goBack()} />
-          <Text style={styles.headerTitle}>Post Detail</Text>
-          <View style={{ width: 50 }} />
-        </View>
-        <View style={styles.errorContainer}>
+      <SafeAreaView style={styles.errorContainer}>
+        <AntDesign name="exclamationcircleo" size={48} color={theme.colors.error} />
+        <Text style={styles.errorTitle}>Oops!</Text>
           <Text style={styles.errorText}>{error}</Text>
-          <Button title="Try Again" onPress={fetchPostDetails} />
-        </View>
+        <Button 
+          title="Try Again" 
+          onPress={fetchPostDetails}
+          style={styles.retryButton}
+        />
       </SafeAreaView>
     );
   }
 
-  if (!post) {
+  // Main content render with enhanced styling
     return (
-      <SafeAreaView style={styles.safeArea}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+    >
+      <SafeAreaView style={styles.container}>
+        {/* Enhanced header with shadow and better alignment */}
         <View style={styles.header}>
           <BackButton onPress={() => navigation.goBack()} />
-          <Text style={styles.headerTitle}>Post Detail</Text>
-          <View style={{ width: 50 }} />
+          <Text style={styles.headerTitle}>Post Details</Text>
+          <View style={styles.headerRight} />
         </View>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Post not found</Text>
-          <Button title="Go Back" onPress={() => navigation.goBack()} />
-        </View>
-      </SafeAreaView>
-    );
-  }
 
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <BackButton onPress={() => navigation.goBack()} />
-        <Text style={styles.headerTitle}>Post Detail</Text>
-        <View style={{ width: 50 }} />
-      </View>
-      
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.keyboardView}
-      >
-        <ScrollView 
-          style={styles.container}
-          contentContainerStyle={styles.contentContainer}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-          }
-        >
-          {renderPostHeader()}
-          
-          <Text style={styles.postTitle}>{post.title}</Text>
-          
-          {post.description && (
-            <Text style={styles.postDescription}>{post.description}</Text>
-          )}
-          
-          {post.media && post.media.length > 0 && (
-            <View style={styles.mediaContainer}>
-              {post.media.map((media, idx) => {
-                const mediaUrl = typeof media === 'string' 
-                  ? `http://192.168.11.225:5000/uploads/${media}`
-                  : media.url || `http://192.168.11.225:5000/uploads/${media.path || media.filename}`;
-                
-                return (
-                  <View key={idx} style={styles.postImageContainer}>
-                    <Image
-                      source={{ uri: mediaUrl }}
-                      style={styles.postImage}
-                      resizeMode="cover"
-                      onLoad={() => console.log(`Post image ${idx} loaded successfully`)}
-                      onError={(e) => console.error(`Post image ${idx} load error:`, e.nativeEvent.error, mediaUrl)}
-                    />
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+          {post && (
+            <View style={styles.postContainer}>
+              {/* Post header with author info - enhanced design */}
+              <View style={styles.postHeader}>
+                {/* Author info section with verified badge */}
+                <View style={styles.postAuthorSection}>
+                  <View style={styles.authorContainer}>
+                    {/* Author avatar */}
+                    <View style={styles.authorImageWrapper}>
+                      {post?.user?.profilePicture || post?.author?.profilePicture ? (
+                        <Image
+                          source={{ uri: getProfilePictureUrl(post) }}
+                          style={styles.authorImage}
+                          onError={(e) => {
+                            console.log("Profile image load error:", e.nativeEvent.error);
+                          }}
+                        />
+                      ) : (
+                        <View style={styles.defaultAvatar}>
+                          <Text style={styles.avatarText}>
+                            {(formatUserName(post?.user, post?.author)).charAt(0).toUpperCase()}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    
+                    <View style={styles.authorDetails}>
+                      <View style={styles.authorNameRow}>
+                        <Text style={styles.authorName}>
+                          {formatUserName(post?.user, post?.author)}
+                        </Text>
+                        
+                        {/* Show verified icon for advisors */}
+                        {isUserAdvisor(post?.user, post?.author) && (
+                          <MaterialIcons 
+                            name="verified" 
+                            size={16} 
+                            color="#1F6AFF"
+                            style={{ marginLeft: 4 }}
+                          />
+                        )}
+                      </View>
+                      
+                      <Text style={styles.postTime}>{timeAgo(post?.createdAt)}</Text>
+                    </View>
                   </View>
-                );
-              })}
+                </View>
+              </View>
+              
+              {/* Post content - enhanced styling */}
+              <View style={styles.postContent}>
+                <Text style={styles.postTitle}>{post.title}</Text>
+                <Text style={styles.postDescription}>
+                  {parseTextForHashtags(post.description).map((part, index) => (
+                    part.type === 'hashtag' ? 
+                      <Text key={index} style={styles.hashtag}>{part.content}</Text> : 
+                      <Text key={index}>{part.content}</Text>
+                  ))}
+                </Text>
+          
+                {/* Post images - kept as is */}
+          {post.media && post.media.length > 0 && (
+                  <PostImageGallery media={post.media} />
+                )}
+              </View>
+              
+              {/* Post stats with enhanced design */}
+              <View style={styles.postStats}>
+                <View style={styles.statsItem}>
+                  <Ionicons name="heart" size={14} color={theme.colors.neutral.textSecondary} />
+                  <Text style={styles.statsText}>{post.likesCount || 0} likes</Text>
+                </View>
+                
+                <View style={styles.statsItem}>
+                  <Ionicons name="chatbubble-outline" size={14} color={theme.colors.neutral.textSecondary} />
+                  <Text style={styles.statsText}>{post.comments?.length || 0} comments</Text>
+                </View>
+              </View>
+              
+              {/* Post actions with better icons */}
+              <View style={styles.postActions}>
+            <TouchableOpacity 
+                  style={styles.actionButton}
+                  onPress={toggleLike}
+                  disabled={loading}
+                >
+                  {liked ? (
+                    <MaterialCommunityIcons 
+                      name="sprout" 
+                      size={24} 
+                      color={theme.colors.primary.base} 
+                    />
+                  ) : (
+                    <MaterialCommunityIcons 
+                      name="sprout-outline" 
+                      size={24} 
+                      color={theme.colors.neutral.textSecondary} 
+                    />
+                  )}
+                  <Text style={[
+                    styles.actionText, 
+                    liked && { color: theme.colors.primary.base }
+                  ]}>
+                    {post?.likesCount || 0}
+                  </Text>
+                </TouchableOpacity>
+            
+                <TouchableOpacity 
+                  style={styles.actionButton}
+                  onPress={() => commentInputRef.current?.focus()}
+                >
+                  <MaterialCommunityIcons 
+                    name="leaf" 
+                    size={24} 
+                    color={theme.colors.neutral.textSecondary} 
+                  />
+                  <Text style={styles.actionText}>
+                    {comments.length}
+                  </Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.actionButton}
+                  onPress={handleSharePost}
+                >
+                  <Ionicons 
+                    name="share-social-outline" 
+                    size={22} 
+                    color={theme.colors.neutral.textPrimary} 
+                  />
+                  <Text style={styles.actionText}>Share</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.actionButton} 
+                  onPress={handleReportPost}
+                >
+                  <Ionicons 
+                    name="flag-outline" 
+                    size={22} 
+                    color={theme.colors.neutral.textPrimary} 
+                  />
+                  <Text style={styles.actionText}>Report</Text>
+                </TouchableOpacity>
+              </View>
+              
+              {/* Comments section with enhanced design */}
+              <View style={styles.commentsSection}>
+                <View style={styles.sectionHeader}>
+                  <Ionicons name="chatbubbles-outline" size={18} color={theme.colors.neutral.textPrimary} />
+                  <Text style={styles.commentsHeader}>
+                    Comments ({comments.length})
+              </Text>
+            </View>
+            
+                {comments.length > 0 ? (
+                  comments.map((comment) => (
+                    <View key={comment.id} style={styles.commentContainer}>
+                      {renderComment({ item: comment })}
+                    </View>
+                  ))
+                ) : (
+                  <View style={styles.emptyCommentsContainer}>
+                    <Ionicons name="chatbubble-ellipses-outline" size={48} color={theme.colors.neutral.gray.medium} />
+                    <Text style={styles.noCommentsText}>
+                      No comments yet. Be the first to comment!
+              </Text>
+            </View>
+                )}
+          </View>
             </View>
           )}
-          
-          <View style={styles.postFooter}>
-            <TouchableOpacity 
-              style={styles.interactionButton}
-              onPress={toggleLike}
-            >
-              <MaterialCommunityIcons 
-                name={liked ? "heart" : "heart-outline"} 
-                size={24} 
-                color={liked ? theme.colors.error : theme.colors.neutral.textSecondary} 
-              />
-              <Text style={styles.interactionText}>
-                {post.likesCount || 0} {post.likesCount === 1 ? 'Like' : 'Likes'}
-              </Text>
-            </TouchableOpacity>
-            
-            <View style={styles.interactionButton}>
-              <MaterialCommunityIcons 
-                name="comment-outline" 
-                size={24} 
-                color={theme.colors.neutral.textSecondary} 
-              />
-              <Text style={styles.interactionText}>
-                {comments.length} {comments.length === 1 ? 'Comment' : 'Comments'}
-              </Text>
-            </View>
-            
-            <View style={styles.interactionButton}>
-              <MaterialCommunityIcons 
-                name="eye-outline" 
-                size={24} 
-                color={theme.colors.neutral.textSecondary} 
-              />
-              <Text style={styles.interactionText}>
-                {post.counter || 0} {post.counter === 1 ? 'View' : 'Views'}
-              </Text>
-            </View>
-          </View>
-          
-          {/* Add Comment Section */}
-          <View style={styles.addCommentSection}>
-            <Text style={styles.sectionTitle}>Add a Comment</Text>
-            <TextInput
-              style={styles.commentInput}
-              placeholder="Write your comment here..."
-              value={newComment}
-              onChangeText={setNewComment}
-              multiline
-            />
-            
+        </ScrollView>
+        
+        {/* Comment input area with improved design */}
+        <View style={styles.commentInputContainer}>
             {commentImage && (
-              <View style={styles.selectedImageWrapper}>
-                <Image source={{ uri: commentImage.uri }} style={styles.selectedImage} />
+            <View style={styles.commentImagePreviewContainer}>
+              <Image source={{ uri: commentImage.uri }} style={styles.commentImagePreview} />
+              <View style={styles.imageSourceIndicator}>
+                <Text style={styles.imageSourceText}>
+                  {commentImage.name.includes('photo_') ? 'Camera' : 'Gallery'}
+                </Text>
+              </View>
                 <TouchableOpacity 
                   style={styles.removeImageButton}
-                  onPress={removeCommentImage}
+                onPress={() => setCommentImage(null)}
                 >
-                  <MaterialCommunityIcons name="close-circle" size={24} color={theme.colors.error} />
+                <MaterialCommunityIcons name="close-circle" size={24} color="white" />
                 </TouchableOpacity>
               </View>
             )}
             
-            <View style={styles.commentActions}>
+          <View style={styles.commentInputRow}>
+            <TextInput
+              ref={commentInputRef}
+              value={newComment}
+              onChangeText={setNewComment}
+              placeholder="Write a comment..."
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+              style={styles.commentInput}
+              multiline={true}
+            />
+            
+            <View style={styles.commentActionButtons}>
               <TouchableOpacity 
-                style={styles.imagePickerButton}
-                onPress={pickCommentImage}
+                style={styles.commentImageButton} 
+                onPress={showImageOptions}
               >
-                <MaterialCommunityIcons name="image-plus" size={24} color={theme.colors.primary.base} />
+                <Ionicons 
+                  name="camera-outline" 
+                  size={22} 
+                  color={theme.colors.primary.base} 
+                />
               </TouchableOpacity>
               
-              <Button 
-                title="Post Comment" 
-                onPress={handleSubmitComment}
-                disabled={!newComment.trim() && !commentImage}
-              />
+              <TouchableOpacity 
+                style={[
+                  styles.sendButton, 
+                  (!newComment.trim() && !commentImage) && styles.sendButtonDisabled
+                ]}
+                onPress={submitComment}
+                disabled={submitting || (!newComment.trim() && !commentImage)}
+              >
+                {submitting ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Ionicons name="send" size={18} color="white" />
+                )}
+              </TouchableOpacity>
             </View>
           </View>
-          
-          {/* Comments Section */}
-          <View style={styles.commentsSection}>
-            <Text style={styles.sectionTitle}>Comments ({comments.length})</Text>
+        </View>
+      </SafeAreaView>
+      
+      {/* Report Modal */}
+      <Modal
+        visible={reportModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => {
+          setReportModalVisible(false);
+          setReportReason('');
+          setCustomReason('');
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.reportModalContainer}>
+            <View style={styles.reportModalHeader}>
+              <Text style={styles.reportModalTitle}>Report Post</Text>
+              <TouchableOpacity 
+                onPress={() => {
+                  setReportModalVisible(false);
+                  setReportReason('');
+                  setCustomReason('');
+                }}
+              >
+                <MaterialCommunityIcons name="close" size={24} color={theme.colors.neutral.textSecondary} />
+              </TouchableOpacity>
+            </View>
             
-            {/* Comments List */}
-            <View style={styles.commentsList}>
-              {comments.length > 0 ? (
-                comments.map((comment, index) => renderComment({ item: comment }))
-              ) : (
-                <Text style={styles.noCommentsText}>No comments yet. Be the first to comment!</Text>
-              )}
+            <Text style={styles.reportModalSubtitle}>Why are you reporting this post?</Text>
+            
+            <ScrollView style={styles.reportReasonsList}>
+              {reportReasons.map((reason) => (
+                <TouchableOpacity
+                  key={reason}
+                  style={[
+                    styles.reportReasonItem,
+                    reportReason === reason && styles.reportReasonItemSelected
+                  ]}
+                  onPress={() => setReportReason(reason)}
+                >
+                  <Text style={styles.reportReasonText}>{reason}</Text>
+                  {reportReason === reason && (
+                    <MaterialCommunityIcons name="check" size={20} color={theme.colors.primary.base} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            
+            {/* Add custom reason input when 'Other' is selected */}
+            {reportReason === 'Other' && (
+              <View style={styles.customReasonContainer}>
+                <TextInput
+                  style={styles.customReasonInput}
+                  placeholder="Please specify your reason"
+                  value={customReason}
+                  onChangeText={setCustomReason}
+                  multiline
+                  maxLength={200}
+                />
+              </View>
+            )}
+            
+            <View style={styles.reportModalActions}>
+              <TouchableOpacity
+                style={styles.reportCancelButton}
+                onPress={() => {
+                  setReportModalVisible(false);
+                  setReportReason('');
+                  setCustomReason('');
+                }}
+              >
+                <Text style={styles.reportCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.reportSubmitButton,
+                  (!reportReason || (reportReason === 'Other' && !customReason) || isSubmittingReport) && 
+                    styles.reportSubmitButtonDisabled
+                ]}
+                onPress={submitReport}
+                disabled={!reportReason || (reportReason === 'Other' && !customReason) || isSubmittingReport}
+              >
+                {isSubmittingReport ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Text style={styles.reportSubmitButtonText}>Submit</Text>
+                )}
+              </TouchableOpacity>
             </View>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        </View>
+      </Modal>
+    </KeyboardAvoidingView>
   );
 };
 
+// Enhanced styles with better visual hierarchy and spacing
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#F8F6F1',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    height: 56,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E6DFD5',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#2C1810',
-  },
-  keyboardView: {
-    flex: 1,
-  },
   container: {
     flex: 1,
-  },
-  contentContainer: {
-    padding: 16,
+    backgroundColor: theme.colors.neutral.surface,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: theme.colors.neutral.surface,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: theme.colors.neutral.textSecondary,
+    fontFamily: theme.fonts.medium,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
+    padding: 24,
+    backgroundColor: theme.colors.neutral.surface,
+  },
+  errorTitle: {
+    fontSize: 24,
+    fontFamily: theme.fonts.bold,
+    color: theme.colors.neutral.textPrimary,
+    marginTop: 16,
+    marginBottom: 8,
   },
   errorText: {
     fontSize: 16,
-    color: '#C23616',
-    marginBottom: 16,
+    fontFamily: theme.fonts.regular,
+    color: theme.colors.neutral.textSecondary,
     textAlign: 'center',
+    marginBottom: 24,
   },
-  postCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 16,
+  retryButton: {
+    minWidth: 120,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: theme.colors.neutral.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.neutral.border,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 3,
+    zIndex: 10,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.neutral.textPrimary,
+  },
+  headerRight: {
+    width: 36, // Balance with back button
+  },
+  scrollView: {
+    flex: 1,
+  },
+  postContainer: {
+    padding: 16,
   },
   postHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
-  },
-  authorInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
   },
   authorAvatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    marginRight: 12,
+    marginRight: 10,
   },
   authorAvatarPlaceholder: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: theme.colors.neutral.gray.medium,
-    alignItems: 'center',
+    backgroundColor: theme.colors.primary.base,
     justifyContent: 'center',
-    marginRight: 12,
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  authorAvatarInitial: {
+    fontSize: 20,
+    color: 'white',
+    fontFamily: theme.fonts.bold,
+  },
+  postHeaderInfo: {
+    flex: 1,
+  },
+  authorInfoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  authorNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   authorName: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: theme.fonts.medium,
     color: theme.colors.neutral.textPrimary,
+    marginBottom: 4,
   },
-  postTime: {
-    fontSize: 12,
+  postTimestamp: {
+    fontSize: 13,
+    fontFamily: theme.fonts.regular,
     color: theme.colors.neutral.textSecondary,
-    marginTop: 2,
-  },
-  userName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: theme.colors.neutral.textPrimary,
-  },
-  commentTime: {
-    fontSize: 12,
-    color: theme.colors.neutral.textSecondary,
+    marginLeft: 8,
   },
   categoryBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ECE9E4',
-    paddingVertical: 4,
+    backgroundColor: theme.colors.primary.light + '20',
     paddingHorizontal: 8,
-    borderRadius: 4,
+    paddingVertical: 3,
+    borderRadius: 12,
   },
   categoryText: {
-    fontSize: 12,
-    color: '#2C1810',
-    marginLeft: 4,
+    fontSize: 11,
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.primary.base,
+  },
+  postContent: {
+    marginBottom: 16,
   },
   postTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#2C1810',
+    fontSize: 20,
+    fontFamily: theme.fonts.bold,
+    color: theme.colors.neutral.textPrimary,
     marginBottom: 8,
   },
   postDescription: {
-    fontSize: 14,
-    color: '#2C1810',
-    marginBottom: 12,
-  },
-  mediaContainer: {
-    marginBottom: 12,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  postImageContainer: {
-    width: '100%',
-    height: 250,
-    borderRadius: 8,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  postImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 8,
-  },
-  postFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    borderTopWidth: 1,
-    borderTopColor: '#ECE9E4',
-    paddingTop: 12,
-  },
-  interactionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  interactionText: {
-    fontSize: 14,
-    color: '#6B5750',
-    marginLeft: 4,
-  },
-  addCommentSection: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  sectionTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#2C1810',
-    marginBottom: 12,
+    fontFamily: theme.fonts.regular,
+    color: theme.colors.neutral.textPrimary,
+    lineHeight: 24,
+    marginBottom: 16,
   },
-  commentInput: {
-    backgroundColor: '#ECE9E4',
-    borderRadius: 8,
-    padding: 12,
-    minHeight: 80,
-    textAlignVertical: 'top',
-    marginBottom: 12,
+  galleryContainer: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginTop: 12,
+    backgroundColor: theme.colors.neutral.gray.lighter,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
   },
-  selectedImageWrapper: {
-    position: 'relative',
-    marginBottom: 12,
-  },
-  selectedImage: {
-    width: '100%',
-    height: 200,
-    borderRadius: 8,
-  },
-  removeImageButton: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: '#FFFFFF',
+  galleryScrollView: {
     borderRadius: 12,
   },
-  commentActions: {
+  galleryImage: {
+    width: width - 32, // Adjust for padding
+    height: 240,
+    borderRadius: 12,
+  },
+  galleryPaginationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'absolute',
+    bottom: 12,
+    left: 0,
+    right: 0,
+  },
+  galleryPaginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    marginHorizontal: 4,
+  },
+  galleryPaginationDotActive: {
+    backgroundColor: 'white',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  postStats: {
+    flexDirection: 'row',
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: theme.colors.neutral.border,
+  },
+  statsItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  statsText: {
+    fontSize: 14,
+    fontFamily: theme.fonts.regular,
+    color: theme.colors.neutral.textSecondary,
+    marginLeft: 4,
+  },
+  postActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: theme.colors.neutral.border,
+    marginTop: 16,
   },
-  imagePickerButton: {
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     padding: 8,
   },
+  actionText: {
+    fontSize: 14,
+    color: theme.colors.neutral.textPrimary,
+    marginLeft: 4,
+    fontFamily: theme.fonts.medium,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   commentsSection: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    marginTop: 8,
+  },
+  commentsHeader: {
+    fontSize: 16,
+    fontFamily: theme.fonts.bold,
+    color: theme.colors.neutral.textPrimary,
+    marginLeft: 8,
+  },
+  emptyCommentsContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 32,
   },
   noCommentsText: {
     fontSize: 14,
-    color: '#6B5750',
+    fontFamily: theme.fonts.regular,
+    color: theme.colors.neutral.textSecondary,
+    fontStyle: 'italic',
     textAlign: 'center',
-    marginVertical: 16,
+    marginTop: 12,
   },
   commentContainer: {
-    marginBottom: theme.spacing.lg,
+    marginBottom: 16,
+    paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.neutral.border,
-    paddingBottom: theme.spacing.md,
+    borderBottomColor: theme.colors.neutral.gray.lighter,
+  },
+  lastComment: {
+    borderBottomWidth: 0,
+    marginBottom: 0,
+    paddingBottom: 0,
   },
   commentHeader: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  commentAuthorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  commentUsername: {
+    fontSize: 14,
+    fontFamily: theme.fonts.bold,
+    color: theme.colors.neutral.textPrimary,
+    marginBottom: 2,
+  },
+  commentTime: {
+    fontSize: 12,
+    fontFamily: theme.fonts.regular,
+    color: theme.colors.neutral.textSecondary,
+  },
+  commentImageContainer: {
+    marginTop: 8,
+    borderRadius: 8,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  commentSingleImage: {
+    width: '100%',
+    height: 150,
+    borderRadius: 8,
+  },
+  moreImagesIndicator: {
+    position: 'absolute',
+    right: 8,
+    bottom: 8,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  moreImagesText: {
+    color: 'white',
+    fontSize: 12,
+    fontFamily: theme.fonts.bold,
+  },
+  commentInputContainer: {
+    padding: 12,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.neutral.border,
+    backgroundColor: theme.colors.neutral.surface,
+  },
+  commentInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: theme.spacing.sm,
+  },
+  commentInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: theme.colors.neutral.border,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    maxHeight: 100,
+    fontSize: 14,
+    fontFamily: theme.fonts.regular,
+    backgroundColor: theme.colors.neutral.gray.lighter,
+    color: theme.colors.neutral.textPrimary,
+  },
+  commentActionButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  commentImageButton: {
+    marginRight: 8,
+    padding: 4,
+  },
+  commentSubmitButton: {
+    backgroundColor: theme.colors.primary.base,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  commentSubmitButtonDisabled: {
+    backgroundColor: theme.colors.primary.disabled,
+  },
+  currentUserInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  currentUserAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    marginRight: 8,
+  },
+  currentUserAvatarPlaceholder: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: theme.colors.primary.base,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  currentUserAvatarInitial: {
+    fontSize: 14,
+    color: 'white',
+    fontFamily: theme.fonts.bold,
+  },
+  currentUserName: {
+    fontSize: 12,
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.neutral.textSecondary,
+  },
+  // Report modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  reportModalContainer: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 16,
+    maxHeight: '80%',
+  },
+  reportModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.neutral.border,
+  },
+  reportModalTitle: {
+    fontSize: 18,
+    fontFamily: theme.fonts.bold,
+    color: theme.colors.neutral.textPrimary,
+  },
+  reportModalSubtitle: {
+    fontSize: 16,
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.neutral.textPrimary,
+    marginBottom: 16,
+  },
+  reportReasonsList: {
+    marginBottom: 16,
+  },
+  reportReasonItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.neutral.border,
+  },
+  reportReasonItemSelected: {
+    backgroundColor: `${theme.colors.primary.base}10`,
+  },
+  reportReasonText: {
+    fontSize: 16,
+    fontFamily: theme.fonts.regular,
+    color: theme.colors.neutral.textPrimary,
+  },
+  customReasonContainer: {
+    marginBottom: 16,
+  },
+  customReasonInput: {
+    borderWidth: 1,
+    borderColor: theme.colors.neutral.border,
+    borderRadius: 8,
+    padding: 12,
+    minHeight: 80,
+    fontFamily: theme.fonts.regular,
+    fontSize: 16,
+    color: theme.colors.neutral.textPrimary,
+    textAlignVertical: 'top',
+  },
+  reportModalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 8,
+  },
+  reportCancelButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    marginRight: 8,
+    borderRadius: 8,
+  },
+  reportCancelButtonText: {
+    color: theme.colors.neutral.textPrimary,
+    fontFamily: theme.fonts.medium,
+    fontSize: 16,
+  },
+  reportSubmitButton: {
+    backgroundColor: theme.colors.primary.base,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 100,
+  },
+  reportSubmitButtonDisabled: {
+    backgroundColor: theme.colors.primary.disabled,
+  },
+  reportSubmitButtonText: {
+    color: 'white',
+    fontFamily: theme.fonts.medium,
+    fontSize: 16,
+  },
+  imageSourceIndicator: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  imageSourceText: {
+    color: 'white',
+    fontSize: 12,
+    fontFamily: theme.fonts.medium,
+  },
+  hashtag: {
+    color: theme.colors.primary.base,
+    fontWeight: 'bold',
+    textDecorationLine: 'none',
+  },
+  postAuthorSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  authorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  authorDetails: {
+    flex: 1,
+  },
+  postTime: {
+    fontSize: 13,
+    fontFamily: theme.fonts.regular,
+    color: theme.colors.neutral.textSecondary,
+  },
+  authorImageWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 10,
+    overflow: 'hidden',
+  },
+  authorImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 20,
+  },
+  defaultAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.colors.primary.base,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarText: {
+    fontSize: 20,
+    color: 'white',
+    fontFamily: theme.fonts.bold,
   },
   commentAvatar: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    marginRight: theme.spacing.sm,
   },
   commentAvatarPlaceholder: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: theme.colors.neutral.gray.medium,
-    alignItems: 'center',
+    backgroundColor: theme.colors.primary.base,
     justifyContent: 'center',
-    marginRight: theme.spacing.sm,
+    alignItems: 'center',
   },
-  commentContent: {
-    fontSize: theme.fontSizes.body,
+  commentAvatarInitial: {
+    fontSize: 16,
+    color: 'white',
+    fontFamily: theme.fonts.bold,
+  },
+  commentContentContainer: {
+    flex: 1,
+    marginLeft: 10,
+    backgroundColor: theme.colors.neutral.gray.lighter,
+    borderRadius: 16,
+    padding: 12,
+  },
+  commentAuthorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  commentText: {
+    fontSize: 14,
     fontFamily: theme.fonts.regular,
     color: theme.colors.neutral.textPrimary,
-    marginBottom: theme.spacing.sm,
+    lineHeight: 20,
   },
-  commentImageContainer: {
-    width: '100%',
-    height: 200,
-    borderRadius: 8,
-    overflow: 'hidden',
-    marginTop: 8,
-    marginBottom: 8,
-    backgroundColor: theme.colors.neutral.background,
-  },
-  commentImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  commentImagePreviewContainer: {
-    borderRadius: theme.borderRadius.medium,
-    overflow: 'hidden',
-    marginVertical: theme.spacing.sm,
-    width: 100,
-    height: 100,
-    position: 'relative',
-  },
-  commentImagePreview: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  commentFormActions: {
+  commentFooter: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: theme.spacing.sm,
-  },
-  commentForm: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  imageButton: {
-    padding: 8,
-  },
-  commentsList: {
-    marginTop: theme.spacing.md,
+    marginTop: 6,
   },
 });
 
-export default PostDetail; 
+export default PostDetail;

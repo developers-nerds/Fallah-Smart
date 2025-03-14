@@ -22,6 +22,7 @@ import Blogs from '../screens/blogs/blogs';
 import PostDetail from '../screens/blogs/PostDetail';
 import StockStatisticsScreen from '../screens/Stock/StockStatisticsScreen';
 import { StockStackParamList } from './types';
+import AdvisorApplicationScreen from '../screens/Advisor/AdvisorApplicationScreen';
 const Stack = createStackNavigator<StockStackParamList>();
 
 export const StockNavigator = () => {
@@ -128,6 +129,14 @@ export const StockNavigator = () => {
           name="Statistics" 
           component={StockStatisticsScreen}
           options={{ title: 'إحصائيات المخزون', headerShown: true }}
+        />
+        <Stack.Screen 
+          name="AdvisorApplication" 
+          component={AdvisorApplicationScreen} 
+          options={{
+            title: "Become an Advisor",
+            headerShown: true,
+          }}
         />
       </Stack.Navigator>
     </PesticideProvider>

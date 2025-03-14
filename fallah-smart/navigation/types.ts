@@ -15,6 +15,7 @@ export type StockStackParamList = {
   PostDetail: { postId: string };
   Statistics: undefined;
   Marketplace: undefined;
+  AdvisorApplication: undefined;
 };
 
 export type DrawerParamList = {
