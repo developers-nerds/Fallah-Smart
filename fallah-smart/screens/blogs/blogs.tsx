@@ -268,30 +268,38 @@ const PostItem = ({ item, navigation, handlePostLike, handleCommentAdded, timeAg
       <View style={styles.postFooter}>
         {/* Left side: Like and comment counts */}
         <View style={styles.postStats}>
-          {/* Like button */}
+          {/* Like button with farm-themed icon */}
           <TouchableOpacity 
-            style={styles.postActionButton} 
+            style={styles.postAction}
             onPress={() => handlePostLike(item.id)}
             activeOpacity={0.7}
           >
-            <AntDesign 
-              name={item.userLiked ? "heart" : "hearto"} 
-              size={22} 
-              color={item.userLiked ? theme.colors.error.base : theme.colors.neutral.textSecondary} 
-            />
+            {item.userLiked ? (
+              <MaterialCommunityIcons 
+                name="sprout" 
+                size={22} 
+                color={theme.colors.primary.base} 
+              />
+            ) : (
+              <MaterialCommunityIcons 
+                name="sprout-outline" 
+                size={22} 
+                color={theme.colors.neutral.textSecondary} 
+              />
+            )}
             <Text style={styles.postActionText}>
               {item.likesCount || 0}
             </Text>
           </TouchableOpacity>
           
-          {/* Comment button */}
+          {/* Comment button with farm-themed icon */}
           <TouchableOpacity 
             style={styles.postAction}
             onPress={() => navigation.navigate('PostDetail', { postId: item.id })}
             activeOpacity={0.7}
           >
-            <Feather 
-              name="message-circle" 
+            <MaterialCommunityIcons 
+              name="leaf" 
               size={22} 
               color={theme.colors.neutral.textSecondary} 
             />
@@ -303,9 +311,9 @@ const PostItem = ({ item, navigation, handlePostLike, handleCommentAdded, timeAg
         
         {/* Right side: Share and report buttons */}
         <View style={styles.postActions}>
-          {/* Share button */}
+          {/* Share button with original icon */}
           <TouchableOpacity 
-            style={styles.iconButton} 
+            style={styles.postAction}
             onPress={() => handleSharePost(item)}
             activeOpacity={0.7}
           >
@@ -898,22 +906,40 @@ const Blogs = () => {
     }
   };
 
-  // Update filteredPosts to include search
-  const filteredPosts = useMemo(() => {
-    if (!posts) return [];
+  // Add this function to get filtered posts with improved searching
+  const getFilteredPosts = useMemo(() => {
+    console.log('Filtering posts with:', { searchTerm, selectedCategory });
     
-    return posts.filter(post => {
-      // Category filter
-      const categoryMatch = selectedCategory === 'all' || post.category === selectedCategory;
-      
-      // Search filter
-      const searchMatch = !searchTerm || 
-        post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        post.description?.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      return categoryMatch && searchMatch;
-    });
-  }, [posts, selectedCategory, searchTerm]);
+    // Start with all posts
+    let filtered = [...posts];
+    
+    // Apply category filter if not "all"
+    if (selectedCategory !== 'all') {
+      filtered = filtered.filter(post => 
+        post.category && post.category.toUpperCase() === selectedCategory
+      );
+    }
+    
+    // Apply search term filter
+    if (searchTerm.trim()) {
+      const searchTermLower = searchTerm.toLowerCase().trim();
+      filtered = filtered.filter(post => {
+        // Search in title, description, and author name
+        const titleMatch = post.title && post.title.toLowerCase().includes(searchTermLower);
+        const descMatch = post.description && post.description.toLowerCase().includes(searchTermLower);
+        
+        // Search in author name if available
+        const authorName = post.author?.firstName && post.author?.lastName 
+          ? `${post.author.firstName} ${post.author.lastName}`.toLowerCase()
+          : post.author?.username?.toLowerCase() || '';
+        const authorMatch = authorName.includes(searchTermLower);
+        
+        return titleMatch || descMatch || authorMatch;
+      });
+    }
+    
+    return filtered;
+  }, [posts, searchTerm, selectedCategory]);
 
   // Prepare data for FlatList with enhanced advisor visibility
   const enhancedPostsData = useMemo(() => {
@@ -943,80 +969,146 @@ const Blogs = () => {
     return enhancedPosts;
   }, [posts]);
 
-  // Add this category filter component
+  // Update the CategoryFilter component to use our improved handling
   const CategoryFilter = () => (
-    <Animated.View style={[
-      styles.categoryFilterContainer,
-      {
-        transform: [{
-          translateY: scrollY.interpolate({
-            inputRange: [-50, 0, 50],
-            outputRange: [0, 0, -100],
-            extrapolate: 'clamp'
-          })
-        }]
-      }
-    ]}>
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.categoryList}
+    <ScrollView 
+      horizontal 
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.categoryList}
+    >
+      <TouchableOpacity
+        style={[
+          styles.categoryChip,
+          selectedCategory === 'all' && styles.categoryChipSelected,
+          { marginLeft: 16 } // Add left margin to first item
+        ]}
+        onPress={() => handleCategoryChange('all')}
+        activeOpacity={0.7}
       >
+        <MaterialIcons 
+          name="apps" 
+          size={18} 
+          color={selectedCategory === 'all' ? 
+            theme.colors.neutral.surface : 
+            theme.colors.primary.base
+          }
+          style={styles.categoryChipIcon}
+        />
+        <Text style={[
+          styles.categoryChipText,
+          selectedCategory === 'all' && styles.categoryChipTextSelected
+        ]}>
+          All
+        </Text>
+      </TouchableOpacity>
+      
+      {CATEGORIES.map(category => (
         <TouchableOpacity
+          key={category.value}
           style={[
             styles.categoryChip,
-            selectedCategory === 'all' && styles.categoryChipSelected
+            selectedCategory === category.value && styles.categoryChipSelected
           ]}
-          onPress={() => setSelectedCategory('all')}
+          onPress={() => handleCategoryChange(category.value)}
+          activeOpacity={0.7}
         >
+          {category.iconType === 'material' ? (
+            <MaterialCommunityIcons
+              name={category.icon}
+              size={18}
+              color={selectedCategory === category.value ? 
+                theme.colors.neutral.surface : 
+                theme.colors.primary.base
+              }
+              style={styles.categoryChipIcon}
+            />
+          ) : (
+            <FontAwesome5
+              name={category.icon}
+              size={16}
+              color={selectedCategory === category.value ? 
+                theme.colors.neutral.surface : 
+                theme.colors.primary.base
+              }
+              style={styles.categoryChipIcon}
+            />
+          )}
           <Text style={[
             styles.categoryChipText,
-            selectedCategory === 'all' && styles.categoryChipTextSelected
+            selectedCategory === category.value && styles.categoryChipTextSelected
           ]}>
-            All
+            {category.label}
           </Text>
         </TouchableOpacity>
-        {CATEGORIES.map(category => (
-          <TouchableOpacity
-            key={category.value}
-            style={[
-              styles.categoryChip,
-              selectedCategory === category.value && styles.categoryChipSelected
-            ]}
-            onPress={() => setSelectedCategory(category.value)}
-          >
-            {category.iconType === 'material' ? (
-              <MaterialCommunityIcons
-                name={category.icon}
-                size={18}
-                color={selectedCategory === category.value ? 
-                  theme.colors.neutral.surface : 
-                  theme.colors.primary.base
-                }
-                style={styles.categoryChipIcon}
-              />
-            ) : (
-              <FontAwesome5
-                name={category.icon}
-                size={16}
-                color={selectedCategory === category.value ? 
-                  theme.colors.neutral.surface : 
-                  theme.colors.primary.base
-                }
-                style={styles.categoryChipIcon}
-              />
-            )}
-            <Text style={[
-              styles.categoryChipText,
-              selectedCategory === category.value && styles.categoryChipTextSelected
-            ]}>
-              {category.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-    </Animated.View>
+      ))}
+    </ScrollView>
   );
+
+  // Enhanced search function
+  const handleSearch = (text) => {
+    // Update search term state
+    setSearchTerm(text);
+    
+    // Reset to first page if implementing pagination
+    // setCurrentPage(1);
+    
+    // Log search activity
+    console.log('Searching for:', text);
+    
+    // Clear previous search timeout if it exists
+    if (searchDebounceTimeout.current) {
+      clearTimeout(searchDebounceTimeout.current);
+    }
+    
+    // Set loading state for search
+    setIsSearching(true);
+    
+    // Debounce the search to avoid too many renders
+    searchDebounceTimeout.current = setTimeout(() => {
+      // Could make an API call here for server-side search
+      // For now, we rely on client-side filtering in filteredPosts
+      setIsSearching(false);
+    }, 500);
+  };
+
+  // Clear search function
+  const clearSearch = () => {
+    setSearchTerm('');
+    setIsSearching(false);
+    
+    // Dismiss keyboard
+    if (searchInputRef.current) {
+      searchInputRef.current.blur();
+    }
+    
+    // Fetch all posts again if needed
+    // fetchPosts();
+  };
+
+  // Category selection function
+  const handleCategoryChange = (category) => {
+    // If selecting the same category, reset to 'all'
+    if (selectedCategory === category && category !== 'all') {
+      setSelectedCategory('all');
+      console.log('Showing all categories');
+    } else {
+      setSelectedCategory(category);
+      console.log('Filtering by category:', category);
+      
+      // Optional: You could make a specific API call here to filter on the server
+      // For example:
+      // if (category !== 'all') {
+      //   fetchPostsByCategory(category);
+      // } else {
+      //   fetchPosts();
+    }
+    
+    // Reset search if implementing combined filtering
+    // setSearchTerm('');
+    
+    // Reset to first page if implementing pagination
+    // setCurrentPage(1);
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.neutral.background }}>
@@ -1033,7 +1125,7 @@ const Blogs = () => {
         </View>
       ) : (
         <AnimatedFlatList
-          data={enhancedPostsData}
+          data={getFilteredPosts}
           renderItem={renderPostItem}
           keyExtractor={item => item.id.toString()}
           contentContainerStyle={styles.postsList}
@@ -1043,6 +1135,12 @@ const Blogs = () => {
           ListHeaderComponent={
             <>
               <SearchBar searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+              {isSearching && (
+                <View style={styles.searchingIndicator}>
+                  <ActivityIndicator size="small" color={theme.colors.primary.base} />
+                  <Text style={styles.searchingText}>Searching...</Text>
+                </View>
+              )}
               <CategoryFilter />
             </>
           }
@@ -1791,20 +1889,22 @@ const styles = StyleSheet.create({
   categoryChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.primary.fade,
+    backgroundColor: 'rgba(25, 118, 210, 0.08)',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
     marginRight: 8,
     borderWidth: 1,
-    borderColor: theme.colors.primary.fade,
+    borderColor: 'transparent',
   },
   categoryChipSelected: {
     backgroundColor: theme.colors.primary.base,
-    borderColor: theme.colors.primary.base,
-  },
-  categoryChipIcon: {
-    marginRight: 6,
+    borderColor: theme.colors.primary.dark,
+    shadowColor: theme.colors.primary.base,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    elevation: 3,
   },
   categoryChipText: {
     color: theme.colors.primary.base,
@@ -1813,6 +1913,7 @@ const styles = StyleSheet.create({
   },
   categoryChipTextSelected: {
     color: theme.colors.neutral.surface,
+    fontFamily: theme.fonts.bold,
   },
   emptyTitle: {
     fontSize: 20,
@@ -1832,9 +1933,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.neutral.border,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: 2,
     elevation: 2,
   },
   searchInput: {
@@ -1974,6 +2075,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: theme.fonts.medium,
     marginLeft: 6,
+  },
+  searchingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  searchingText: {
+    fontSize: 14,
+    color: theme.colors.neutral.textSecondary,
+    marginLeft: 8,
+  },
+  clearButton: {
+    padding: 6,
+  },
+  clearSearchButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.05)',
   },
 });
 

@@ -1,27 +1,25 @@
 import React from 'react';
 import 'react-native-gesture-handler';
-import { StatusBar } from 'react-native';
-import { ThemeProvider } from './context/ThemeContext';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { StockNavigator } from './navigation/StockNavigator';
+import { ThemeProvider } from './context/ThemeContext';
 import { StockProvider } from './context/StockContext';
-import { PesticideProvider } from './context/PesticideContext';
-import { AuthProvider } from './contexts/AuthContext';
-import AddIncome from './screens/Wallet/components/AddIncome';
-import AddExpense from './screens/Wallet/components/AddExpense';
-import EditExpense from './screens/Wallet/components/EditExpense';
-import EditIncome from './screens/Wallet/components/EditIncome'; // New import
-import AdvisorApplicationScreen from './screens/Advisor/AdvisorApplicationScreen';
+import { StockNavigator } from './navigation/StockNavigator';
+import AddTransaction from './screens/Wallet/components/AddTransaction';
+import EditTransaction from './screens/Wallet/components/EditTransaction';
+import Wallet from './screens/Wallet/Wallet'; // Import the Wallet screen
+import { I18nManager } from 'react-native';
+
+// Force RTL and allow RTL globally
+I18nManager.forceRTL(true);
+I18nManager.allowRTL(true);
 
 // Define the navigation param list
 type RootStackParamList = {
   Main: undefined;
-  AddIncome: undefined;
-  AddExpense: undefined;
-  EditExpense: { transaction: Transaction };
-  EditIncome: { transaction: Transaction }; // Added EditIncome
-  AdvisorApplication: undefined;
+  AddTransaction: { transactionType: 'income' | 'expense' };
+  EditTransaction: { transaction: Transaction };
+  Wallet: undefined; // Add Wallet to the param list
 };
 
 // Define the Transaction interface
@@ -56,41 +54,24 @@ export const RootNavigator: React.FC = () => {
           </StockProvider>
         )}
       />
-      <Stack.Screen name="AddIncome" component={AddIncome} />
-      <Stack.Screen name="AddExpense" component={AddExpense} />
-      <Stack.Screen name="EditExpense" component={EditExpense} />
-      <Stack.Screen name="EditIncome" component={EditIncome} />
+      <Stack.Screen name="AddTransaction" component={AddTransaction} />
+      <Stack.Screen name="EditTransaction" component={EditTransaction} />
       <Stack.Screen 
-        name="AdvisorApplication" 
-        component={AdvisorApplicationScreen} 
-        options={{
-          title: "Become an Advisor",
-          headerShown: true
-        }}
+        name="Wallet" 
+        component={Wallet} 
+        options={{ title: 'محفظتي' }} // Set the header title here
       />
     </Stack.Navigator>
   );
 };
 
-const AppContent = () => {
-  return (
-    <NavigationContainer>
-      <RootNavigator />
-    </NavigationContainer>
-  );
-};
-
+// Default export remains the App component
 export default function App() {
   return (
-    <>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-      <ThemeProvider>
-        <AuthProvider>
-          <PesticideProvider>
-            <AppContent />
-          </PesticideProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </>
+    <ThemeProvider>
+      <NavigationContainer>
+        <RootNavigator />
+      </NavigationContainer>
+    </ThemeProvider>
   );
 }
