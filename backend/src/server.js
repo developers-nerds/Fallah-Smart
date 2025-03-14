@@ -22,6 +22,23 @@ const animalDetailsRoutes = require("./routes/animalsDetails");
 const animal = require("./routes/animal");
 const stockStatisticsRoutes = require("./routes/stockStatisticsRoutes");
 
+
+///////////////////////Education Routes///////////////////////
+const Education_AnimalsRoute = require("./routes/Education_AnimalsRoute");
+const Education_CropsRoute = require("./routes/Education_CropsRoute");
+const Education_QuestionsRoute = require("./routes/Education_QuestionsRoute");
+const Education_QuizzesRoute = require("./routes/Education_QuizzesRoute");
+const Education_RepliesRoute = require("./routes/Education_RepliesRoute");
+const Education_UserProgressRoute = require("./routes/Education_UserProgressRoute");
+const Education_VideosRoute = require("./routes/Education_VideosRoute");
+const Education_AdditionalVideosRoute = require("./routes/Education_AdditionalVideosRoute");
+const Education_QuestionsAndAnswersRoute = require("./routes/Education_QuestionsAndAnswersRoute");
+
+  ////////////////////////////////End of Education Routes///////////////////////  
+
+
+
+
 const app = express();
 const port = process.env.PORT;
 
@@ -50,6 +67,23 @@ app.use("/api/animalDetails", animalDetailsRoutes);
 app.use("/api/animal", animal);
 app.use("/api/stock-statistics", stockStatisticsRoutes);
 app.use("/api/categories", categoryRoutes);
+
+
+///////////////////////Education Routes///////////////////////
+app.use("/api/education/animals", Education_AnimalsRoute);
+app.use("/api/education/crops", Education_CropsRoute);
+app.use("/api/education/questions", Education_QuestionsRoute);
+app.use("/api/education/quizzes", Education_QuizzesRoute);
+app.use("/api/education/replies", Education_RepliesRoute);
+app.use("/api/education/userProgress", Education_UserProgressRoute);
+app.use("/api/education/videos", Education_VideosRoute);
+app.use("/api/education/additionalVideos", Education_AdditionalVideosRoute);
+app.use("/api/education/questionsAndAnswers", Education_QuestionsAndAnswersRoute);
+
+
+
+
+
 
 // Error handling middleware
 app.use((err, req, res, next) => {

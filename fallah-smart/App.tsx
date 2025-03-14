@@ -6,6 +6,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { StockProvider } from './context/StockContext';
 import { StockNavigator } from './navigation/StockNavigator';
 import AddTransaction from './screens/Wallet/components/AddTransaction';
+import { EducationNavigator } from "./navigation/EducationNavigator"
 import EditTransaction from './screens/Wallet/components/EditTransaction';
 import Wallet from './screens/Wallet/Wallet'; // Import the Wallet screen
 import { I18nManager } from 'react-native';
@@ -61,6 +62,7 @@ export const RootNavigator: React.FC = () => {
         component={Wallet} 
         options={{ title: 'محفظتي' }} // Set the header title here
       />
+          <Stack.Screen name="Education" component={EducationNavigator} />
     </Stack.Navigator>
   );
 };
