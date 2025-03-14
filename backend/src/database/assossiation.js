@@ -17,6 +17,16 @@ const Messages = require("./models/Messages")(sequelize, DataTypes);
 const Notification = require("./models/notification")(sequelize, DataTypes);
 const Pesticide = require("./models/Pesticide")(sequelize, DataTypes);
 const Posts = require("./models/Posts")(sequelize, DataTypes);
+const Suppliers = require("./models/Suppliers")(sequelize, DataTypes);
+const CropOrders = require("./models/CropOrders")(sequelize, DataTypes);
+const CropListings = require("./models/CropListings")(sequelize, DataTypes);
+const AuctionBids = require("./models/AuctionBids")(sequelize, DataTypes);
+const Auctions = require("./models/Auctions")(sequelize, DataTypes);
+const TradingCategories = require("./models/TradingCategoreies")(
+  sequelize,
+  DataTypes
+);
+const Location = require("./models/location")(sequelize, DataTypes);
 const Recurring_Transactions = require("./models/Recurring_Transactions")(
   sequelize,
   DataTypes
@@ -26,6 +36,20 @@ const Stock = require("./models/Stock")(sequelize, DataTypes);
 const StockHistory = require("./models/StockHistory")(sequelize, DataTypes);
 const Transactions = require("./models/Transactions")(sequelize, DataTypes);
 const Users = require("./models/Users")(sequelize, DataTypes);
+
+//////////////////////////////////////////Achref////////////////////////////////////////////
+
+const Education_Quiz = require("./models/Education_Quizzes")(sequelize, DataTypes);
+const Education_Question = require("./models/Education_Questions")(sequelize, DataTypes);
+const Education_Video = require("./models/Education_Videos")(sequelize, DataTypes);
+const Education_AdditionalVideo = require("./models/Education_AdditionalVideos")(sequelize, DataTypes);
+const Education_QuestionAndAnswer = require("./models/Education_QuestionsAndAnswers")(sequelize, DataTypes);
+const Education_Reply = require("./models/Education_Replies")(sequelize, DataTypes);
+const Education_UserProgress = require("./models/Education_UserProgress")(sequelize, DataTypes);
+const Education_Chat = require("./models/Education_Chat")(sequelize, DataTypes);
+const Education_Crop = require("./models/Education_Crops")(sequelize, DataTypes);
+const Education_Animal = require("./models/EducationAnimals")(sequelize, DataTypes);
+
 
 // Define associations
 // For users
@@ -62,12 +86,127 @@ AnimalGaston.belongsTo(Users, {
   foreignKey: "userId",
   as: "user",
 });
-
+Users.hasOne(Suppliers, {
+  foreignKey: "userId",
+  as: "supplier",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+Suppliers.belongsTo(Users, {
+  foreignKey: "userId",
+  as: "user",
+});
 // For scans
 Scans.belongsTo(Users, {
   foreignKey: "userId",
   as: "user",
 });
+
+Suppliers.hasMany(CropListings, {
+  foreignKey: "supplierId",
+  as: "cropListings",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+CropListings.belongsTo(Suppliers, {
+  foreignKey: "supplierId",
+  as: "supplier",
+});
+
+Users.hasMany(CropOrders, {
+  foreignKey: "userId",
+  as: "cropOrders",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+CropOrders.belongsTo(Users, {
+  foreignKey: "userId",
+  as: "user",
+});
+
+Suppliers.hasMany(CropOrders, {
+  foreignKey: "supplierId",
+  as: "supplierOrders",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+CropOrders.belongsTo(Suppliers, {
+  foreignKey: "supplierId",
+  as: "supplier",
+});
+
+// 4. CropListings one-to-many with Auctions
+CropListings.hasMany(Auctions, {
+  foreignKey: "cropListingId",
+  as: "auctions",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+Auctions.belongsTo(CropListings, {
+  foreignKey: "cropListingId",
+  as: "cropListing",
+});
+
+// 5. Auctions one-to-many with AuctionBids
+Auctions.hasMany(AuctionBids, {
+  foreignKey: "auctionId",
+  as: "bids",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+AuctionBids.belongsTo(Auctions, {
+  foreignKey: "auctionId",
+  as: "auction",
+});
+
+// 6. TradingCategories one-to-many with CropListings (assuming this is what you meant instead of TradingCategories with itself)
+TradingCategories.hasMany(CropListings, {
+  foreignKey: "categoryId",
+  as: "cropListings",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+CropListings.belongsTo(TradingCategories, {
+  foreignKey: "categoryId",
+  as: "category",
+});
+
+// 7. User one-to-one with Location
+Users.hasOne(Location, {
+  foreignKey: "userId",
+  as: "location",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+Location.belongsTo(Users, {
+  foreignKey: "userId",
+  as: "user",
+});
+
+// 8. Suppliers one-to-many with Location
+Suppliers.hasMany(Location, {
+  foreignKey: "supplierId",
+  as: "locations",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+Location.belongsTo(Suppliers, {
+  foreignKey: "supplierId",
+  as: "supplier",
+});
+
+// Additional associations to complete the relationships
+AuctionBids.belongsTo(Users, {
+  foreignKey: "userId",
+  as: "bidder",
+});
+Users.hasMany(AuctionBids, {
+  foreignKey: "userId",
+  as: "auctionBids",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+
 // ... existing imports and associations ...
 // Update User and Accounts association to Many-to-One with unique alias
 Users.hasMany(Accounts, {
@@ -132,10 +271,6 @@ Media.belongsTo(Animal_doc, {
   foreignKey: "animalDocId",
   as: "animalDoc",
 });
-
-
-
-
 
 Category.hasMany(Media, {
   foreignKey: "categoryId",
@@ -428,7 +563,64 @@ Stock.belongsTo(Users, {
   as: "user",
 });
 
-// Sync all models with the database
+
+//Education Associations
+
+// Animals and Quizzes
+Education_Animal.belongsTo(Education_Quiz, { foreignKey: 'quizId' });
+Education_Quiz.hasOne(Education_Animal, { foreignKey: 'quizId' });
+
+// Crops and Quizzes
+Education_Crop.belongsTo(Education_Quiz, { foreignKey: 'quizId' });
+Education_Quiz.hasOne(Education_Crop, { foreignKey: 'quizId' });
+
+// Quizzes and Questions
+Education_Quiz.hasMany(Education_Question, { foreignKey: 'quizId' });
+Education_Question.belongsTo(Education_Quiz, { foreignKey: 'quizId' });
+
+// Videos and Additional Videos
+Education_Video.hasMany(Education_AdditionalVideo, { foreignKey: 'videoId' });
+Education_AdditionalVideo.belongsTo(Education_Video, { foreignKey: 'videoId' });
+
+// Videos and QuestionsAndAnswers
+Education_Video.hasMany(Education_QuestionAndAnswer, { foreignKey: 'videoId' });
+Education_QuestionAndAnswer.belongsTo(Education_Video, { foreignKey: 'videoId' });
+
+// QuestionsAndAnswers and Replies
+Education_QuestionAndAnswer.hasMany(Education_Reply, { foreignKey: 'questionAndAnswerId' });
+Education_Reply.belongsTo(Education_QuestionAndAnswer, { foreignKey: 'questionAndAnswerId' });
+
+// UserProgress and Quizzes
+Education_UserProgress.belongsTo(Education_Quiz, { foreignKey: 'quizId' });
+Education_Quiz.hasMany(Education_UserProgress, { foreignKey: 'quizId' });
+
+// ChatMessages and Users
+// Education_ChatMessage.belongsTo(User, { foreignKey: 'userId' });
+// Users.hasMany(Education_ChatMessage, { foreignKey: 'userId' });
+
+// Animals and Videos
+Education_Animal.belongsTo(Education_Video, { foreignKey: 'videoId' });
+Education_Video.hasOne(Education_Animal, { foreignKey: 'videoId' });
+
+// Crops and Videos
+Education_Crop.belongsTo(Education_Video, { foreignKey: 'videoId' });
+Education_Video.hasOne(Education_Crop, { foreignKey: 'videoId' });
+
+// UserProgress and Users
+Education_UserProgress.belongsTo(Users, { foreignKey: 'userId' });
+Users.hasMany(Education_UserProgress, { foreignKey: 'userId' });
+
+// QuestionsAndAnswers and Users
+Education_QuestionAndAnswer.belongsTo(Users, { foreignKey: 'userId' });
+Users.hasMany(Education_QuestionAndAnswer, { foreignKey: 'userId' });
+
+// Replies and Users
+Education_Reply.belongsTo(Users, { foreignKey: 'userId' });
+Users.hasMany(Education_Reply, { foreignKey: 'userId' });
+
+////////////////////////////////////////Hedhy Associations Mte3i Rodo belkom chabeb ///////////////
+
+//Sync all models with the database
 // async function syncModels() {
 //   try {
 //     // Use { force: true } for production to safely update schema
@@ -462,8 +654,26 @@ module.exports = {
   Likes,
   Comments,
   Accounts,
+  Suppliers,
+  CropOrders,
+  CropListings,
+  AuctionBids,
+  Auctions,
+  TradingCategories,
   BackupSync,
   Media,
   Notification,
   Recurring_Transactions,
+  Education_Quiz,
+  Education_Question,
+  Education_Video,
+  Education_AdditionalVideo,
+  Education_QuestionAndAnswer,
+  Education_Reply,
+  Education_UserProgress,
+  Education_Chat,
+  Education_Crop,
+  Education_Animal,
+
+
 };

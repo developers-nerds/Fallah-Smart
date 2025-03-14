@@ -23,6 +23,17 @@ const seedLikes = require('./likeSeeds');
 // const seedRecurringTransactions = require('./recurringTransactionSeeds');
 // const seedTransactions = require('./transactionSeeds');
 // const seedScans = require('./scanSeeds');
+
+
+
+//////////////////////SEEDS FOR EDUCATION//////////////////////
+const seedEducationQuizzes = require('./Education_QuizzesSeeds');
+const seedEducationQuestions = require('./Education_QuestionsSeeds');
+const seedEducationVideos = require('./Education_VideosSeeds');
+const seedEducationAdditionalVideos = require('./Education_AdditionalVideosSeeds');
+const seedEducationCrops = require('./Education_CropsSeeds');
+const seedEducationAnimals = require('./EducationAnimalsSeeds');
+
 const initializeDatabase = require('../dbInit');
 
 async function seedAll() {
@@ -64,6 +75,14 @@ async function seedAll() {
     // await seedRecurringTransactions();
     // await seedBackupSync();
     // await seedMessages();
+
+    ///////////////////SEEDS FOR EDUCATION//////////////////////
+    await seedEducationQuizzes();
+    await seedEducationQuestions();
+    await seedEducationVideos();
+    await seedEducationAdditionalVideos();
+    await seedEducationCrops();
+    await seedEducationAnimals();
     
     console.log('✅ All data seeded successfully!');
     return true;

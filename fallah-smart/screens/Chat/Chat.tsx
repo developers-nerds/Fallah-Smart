@@ -9,6 +9,7 @@ import {
   Animated,
   Keyboard,
   LayoutAnimation,
+  RefreshControl,
 } from 'react-native';
 import { Message } from '../../types/chat';
 import * as ImagePicker from 'expo-image-picker';
@@ -24,6 +25,11 @@ import { theme } from '../../theme/theme';
 import ConversationSidebar from '../../components/chat/ConversationSidebar';
 import SidebarOverlay from '../../components/chat/SidebarOverlay';
 import LoadingAnimation from '../../components/chat/LoadingAnimation';
+import MessageAlert from '../../components/chat/MessageAlert';
+import { GetConversationName, createConversationInDB } from '../../utils/buildConversations';
+import { storage } from '../../utils/storage';
+
+const API_URL = process.env.EXPO_PUBLIC_API_URL; // Update this with your actual API URL
 
 type ChatScreenProps = {
   navigation: DrawerNavigationProp<DrawerParamList, 'Chat'>;
@@ -36,6 +42,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
   const [oldRequests, setOldRequests] = useState<string>('');
   const [greetingSent, setGreetingSent] = useState(false);
   const deviceLanguage = Localization.locale;
+  const [currentConversationId, setCurrentConversationId] = useState<number | any>(0);
   const [isLoading, setIsLoading] = useState(false);
   const [sidebarVisible, setSidebarVisible] = useState(false);
   const overlayOpacity = useRef(new Animated.Value(0)).current;
@@ -43,6 +50,9 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
   const [isNewConversation, setIsNewConversation] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const keyboardTimer = useRef<NodeJS.Timeout | null>(null);
+  const [showMessageLimitAlert, setShowMessageLimitAlert] = useState(false);
+  const MESSAGE_LIMIT = 10;
+  const [refreshing, setRefreshing] = useState(false);
 
   const toggleSidebar = () => {
     if (sidebarVisible) {
@@ -61,18 +71,77 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
     }
   };
 
-  const handleSelectConversation = (conversationId: string) => {
-    console.log(`Selected conversation: ${conversationId}`);
+  const handleSelectConversation = async (conversationId: string) => {
     toggleSidebar();
+    setCurrentConversationId(conversationId);
+
+    try {
+      // Fetch messages for the selected conversation
+      const response = await fetch(`${API_URL}/messages/${conversationId}`);
+      const result = await response.json();
+
+      if (result.success) {
+        // Map backend messages to frontend Message format
+        const loadedMessages: Message[] = result.data.map((msg: any) => ({
+          id: msg.id.toString(),
+          text: msg.content,
+          isUser: msg.sender === 'user',
+          sender: msg.sender as 'user' | 'assistant',
+          imageUrl: msg.type === 'image' ? msg.content : undefined,
+        }));
+
+        setMessages(loadedMessages);
+      } else {
+        console.error('Failed to load messages:', result.message);
+      }
+    } catch (error) {
+      console.error('Error loading conversation messages:', error);
+    }
   };
 
   const handleSend = async () => {
+    if (messages.length >= MESSAGE_LIMIT) {
+      setShowMessageLimitAlert(true);
+      setTimeout(() => setShowMessageLimitAlert(false), 3000);
+      return;
+    }
+
     if (inputText.trim() || selectedImage) {
-      const newMessage = {
+      const messageNumber = messages.length + 1;
+
+      let conversationId = currentConversationId; // Use a local variable
+
+      // Create conversation only when user sends their first message (which makes it 2 messages total)
+      if (messageNumber === 2) {
+        try {
+          const conversationNameResponse = await GetConversationName(inputText);
+          if (conversationNameResponse.success && conversationNameResponse.parsedData) {
+            const tokens = await storage.getTokens();
+            if (tokens.accessToken) {
+              const result = await createConversationInDB(
+                conversationNameResponse.parsedData,
+                tokens.accessToken
+              );
+
+              if (result.success) {
+                conversationId = result.data.data.id; // Update local variable
+                setCurrentConversationId(conversationId); // Update state for future renders
+              } else {
+                console.error('Failed to create conversation:', result.error);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error getting conversation name:', error);
+        }
+      }
+
+      const newMessage: Message = {
         id: Date.now().toString(),
         text: inputText,
         isUser: true,
         imageUrl: selectedImage || undefined,
+        sender: 'user',
       };
       setMessages((prev) => [...prev, newMessage]);
       const currentInputText = inputText;
@@ -82,21 +151,82 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
       setIsLoading(true);
 
       try {
+        if (!conversationId && messageNumber > 2) {
+          throw new Error('No active conversation. Please start a new conversation.');
+        }
+
+        // Store user message in database - only from message 2 onwards (which creates message pair)
+        if (messageNumber >= 2 && conversationId) {
+          const userMessageResponse = await fetch(`${API_URL}/messages/create`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              conversationId: conversationId,
+              content: currentSelectedImage ? currentSelectedImage : currentInputText,
+              type: currentSelectedImage ? 'image' : 'text',
+              sender: 'user',
+            }),
+          });
+          console.log('userMessageResponse', userMessageResponse);
+          if (!userMessageResponse.ok) {
+            console.error('Failed to store user message in database');
+          }
+        }
+
+        // Get AI response
         const response = await sendMessageToGemini(
           currentInputText,
           currentSelectedImage,
           oldRequests,
           'Your parameters here'
         );
-        const aiResponse = { id: (Date.now() + 1).toString(), text: response.text, isUser: false };
+
+        // Store AI response in database - only if we have a valid conversation ID
+        if (messageNumber >= 2 && conversationId) {
+          const aiMessageResponse = await fetch(`${API_URL}/messages/create`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              conversationId: conversationId,
+              content: response.text,
+              type: 'text',
+              sender: 'assistant',
+            }),
+          });
+          console.log('aiMessageResponse', JSON.stringify(aiMessageResponse));
+          console.log(
+            'body',
+            JSON.stringify({
+              conversationId: conversationId,
+              content: response.text,
+              type: 'text',
+              sender: 'assistant',
+            })
+          );
+          if (!aiMessageResponse.ok) {
+            console.error('Failed to store AI message in database');
+          }
+        }
+
+        const aiResponse: Message = {
+          id: (Date.now() + 1).toString(),
+          text: response.text,
+          isUser: false,
+          sender: 'assistant',
+        };
         setMessages((prev) => [...prev, aiResponse]);
         setOldRequests((prev) => `${prev} ${currentInputText}`);
       } catch (error) {
         console.error('Error sending message:', error);
-        const errorMessage = {
+        const errorMessage: Message = {
           id: (Date.now() + 2).toString(),
           text: 'An error occurred.',
           isUser: false,
+          sender: 'assistant',
         };
         setMessages((prev) => [...prev, errorMessage]);
       } finally {
@@ -134,6 +264,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
       setOldRequests('');
       setSelectedImage(null);
       setGreetingSent(false);
+      setCurrentConversationId(0);
     }, 800);
   };
 
@@ -146,13 +277,29 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
         setIsLoading(true);
         try {
           const response = await sendGreeting(deviceLanguage);
-          const aiResponse = { id: Date.now().toString(), text: response.text, isUser: false };
+          const aiResponse: Message = {
+            id: Date.now().toString(),
+            text: response.text,
+            isUser: false,
+            sender: 'assistant',
+          };
           setMessages([aiResponse]);
+
+          // Remove the conversation creation for the initial greeting
+          // We'll only create the conversation after the user sends their first message
           setGreetingSent(true);
+          setIsLoading(false);
+          setIsNewConversation(false);
         } catch (error) {
           console.error('Error sending greeting:', error);
-          setMessages([{ id: Date.now().toString(), text: 'An error occurred.', isUser: false }]);
-        } finally {
+          setMessages([
+            {
+              id: Date.now().toString(),
+              text: 'An error occurred.',
+              isUser: false,
+              sender: 'assistant',
+            },
+          ]);
           setIsLoading(false);
           setIsNewConversation(false);
         }
@@ -187,6 +334,41 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
     };
   }, []);
 
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+
+    try {
+      // If we have a conversation ID, refresh messages for that conversation
+      if (currentConversationId) {
+        const response = await fetch(`${API_URL}/messages/${currentConversationId}`);
+        const result = await response.json();
+
+        if (result.success) {
+          // Map backend messages to frontend Message format
+          const loadedMessages: Message[] = result.data.map((msg: any) => ({
+            id: msg.id.toString(),
+            text: msg.content,
+            isUser: msg.sender === 'user',
+            sender: msg.sender as 'user' | 'assistant',
+            imageUrl: msg.type === 'image' ? msg.content : undefined,
+          }));
+
+          setMessages(loadedMessages);
+        } else {
+          console.error('Failed to refresh messages:', result.message);
+        }
+      } else {
+        // If no conversation ID (new chat), just reset to initial greeting
+        setMessages([]);
+        setGreetingSent(false);
+      }
+    } catch (error) {
+      console.error('Error refreshing conversation:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [currentConversationId]);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar backgroundColor={theme.colors.neutral.surface} barStyle="dark-content" />
@@ -196,7 +378,19 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}>
         <View style={styles.mainContent}>
           <ChatHeader onNewConversation={handleNewConversation} onTitlePress={toggleSidebar} />
-          <MessageList messages={messages} />
+          <MessageList
+            messages={messages}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={[theme.colors.primary.base]}
+                tintColor={theme.colors.primary.base}
+                title="Refreshing conversation..."
+                titleColor={theme.colors.primary.base}
+              />
+            }
+          />
           {(isLoading || isImageLoading) && (
             <View style={styles.loadingContainer}>
               <LoadingAnimation
@@ -210,6 +404,11 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
               />
             </View>
           )}
+          <MessageAlert
+            visible={showMessageLimitAlert}
+            message="You've reached the maximum limit of 5 messages. Please start a new conversation."
+            type="warning"
+          />
           <View style={styles.inputContainer}>
             <ChatInput
               value={inputText}
@@ -256,10 +455,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: Platform.OS === 'ios' ? 100 : 90,
-    alignItems: 'center',
+    top: 0,
+    bottom: 0,
     justifyContent: 'center',
-    zIndex: 2,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    zIndex: 10,
   },
   inputContainer: {
     position: 'absolute',
