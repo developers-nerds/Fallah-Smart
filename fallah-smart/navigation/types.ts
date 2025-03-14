@@ -17,7 +17,7 @@ export type StockStackParamList = {
   AddEquipment: undefined;
   EquipmentDetail: { equipmentId: string };
   SeedList: undefined;
-  AddSeed: undefined;
+  AddSeed: { seedId?: string; mode?: 'edit' | 'add' };
   SeedDetail: { seedId: string };
   FeedList: undefined;
   AddFeed: undefined;

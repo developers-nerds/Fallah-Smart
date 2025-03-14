@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { 
   View, 
   StyleSheet, 
@@ -23,7 +23,7 @@ import { SearchBar } from '../../../components/SearchBar';
 import { FAB } from '../../../components/FAB';
 
 const { width } = Dimensions.get('window');
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 4;
 
 type AnimalsScreenProps = {
   navigation: StackNavigationProp<StockStackParamList, 'Animals'>;
@@ -204,11 +204,40 @@ export const AnimalsScreen = ({ navigation }: AnimalsScreenProps) => {
   const [page, setPage] = useState(1);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
+  // Only log once during development, remove in production
+  // console.log('AnimalsScreen render - Animals count:', animals?.length);
+  // console.log('AnimalsScreen render - Loading state:', loading);
+  // console.log('AnimalsScreen render - Error state:', error);
+
+  useEffect(() => {
+    console.log('AnimalsScreen mounted - fetching data');
+    // Call refreshAnimals only once when component mounts
+    let isMounted = true;
+    const loadData = async () => {
+      try {
+        await refreshAnimals();
+        // Only update state if component is still mounted
+        if (!isMounted) return;
+      } catch (err) {
+        console.error('Error loading animals:', err);
+      }
+    };
+    
+    loadData();
+    
+    // Cleanup function
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
+      // console.log('Manual refresh triggered');
       await refreshAnimals();
       setPage(1);
+      // console.log('Manual refresh completed');
     } catch (error) {
       console.error('Error refreshing animals:', error);
     } finally {
@@ -254,6 +283,40 @@ export const AnimalsScreen = ({ navigation }: AnimalsScreenProps) => {
       setPage(prev => prev + 1);
     }
   }, [paginatedAnimals.length, filteredAnimals.length]);
+
+  const renderFooter = useCallback(() => {
+    if (paginatedAnimals.length >= filteredAnimals.length) return null;
+    
+    // console.log('Rendering footer - more animals to show');
+    return (
+      <TouchableOpacity
+        style={[styles.seeMoreButton, { backgroundColor: theme.colors.primary.base }]}
+        onPress={handleLoadMore}
+      >
+        <Text style={styles.seeMoreText}>عرض المزيد</Text>
+        <MaterialCommunityIcons name="chevron-down" size={24} color="#FFF" />
+      </TouchableOpacity>
+    );
+  }, [paginatedAnimals.length, filteredAnimals.length, handleLoadMore, theme]);
+
+  const renderListEmptyComponent = useCallback(() => {
+    // console.log('Rendering empty state - no animals found');
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyIcon}>🔍</Text>
+        <Text style={[styles.emptyText, { color: theme.colors.neutral.textSecondary }]}>
+          لا توجد حيوانات
+        </Text>
+        <TouchableOpacity
+          style={[styles.seeMoreButton, { backgroundColor: theme.colors.primary.base }]}
+          onPress={handleRefresh}
+        >
+          <Text style={styles.seeMoreText}>تحديث</Text>
+          <MaterialCommunityIcons name="refresh" size={24} color="#FFF" />
+        </TouchableOpacity>
+      </View>
+    );
+  }, [theme, handleRefresh]);
 
   const renderCategoryChip = useCallback(({ item }: { item: string }) => (
     <TouchableOpacity
@@ -311,7 +374,7 @@ export const AnimalsScreen = ({ navigation }: AnimalsScreenProps) => {
           }
         ]}
       >
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.cardContent}
           onPress={() => navigation.navigate('AnimalDetail', { animalId: item.id })}
           activeOpacity={0.7}
@@ -453,14 +516,19 @@ export const AnimalsScreen = ({ navigation }: AnimalsScreenProps) => {
   ), [searchQuery, categories, renderCategoryChip]);
 
   if (loading && !animals.length) {
+    // console.log('Showing loading indicator');
     return (
       <View style={[styles.container, styles.centerContent]}>
         <ActivityIndicator size="large" color={theme.colors.primary.base} />
+        <Text style={{ marginTop: 10, color: theme.colors.neutral.textSecondary }}>
+          جاري تحميل الحيوانات...
+        </Text>
       </View>
     );
   }
 
   if (error) {
+    // console.log('Showing error state:', error);
     return (
       <View style={[styles.container, styles.centerContent]}>
         <MaterialCommunityIcons 
@@ -469,8 +537,15 @@ export const AnimalsScreen = ({ navigation }: AnimalsScreenProps) => {
           color={theme.colors.error} 
         />
         <Text style={[styles.errorText, { color: theme.colors.error }]}>
-          حدث خطأ
+          حدث خطأ: {error}
         </Text>
+        <TouchableOpacity
+          style={[styles.seeMoreButton, { backgroundColor: theme.colors.primary.base, marginTop: 20 }]}
+          onPress={handleRefresh}
+        >
+          <Text style={styles.seeMoreText}>إعادة المحاولة</Text>
+          <MaterialCommunityIcons name="refresh" size={24} color="#FFF" />
+        </TouchableOpacity>
       </View>
     );
   }
@@ -482,31 +557,44 @@ export const AnimalsScreen = ({ navigation }: AnimalsScreenProps) => {
         barStyle="dark-content"
       />
       <View style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
-        <FlatList
-          data={paginatedAnimals}
-          renderItem={renderAnimalCard}
-          keyExtractor={item => item.id}
-          contentContainerStyle={styles.listContent}
-          ListHeaderComponent={renderHeader}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyIcon}>🔍</Text>
-              <Text style={[styles.emptyText, { color: theme.colors.neutral.textSecondary }]}>
-                لا توجد حيوانات
-              </Text>
-            </View>
-          }
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              colors={[theme.colors.primary.base]}
-              tintColor={theme.colors.primary.base}
+        {animals.length > 0 ? (
+          <>
+            <FlatList
+              data={paginatedAnimals}
+              renderItem={renderAnimalCard}
+              keyExtractor={item => item.id?.toString()}
+              contentContainerStyle={styles.listContent}
+              ListHeaderComponent={renderHeader}
+              ListFooterComponent={renderFooter}
+              ListEmptyComponent={renderListEmptyComponent}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={handleRefresh}
+                  colors={[theme.colors.primary.base]}
+                  tintColor={theme.colors.primary.base}
+                />
+              }
             />
-          }
-          onEndReached={handleLoadMore}
-          onEndReachedThreshold={0.5}
-        />
+          </>
+        ) : (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyIcon}>🐄</Text>
+            <Text style={[styles.emptyText, { color: theme.colors.neutral.textSecondary }]}>
+              لم يتم العثور على حيوانات
+            </Text>
+            <Text style={[styles.emptyText, { color: theme.colors.neutral.textSecondary, marginTop: 10 }]}>
+              Number of animals: {animals.length}, Filtered: {filteredAnimals.length}, Paginated: {paginatedAnimals.length}
+            </Text>
+            <TouchableOpacity
+              style={[styles.seeMoreButton, { backgroundColor: theme.colors.primary.base, marginTop: 20 }]}
+              onPress={handleRefresh}
+            >
+              <Text style={styles.seeMoreText}>تحديث</Text>
+              <MaterialCommunityIcons name="refresh" size={24} color="#FFF" />
+            </TouchableOpacity>
+          </View>
+        )}
         <FAB
           icon="plus"
           onPress={() => navigation.navigate('AddAnimal', {})}
@@ -738,5 +826,19 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: 14,
+  },
+  seeMoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 16,
+    gap: 8,
+  },
+  seeMoreText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 }); 

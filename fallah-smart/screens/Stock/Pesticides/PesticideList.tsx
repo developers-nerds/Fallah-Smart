@@ -26,7 +26,7 @@ import { createThemedStyles } from '../../../utils/createThemedStyles';
 import { SafeAreaView as SafeAreaViewContext } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 4;
 
 type PesticideListScreenProps = {
   navigation: StackNavigationProp<StockStackParamList, 'PesticideList'>;
@@ -76,6 +76,20 @@ export const PesticideListScreen = ({ navigation }: PesticideListScreenProps) =>
       setPage(prev => prev + 1);
     }
   }, [paginatedPesticides.length, filteredPesticides.length]);
+
+  const renderFooter = useCallback(() => {
+    if (paginatedPesticides.length >= filteredPesticides.length) return null;
+    
+    return (
+      <TouchableOpacity
+        style={[styles.seeMoreButton, { backgroundColor: theme.colors.primary.base }]}
+        onPress={handleLoadMore}
+      >
+        <Text style={styles.seeMoreText}>عرض المزيد</Text>
+        <MaterialCommunityIcons name="chevron-down" size={24} color="#FFF" />
+      </TouchableOpacity>
+    );
+  }, [paginatedPesticides.length, filteredPesticides.length, handleLoadMore, theme]);
 
   const renderTypeChip = useCallback(({ item }: { item: string }) => {
     const typeInfo = item === 'الكل' ? { 
@@ -483,6 +497,20 @@ export const PesticideListScreen = ({ navigation }: PesticideListScreenProps) =>
         justifyContent: 'center',
         alignItems: 'center',
       },
+      seeMoreButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: theme.spacing.md,
+        borderRadius: theme.borderRadius.medium,
+        marginTop: theme.spacing.md,
+        gap: theme.spacing.sm,
+      },
+      seeMoreText: {
+        color: '#FFF',
+        fontSize: getTypographySize('typography.arabic.body.fontSize', 20),
+        fontWeight: '600',
+      },
     };
   });
 
@@ -535,6 +563,7 @@ export const PesticideListScreen = ({ navigation }: PesticideListScreenProps) =>
         keyExtractor={item => item.id}
         contentContainerStyle={styles.listContent}
         ListHeaderComponent={renderHeader}
+        ListFooterComponent={renderFooter}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <MaterialCommunityIcons 
@@ -555,8 +584,6 @@ export const PesticideListScreen = ({ navigation }: PesticideListScreenProps) =>
             tintColor={theme.colors.primary.base}
           />
         }
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.5}
       />
       
       <FAB

@@ -159,4 +159,33 @@ export interface StockFormValues {
 
 export type StockPesticide = Pesticide;
 
-export type StockAnimal = Animal; 
+export type StockAnimal = Animal;
+
+export interface StockSeed {
+  id: string;
+  name: string;
+  type: string;
+  quantity: number;
+  unit: string;
+  price: number;
+  expiryDate: string;
+  variety?: string;
+  manufacturer?: string;
+  batchNumber?: string;
+  purchaseDate?: string;
+  location?: string;
+  notes?: string;
+  supplier?: string;
+  plantingInstructions?: string;
+  germinationTime?: string;
+  growingSeason?: string;
+  minQuantityAlert: number;
+  cropType?: string;
+  plantingSeasonStart?: string;
+  plantingSeasonEnd?: string;
+  germination?: number;
+  certificationInfo?: string;
+  userId: string;
+  createdAt: string;
+  updatedAt: string;
+} 

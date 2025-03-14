@@ -20,12 +20,29 @@ const api = axios.create({
   timeout: 10000, // 10 second timeout
 });
 
+// Additional configuration to track request and response
+api.interceptors.request.use(
+  (config) => {
+    console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url}`);
+    console.log('[API Request] Headers:', config.headers);
+    console.log('[API Request] Data:', config.data);
+    return config;
+  },
+  (error) => {
+    console.error('[API Request Error]', error);
+    return Promise.reject(error);
+  }
+);
+
 // Add token to requests
 api.interceptors.request.use(async (config) => {
   try {
     const tokens = await storage.getTokens();
     if (tokens?.accessToken) {
       config.headers.Authorization = `Bearer ${tokens.accessToken}`;
+      console.log('[Auth] Token added to request');
+    } else {
+      console.warn('[Auth] No access token available');
     }
     return config;
   } catch (error) {
@@ -36,13 +53,25 @@ api.interceptors.request.use(async (config) => {
 
 // Add response interceptor for error handling
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log(`[API Response] ${response.status} ${response.config.url}`);
+    console.log('[API Response] Data:', response.data);
+    return response;
+  },
   async (error) => {
-    console.error('API Error:', error.response?.data || error.message);
-    
-    if (error.response?.status === 401) {
-      await storage.clearAuth();
-      // TODO: Navigate to login screen
+    if (axios.isAxiosError(error)) {
+      console.error(`[API Error] ${error.response?.status} ${error.config?.url}`);
+      console.error('[API Error] Response data:', error.response?.data);
+      console.error('[API Error] Request data:', error.config?.data);
+      console.error('[API Error] Request headers:', error.config?.headers);
+      
+      if (error.response?.status === 401) {
+        await storage.clearAuth();
+        console.warn('[Auth] 401 Unauthorized - clearing auth tokens');
+        // TODO: Navigate to login screen
+      }
+    } else {
+      console.error('[API Error] Non-Axios error:', error);
     }
     return Promise.reject(error);
   }
@@ -274,5 +303,96 @@ const pesticideApi = {
   },
 };
 
+// Seed API methods
+const seedApi = {
+  // Get all seeds
+  getAllSeeds: async () => {
+    try {
+      console.log('Fetching all seeds from:', `${API_URL}/stock/seeds`);
+      const response = await api.get('/stock/seeds');
+      console.log('Seeds response:', response.data);
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        console.error('Error fetching seeds:', error.response?.data || error.message);
+        console.error('Error status:', error.response?.status);
+        console.error('Error headers:', error.response?.headers);
+      } else {
+        console.error('Error fetching seeds:', error);
+      }
+      throw error;
+    }
+  },
+
+  // Create seed
+  createSeed: async (seedData: any) => {
+    try {
+      console.log('Creating seed at:', `${API_URL}/stock/seeds`);
+      console.log('Request headers:', api.defaults.headers);
+      console.log('Seed data being sent:', JSON.stringify(seedData, null, 2));
+      
+      // Add validation for required fields
+      if (!seedData.cropType) {
+        console.error('Missing required field: cropType');
+        seedData.cropType = 'عام'; // Set a default value
+      }
+      
+      // Ensure userId is a number
+      if (seedData.userId && typeof seedData.userId === 'string') {
+        seedData.userId = parseInt(seedData.userId, 10);
+      }
+      
+      console.log('Final seed data after validation:', JSON.stringify(seedData, null, 2));
+      const response = await api.post('/stock/seeds', seedData);
+      console.log('Create seed response:', response.data);
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        console.error('Error creating seed - Response data:', error.response?.data);
+        console.error('Error status:', error.response?.status);
+        console.error('Error headers:', error.response?.headers);
+        console.error('Request config that caused error:', error.config);
+        console.error('Full error:', error);
+      } else {
+        console.error('Error creating seed (non-Axios):', error);
+      }
+      throw error;
+    }
+  },
+
+  // Update seed
+  updateSeed: async (id: string, data: any) => {
+    try {
+      const response = await api.put(`/stock/seeds/${id}`, data);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating seed:', error);
+      throw error;
+    }
+  },
+
+  // Delete seed
+  deleteSeed: async (id: string) => {
+    try {
+      const response = await api.delete(`/stock/seeds/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error deleting seed:', error);
+      throw error;
+    }
+  },
+
+  // Update seed quantity
+  updateSeedQuantity: async (id: string, data: { quantity: number; type: 'add' | 'remove'; notes?: string }) => {
+    try {
+      const response = await api.patch(`/stock/seeds/${id}/quantity`, data);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating seed quantity:', error);
+      throw error;
+    }
+  }
+};
+
 // Export both the base API and specific methods
-export { api, stockApi, animalApi, stockStatisticsApi, pesticideApi }; 
+export { api, stockApi, animalApi, stockStatisticsApi, pesticideApi, seedApi }; 

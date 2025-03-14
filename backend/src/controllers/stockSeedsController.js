@@ -1,12 +1,11 @@
-const { StockSeeds, StockHistory } = require('../database/models');
+const { StockSeeds } = require('../database/models');
 
 const stockSeedsController = {
   // Get all seeds for a user
   getAllSeeds: async (req, res) => {
     try {
       const seeds = await StockSeeds.findAll({
-        where: { userId: req.user.id },
-        include: [{ model: StockHistory, as: 'history' }]
+        where: { userId: req.user.id }
       });
       res.json(seeds);
     } catch (error) {
@@ -22,8 +21,7 @@ const stockSeedsController = {
         where: { 
           id: req.params.id,
           userId: req.user.id 
-        },
-        include: [{ model: StockHistory, as: 'history' }]
+        }
       });
 
       if (!seed) {
@@ -73,22 +71,7 @@ const stockSeedsController = {
         certificationInfo
       });
 
-      // Create initial stock history entry
-      await StockHistory.create({
-        stockSeedsId: seed.id,
-        type: 'initial',
-        quantity: quantity,
-        previousQuantity: 0,
-        newQuantity: quantity,
-        notes: 'Initial stock entry'
-      });
-
-      const createdSeed = await StockSeeds.findOne({
-        where: { id: seed.id },
-        include: [{ model: StockHistory, as: 'history' }]
-      });
-
-      res.status(201).json(createdSeed);
+      res.status(201).json(seed);
     } catch (error) {
       console.error('Error creating seed:', error);
       res.status(500).json({ error: 'Failed to create seed' });
@@ -109,27 +92,8 @@ const stockSeedsController = {
         return res.status(404).json({ error: 'Seed not found' });
       }
 
-      const previousQuantity = seed.quantity;
       await seed.update(req.body);
-
-      // If quantity changed, create history entry
-      if (previousQuantity !== req.body.quantity) {
-        await StockHistory.create({
-          stockSeedsId: seed.id,
-          type: 'update',
-          quantity: req.body.quantity - previousQuantity,
-          previousQuantity,
-          newQuantity: req.body.quantity,
-          notes: req.body.notes || 'Stock update'
-        });
-      }
-
-      const updatedSeed = await StockSeeds.findOne({
-        where: { id: req.params.id },
-        include: [{ model: StockHistory, as: 'history' }]
-      });
-
-      res.json(updatedSeed);
+      res.json(seed);
     } catch (error) {
       console.error('Error updating seed:', error);
       res.status(500).json({ error: 'Failed to update seed' });
@@ -162,7 +126,7 @@ const stockSeedsController = {
   updateSeedQuantity: async (req, res) => {
     try {
       const { id } = req.params;
-      const { quantity, type, notes } = req.body;
+      const { quantity, type } = req.body;
 
       const seed = await StockSeeds.findOne({
         where: {
@@ -188,23 +152,7 @@ const stockSeedsController = {
       }
 
       await seed.update({ quantity: newQuantity });
-
-      // Create history entry
-      await StockHistory.create({
-        stockSeedsId: seed.id,
-        type: type === 'add' ? 'addition' : 'reduction',
-        quantity: type === 'add' ? quantity : -quantity,
-        previousQuantity,
-        newQuantity,
-        notes: notes || `Stock ${type === 'add' ? 'addition' : 'reduction'}`
-      });
-
-      const updatedSeed = await StockSeeds.findOne({
-        where: { id },
-        include: [{ model: StockHistory, as: 'history' }]
-      });
-
-      res.json(updatedSeed);
+      res.json(seed);
     } catch (error) {
       console.error('Error updating seed quantity:', error);
       res.status(500).json({ error: 'Failed to update seed quantity' });
