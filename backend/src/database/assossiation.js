@@ -51,6 +51,8 @@ const StockNotification = require("./models/StockNotification")(sequelize, DataT
 const StockTools = require("./models/StockTools")(sequelize, DataTypes);
 const Transactions = require("./models/Transactions")(sequelize, DataTypes);
 const Users = require("./models/Users")(sequelize, DataTypes);
+const Reports = require('./models/Reports')(sequelize, DataTypes);
+const AdvisorApplications = require("./models/AdvisorApplications")(sequelize, DataTypes);
 
 //////////////////////////////////////////Achref////////////////////////////////////////////
 
@@ -331,9 +333,9 @@ Posts.hasMany(Media, {
   onDelete: "CASCADE",
 });
 
-Media.belongsTo(Posts, {
-  foreignKey: "postId",
-  as: "post",
+Posts.belongsTo(Users, {
+  foreignKey: "userId",
+  as: "author",
 });
 
 Scans.hasMany(Media, {
@@ -431,11 +433,6 @@ Users.hasMany(Posts, {
   as: "posts",
   onDelete: "CASCADE",
   onUpdate: "CASCADE",
-});
-
-Posts.belongsTo(Users, {
-  foreignKey: "userId",
-  as: "user",
 });
 
 // Posts and Comments associations
@@ -651,6 +648,16 @@ StockTools.belongsTo(Users, {
   foreignKey: "userId",
   as: "user",
 });
+// Reports associations
+Reports.belongsTo(Users, { foreignKey: 'userId', as: 'user' });
+Reports.belongsTo(Posts, { foreignKey: 'postId', as: 'post' });
+
+// Create associations
+AdvisorApplications.belongsTo(Users, { foreignKey: 'userId' });
+Users.hasMany(AdvisorApplications, { foreignKey: 'userId' });
+
+// Sync all models with the database
+
 // Add Suppliers and Specializations many-to-many relationship
 Suppliers.belongsToMany(Specializations, {
   through: SupplierSpecializations,
@@ -785,6 +792,8 @@ module.exports = {
   Media,
   Notification,
   Recurring_Transactions,
+  Reports,
+  AdvisorApplications,
   Specializations,
   SupplierSpecializations,
   Education_Quiz,

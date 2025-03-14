@@ -23,4 +23,7 @@ router.delete('/comments/:commentId', auth, blogController.deleteComment);
 router.post('/posts/:postId/like', auth, blogController.toggleLike);
 router.get('/posts/:postId/likes', blogController.getPostLikes);
 
+// Report routes
+router.post('/posts/:postId/report', auth, blogController.reportPost);
+
 module.exports = router; 
