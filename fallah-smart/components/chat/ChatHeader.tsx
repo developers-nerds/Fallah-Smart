@@ -1,5 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Platform,
+  useWindowDimensions,
+} from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { theme } from '../../theme/theme';
 import { handleNewConversation, Conversation } from '../../utils/conversationUtils';
@@ -10,23 +17,92 @@ interface ChatHeaderProps {
 }
 
 const ChatHeader: React.FC<ChatHeaderProps> = ({ onNewConversation, onTitlePress }) => {
+  const { width } = useWindowDimensions();
+  const isSmallScreen = width < 360;
+  const isMediumScreen = width < 400;
+
+  const getResponsiveFontSize = (baseSize: number) => {
+    if (isSmallScreen) return baseSize - 2;
+    if (isMediumScreen) return baseSize - 1;
+    return baseSize;
+  };
+
   return (
-    <View style={styles.container}>
-      <TouchableOpacity style={styles.historyButton} onPress={onTitlePress}>
-        <MaterialIcons name="history" size={22} color={theme.colors.primary.base} />
+    <View
+      style={[
+        styles.container,
+        { paddingHorizontal: isSmallScreen ? theme.spacing.sm : theme.spacing.md },
+      ]}>
+      <TouchableOpacity
+        style={[
+          styles.historyButton,
+          { paddingHorizontal: isSmallScreen ? theme.spacing.sm : theme.spacing.md },
+        ]}
+        onPress={onTitlePress}
+        activeOpacity={0.7}>
+        <MaterialIcons
+          name="history"
+          size={isSmallScreen ? 20 : 22}
+          color={theme.colors.primary.base}
+        />
         <View style={styles.titleContainer}>
-          <Text style={styles.title}>Smart Farmer</Text>
-          <Text style={styles.subtitle}>View conversation history</Text>
+          <Text
+            style={[
+              styles.title,
+              {
+                fontSize: getResponsiveFontSize(theme.fontSizes.h2),
+                lineHeight: getResponsiveFontSize(theme.fontSizes.h2) * 1.2,
+              },
+            ]}
+            numberOfLines={1}
+            adjustsFontSizeToFit>
+فلاح سمارت
+</Text>
+          <Text
+            style={[
+              styles.subtitle,
+              {
+                fontSize: getResponsiveFontSize(theme.fontSizes.caption),
+                lineHeight: getResponsiveFontSize(theme.fontSizes.caption) * 1.2,
+              },
+            ]}
+            numberOfLines={1}
+            adjustsFontSizeToFit>
+            عرض سجل المحادثة
+          </Text>
         </View>
-        <MaterialIcons name="chevron-right" size={22} color={theme.colors.primary.base} />
+        <MaterialIcons
+          name="chevron-right"
+          size={isSmallScreen ? 20 : 22}
+          color={theme.colors.primary.base}
+        />
       </TouchableOpacity>
       <TouchableOpacity
         onPress={() => {
           handleNewConversation(onNewConversation);
         }}
-        style={styles.newChatButton}>
-        <MaterialIcons name="add" size={20} color={theme.colors.neutral.surface} />
-        <Text style={styles.newChatText}>New Chat</Text>
+        style={[
+          styles.newChatButton,
+          { paddingHorizontal: isSmallScreen ? theme.spacing.sm : theme.spacing.md },
+        ]}
+        activeOpacity={0.7}>
+        <MaterialIcons
+          name="add"
+          size={isSmallScreen ? 18 : 20}
+          color={theme.colors.neutral.surface}
+        />
+        <Text
+          style={[
+            styles.newChatText,
+            {
+              fontSize: getResponsiveFontSize(theme.fontSizes.caption),
+              lineHeight: getResponsiveFontSize(theme.fontSizes.caption) * 1.2,
+            },
+          ]}
+          numberOfLines={1}
+          adjustsFontSizeToFit>
+          دردشة جديدة
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -37,7 +113,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: theme.spacing.md,
+    paddingVertical: Platform.select({
+      ios: theme.spacing.md,
+      android: theme.spacing.sm,
+    }),
     backgroundColor: theme.colors.neutral.surface,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.neutral.border,
@@ -47,41 +126,51 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.primary.surface,
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
+    paddingVertical: Platform.select({
+      ios: theme.spacing.sm,
+      android: theme.spacing.xs,
+    }),
     borderRadius: theme.borderRadius.medium,
     flex: 1,
     marginRight: theme.spacing.md,
   },
   titleContainer: {
     flex: 1,
-    marginLeft: theme.spacing.sm,
+    marginHorizontal: theme.spacing.sm,
+    justifyContent: 'center',
   },
   title: {
-    fontSize: theme.fontSizes.h2,
     fontFamily: theme.fonts.bold,
     color: theme.colors.primary.base,
+    textAlign: 'right',
+    includeFontPadding: false,
   },
   subtitle: {
-    fontSize: theme.fontSizes.caption,
     fontFamily: theme.fonts.regular,
     color: theme.colors.neutral.textSecondary,
     marginTop: 2,
+    textAlign: 'right',
+    includeFontPadding: false,
   },
   newChatButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.primary.base,
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
+    paddingVertical: Platform.select({
+      ios: theme.spacing.sm,
+      android: theme.spacing.xs,
+    }),
     borderRadius: theme.borderRadius.medium,
+    minWidth: 100,
+    justifyContent: 'center',
     ...theme.shadows.small,
   },
   newChatText: {
     color: theme.colors.neutral.surface,
     fontFamily: theme.fonts.medium,
-    fontSize: theme.fontSizes.caption,
     marginLeft: theme.spacing.xs,
+    textAlign: 'right',
+    includeFontPadding: false,
   },
 });
 
