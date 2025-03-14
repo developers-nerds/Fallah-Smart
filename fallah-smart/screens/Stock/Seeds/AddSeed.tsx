@@ -29,7 +29,7 @@ import { Formik } from 'formik';
 import * as Yup from 'yup';
 import { SEED_TYPES, SEED_CATEGORIES, UNIT_ICONS, SEASON_ICONS } from './constants';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { FadeInRight } from 'react-native-reanimated';
+import Animated, { FadeInRight, FadeInDown, ZoomIn } from 'react-native-reanimated';
 import { CustomButton } from '../../../components/CustomButton';
 import axios from 'axios';
 import { storage } from '../../../utils/storage';
@@ -81,19 +81,18 @@ interface AddSeedScreenProps {
 }
 
 const validationSchema = Yup.object().shape({
-  name: Yup.string().required('اسم البذور مطلوب'),
   type: Yup.string().required('نوع البذور مطلوب'),
   quantity: Yup.string()
     .required('الكمية مطلوبة')
     .test('is-number', 'الكمية يجب أن تكون رقماً', value => !isNaN(parseFloat(value))),
   unit: Yup.string().required('وحدة القياس مطلوبة'),
+  // Les autres champs ne sont plus obligatoires
+  name: Yup.string(),
   price: Yup.string()
-    .required('السعر مطلوب')
-    .test('is-number', 'السعر يجب أن يكون رقماً', value => !isNaN(parseFloat(value))),
+    .test('is-number', 'السعر يجب أن يكون رقماً', value => !value || !isNaN(parseFloat(value))),
   minQuantityAlert: Yup.string()
-    .required('حد التنبيه مطلوب')
-    .test('is-number', 'حد التنبيه يجب أن يكون رقماً', value => !isNaN(parseFloat(value))),
-  expiryDate: Yup.string().required('تاريخ الصلاحية مطلوب'),
+    .test('is-number', 'حد التنبيه يجب أن يكون رقماً', value => !value || !isNaN(parseFloat(value))),
+  expiryDate: Yup.string(),
 });
 
 export const AddSeedScreen = ({ navigation, route }: AddSeedScreenProps) => {
@@ -136,7 +135,7 @@ export const AddSeedScreen = ({ navigation, route }: AddSeedScreenProps) => {
       title: 'المعلومات الأساسية',
       subtitle: 'أدخل المعلومات الأساسية للبذور',
       icon: '🌱',
-      fields: ['name', 'type', 'quantity', 'unit', 'price', 'minQuantityAlert', 'expiryDate'],
+      fields: ['type', 'name', 'quantity', 'unit', 'price', 'minQuantityAlert', 'expiryDate'],
     },
     {
       title: 'معلومات إضافية',
@@ -193,14 +192,25 @@ export const AddSeedScreen = ({ navigation, route }: AddSeedScreenProps) => {
   const validateCurrentPage = (values: FormData) => {
     let isValid = true;
     const currentFields = formPages[currentPage].fields;
-
-    for (const field of currentFields) {
+    
+    // Liste des champs obligatoires par page
+    const requiredFieldsByPage: { [key: number]: Array<keyof FormData> } = {
+      0: ['type', 'quantity', 'unit'], // Première page: seulement type, quantité et unité sont obligatoires
+      1: [], // Deuxième page: aucun champ obligatoire
+      2: [], // Troisième page: aucun champ obligatoire 
+      3: []  // Quatrième page: aucun champ obligatoire
+    };
+    
+    const requiredFields = requiredFieldsByPage[currentPage] || [];
+    
+    // Ne vérifier que les champs obligatoires pour cette page
+    for (const field of requiredFields) {
       if (!values[field]) {
         isValid = false;
         break;
       }
     }
-
+    
     return isValid;
   };
 
@@ -342,59 +352,161 @@ export const AddSeedScreen = ({ navigation, route }: AddSeedScreenProps) => {
     setShowDatePicker(true);
   };
 
+  const handleCategorySelect = (category: string, values: FormData, setFieldValue: any) => {
+    // Définir la catégorie sélectionnée
+    setSelectedCategory(category);
+    
+    // Trouver le premier type de semence de cette catégorie
+    const seedTypesOfCategory = Object.entries(SEED_TYPES)
+      .filter(([_, seed]) => seed.category === category);
+    
+    if (seedTypesOfCategory.length > 0) {
+      // Définir automatiquement le type sur le premier élément de cette catégorie
+      setFieldValue('type', seedTypesOfCategory[0][0]);
+    }
+  };
+
   const renderField = (field: keyof FormData, values: FormData, errors: any, touched: any, handleChange: any, setFieldValue: any) => {
     const seedType = SEED_TYPES[values.type as keyof typeof SEED_TYPES];
     
     switch (field) {
       case 'name':
   return (
-              <TextInput
+          <Animated.View
             key={field}
-                label="اسم البذور"
+            entering={FadeInRight.delay(100).springify()}
+            style={[styles.fieldContainer, { 
+              backgroundColor: 'rgba(255, 248, 220, 0.5)',
+              borderRadius: 12,
+              padding: 10,
+              borderWidth: 1,
+              borderColor: 'rgba(222, 184, 135, 0.3)',
+            }]}
+          >
+            <View style={[styles.fieldHeaderContainer, {
+              backgroundColor: 'rgba(255, 248, 220, 0.7)',
+              borderColor: 'rgba(222, 184, 135, 0.5)',
+            }]}>
+              <Text style={[styles.fieldIcon, { fontSize: 30 }]}>{seedType?.icon || '🌱'}</Text>
+              <Text style={[styles.label, { 
+                color: theme.colors.neutral.textPrimary,
+                fontSize: 18,
+                fontWeight: 'bold',
+              }]}>
+                اسم البذور
+            </Text>
+            </View>
+              <TextInput
                 value={values.name}
                 onChangeText={handleChange('name')}
-            error={touched.name && errors.name ? errors.name : undefined}
-          />
+              error={touched.name && errors.name ? errors.name : undefined}
+              placeholder={seedType?.name || 'أدخل اسم البذور'}
+              style={{ backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8 }}
+            />
+            <Text style={[styles.helperText, { 
+              color: 'rgba(150, 90, 30, 0.8)',
+              fontSize: 14,
+              fontStyle: 'italic',
+              marginTop: 8,
+              textAlign: 'center',
+            }]}>
+              تم اختيار الاسم تلقائيًا بناءً على نوع البذور المحدد
+                </Text>
+          </Animated.View>
         );
       case 'type':
         return (
-          <View key={field} style={styles.fieldContainer}>
-                <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-                  نوع البذور
-                </Text>
-            <View style={styles.seedTypeGrid}>
-              {Object.entries(SEED_TYPES)
-                .filter(([_, seed]) => !selectedCategory || seed.category === selectedCategory)
-                .map(([key, seed]) => (
-                  <TouchableOpacity
-                    key={key}
-                    style={[
-                      styles.seedTypeButton,
-                      { 
-                        backgroundColor: values.type === key ? theme.colors.primary.base : theme.colors.neutral.surface,
-                        borderColor: values.type === key ? theme.colors.primary.base : theme.colors.neutral.border,
-                      }
-                    ]}
-                    onPress={() => setFieldValue('type', key)}
-                  >
-                    <Text style={styles.seedTypeIcon}>{seed.icon}</Text>
-                    <Text style={[
-                      styles.seedTypeText,
-                      { color: values.type === key ? '#FFF' : theme.colors.neutral.textSecondary }
-                    ]}>
-                      {seed.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-            </View>
+          <Animated.View
+            key={field}
+            entering={FadeInRight.delay(50).springify()}
+            style={[styles.fieldContainer, {
+              backgroundColor: 'rgba(240, 250, 240, 0.5)',
+              borderRadius: 12,
+              padding: 12,
+              borderWidth: 1,
+              borderColor: 'rgba(144, 238, 144, 0.4)',
+            }]}
+          >
+            {selectedCategory && (
+              <View style={styles.categoriesContainer}>
+                <Text style={styles.sectionTitle}>اختر نوع البذور</Text>
+                <View style={styles.seedTypeGrid}>
+                  {Object.entries(SEED_TYPES)
+                    .filter(([_, seed]) => seed.category === selectedCategory && seed.name !== 'الكل' && !seed.name.includes('الكل'))
+                    .map(([key, seed], index) => {
+                      const typeColors = [
+                        '#8BC34A',
+                        '#4CAF50',
+                        '#009688',
+                        '#CDDC39',
+                        '#FFC107',
+                        '#FF9800',
+                      ];
+                      
+                      const colorIndex = index % typeColors.length;
+                      const backgroundColor = values.type === key ? theme.colors.primary.base : typeColors[colorIndex];
+                      const isSelected = values.type === key;
+
+                      return (
+                        <Animated.View
+                          key={key}
+                          entering={FadeInRight.delay(50 * index).springify()}
+                        >
+                          <TouchableOpacity
+                            style={[
+                              styles.seedTypeTile,
+                              { 
+                                backgroundColor: isSelected ? theme.colors.primary.base : '#FFFFFF',
+                                borderColor: isSelected ? theme.colors.primary.base : typeColors[colorIndex],
+                                borderWidth: 1.5,
+                                elevation: isSelected ? 4 : 2,
+                                shadowOpacity: isSelected ? 0.2 : 0.1,
+                                shadowRadius: isSelected ? 4 : 2,
+                                shadowOffset: { width: 0, height: isSelected ? 2 : 1 },
+                                transform: [{ scale: isSelected ? 1.03 : 1 }],
+                              }
+                            ]}
+                            onPress={() => {
+                              setFieldValue('type', key);
+                              setFieldValue('name', seed.name);
+                            }}
+                          >
+                            <Text style={[styles.seedTypeIcon, {
+                              color: isSelected ? '#FFFFFF' : typeColors[colorIndex],
+                              fontSize: 38,
+                              marginBottom: 8
+                            }]}>{seed.icon}</Text>
+                            
+                            <Text style={[
+                              styles.seedTypeName,
+                              { 
+                                color: isSelected ? '#FFFFFF' : '#333333',
+                                fontWeight: isSelected ? '700' : '600',
+                                fontSize: 15
+                              }
+                            ]}>
+                              {seed.name}
+                            </Text>
+                          </TouchableOpacity>
+                        </Animated.View>
+                      );
+                    })}
+                </View>
+              </View>
+            )}
+            
             {touched.type && errors.type && (
               <Text style={[styles.errorText, { color: theme.colors.error }]}>{errors.type}</Text>
             )}
-              </View>
+          </Animated.View>
         );
       case 'quantity':
         return (
-          <View key={field} style={styles.rowContainer}>
+          <Animated.View 
+            key={field} 
+            entering={FadeInRight.delay(150).springify()}
+            style={styles.rowContainer}
+          >
             <View style={{ flex: 2 }}>
               <TextInput
                 label="الكمية"
@@ -408,7 +520,14 @@ export const AddSeedScreen = ({ navigation, route }: AddSeedScreenProps) => {
               <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
                 الوحدة
               </Text>
-              <View style={[styles.pickerContainer, { borderColor: theme.colors.neutral.border }]}>
+              <View style={[styles.pickerContainer, { 
+                borderColor: theme.colors.neutral.border,
+                backgroundColor: theme.colors.neutral.surface,
+                elevation: 1,
+                shadowOpacity: 0.1,
+                shadowRadius: 2,
+                shadowOffset: { width: 0, height: 1 },
+              }]}>
                 <Picker
                   selectedValue={values.unit}
                   onValueChange={itemValue => setFieldValue('unit', itemValue)}
@@ -424,29 +543,37 @@ export const AddSeedScreen = ({ navigation, route }: AddSeedScreenProps) => {
                 </Picker>
               </View>
             </View>
-          </View>
+          </Animated.View>
         );
       case 'price':
         return (
-              <TextInput
+          <Animated.View
             key={field}
-            label="السعر"
-            value={values.price}
-            onChangeText={handleChange('price')}
-            keyboardType="numeric"
-            error={touched.price && errors.price ? errors.price : undefined}
-          />
+            entering={FadeInRight.delay(200).springify()}
+          >
+              <TextInput
+                label="السعر"
+              value={values.price}
+                onChangeText={handleChange('price')}
+                keyboardType="numeric"
+              error={touched.price && errors.price ? errors.price : undefined}
+            />
+          </Animated.View>
         );
       case 'minQuantityAlert':
         return (
-              <TextInput
+          <Animated.View
             key={field}
-            label="حد التنبيه"
-            value={values.minQuantityAlert}
-            onChangeText={handleChange('minQuantityAlert')}
-            keyboardType="numeric"
-            error={touched.minQuantityAlert && errors.minQuantityAlert ? errors.minQuantityAlert : undefined}
-          />
+            entering={FadeInRight.delay(250).springify()}
+          >
+            <TextInput
+              label="حد التنبيه"
+              value={values.minQuantityAlert}
+              onChangeText={handleChange('minQuantityAlert')}
+              keyboardType="numeric"
+              error={touched.minQuantityAlert && errors.minQuantityAlert ? errors.minQuantityAlert : undefined}
+            />
+          </Animated.View>
         );
       case 'expiryDate':
       case 'purchaseDate':
@@ -460,7 +587,11 @@ export const AddSeedScreen = ({ navigation, route }: AddSeedScreenProps) => {
         }[field];
         
         return (
-          <View key={field} style={styles.fieldContainer}>
+          <Animated.View 
+            key={field} 
+            entering={FadeInRight.delay(300).springify()}
+            style={styles.fieldContainer}
+          >
             <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
               {dateLabel}
             </Text>
@@ -470,32 +601,40 @@ export const AddSeedScreen = ({ navigation, route }: AddSeedScreenProps) => {
                 { 
                   backgroundColor: theme.colors.neutral.surface,
                   borderColor: theme.colors.neutral.border,
+                  elevation: 2,
+                  shadowOpacity: 0.2,
+                  shadowRadius: 2,
+                  shadowOffset: { width: 0, height: 1 },
                 }
               ]}
               onPress={() => showDatePickerModal(field as DateField)}
             >
-              <Text style={{ color: theme.colors.neutral.textPrimary }}>
+              <Text style={{ color: theme.colors.neutral.textPrimary, fontWeight: '500' }}>
                 {new Date(values[field]).toLocaleDateString('ar')}
-              </Text>
-              <Feather name="calendar" size={20} color={theme.colors.neutral.textSecondary} />
-            </TouchableOpacity>
+                </Text>
+              <Feather name="calendar" size={20} color={theme.colors.primary.base} />
+              </TouchableOpacity>
             {touched[field] && errors[field] && (
               <Text style={[styles.errorText, { color: theme.colors.error }]}>{errors[field]}</Text>
             )}
-          </View>
+          </Animated.View>
         );
       case 'notes':
       case 'plantingInstructions':
         return (
-              <TextInput
+          <Animated.View
             key={field}
-            label={field === 'notes' ? 'ملاحظات' : 'تعليمات الزراعة'}
-            value={values[field]}
-            onChangeText={handleChange(field)}
-                multiline
-            numberOfLines={4}
-            error={touched[field] && errors[field] ? errors[field] : undefined}
-          />
+            entering={FadeInRight.delay(350).springify()}
+          >
+              <TextInput
+              label={field === 'notes' ? 'ملاحظات' : 'تعليمات الزراعة'}
+              value={values[field]}
+              onChangeText={handleChange(field)}
+              multiline
+              numberOfLines={4}
+              error={touched[field] && errors[field] ? errors[field] : undefined}
+            />
+          </Animated.View>
         );
       default:
         // For all other text fields
@@ -524,15 +663,42 @@ export const AddSeedScreen = ({ navigation, route }: AddSeedScreenProps) => {
           notes: 'ملاحظات'
         };
         
+        // Get icon based on field name
+        const getFieldIcon = (fieldName: string) => {
+          const icons: {[key: string]: string} = {
+            variety: '🔍',
+            manufacturer: '🏭',
+            batchNumber: '🔢',
+            location: '📍',
+            supplier: '🚚',
+            germinationTime: '⏱️',
+            growingSeason: '🌱',
+            cropType: '🌿',
+            germination: '📈',
+            certificationInfo: '📜',
+          };
+          return icons[fieldName] || '📋';
+        };
+        
         return (
-              <TextInput
+          <Animated.View
             key={field}
-            label={fieldLabels[field as keyof FormData] || String(field)}
-            value={values[field]}
-            onChangeText={handleChange(field)}
-            keyboardType={field === 'germination' ? 'numeric' : 'default'}
-            error={touched[field] && errors[field] ? errors[field] : undefined}
-          />
+            entering={FadeInRight.delay(200).springify()}
+            style={styles.fieldContainer}
+          >
+            <View style={styles.fieldLabelContainer}>
+              <Text style={styles.fieldIcon}>{getFieldIcon(String(field))}</Text>
+              <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
+                {fieldLabels[field as keyof FormData] || String(field)}
+              </Text>
+            </View>
+              <TextInput
+              value={values[field]}
+              onChangeText={handleChange(field)}
+              keyboardType={field === 'germination' ? 'numeric' : 'default'}
+              error={touched[field] && errors[field] ? errors[field] : undefined}
+            />
+          </Animated.View>
         );
     }
   };
@@ -540,18 +706,50 @@ export const AddSeedScreen = ({ navigation, route }: AddSeedScreenProps) => {
   const renderProgressBar = () => {
     return (
       <View style={styles.progressContainer}>
-        {formPages.map((_, index) => (
+        {formPages.map((page, index) => (
           <React.Fragment key={index}>
-            <View 
-              style={[
-                styles.progressDot, 
-                { 
-                  backgroundColor: index <= currentPage 
-                    ? theme.colors.primary.base 
-                    : theme.colors.neutral.border 
+              <TouchableOpacity
+              onPress={() => {
+                if (index <= currentPage) {
+                  setCurrentPage(index);
                 }
-              ]} 
-            />
+              }}
+            >
+              <Animated.View 
+                style={[
+                  styles.progressDot, 
+                  { 
+                    backgroundColor: index <= currentPage 
+                      ? theme.colors.primary.base 
+                      : theme.colors.neutral.border,
+                    transform: [{ scale: index === currentPage ? 1.3 : 1 }],
+                    elevation: index === currentPage ? 5 : 0,
+                    shadowOpacity: index === currentPage ? 0.3 : 0,
+                    shadowRadius: 5,
+                    shadowOffset: { width: 0, height: 3 },
+                  }
+                ]} 
+              >
+                {index < currentPage && (
+                  <Feather name="check" size={16} color="#FFFFFF" />
+                )}
+              </Animated.View>
+              <Animated.Text 
+                style={[
+                  styles.progressLabel,
+                  {
+                    color: index <= currentPage 
+                      ? theme.colors.primary.base 
+                      : theme.colors.neutral.textSecondary,
+                    opacity: index === currentPage ? 1 : 0.7,
+                    fontSize: index === currentPage ? 14 : 12,
+                    fontWeight: index === currentPage ? 'bold' : 'normal',
+                  }
+                ]}
+              >
+                {page.title}
+              </Animated.Text>
+              </TouchableOpacity>
             {index < formPages.length - 1 && (
               <View 
                 style={[
@@ -559,16 +757,103 @@ export const AddSeedScreen = ({ navigation, route }: AddSeedScreenProps) => {
                   { 
                     backgroundColor: index < currentPage 
                       ? theme.colors.primary.base 
-                      : theme.colors.neutral.border 
+                      : theme.colors.neutral.border,
+                    height: index === currentPage ? 4 : 2,
                   }
                 ]} 
               />
             )}
           </React.Fragment>
         ))}
-            </View>
+      </View>
     );
   };
+
+  // Rendu de l'en-tête de la page
+  const renderPageHeader = () => (
+    <View style={styles.pageHeader}>
+      <Animated.View 
+        style={[styles.pageIconContainer, {
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 3 },
+          shadowOpacity: 0.25,
+          shadowRadius: 6,
+          elevation: 6,
+        }]}
+        entering={ZoomIn.delay(100).springify()}
+      >
+        <Text style={styles.pageIcon}>🌾</Text>
+      </Animated.View>
+      <Animated.Text 
+        style={[styles.pageTitle, {
+          textShadowColor: 'rgba(0, 0, 0, 0.1)',
+          textShadowOffset: { width: 1, height: 1 },
+          textShadowRadius: 2,
+        }]}
+        entering={FadeInDown.delay(200).springify()}
+      >
+        إضافة بذور جديدة
+      </Animated.Text>
+      <Animated.Text 
+        style={[styles.pageSubtitle, {
+          backgroundColor: 'rgba(144, 238, 144, 0.1)',
+          paddingVertical: 10,
+          paddingHorizontal: 15,
+          borderRadius: 20,
+          maxWidth: '90%',
+          textAlign: 'center',
+          marginTop: 10,
+        }]}
+        entering={FadeInDown.delay(300).springify()}
+      >
+        أضف بذور جديدة إلى المخزون لتتبع الكميات والحالة
+      </Animated.Text>
+            </View>
+  );
+
+  // Rendu des catégories avec les props correctes
+  const renderCategoryButtons = (values: any, setFieldValue: (field: string, value: any) => void) => (
+    <View style={styles.categoriesContainer}>
+      <Text style={styles.sectionTitle}>اختر فئة البذور</Text>
+      <View style={styles.categoriesGrid}>
+        {Object.entries(SEED_CATEGORIES)
+          .filter(([key]) => key !== 'الكل' && !key.includes('الكل'))
+          .map(([key, categoryIcon], index) => {
+          return (
+            <Animated.View
+              key={key}
+              entering={FadeInDown.delay(100 * index).springify()}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.categoryButton,
+                  { 
+                    backgroundColor: selectedCategory === key ? theme.colors.primary.base : '#ffffff',
+                    borderColor: selectedCategory === key ? theme.colors.primary.base : theme.colors.neutral.border,
+                    transform: [{ scale: selectedCategory === key ? 1.05 : 1 }]
+                  }
+                ]}
+                onPress={() => {
+                  setSelectedCategory(key);
+                  setFieldValue('category', key);
+                }}
+              >
+                <Text style={styles.categoryIcon}>{categoryIcon}</Text>
+                <Text 
+                  style={[
+                    styles.categoryName,
+                    { color: selectedCategory === key ? '#ffffff' : theme.colors.neutral.textPrimary }
+                  ]}
+                >
+                  {key}
+                </Text>
+              </TouchableOpacity>
+            </Animated.View>
+          );
+        })}
+      </View>
+    </View>
+  );
 
   if (loading) {
     return (
@@ -602,59 +887,35 @@ export const AddSeedScreen = ({ navigation, route }: AddSeedScreenProps) => {
                 showsVerticalScrollIndicator={false}
               >
                 <View style={styles.header}>
-                  <Text style={[styles.headerTitle, { color: theme.colors.neutral.textPrimary }]}>
+                  <Animated.Text 
+                    entering={FadeInRight.delay(50).springify()}
+                    style={[styles.headerTitle, { color: theme.colors.primary.base }]}
+                  >
                     {seedId ? 'تعديل البذور' : 'إضافة بذور جديدة'}
-                  </Text>
+                  </Animated.Text>
                   {renderProgressBar()}
             </View>
 
-                <View style={styles.pageContainer}>
-                  <View style={[styles.pageHeader, { backgroundColor: theme.colors.primary.base }]}>
-                    <Text style={styles.pageIcon}>{formPages[currentPage].icon}</Text>
-                    <View>
-                      <Text style={styles.pageTitle}>{formPages[currentPage].title}</Text>
-                      <Text style={styles.pageSubtitle}>{formPages[currentPage].subtitle}</Text>
-            </View>
-          </View>
-
+                <View style={[styles.pageContainer, {
+                  backgroundColor: theme.colors.neutral.surface,
+                  shadowColor: "#000000",
+                }]}>
+                  {renderPageHeader()}
+                  
                   <Animated.View 
-                    entering={FadeInRight}
-                    style={[styles.formContainer, { backgroundColor: theme.colors.neutral.surface }]}
+                    style={[styles.formContainer, {
+                      backgroundColor: '#ffffff',
+                    }]}
+                    entering={FadeInRight.delay(200).springify()}
                   >
-                    <View style={styles.categoryContainer}>
-                      <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-                        تصفية حسب الفئة
-                      </Text>
-                      <View style={styles.categoryChips}>
-                        {Object.entries(SEED_CATEGORIES).map(([category, icon]) => (
-                          <TouchableOpacity
-                            key={category}
-                            style={[
-                              styles.categoryChip,
-                              { 
-                                backgroundColor: selectedCategory === category ? theme.colors.primary.base : theme.colors.neutral.surface,
-                                borderColor: selectedCategory === category ? theme.colors.primary.base : theme.colors.neutral.border,
-                              }
-                            ]}
-                            onPress={() => setSelectedCategory(selectedCategory === category ? null : category)}
-                          >
-                            <Text style={styles.categoryIcon}>{icon}</Text>
-                            <Text style={[
-                              styles.categoryText,
-                              { color: selectedCategory === category ? '#FFF' : theme.colors.neutral.textSecondary }
-                            ]}>
-                              {category}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    </View>
-                    
+                    {/* Catégories - Visible sur la première page seulement */}
+                    {currentPage === 0 && renderCategoryButtons(values, setFieldValue)}
+
                     {formPages[currentPage].fields.map(field => 
                       renderField(field, values, errors, touched, handleChange, setFieldValue)
                     )}
                   </Animated.View>
-                </View>
+          </View>
 
                 {showDatePicker && datePickerField && (
             <DateTimePicker
@@ -669,18 +930,27 @@ export const AddSeedScreen = ({ navigation, route }: AddSeedScreenProps) => {
               }}
             />
           )}
-        </ScrollView>
+              </ScrollView>
 
-              <View style={[styles.footer, { backgroundColor: theme.colors.neutral.surface }]}>
+              <View style={[styles.footer, { 
+                backgroundColor: theme.colors.neutral.surface,
+                borderTopColor: theme.colors.neutral.border,
+                paddingVertical: 20,
+              }]}>
                 <View style={styles.buttonContainer}>
                   {currentPage > 0 && (
                     <CustomButton
                       title="السابق"
                       onPress={prevPage}
                       type="secondary"
-                      style={{ flex: 1 }}
-                    />
-                  )}
+                      style={{ 
+                        flex: 1, 
+                        borderRadius: 10,
+                        borderWidth: 2,
+                        borderColor: theme.colors.primary.base,
+              }}
+            />
+          )}
                   
                   {currentPage < formPages.length - 1 ? (
                     <CustomButton
@@ -688,7 +958,15 @@ export const AddSeedScreen = ({ navigation, route }: AddSeedScreenProps) => {
                       onPress={nextPage}
                       type="primary"
                       disabled={!validateCurrentPage(values)}
-                      style={{ flex: 1 }}
+                      style={{ 
+                        flex: 1,
+                        borderRadius: 10,
+                        elevation: 5,
+                        shadowColor: "#000",
+                        shadowOffset: { width: 0, height: 3 },
+                        shadowOpacity: 0.3,
+                        shadowRadius: 4,
+                      }}
                     />
                   ) : (
                     <CustomButton
@@ -696,7 +974,15 @@ export const AddSeedScreen = ({ navigation, route }: AddSeedScreenProps) => {
                       onPress={() => handleSubmit()}
                       type="primary"
                       disabled={!isValid}
-                      style={{ flex: 1 }}
+                      style={{ 
+                        flex: 1, 
+                        borderRadius: 10,
+                        elevation: 5,
+                        shadowColor: "#000",
+                        shadowOffset: { width: 0, height: 3 },
+                        shadowOpacity: 0.3,
+                        shadowRadius: 4,
+                      }}
                       loading={loading}
                     />
                   )}
@@ -727,7 +1013,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
     marginBottom: 16,
     textAlign: 'center',
@@ -736,53 +1022,88 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: 16,
+    marginVertical: 20,
+    flexWrap: 'wrap',
+    gap: 8,
   },
   progressDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   progressLine: {
-    height: 2,
     width: 30,
+    marginHorizontal: 5,
+  },
+  progressLabel: {
+    textAlign: 'center',
+    marginTop: 4,
+    maxWidth: 70,
   },
   pageContainer: {
-    marginBottom: 16,
+    marginBottom: 24,
+    borderRadius: 16,
+    overflow: 'hidden',
+    elevation: 5,
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
   },
   pageHeader: {
-    flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
-    gap: 12,
+    marginBottom: 24,
+    paddingTop: 12,
+  },
+  pageIconContainer: {
+    width: 85,
+    height: 85,
+    backgroundColor: '#f0f9e8',
+    borderRadius: 42.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
   },
   pageIcon: {
-    fontSize: 32,
+    fontSize: 40,
+    textAlign: 'center',
   },
   pageTitle: {
-    fontSize: 18,
+    fontSize: 28,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    marginBottom: 8,
+    color: '#333',
+    textAlign: 'center',
   },
   pageSubtitle: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    opacity: 0.8,
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    paddingHorizontal: 24,
   },
   formContainer: {
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
-    padding: 16,
-    gap: 16,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+    padding: 20,
+    gap: 20,
+    backgroundColor: '#fff',
   },
   fieldContainer: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   label: {
     fontSize: 14,
     marginBottom: 8,
+    fontWeight: '500',
   },
   rowContainer: {
     flexDirection: 'row',
@@ -814,48 +1135,96 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
-  categoryChip: {
+  categorySelector: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+    marginBottom: 24,
+    paddingHorizontal: 10,
+  },
+  categoryChip: {
+    flexDirection: 'column',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
-    borderWidth: 1,
-    gap: 4,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    borderRadius: 20,
+    borderWidth: 3,
+    minWidth: 120,
+    marginBottom: 12,
   },
   categoryIcon: {
-    fontSize: 16,
+    fontSize: 40,
+    marginBottom: 8,
   },
   categoryText: {
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  seedNameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 8,
+  },
+  seedIconLarge: {
+    fontSize: 40,
+    marginRight: 12,
+  },
+  helperText: {
+    fontSize: 12,
+    marginTop: 4,
+    textAlign: 'right',
+    color: '#666',
+    fontStyle: 'italic',
+  },
+  subLabel: {
     fontSize: 14,
     fontWeight: '500',
+    marginBottom: 12,
   },
   seedTypeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+    paddingHorizontal: 2,
   },
-  seedTypeButton: {
-    width: '30%',
-    aspectRatio: 1,
-    borderRadius: 12,
-    borderWidth: 1,
-    justifyContent: 'center',
+  seedTypeTile: {
+    width: width / 4.5,
+    height: 100,
+    margin: 1,
+    borderRadius: 15,
     alignItems: 'center',
-    padding: 8,
+    justifyContent: 'center',
+    padding: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  seedTypeIconWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
   },
   seedTypeIcon: {
     fontSize: 32,
   },
-  seedTypeText: {
-    fontSize: 12,
+  seedTypeName: {
+    fontSize: 14,
+    fontWeight: '600',
     textAlign: 'center',
     marginTop: 4,
   },
   footer: {
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.1)',
+    elevation: 8,
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: -2 },
   },
   buttonContainer: {
     flexDirection: 'row',
@@ -864,6 +1233,83 @@ const styles = StyleSheet.create({
   centerContent: {
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  fieldLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  fieldIcon: {
+    fontSize: 26,
+  },
+  fieldHeaderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: '#f0f8ff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  iconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    borderWidth: 3,
+    borderColor: 'rgba(255, 255, 255, 0.9)',
+    marginBottom: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  seedTypeIconFallback: {
+    fontSize: 30,
+    color: '#000000',
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  categoriesContainer: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    color: '#333',
+    textAlign: 'right',
+  },
+  categoriesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-around',
+    marginTop: 8,
+  },
+  categoryButton: {
+    width: 90,
+    height: 90,
+    borderRadius: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+    margin: 6,
+    borderWidth: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 5,
+    elevation: 4,
+  },
+  categoryName: {
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });
 

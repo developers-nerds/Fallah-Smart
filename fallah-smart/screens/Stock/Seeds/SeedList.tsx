@@ -188,8 +188,8 @@ const SeedListScreen: React.FC<SeedListScreenProps> = ({ navigation }) => {
       console.error('Error refreshing seeds with direct API:', err);
       
       // Try context as fallback
-      try {
-        await fetchSeeds();
+    try {
+      await fetchSeeds();
         setSeeds(contextSeeds);
         console.log('Seeds refreshed with context method');
       } catch (contextErr) {
@@ -266,14 +266,11 @@ const SeedListScreen: React.FC<SeedListScreenProps> = ({ navigation }) => {
     return (
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyIcon}>🌱</Text>
-        <Text style={[styles.emptyText, { color: theme.colors.neutral.textSecondary }]}>
-          لا توجد بذور
+        <Text style={[styles.emptyText, { color: theme.colors.neutral.textPrimary }]}>
+          لا توجد بذور في المخزون
         </Text>
         <Text style={[styles.emptySubText, { color: theme.colors.neutral.textSecondary }]}>
-          API URL: {DIRECT_API_URL}
-        </Text>
-        <Text style={[styles.emptySubText, { color: theme.colors.neutral.textSecondary }]}>
-          عدد البذور: {seeds.length}, مصفى: {filteredSeeds.length}, صفحة: {paginatedSeeds.length}
+          يمكنك إضافة بذور جديدة عن طريق الضغط على زر الإضافة
         </Text>
         <TouchableOpacity
           style={[styles.seeMoreButton, { backgroundColor: theme.colors.primary.base, marginTop: 16 }]}
@@ -284,7 +281,7 @@ const SeedListScreen: React.FC<SeedListScreenProps> = ({ navigation }) => {
         </TouchableOpacity>
       </View>
     );
-  }, [theme, handleRefresh, seeds.length, filteredSeeds.length, paginatedSeeds.length]);
+  }, [theme, handleRefresh]);
 
   // Function to confirm and delete a seed
   const handleDelete = useCallback((id: string) => {
@@ -338,6 +335,20 @@ const SeedListScreen: React.FC<SeedListScreenProps> = ({ navigation }) => {
   const renderItem = useCallback(({ item, index }: { item: StockSeed; index: number }) => {
     const seedType = SEED_TYPES[item.type as keyof typeof SEED_TYPES] || { icon: '🌱', name: 'بذور', category: 'أخرى' };
     const isLowStock = item.quantity <= (item.minQuantityAlert || 0);
+    const isNearExpiry = (() => {
+      if (!item.expiryDate) return false;
+      const today = new Date();
+      const expiry = new Date(item.expiryDate);
+      const diffTime = expiry.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays <= 30 && diffDays > 0;
+    })();
+    const isExpired = (() => {
+      if (!item.expiryDate) return false;
+      const today = new Date();
+      const expiry = new Date(item.expiryDate);
+      return expiry < today;
+    })();
     
     return (
       <Animated.View
@@ -368,19 +379,29 @@ const SeedListScreen: React.FC<SeedListScreenProps> = ({ navigation }) => {
             style={styles.cardContent}
             onPress={() => navigation.navigate('SeedDetail', { seedId: item.id })}
             activeOpacity={0.7}
-          >
-            <View style={styles.cardHeader}>
+      >
+        <View style={styles.cardHeader}>
               <View style={[
                 styles.iconContainer, 
-                { backgroundColor: isLowStock ? theme.colors.error + '20' : '#E8F5E9' }
+                { 
+                  backgroundColor: isExpired 
+                    ? theme.colors.error + '20' 
+                    : isLowStock 
+                      ? theme.colors.warning + '20' 
+                      : isNearExpiry
+                        ? theme.colors.info + '20'
+                        : '#E8F5E9' 
+                }
               ]}>
                 <Text style={styles.seedIconText}>{seedType.icon}</Text>
+                {isLowStock && <Text style={styles.statusIndicator}>⚠️</Text>}
+                {isExpired && <Text style={styles.statusIndicator}>⏱️</Text>}
               </View>
               
               <View style={styles.headerInfo}>
                 <Text style={[styles.seedName, { color: theme.colors.neutral.textPrimary }]}>
-                  {item.name}
-                </Text>
+              {item.name}
+            </Text>
                 <View style={styles.subtitleContainer}>
                   <Text style={[styles.seedType, { color: theme.colors.neutral.textSecondary }]}>
                     {seedType.name}
@@ -394,26 +415,26 @@ const SeedListScreen: React.FC<SeedListScreenProps> = ({ navigation }) => {
                       }
                     </Text>
                     <Text style={[styles.categoryText, { color: theme.colors.neutral.textSecondary }]}>
-                      {seedType.category}
+                      {seedType.category || 'أخرى'}
                     </Text>
                   </View>
                 </View>
-              </View>
-            </View>
-            
+          </View>
+        </View>
+
             <View style={styles.cardFooter}>
               <View style={styles.quantityContainer}>
                 <Text style={[
                   styles.seedQuantity, 
                   { color: isLowStock ? theme.colors.error : theme.colors.primary.base }
                 ]}>
-                  {item.quantity} {item.unit}
-                </Text>
+              {item.quantity} {item.unit}
+            </Text>
                 <Text style={[styles.seedPrice, { color: theme.colors.accent.base }]}>
                   {item.price} د.ج
-                </Text>
-              </View>
-              
+            </Text>
+          </View>
+
               {isLowStock && (
                 <View style={[styles.statusBadge, { backgroundColor: theme.colors.error + '20' }]}>
                   <MaterialCommunityIcons 
@@ -423,15 +444,41 @@ const SeedListScreen: React.FC<SeedListScreenProps> = ({ navigation }) => {
                   />
                   <Text style={[styles.statusText, { color: theme.colors.error }]}>
                     مخزون منخفض
-                  </Text>
+            </Text>
                 </View>
               )}
-              
-              {item.expiryDate && (
-                <View style={styles.expiryContainer}>
+
+              {isExpired && (
+                <View style={[styles.statusBadge, { backgroundColor: theme.colors.error + '20' }]}>
                   <MaterialCommunityIcons 
-                    name="calendar" 
+                    name="calendar-alert" 
                     size={16} 
+                    color={theme.colors.error} 
+                  />
+                  <Text style={[styles.statusText, { color: theme.colors.error }]}>
+                    منتهية الصلاحية
+            </Text>
+          </View>
+              )}
+
+              {isNearExpiry && !isExpired && (
+                <View style={[styles.statusBadge, { backgroundColor: theme.colors.warning + '20' }]}>
+                  <MaterialCommunityIcons 
+                    name="calendar-clock" 
+                    size={16} 
+                    color={theme.colors.warning} 
+                  />
+                  <Text style={[styles.statusText, { color: theme.colors.warning }]}>
+                    قريبة الإنتهاء
+                  </Text>
+        </View>
+              )}
+
+              {item.expiryDate && !isNearExpiry && !isExpired && (
+                <View style={styles.expiryContainer}>
+            <MaterialCommunityIcons
+                    name="calendar" 
+              size={16}
                     color={theme.colors.neutral.textSecondary} 
                   />
                   <Text style={[styles.expiryText, { color: theme.colors.neutral.textSecondary }]}>
@@ -440,11 +487,11 @@ const SeedListScreen: React.FC<SeedListScreenProps> = ({ navigation }) => {
                       month: '2-digit',
                       day: '2-digit'
                     })}
-                  </Text>
-                </View>
-              )}
+            </Text>
+          </View>
+        )}
             </View>
-          </TouchableOpacity>
+      </TouchableOpacity>
         </SwipeableRow>
       </Animated.View>
     );
@@ -452,7 +499,7 @@ const SeedListScreen: React.FC<SeedListScreenProps> = ({ navigation }) => {
 
   // Function to render category filters
   const renderCategoryFilters = useCallback(() => {
-    return (
+  return (
       <ScrollView 
         horizontal 
         showsHorizontalScrollIndicator={false}
@@ -479,33 +526,37 @@ const SeedListScreen: React.FC<SeedListScreenProps> = ({ navigation }) => {
         </TouchableOpacity>
         
         {Object.entries(SEED_CATEGORIES).map(([category, icon]) => (
-          <TouchableOpacity
+          <Animated.View
             key={category}
-            style={[
-              styles.categoryChip,
-              { 
-                backgroundColor: selectedCategory === category ? theme.colors.primary.base : theme.colors.neutral.surface,
-                borderColor: theme.colors.neutral.border,
-              }
-            ]}
-            onPress={() => setSelectedCategory(selectedCategory === category ? null : category)}
+            entering={FadeInDown.springify().delay(100)}
           >
-            <Text style={styles.categoryIcon}>{icon}</Text>
-            <Text style={[
-              styles.categoryText,
-              { color: selectedCategory === category ? '#FFF' : theme.colors.neutral.textSecondary }
-            ]}>
-              {category}
-            </Text>
-            {selectedCategory === category && (
-              <MaterialCommunityIcons 
-                name="close-circle" 
-                size={16} 
-                color="#FFF"
-                style={styles.clearIcon}
-              />
-            )}
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.categoryChip,
+                { 
+                  backgroundColor: selectedCategory === category ? theme.colors.primary.base : theme.colors.neutral.surface,
+                  borderColor: theme.colors.neutral.border,
+                }
+              ]}
+              onPress={() => setSelectedCategory(selectedCategory === category ? null : category)}
+            >
+              <Text style={styles.categoryIcon}>{icon}</Text>
+              <Text style={[
+                styles.categoryText,
+                { color: selectedCategory === category ? '#FFF' : theme.colors.neutral.textSecondary }
+              ]}>
+                {category}
+              </Text>
+              {selectedCategory === category && (
+                <MaterialCommunityIcons 
+                  name="close-circle" 
+                  size={16} 
+                  color="#FFF"
+                  style={styles.clearIcon}
+                />
+              )}
+            </TouchableOpacity>
+          </Animated.View>
         ))}
       </ScrollView>
     );
@@ -528,40 +579,54 @@ const SeedListScreen: React.FC<SeedListScreenProps> = ({ navigation }) => {
 
   if (loading && !seeds.length) {
     return (
-      <View style={[styles.container, styles.centerContent]}>
-        <ActivityIndicator size="large" color={theme.colors.primary.base} />
-        <Text style={{ marginTop: 10, color: theme.colors.neutral.textSecondary }}>
-          جاري تحميل البذور...
-        </Text>
-        <Text style={{ marginTop: 10, color: theme.colors.neutral.textSecondary }}>
-          API URL: {DIRECT_API_URL}
-        </Text>
-      </View>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
+        <StatusBar
+          backgroundColor={theme.colors.neutral.surface}
+          barStyle="dark-content"
+        />
+        <View style={[styles.container, styles.centerContent]}>
+          <Animated.View 
+            entering={FadeIn.duration(800)}
+            style={styles.loadingContainer}>
+            <Text style={styles.seedIconLarge}>🌾</Text>
+            <ActivityIndicator size="large" color={theme.colors.primary.base} />
+            <Text style={[styles.loadingText, { color: theme.colors.neutral.textSecondary }]}>
+              جاري تحميل البذور...
+            </Text>
+          </Animated.View>
+        </View>
+      </SafeAreaView>
     );
   }
 
   if (error) {
     return (
-      <View style={[styles.container, styles.centerContent]}>
-        <MaterialCommunityIcons 
-          name="alert-circle-outline" 
-          size={64} 
-          color={theme.colors.error} 
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
+        <StatusBar
+          backgroundColor={theme.colors.neutral.surface}
+          barStyle="dark-content"
         />
-        <Text style={[styles.errorText, { color: theme.colors.error }]}>
-          حدث خطأ: {error}
-        </Text>
-        <Text style={{ marginTop: 10, color: theme.colors.neutral.textSecondary }}>
-          API URL: {DIRECT_API_URL}
-        </Text>
-        <TouchableOpacity
-          style={[styles.seeMoreButton, { backgroundColor: theme.colors.primary.base, marginTop: 20 }]}
-          onPress={handleRefresh}
-        >
-          <Text style={styles.seeMoreText}>إعادة المحاولة</Text>
-          <MaterialCommunityIcons name="refresh" size={24} color="#FFF" />
-        </TouchableOpacity>
-      </View>
+        <View style={[styles.container, styles.centerContent]}>
+          <Animated.View 
+            entering={FadeIn.duration(800)}
+            style={styles.errorContainer}>
+            <Text style={styles.errorIcon}>⚠️</Text>
+            <Text style={[styles.errorText, { color: theme.colors.error }]}>
+              حدث خطأ: {error}
+            </Text>
+            <Text style={[styles.errorSubText, { color: theme.colors.neutral.textSecondary }]}>
+              يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى
+            </Text>
+            <TouchableOpacity
+              style={[styles.retryButton, { backgroundColor: theme.colors.primary.base }]}
+              onPress={handleRefresh}
+            >
+              <Text style={styles.retryButtonText}>إعادة المحاولة</Text>
+              <MaterialCommunityIcons name="refresh" size={24} color="#FFF" />
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -576,9 +641,9 @@ const SeedListScreen: React.FC<SeedListScreenProps> = ({ navigation }) => {
           <Text style={[styles.title, { color: theme.colors.neutral.textPrimary }]}>
             البذور ({seeds.length})
           </Text>
-        </View>
-        
-        <FlatList
+      </View>
+
+      <FlatList
           data={paginatedSeeds}
           renderItem={renderItem}
           keyExtractor={item => String(item.id)}
@@ -586,11 +651,11 @@ const SeedListScreen: React.FC<SeedListScreenProps> = ({ navigation }) => {
           ListHeaderComponent={renderHeader}
           ListFooterComponent={renderFooter}
           ListEmptyComponent={renderListEmptyComponent}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
               onRefresh={handleRefresh}
-              colors={[theme.colors.primary.base]}
+            colors={[theme.colors.primary.base]}
               tintColor={theme.colors.primary.base}
             />
           }
@@ -607,8 +672,8 @@ const SeedListScreen: React.FC<SeedListScreenProps> = ({ navigation }) => {
             bottom: 0,
             backgroundColor: theme.colors.primary.base
           }}
-        />
-      </View>
+      />
+    </View>
     </SafeAreaView>
   );
 };
@@ -626,9 +691,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+    backgroundColor: 'rgba(255,255,255,0.8)',
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
   },
   addButton: {
@@ -647,25 +715,36 @@ const styles = StyleSheet.create({
   },
   categoriesContainer: {
     paddingHorizontal: 16,
-    paddingBottom: 8,
+    paddingBottom: 16,
     gap: 8,
   },
   categoryChip: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderRadius: 20,
     borderWidth: 1,
     marginRight: 8,
     gap: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: 'rgba(0,0,0,0.1)',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.8,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   categoryText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   categoryIcon: {
-    fontSize: 16,
+    fontSize: 18,
   },
   clearIcon: {
     marginLeft: 4,
@@ -673,11 +752,23 @@ const styles = StyleSheet.create({
   listContent: {
     padding: 16,
     gap: 16,
+    paddingBottom: 80, // Extra padding for FAB
   },
   card: {
     borderRadius: 16,
     overflow: 'hidden',
     marginBottom: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: 'rgba(0,0,0,0.1)',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.8,
+    shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   cardContent: {
     padding: 16,
@@ -692,11 +783,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   iconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
   },
   seedIconText: {
     fontSize: 32,
@@ -714,6 +806,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: 4,
+    flexWrap: 'wrap',
   },
   seedType: {
     fontSize: 14,
@@ -721,16 +814,22 @@ const styles = StyleSheet.create({
   categoryContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginTop: 4,
     gap: 4,
   },
   cardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 8,
-    paddingTop: 8,
+    marginTop: 12,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: 'rgba(0,0,0,0.1)',
+    flexWrap: 'wrap',
   },
   quantityContainer: {
     flexDirection: 'row',
@@ -742,11 +841,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   seedQuantity: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 'bold',
   },
   seedPrice: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 'bold',
   },
   statusBadge: {
@@ -756,14 +855,19 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
     gap: 4,
+    marginBottom: 4,
   },
   statusText: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   expiryContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.05)',
     gap: 6,
   },
   expiryText: {
@@ -780,17 +884,19 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   emptyText: {
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: 'bold',
     textAlign: 'center',
     marginVertical: 10,
   },
   emptySubText: {
-    fontSize: 14,
+    fontSize: 16,
     textAlign: 'center',
+    maxWidth: '80%',
+    lineHeight: 24,
   },
   emptyIcon: {
-    fontSize: 64,
+    fontSize: 80,
     marginBottom: 16,
   },
   errorText: {
@@ -802,13 +908,16 @@ const styles = StyleSheet.create({
   retryButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginTop: 24,
+    gap: 8,
   },
   retryButtonText: {
     fontSize: 16,
     fontWeight: 'bold',
+    color: '#FFF',
   },
   seeMoreButton: {
     flexDirection: 'row',
@@ -818,6 +927,17 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginTop: 16,
     gap: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: 'rgba(0,0,0,0.2)',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.8,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   seeMoreText: {
     color: '#FFF',
@@ -827,6 +947,7 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 16,
     fontWeight: '600',
+    marginTop: 16,
   },
   addSeedButton: {
     flexDirection: 'row',
@@ -838,6 +959,37 @@ const styles = StyleSheet.create({
   addSeedButtonText: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  loadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  seedIconLarge: {
+    fontSize: 80,
+    marginBottom: 24,
+  },
+  errorContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  errorIcon: {
+    fontSize: 80,
+    marginBottom: 24,
+  },
+  errorSubText: {
+    fontSize: 16,
+    textAlign: 'center',
+    maxWidth: '80%',
+    lineHeight: 24,
+    marginTop: 8,
+  },
+  statusIndicator: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    fontSize: 16,
   },
 });
 

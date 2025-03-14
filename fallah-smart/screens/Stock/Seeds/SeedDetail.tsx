@@ -144,11 +144,11 @@ const SeedDetailScreen: React.FC<SeedDetailScreenProps> = ({ navigation, route }
         setError(null);
         
         // Try to find seed in context first
-        const foundSeed = seeds.find(s => s.id === route.params.seedId);
+    const foundSeed = seeds.find(s => s.id === route.params.seedId);
         
-        if (foundSeed) {
+    if (foundSeed) {
           console.log('Seed found in context');
-          setSeedItem(foundSeed);
+      setSeedItem(foundSeed);
           setLoading(false);
           return;
         }
@@ -226,9 +226,9 @@ const SeedDetailScreen: React.FC<SeedDetailScreenProps> = ({ navigation, route }
                 console.error('Direct delete failed, falling back to context:', directError);
                 
                 // Fall back to context delete
-                await deleteSeed(route.params.seedId);
+              await deleteSeed(route.params.seedId);
                 console.log('Seed deleted successfully via context');
-                navigation.goBack();
+              navigation.goBack();
               }
             } catch (error) {
               console.error('Error deleting seed:', error);
@@ -273,11 +273,21 @@ const SeedDetailScreen: React.FC<SeedDetailScreenProps> = ({ navigation, route }
           barStyle="dark-content"
         />
         <View style={[styles.container, styles.centerContent]}>
-          <ActivityIndicator size="large" color={theme.colors.primary.base} />
-          <Text style={[styles.loadingText, { color: theme.colors.neutral.textSecondary }]}>
-            جاري تحميل البذور...
-          </Text>
-        </View>
+          <Animated.View
+            entering={FadeIn.duration(800)}
+            style={styles.loadingContainer}>
+            <Text style={styles.seedIconLarge}>{SEED_CATEGORIES['خضروات']}</Text>
+        <ActivityIndicator size="large" color={theme.colors.primary.base} />
+            <Text style={[styles.loadingText, { color: theme.colors.neutral.textSecondary }]}>
+              جاري تحميل البذور...
+            </Text>
+            <Animated.Text 
+              entering={FadeIn.delay(1000).duration(500)}
+              style={[styles.seedId, { color: theme.colors.neutral.textSecondary }]}>
+              ID: {route.params.seedId}
+            </Animated.Text>
+          </Animated.View>
+      </View>
       </SafeAreaView>
     );
   }
@@ -291,21 +301,24 @@ const SeedDetailScreen: React.FC<SeedDetailScreenProps> = ({ navigation, route }
           barStyle="dark-content"
         />
         <View style={[styles.container, styles.centerContent]}>
-          <MaterialCommunityIcons 
-            name="alert-circle-outline" 
-            size={64} 
-            color={theme.colors.error} 
-          />
-          <Text style={[styles.errorText, { color: theme.colors.error }]}>
-            {error || 'لم يتم العثور على البذور'}
-          </Text>
-          <TouchableOpacity
-            style={[styles.goBackButton, { backgroundColor: theme.colors.primary.base }]}
-            onPress={() => navigation.goBack()}
-          >
-            <Text style={styles.goBackButtonText}>العودة</Text>
-          </TouchableOpacity>
-        </View>
+          <Animated.View
+            entering={FadeIn.duration(800)}
+            style={styles.errorContainer}>
+            <Text style={styles.errorIcon}>⚠️</Text>
+            <Text style={[styles.errorText, { color: theme.colors.error }]}>
+              {error || 'لم يتم العثور على البذور'}
+            </Text>
+            <Text style={[styles.errorSubText, { color: theme.colors.neutral.textSecondary }]}>
+              تأكد من اتصالك بالإنترنت أو حاول مرة أخرى لاحقًا
+        </Text>
+            <TouchableOpacity
+              style={[styles.goBackButton, { backgroundColor: theme.colors.primary.base }]}
+              onPress={() => navigation.goBack()}
+            >
+              <Text style={styles.goBackButtonText}>العودة</Text>
+            </TouchableOpacity>
+          </Animated.View>
+      </View>
       </SafeAreaView>
     );
   }
@@ -351,8 +364,10 @@ const SeedDetailScreen: React.FC<SeedDetailScreenProps> = ({ navigation, route }
               }
             ]}
           >
-            <View style={styles.headerContent}>
-              <View style={[
+        <View style={styles.headerContent}>
+              <Animated.View 
+                entering={FadeInDown.delay(100).springify()}
+                style={[
                 styles.iconContainer,
                 { backgroundColor: expiredStatus 
                   ? theme.colors.error + '20'
@@ -362,27 +377,52 @@ const SeedDetailScreen: React.FC<SeedDetailScreenProps> = ({ navigation, route }
                 }
               ]}>
                 <Text style={styles.seedIconText}>{seedTypeIcon}</Text>
-              </View>
+                {lowStockStatus && <View style={styles.statusDot} />}
+                {expiredStatus && (
+                  <View style={[styles.statusBadgeSmall, { backgroundColor: theme.colors.error }]}>
+                    <Text style={styles.statusBadgeIcon}>⏱️</Text>
+                  </View>
+                )}
+                {nearExpiryStatus && !expiredStatus && (
+                  <View style={[styles.statusBadgeSmall, { backgroundColor: theme.colors.warning }]}>
+                    <Text style={styles.statusBadgeIcon}>⏳</Text>
+                  </View>
+                )}
+              </Animated.View>
               <View style={styles.headerInfo}>
-                <View style={styles.titleContainer}>
+                <Animated.View
+                  entering={FadeInDown.delay(150).springify()}
+                  style={styles.titleContainer}>
                   <Text style={[styles.seedName, { color: theme.colors.neutral.textPrimary }]}>
                     {seedItem.name || 'بذور'}
                   </Text>
-                  <Text style={[styles.seedCategory, { color: theme.colors.neutral.textSecondary }]}>
-                    {seedCategory || 'أخرى'}
-                  </Text>
-                </View>
-                <View style={styles.subtitleContainer}>
-                  {seedItem.variety && (
-                    <Text style={[styles.varietyText, { color: theme.colors.neutral.textSecondary }]}>
-                      الصنف: {seedItem.variety}
+                  <View style={styles.categoryTag}>
+                    <Text style={styles.categoryIcon}>
+                      {SEED_CATEGORIES[seedCategory as keyof typeof SEED_CATEGORIES] || '🌿'}
                     </Text>
+                    <Text style={[styles.seedCategory, { color: theme.colors.neutral.textSecondary }]}>
+                      {seedCategory || 'أخرى'}
+                    </Text>
+                  </View>
+                </Animated.View>
+                <Animated.View
+                  entering={FadeInDown.delay(200).springify()}
+                  style={styles.subtitleContainer}>
+                  {seedItem.variety && (
+                    <View style={styles.varietyTag}>
+                      <MaterialCommunityIcons name="tag-outline" size={14} color={theme.colors.neutral.textSecondary} />
+                      <Text style={[styles.varietyText, { color: theme.colors.neutral.textSecondary }]}>
+                        {seedItem.variety}
+          </Text>
+                    </View>
                   )}
-                </View>
-              </View>
-            </View>
+                </Animated.View>
+        </View>
+      </View>
 
-            <View style={styles.headerActions}>
+            <Animated.View
+              entering={FadeInDown.delay(250).springify()}
+              style={styles.headerActions}>
               <TouchableOpacity
                 style={[styles.actionButton, { backgroundColor: theme.colors.primary.base }]}
                 onPress={() => navigation.navigate('AddSeed', { seedId: seedItem.id })}
@@ -404,11 +444,13 @@ const SeedDetailScreen: React.FC<SeedDetailScreenProps> = ({ navigation, route }
                   </>
                 )}
               </TouchableOpacity>
-            </View>
+            </Animated.View>
 
-            <View style={styles.statsContainer}>
+            <Animated.View
+              entering={FadeInDown.delay(300).springify()}  
+              style={styles.statsContainer}>
               <Animated.View 
-                entering={FadeInDown.delay(100).springify()}
+                entering={FadeInDown.delay(350).springify()}
                 style={[styles.statCard, { backgroundColor: theme.colors.neutral.background }]}
               >
                 <Text style={[styles.statValue, { 
@@ -430,7 +472,7 @@ const SeedDetailScreen: React.FC<SeedDetailScreenProps> = ({ navigation, route }
               </Animated.View>
 
               <Animated.View 
-                entering={FadeInDown.delay(150).springify()}
+                entering={FadeInDown.delay(400).springify()}
                 style={[styles.statCard, { backgroundColor: theme.colors.neutral.background }]}
               >
                 <Text style={[styles.statValue, { color: theme.colors.neutral.textPrimary }]}>
@@ -442,7 +484,7 @@ const SeedDetailScreen: React.FC<SeedDetailScreenProps> = ({ navigation, route }
               </Animated.View>
 
               <Animated.View 
-                entering={FadeInDown.delay(200).springify()}
+                entering={FadeInDown.delay(450).springify()}
                 style={[styles.statCard, { backgroundColor: theme.colors.neutral.background }]}
               >
                 <View style={[
@@ -488,144 +530,211 @@ const SeedDetailScreen: React.FC<SeedDetailScreenProps> = ({ navigation, route }
                   </Text>
                 </View>
               </Animated.View>
-            </View>
+            </Animated.View>
           </Animated.View>
 
-          <View style={styles.content}>
+      <View style={styles.content}>
             {/* Basic Information */}
             <Animated.View 
-              entering={FadeInDown.delay(250).springify()}
+              entering={FadeInDown.delay(500).springify()}
               style={[styles.section, { backgroundColor: theme.colors.neutral.surface }]}
             >
-              <Text style={[styles.sectionTitle, { color: theme.colors.neutral.textPrimary }]}>
-                المعلومات الأساسية
-              </Text>
-              <View style={styles.infoRow}>
-                <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-                  النوع:
-                </Text>
-                <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-                  {seedItem.type}
-                </Text>
+              <View style={styles.sectionHeader}>
+                <MaterialCommunityIcons name="information-outline" size={24} color={theme.colors.primary.base} />
+          <Text style={[styles.sectionTitle, { color: theme.colors.neutral.textPrimary }]}>
+            المعلومات الأساسية
+          </Text>
               </View>
-              <View style={styles.infoRow}>
-                <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-                  الكمية:
-                </Text>
-                <Text style={[styles.value, { 
-                  color: lowStockStatus ? theme.colors.error : theme.colors.neutral.textPrimary 
-                }]}>
-                  {seedItem.quantity} {seedItem.unit}
-                </Text>
+          <View style={styles.infoRow}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
+              النوع:
+            </Text>
+                <View style={styles.valueContainer}>
+                  <Text style={styles.typeIcon}>{seedTypeIcon}</Text>
+            <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
+              {seedItem.type}
+            </Text>
+                </View>
+          </View>
+          <View style={styles.infoRow}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
+              الكمية:
+            </Text>
+                <View style={styles.valueContainer}>
+                  <MaterialCommunityIcons 
+                    name={lowStockStatus ? "package-down" : "package-up"} 
+                    size={16} 
+                    color={lowStockStatus ? theme.colors.error : theme.colors.success} 
+                  />
+                  <Text style={[styles.value, { 
+                    color: lowStockStatus ? theme.colors.error : theme.colors.neutral.textPrimary 
+                  }]}>
+              {seedItem.quantity} {seedItem.unit}
+            </Text>
+                </View>
               </View>
               <View style={styles.infoRow}>
                 <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
                   الحد الأدنى للتنبيه:
                 </Text>
-                <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-                  {seedItem.minQuantityAlert} {seedItem.unit}
-                </Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-                  السعر:
-                </Text>
-                <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-                  {seedItem.price} د.أ
-                </Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-                  تاريخ الصلاحية:
-                </Text>
-                <Text style={[styles.value, { 
-                  color: expiredStatus 
-                    ? theme.colors.error 
-                    : nearExpiryStatus 
-                      ? theme.colors.warning 
-                      : theme.colors.neutral.textPrimary 
-                }]}>
-                  {new Date(seedItem.expiryDate).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  })}
-                </Text>
-              </View>
+                <View style={styles.valueContainer}>
+                  <MaterialCommunityIcons 
+                    name="alert-outline" 
+                    size={16} 
+                    color={theme.colors.warning} 
+                  />
+                  <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
+                    {seedItem.minQuantityAlert} {seedItem.unit}
+                  </Text>
+                </View>
+          </View>
+          <View style={styles.infoRow}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
+              السعر:
+            </Text>
+                <View style={styles.valueContainer}>
+                  <MaterialCommunityIcons 
+                    name="cash" 
+                    size={16} 
+                    color={theme.colors.success} 
+                  />
+            <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
+              {seedItem.price} د.أ
+            </Text>
+                </View>
+          </View>
+          <View style={styles.infoRow}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
+              تاريخ الصلاحية:
+            </Text>
+                <View style={styles.valueContainer}>
+                  <MaterialCommunityIcons 
+                    name={
+                      expiredStatus 
+                        ? "calendar-remove" 
+                        : nearExpiryStatus 
+                          ? "calendar-clock" 
+                          : "calendar-check"
+                    } 
+                    size={16} 
+                    color={
+                      expiredStatus 
+                        ? theme.colors.error 
+                        : nearExpiryStatus 
+                          ? theme.colors.warning 
+                          : theme.colors.success
+                    } 
+                  />
+                  <Text style={[styles.value, { 
+                    color: expiredStatus 
+                      ? theme.colors.error 
+                      : nearExpiryStatus 
+                        ? theme.colors.warning 
+                        : theme.colors.neutral.textPrimary 
+                  }]}>
+                    {new Date(seedItem.expiryDate).toLocaleDateString('en-US', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    })}
+            </Text>
+          </View>
+        </View>
             </Animated.View>
 
             {/* Additional Information */}
             {(seedItem.variety || seedItem.manufacturer || seedItem.batchNumber || 
               seedItem.purchaseDate || seedItem.location || seedItem.supplier) && (
               <Animated.View 
-                entering={FadeInDown.delay(300).springify()}
+                entering={FadeInDown.delay(600).springify()}
                 style={[styles.section, { backgroundColor: theme.colors.neutral.surface }]}
               >
-                <Text style={[styles.sectionTitle, { color: theme.colors.neutral.textPrimary }]}>
-                  معلومات إضافية
-                </Text>
-                {seedItem.variety && (
-                  <View style={styles.infoRow}>
-                    <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-                      الصنف:
-                    </Text>
-                    <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-                      {seedItem.variety}
-                    </Text>
-                  </View>
-                )}
-                {seedItem.manufacturer && (
-                  <View style={styles.infoRow}>
-                    <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-                      الشركة المصنعة:
-                    </Text>
-                    <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-                      {seedItem.manufacturer}
-                    </Text>
-                  </View>
-                )}
-                {seedItem.batchNumber && (
-                  <View style={styles.infoRow}>
-                    <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-                      رقم الدفعة:
-                    </Text>
-                    <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-                      {seedItem.batchNumber}
-                    </Text>
-                  </View>
-                )}
-                {seedItem.purchaseDate && (
-                  <View style={styles.infoRow}>
-                    <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-                      تاريخ الشراء:
-                    </Text>
-                    <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-                      {new Date(seedItem.purchaseDate).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      })}
-                    </Text>
-                  </View>
-                )}
-                {seedItem.location && (
-                  <View style={styles.infoRow}>
-                    <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-                      الموقع:
-                    </Text>
-                    <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-                      {seedItem.location}
-                    </Text>
-                  </View>
-                )}
-                {seedItem.supplier && (
-                  <View style={styles.infoRow}>
-                    <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-                      المورد:
-                    </Text>
-                    <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-                      {seedItem.supplier}
-                    </Text>
+                <View style={styles.sectionHeader}>
+                  <MaterialCommunityIcons name="card-text-outline" size={24} color={theme.colors.primary.base} />
+          <Text style={[styles.sectionTitle, { color: theme.colors.neutral.textPrimary }]}>
+            معلومات إضافية
+          </Text>
+                </View>
+          {seedItem.variety && (
+            <View style={styles.infoRow}>
+              <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
+                الصنف:
+              </Text>
+                    <View style={styles.valueContainer}>
+                      <MaterialCommunityIcons name="tag-variant" size={16} color={theme.colors.accent.base} />
+              <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
+                {seedItem.variety}
+              </Text>
+                    </View>
+            </View>
+          )}
+          {seedItem.manufacturer && (
+            <View style={styles.infoRow}>
+              <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
+                الشركة المصنعة:
+              </Text>
+                    <View style={styles.valueContainer}>
+                      <MaterialCommunityIcons name="factory" size={16} color={theme.colors.accent.base} />
+              <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
+                {seedItem.manufacturer}
+              </Text>
+                    </View>
+            </View>
+          )}
+          {seedItem.batchNumber && (
+            <View style={styles.infoRow}>
+              <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
+                رقم الدفعة:
+              </Text>
+                    <View style={styles.valueContainer}>
+                      <MaterialCommunityIcons name="identifier" size={16} color={theme.colors.accent.base} />
+              <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
+                {seedItem.batchNumber}
+              </Text>
+                    </View>
+            </View>
+          )}
+          {seedItem.purchaseDate && (
+            <View style={styles.infoRow}>
+              <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
+                تاريخ الشراء:
+              </Text>
+                    <View style={styles.valueContainer}>
+                      <MaterialCommunityIcons name="calendar-plus" size={16} color={theme.colors.accent.base} />
+              <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
+                        {new Date(seedItem.purchaseDate).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })}
+              </Text>
+                    </View>
+            </View>
+          )}
+          {seedItem.location && (
+            <View style={styles.infoRow}>
+              <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
+                الموقع:
+              </Text>
+                    <View style={styles.valueContainer}>
+                      <MaterialCommunityIcons name="map-marker" size={16} color={theme.colors.accent.base} />
+              <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
+                {seedItem.location}
+              </Text>
+                    </View>
+            </View>
+          )}
+          {seedItem.supplier && (
+            <View style={styles.infoRow}>
+              <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
+                المورد:
+              </Text>
+                    <View style={styles.valueContainer}>
+                      <MaterialCommunityIcons name="truck-delivery" size={16} color={theme.colors.accent.base} />
+              <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
+                {seedItem.supplier}
+              </Text>
+            </View>
                   </View>
                 )}
               </Animated.View>
@@ -636,40 +745,52 @@ const SeedDetailScreen: React.FC<SeedDetailScreenProps> = ({ navigation, route }
               seedItem.growingSeason || seedItem.plantingSeasonStart || 
               seedItem.plantingSeasonEnd || seedItem.germination) && (
               <Animated.View 
-                entering={FadeInDown.delay(350).springify()}
+                entering={FadeInDown.delay(700).springify()}
                 style={[styles.section, { backgroundColor: theme.colors.neutral.surface }]}
               >
-                <Text style={[styles.sectionTitle, { color: theme.colors.neutral.textPrimary }]}>
-                  معلومات الزراعة
-                </Text>
-                {seedItem.plantingInstructions && (
-                  <View style={styles.infoRow}>
-                    <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-                      تعليمات الزراعة:
-                    </Text>
-                    <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-                      {seedItem.plantingInstructions}
-                    </Text>
-                  </View>
-                )}
-                {seedItem.germinationTime && (
-                  <View style={styles.infoRow}>
-                    <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-                      وقت الإنبات:
-                    </Text>
-                    <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-                      {seedItem.germinationTime}
-                    </Text>
-                  </View>
-                )}
-                {seedItem.growingSeason && (
-                  <View style={styles.infoRow}>
-                    <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-                      موسم النمو:
-                    </Text>
-                    <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-                      {seedItem.growingSeason}
-                    </Text>
+                <View style={styles.sectionHeader}>
+                  <MaterialCommunityIcons name="sprout" size={24} color={theme.colors.primary.base} />
+          <Text style={[styles.sectionTitle, { color: theme.colors.neutral.textPrimary }]}>
+            معلومات الزراعة
+          </Text>
+                </View>
+          {seedItem.plantingInstructions && (
+            <View style={styles.infoRow}>
+              <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
+                تعليمات الزراعة:
+              </Text>
+                    <View style={styles.valueContainer}>
+                      <MaterialCommunityIcons name="book-open-variant" size={16} color="#4CAF50" />
+              <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
+                {seedItem.plantingInstructions}
+              </Text>
+                    </View>
+            </View>
+          )}
+          {seedItem.germinationTime && (
+            <View style={styles.infoRow}>
+              <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
+                وقت الإنبات:
+              </Text>
+                    <View style={styles.valueContainer}>
+                      <MaterialCommunityIcons name="clock-outline" size={16} color="#4CAF50" />
+              <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
+                {seedItem.germinationTime}
+              </Text>
+                    </View>
+            </View>
+          )}
+          {seedItem.growingSeason && (
+            <View style={styles.infoRow}>
+              <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
+                موسم النمو:
+              </Text>
+                    <View style={styles.valueContainer}>
+                      <MaterialCommunityIcons name="weather-sunny" size={16} color="#4CAF50" />
+              <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
+                {seedItem.growingSeason}
+              </Text>
+                    </View>
                   </View>
                 )}
                 {seedItem.plantingSeasonStart && (
@@ -677,9 +798,12 @@ const SeedDetailScreen: React.FC<SeedDetailScreenProps> = ({ navigation, route }
                     <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
                       بداية موسم الزراعة:
                     </Text>
-                    <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-                      {new Date(seedItem.plantingSeasonStart).toLocaleDateString()}
-                    </Text>
+                    <View style={styles.valueContainer}>
+                      <MaterialCommunityIcons name="calendar-start" size={16} color="#4CAF50" />
+                      <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
+                        {new Date(seedItem.plantingSeasonStart).toLocaleDateString()}
+                      </Text>
+                    </View>
                   </View>
                 )}
                 {seedItem.plantingSeasonEnd && (
@@ -687,39 +811,65 @@ const SeedDetailScreen: React.FC<SeedDetailScreenProps> = ({ navigation, route }
                     <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
                       نهاية موسم الزراعة:
                     </Text>
-                    <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-                      {new Date(seedItem.plantingSeasonEnd).toLocaleDateString()}
-                    </Text>
-                  </View>
-                )}
+                    <View style={styles.valueContainer}>
+                      <MaterialCommunityIcons name="calendar-end" size={16} color="#4CAF50" />
+                      <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
+                        {new Date(seedItem.plantingSeasonEnd).toLocaleDateString()}
+                      </Text>
+                    </View>
+            </View>
+          )}
                 {seedItem.germination && (
                   <View style={styles.infoRow}>
                     <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
                       نسبة الإنبات:
                     </Text>
-                    <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-                      {seedItem.germination}%
-                    </Text>
-                  </View>
+                    <View style={styles.valueContainer}>
+                      <MaterialCommunityIcons name="percent" size={16} color="#4CAF50" />
+                      <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
+                        {seedItem.germination}%
+                      </Text>
+                    </View>
+        </View>
                 )}
               </Animated.View>
             )}
 
             {/* Notes */}
-            {seedItem.notes && (
+        {seedItem.notes && (
               <Animated.View 
-                entering={FadeInDown.delay(400).springify()}
+                entering={FadeInDown.delay(800).springify()}
                 style={[styles.section, { backgroundColor: theme.colors.neutral.surface }]}
               >
-                <Text style={[styles.sectionTitle, { color: theme.colors.neutral.textPrimary }]}>
-                  ملاحظات
-                </Text>
-                <Text style={[styles.notes, { color: theme.colors.neutral.textPrimary }]}>
-                  {seedItem.notes}
-                </Text>
+                <View style={styles.sectionHeader}>
+                  <MaterialCommunityIcons name="note-text-outline" size={24} color={theme.colors.primary.base} />
+            <Text style={[styles.sectionTitle, { color: theme.colors.neutral.textPrimary }]}>
+              ملاحظات
+            </Text>
+                </View>
+                <View style={styles.notesContainer}>
+                  <MaterialCommunityIcons name="format-quote-open" size={20} color={theme.colors.neutral.textSecondary} style={styles.quoteIcon} />
+            <Text style={[styles.notes, { color: theme.colors.neutral.textPrimary }]}>
+              {seedItem.notes}
+            </Text>
+                  <MaterialCommunityIcons name="format-quote-close" size={20} color={theme.colors.neutral.textSecondary} style={[styles.quoteIcon, styles.quoteIconEnd]} />
+          </View>
               </Animated.View>
             )}
-          </View>
+
+            {/* Seed ID Info */}
+            <Animated.View
+              entering={FadeInDown.delay(900).springify()}
+              style={styles.idContainer}
+            >
+              <Text style={[styles.idText, { color: theme.colors.neutral.textSecondary }]}>
+                معرف البذور: {seedItem.id}
+              </Text>
+              <Text style={[styles.dateText, { color: theme.colors.neutral.textSecondary }]}>
+                آخر تحديث: {new Date(seedItem.updatedAt || '').toLocaleDateString()}
+              </Text>
+            </Animated.View>
+        </View>
         </ScrollView>
       </View>
     </SafeAreaView>
@@ -883,6 +1033,11 @@ const styles = StyleSheet.create({
       },
     }),
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
@@ -896,6 +1051,11 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
+  },
+  valueContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   value: {
     fontSize: 14,
@@ -962,6 +1122,90 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#FFF',
     fontWeight: '600',
+  },
+  loadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+  },
+  seedIconLarge: {
+    fontSize: 48,
+    fontWeight: '600',
+  },
+  seedId: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  errorContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+  },
+  errorIcon: {
+    fontSize: 48,
+    color: '#FFF',
+  },
+  errorSubText: {
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  statusDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#FFF',
+    marginLeft: 8,
+  },
+  statusBadgeSmall: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statusBadgeIcon: {
+    fontSize: 12,
+  },
+  categoryTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  categoryIcon: {
+    fontSize: 16,
+  },
+  varietyTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  typeIcon: {
+    fontSize: 24,
+  },
+  notesContainer: {
+    padding: 16,
+    borderRadius: 16,
+    gap: 12,
+  },
+  quoteIcon: {
+    marginRight: 8,
+  },
+  quoteIconEnd: {
+    marginLeft: 8,
+  },
+  idContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+  },
+  idText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  dateText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
 });
 
