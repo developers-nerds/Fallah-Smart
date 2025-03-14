@@ -225,25 +225,28 @@ const HomeScreen: React.FC = () => {
       newStartDate.setHours(0, 0, 0, 0);
       newEndDate = new Date(today);
       newEndDate.setHours(23, 59, 59, 999);
-      displayText = today.toLocaleDateString("ar", {
-        weekday: "long",
-        month: "long",
-        day: "numeric",
-      });
-    } else if (filterType === "Weekly") {
+    
+      const arabicMonth = today.toLocaleDateString("ar", { month: "long" });
+      const arabicWeekday = today.toLocaleDateString("ar", { weekday: "long" });
+      const frenchDay = today.toLocaleDateString("fr", { day: "numeric" });
+    
+      displayText = `${arabicWeekday} ${frenchDay} , ${arabicMonth}`;
+    }
+    else if (filterType === "Weekly") {
       newStartDate = new Date(today);
       newStartDate.setDate(today.getDate() - 7);
       newStartDate.setHours(0, 0, 0, 0);
       newEndDate = new Date(today);
       newEndDate.setHours(23, 59, 59, 999);
-      displayText = `${newStartDate.toLocaleDateString("ar", {
-        day: "numeric",
-        month: "long",
-      })} - ${newEndDate.toLocaleDateString("ar", {
-        month: "long",
-        day: "numeric",
-      })}`;
-    } else if (filterType === "Monthly") {
+    
+      const month = newEndDate.toLocaleDateString("ar", { month: "long" });
+      const startDay = newStartDate.toLocaleDateString("fr", { day: "numeric" });
+      const endDay = newEndDate.toLocaleDateString("fr", { day: "numeric" });
+    
+      displayText = `${startDay} - ${endDay}, ${month}`;
+    }
+    
+    else if (filterType === "Monthly") {
       newStartDate = new Date(today.getFullYear(), today.getMonth(), 1);
       newStartDate.setHours(0, 0, 0, 0);
       newEndDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
