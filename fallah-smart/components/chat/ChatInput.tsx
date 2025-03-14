@@ -147,7 +147,7 @@ const ChatInput = ({
                 opacity: imageOpacityAnim,
               },
             ]}>
-            <Text style={styles.imageInfoText}>Image ready to send</Text>
+            <Text style={styles.imageInfoText}>الصورة جاهزة للإرسال</Text>
           </Animated.View>
           <Animated.View
             style={[

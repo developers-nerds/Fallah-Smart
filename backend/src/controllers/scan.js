@@ -1,29 +1,93 @@
 const sequelize = require("../database/connection");
 const { DataTypes } = require("sequelize");
 const Scan = require("../database/models/Scans")(sequelize, DataTypes);
+const path = require("path");
+const crypto = require("crypto");
+const fs = require("fs");
 
 // Create a new scan with image
 exports.createScan = async (req, res) => {
   try {
-    // Check if image was uploaded
     if (!req.file) {
       return res.status(400).json({ message: "No image uploaded" });
     }
+    const userId = req.user.id;
 
-    // Get the image data and mime type
-    const imageBuffer = req.file.buffer;
+    // Generate a unique filename
+    const uniqueId = crypto.randomBytes(8).toString("hex");
+    const fileExtension = path.extname(req.file.originalname);
+    const uniqueFilename = `scan_${uniqueId}_${Date.now()}${fileExtension}`;
+
+    // Update the file path with the unique name - now using scans subfolder
+    const uploadDir = path.join(__dirname, "../../uploads");
+    const scansDir = path.join(uploadDir, "scans");
+    const uniqueFilePath = path.join(scansDir, uniqueFilename);
+
+    // Ensure both the uploads and scans directories exist
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    if (!fs.existsSync(scansDir)) {
+      fs.mkdirSync(scansDir, { recursive: true });
+    }
+
+    // Save the buffer directly to the file
+    if (req.file.buffer) {
+      // If multer is configured with memory storage
+      fs.writeFileSync(uniqueFilePath, req.file.buffer);
+    } else if (req.file.path) {
+      // If multer is configured with disk storage
+      fs.copyFileSync(req.file.path, uniqueFilePath);
+
+      // Optionally remove the temporary file if needed
+      if (fs.existsSync(req.file.path) && req.file.path !== uniqueFilePath) {
+        fs.unlinkSync(req.file.path);
+      }
+    } else {
+      throw new Error("Invalid file upload configuration");
+    }
+
+    // Get the file path and mime type
     const mimeType = req.file.mimetype;
-    // Convert buffer to base64 string for storage
-    const base64Image = imageBuffer.toString("base64");
+
+    // For image URL construction - update to include scans subfolder
+    const imageUrl = `/uploads/scans/${uniqueFilename}`;
+
     // Get AI response from request body or set default
     const aiResponse = req.body.ai_response || "No analysis available";
-    // Create the scan record
-    const scan = await Scan.create({
-      picture: base64Image,
-      picture_mime_type: mimeType,
-      ai_response: aiResponse,
-      UserId: req.user.id, // Assuming user ID is available from auth middleware
-    });
+
+    // Use raw SQL query instead of Sequelize model API
+    const [results] = await sequelize.query(
+      `INSERT INTO "Scans" (
+        "picture", 
+        "picture_mime_type", 
+        "ai_response", 
+        "createdAt", 
+        "updatedAt", 
+        "userId"
+      ) 
+      VALUES (
+        :picture, 
+        :picture_mime_type, 
+        :ai_response, 
+        CURRENT_TIMESTAMP, 
+        CURRENT_TIMESTAMP, 
+        :userId
+      )
+      RETURNING *`,
+      {
+        replacements: {
+          picture: uniqueFilename, // Store the unique filename
+          picture_mime_type: mimeType,
+          ai_response: aiResponse,
+          userId: userId,
+        },
+        type: sequelize.QueryTypes.INSERT,
+      }
+    );
+
+    // Now results contains the full inserted record
+    const scan = results;
 
     return res.status(201).json({
       message: "Scan created successfully",
@@ -31,88 +95,39 @@ exports.createScan = async (req, res) => {
         id: scan.id,
         ai_response: scan.ai_response,
         createdAt: scan.createdAt,
+        userId: userId,
       },
     });
   } catch (error) {
     console.error("Error creating scan:", error);
     return res
       .status(500)
-      .json({ message: "Failed to create scan", error: error.message });
+      .json({ message: "Error creating scan", error: error.message });
   }
 };
 
-// Get all scans for the authenticated user
-exports.getUserScans = async (req, res) => {
+exports.getScans = async (req, res) => {
   try {
+    const userId = req.user.id;
+
     const scans = await Scan.findAll({
-      where: { UserId: req.user.id },
-      order: [["createdAt", "DESC"]],
-      attributes: ["id", "ai_response", "createdAt"],
+      where: { userId },
+      order: [["createdAt", "DESC"]], // Get newest scans first
     });
 
-    return res.status(200).json({ scans });
-  } catch (error) {
-    console.error("Error fetching scans:", error);
-    return res
-      .status(500)
-      .json({ message: "Failed to fetch scans", error: error.message });
-  }
-};
-
-// Get a specific scan by ID
-exports.getScanById = async (req, res) => {
-  try {
-    const scan = await Scan.findOne({
-      where: {
-        id: req.params.id,
-        UserId: req.user.id,
-      },
+    // Add the full image URL to each scan
+    const scansWithImageUrls = scans.map((scan) => {
+      const scanData = scan.toJSON();
+      // Construct the full image URL
+      scanData.imageUrl = `/uploads/scans/${scanData.picture}`;
+      return scanData;
     });
 
-    if (!scan) {
-      return res.status(404).json({ message: "Scan not found" });
-    }
-
-    // Create a response object with the image as a data URL
-    const scanData = {
-      id: scan.id,
-      ai_response: scan.ai_response,
-      createdAt: scan.createdAt,
-      image: scan.picture
-        ? `data:${scan.picture_mime_type};base64,${scan.picture}`
-        : null,
-    };
-
-    return res.status(200).json({ scan: scanData });
+    return res.status(200).json(scansWithImageUrls);
   } catch (error) {
-    console.error("Error fetching scan:", error);
+    console.error("Error getting scans:", error);
     return res
       .status(500)
-      .json({ message: "Failed to fetch scan", error: error.message });
-  }
-};
-
-// Delete a scan
-exports.deleteScan = async (req, res) => {
-  try {
-    const result = await Scan.destroy({
-      where: {
-        id: req.params.id,
-        UserId: req.user.id,
-      },
-    });
-
-    if (result === 0) {
-      return res
-        .status(404)
-        .json({ message: "Scan not found or not authorized to delete" });
-    }
-
-    return res.status(200).json({ message: "Scan deleted successfully" });
-  } catch (error) {
-    console.error("Error deleting scan:", error);
-    return res
-      .status(500)
-      .json({ message: "Failed to delete scan", error: error.message });
+      .json({ message: "Error getting scans", error: error.message });
   }
 };

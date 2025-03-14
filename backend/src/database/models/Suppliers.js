@@ -10,6 +10,10 @@ module.exports = (sequelize, DataTypes) => {
           notEmpty: true,
         },
       },
+      about_us: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+      },
       company_address: {
         type: DataTypes.STRING(100),
         allowNull: false,
@@ -25,6 +29,9 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING(100),
       },
       company_logo: {
+        type: DataTypes.STRING(100),
+      },
+      company_banner: {
         type: DataTypes.STRING(100),
       },
       open_time: {

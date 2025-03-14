@@ -8,12 +8,12 @@ const auth = require("../middleware/auth");
 router.post("/", auth, upload.single("image"), scanController.createScan);
 
 // Route to get all scans for the authenticated user
-router.get("/", auth, scanController.getUserScans);
+router.get("/getScans", auth, scanController.getScans);
 
-// Route to get a specific scan by ID
-router.get("/:id", auth, scanController.getScanById);
+// // Route to get a specific scan by ID
+// router.get("/:id", auth, scanController.getScanById);
 
-// Route to delete a scan
-router.delete("/:id", auth, scanController.deleteScan);
+// // Route to delete a scan
+// router.delete("/:id", auth, scanController.deleteScan);
 
 module.exports = router;
