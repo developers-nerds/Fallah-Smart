@@ -227,6 +227,11 @@ export const HomeContent = ({ navigation, route }: HomeContentProps) => {
     height: showForecast ? 320 : 160
   }), [showForecast]);
   
+  const refreshScanHistory = () => {
+    console.log('Refreshing scan history');
+    setScanHistoryRefreshTrigger(prev => prev + 1);
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={theme.colors.neutral.surface} />

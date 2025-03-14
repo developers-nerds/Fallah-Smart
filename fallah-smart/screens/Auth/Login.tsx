@@ -66,6 +66,9 @@ const Login = () => {
       // Set the authorization header for subsequent requests
       axios.defaults.headers.common['Authorization'] = `Bearer ${tokens.access.token}`;
   
+      // You might also want to add this to properly refresh the token
+      console.log('Login successful, token stored:', tokens.access.token);
+  
       navigation.navigate('StockTab');
     } catch (err) {
       let errorMessage = 'An error occurred during login';

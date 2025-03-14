@@ -41,9 +41,9 @@ const ScanHistory: React.FC<ScanHistoryProps> = ({ refreshTrigger = 0 }) => {
   const fetchScanHistory = async () => {
     try {
       setLoading(true);
-      const { accessToken } = await storage.getTokens();
-
-      if (!accessToken) {
+      const tokens = await storage.getTokens();
+      
+      if (!tokens.access) {
         setError('Authentication required');
         setLoading(false);
         return;
@@ -51,9 +51,12 @@ const ScanHistory: React.FC<ScanHistoryProps> = ({ refreshTrigger = 0 }) => {
 
       const response = await axios.get(`${baseUrl}/api/scans/getScans`, {
         headers: {
-          Authorization: `Bearer ${accessToken}`,
+          Authorization: `Bearer ${tokens.access}`,
         },
       });
+
+      console.log('Fetching scan history with base URL:', baseUrl);
+      console.log('Using token:', tokens.access ? `${tokens.access.substring(0, 10)}...` : 'No token');
 
       console.log('Scan response data:', response.data);
       console.log('Base URL:', baseUrl);
@@ -64,6 +67,8 @@ const ScanHistory: React.FC<ScanHistoryProps> = ({ refreshTrigger = 0 }) => {
         console.error('Invalid response format:', response.data);
         setError('Invalid data format received');
       }
+
+      console.log('Full API Response:', response);
 
       setError(null);
     } catch (err) {
@@ -126,14 +131,29 @@ const ScanHistory: React.FC<ScanHistoryProps> = ({ refreshTrigger = 0 }) => {
     );
   }
 
-  if (scans.length === 0) {
+  if (scans.length === 0 && !loading && !error) {
     return (
-      <View style={styles.emptyContainer}>
-        <Ionicons name="leaf-outline" size={24} color={theme.colors.neutral.gray.base} />
-        <Text style={styles.emptyText}>No scan history yet</Text>
-        <TouchableOpacity style={styles.scanButton} onPress={() => navigation.navigate('Scan')}>
-          <Text style={styles.scanButtonText}>Scan a plant</Text>
-        </TouchableOpacity>
+      <View style={styles.container}>
+        <View style={styles.headerRow}>
+          <Text style={styles.headerTitle}>Scan History</Text>
+          <TouchableOpacity 
+            style={styles.viewAllButton}
+            onPress={() => navigation.navigate('ScanHistoryScreen')}>
+            <Text style={styles.viewAllText}>View all</Text>
+            <Ionicons name="chevron-forward" size={16} color={theme.colors.primary.base} />
+          </TouchableOpacity>
+        </View>
+        
+        <View style={styles.emptyContainer}>
+          <Ionicons name="leaf-outline" size={24} color={theme.colors.neutral.gray.base} />
+          <Text style={styles.emptyText}>No scan history yet</Text>
+          <TouchableOpacity 
+            style={styles.scanButton} 
+            onPress={() => navigation.navigate('Scan')}
+          >
+            <Text style={styles.scanButtonText}>Scan a plant</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -301,6 +321,17 @@ const styles = StyleSheet.create({
     color: theme.colors.neutral.surface,
     fontSize: 14,
     fontFamily: theme.fonts.medium,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontFamily: theme.fonts.bold,
+    color: theme.colors.neutral.textPrimary,
   },
 });
 
