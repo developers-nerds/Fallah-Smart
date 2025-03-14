@@ -59,15 +59,24 @@ const getCategoryIcon = (type: string | undefined): string => {
 };
 
 // Helper function to get seed type icon
-const getSeedTypeIcon = (type: string | undefined): string => {
-  if (!type) return '🌱';
+const getSeedTypeIcon = (type: string | undefined, name: string | undefined): string => {
+  if (!type && !name) return '🌱';
   
-  const seedType = Object.keys(SEED_TYPES).find(key => 
-    SEED_TYPES[key as keyof typeof SEED_TYPES].name === type || key === type.toLowerCase()
+  // First try to find by type
+  const seedTypeByType = Object.keys(SEED_TYPES).find(key => 
+    SEED_TYPES[key as keyof typeof SEED_TYPES].name === type || key === type?.toLowerCase()
   );
   
-  if (seedType) {
-    return SEED_TYPES[seedType as keyof typeof SEED_TYPES].icon;
+  if (seedTypeByType) {
+    return SEED_TYPES[seedTypeByType as keyof typeof SEED_TYPES].icon;
+  }
+
+  // If not found by type, try to find by name
+  if (name) {
+    const seedTypeByName = Object.values(SEED_TYPES).find(seed => seed.name === name);
+    if (seedTypeByName) {
+      return seedTypeByName.icon;
+    }
   }
   
   return '🌱';
@@ -331,7 +340,7 @@ const SeedDetailScreen: React.FC<SeedDetailScreenProps> = ({ navigation, route }
     ? SEED_TYPES[seedType as keyof typeof SEED_TYPES].category 
     : 'أخرى';
   
-  const seedTypeIcon = getSeedTypeIcon(seedItem.type);
+  const seedTypeIcon = getSeedTypeIcon(seedItem.type, seedItem.name);
   const lowStockStatus = isLowStock(seedItem);
   const nearExpiryStatus = isNearExpiry(seedItem.expiryDate);
   const expiredStatus = isExpired(seedItem.expiryDate);
