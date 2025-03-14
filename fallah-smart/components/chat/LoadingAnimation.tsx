@@ -8,7 +8,7 @@ interface LoadingAnimationProps {
 }
 
 const LoadingAnimation: React.FC<LoadingAnimationProps> = ({
-  message = 'Preparing your farming assistant...',
+  message = 'جاري إعداد مساعدك الزراعي...',
 }) => {
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;

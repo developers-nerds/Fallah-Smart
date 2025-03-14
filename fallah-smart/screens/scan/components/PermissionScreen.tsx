@@ -21,11 +21,11 @@ const PermissionScreen = ({
   const handlePermissionRequest = async () => {
     animateButtonPress();
     Alert.alert(
-      'Camera Access Required',
-      'We need camera permission to scan items. Would you like to grant access?',
+      'طلب الوصول إلى الكاميرا',
+      'نحتاج إلى الوصول إلى الكاميرا لتحليل العناصر. هل تريد منا إعطاء الوصول؟',
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Allow', onPress: requestPermission },
+        { text: 'إلغاء', style: 'cancel' },
+        { text: 'السماح', onPress: requestPermission },
       ]
     );
   };
@@ -39,12 +39,12 @@ const PermissionScreen = ({
       <Animated.View style={{ transform: [{ scale: buttonScaleAnim }] }}>
         <Ionicons name="camera-outline" size={80} color={theme.colors.neutral.gray.medium} />
       </Animated.View>
-      <Text style={styles.permissionTitle}>Camera Permission Needed</Text>
-      <Text style={styles.permissionText}>Please allow camera access to scan your items</Text>
+      <Text style={styles.permissionTitle}>طلب الوصول إلى الكاميرا'</Text>
+      <Text style={styles.permissionText}>يرجى السماح بالوصول إلى الكاميرا لتحليل العناصر</Text>
       <TouchableOpacity style={styles.permissionButton} onPress={handlePermissionRequest}>
         <Animated.Text
           style={[styles.permissionButtonText, { transform: [{ scale: buttonScaleAnim }] }]}>
-          Grant Permission
+          منح الإذن
         </Animated.Text>
       </TouchableOpacity>
     </Animated.View>
