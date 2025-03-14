@@ -20,7 +20,7 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
       },
       role: {
-        type: DataTypes.STRING(10),
+        type: DataTypes.ENUM("ADMIN", "USER","ADVISOR"),
         allowNull: true,
       },
       gender: {
@@ -59,7 +59,7 @@ module.exports = (sequelize, DataTypes) => {
       profilePicture: {
         type: DataTypes.STRING(255),
         allowNull: true,
-      },
+      }
     },
     {
       timestamps: true,
@@ -67,13 +67,13 @@ module.exports = (sequelize, DataTypes) => {
       indexes: [
         {
           unique: true,
-          fields: ["email"],
+          fields: ["email"]
         },
         {
           unique: true,
-          fields: ["username"],
-        },
-      ],
+          fields: ["username"]
+        }
+      ]
     }
   );
 
