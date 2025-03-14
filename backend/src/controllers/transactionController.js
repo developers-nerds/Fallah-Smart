@@ -1,5 +1,5 @@
 const { Transactions, Accounts, Category } = require('../database/assossiation');
-const { Op } = require('sequelize'); // Added for date range operators
+const { Op } = require('sequelize');
 
 const transactionController = {
   // Get transactions by account and time interval
@@ -42,16 +42,50 @@ const transactionController = {
           };
           break;
         case 'monthly':
-          whereClause.date = {
-            [Op.gte]: new Date(now.getFullYear(), now.getMonth(), 1),
-            [Op.lte]: new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999),
-          };
+          if (startDate && endDate) {
+            // Use provided startDate and endDate
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+              return res.status(400).json({
+                success: false,
+                message: 'Invalid startDate or endDate format. Dates must be in ISO format (e.g., "2023-10-01T00:00:00.000Z").',
+              });
+            }
+            whereClause.date = {
+              [Op.gte]: start,
+              [Op.lte]: end,
+            };
+          } else {
+            // Default to current month if no dates provided
+            whereClause.date = {
+              [Op.gte]: new Date(now.getFullYear(), now.getMonth(), 1),
+              [Op.lte]: new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999),
+            };
+          }
           break;
         case 'yearly':
-          whereClause.date = {
-            [Op.gte]: new Date(now.getFullYear(), 0, 1),
-            [Op.lte]: new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999),
-          };
+          if (startDate && endDate) {
+            // Use provided startDate and endDate
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+              return res.status(400).json({
+                success: false,
+                message: 'Invalid startDate or endDate format. Dates must be in ISO format (e.g., "2023-01-01T00:00:00.000Z").',
+              });
+            }
+            whereClause.date = {
+              [Op.gte]: start,
+              [Op.lte]: end,
+            };
+          } else {
+            // Default to current year if no dates provided
+            whereClause.date = {
+              [Op.gte]: new Date(now.getFullYear(), 0, 1),
+              [Op.lte]: new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999),
+            };
+          }
           break;
         case 'all':
           whereClause.date = { [Op.gte]: new Date(0) }; // From the beginning of time
@@ -63,9 +97,17 @@ const transactionController = {
               message: 'startDate and endDate are required for interval',
             });
           }
+          const startInterval = new Date(startDate);
+          const endInterval = new Date(endDate);
+          if (isNaN(startInterval.getTime()) || isNaN(endInterval.getTime())) {
+            return res.status(400).json({
+              success: false,
+              message: 'Invalid startDate or endDate format. Dates must be in ISO format (e.g., "2023-01-01T00:00:00.000Z").',
+            });
+          }
           whereClause.date = {
-            [Op.gte]: new Date(startDate),
-            [Op.lte]: new Date(endDate),
+            [Op.gte]: startInterval,
+            [Op.lte]: endInterval,
           };
           break;
         default:
@@ -110,27 +152,27 @@ const transactionController = {
   // Create new transaction
   createTransaction: async (req, res) => {
     try {
-      const { accountId, categoryId, amount, type, note, date } = req.body;  // Changed description to note
-      
+      const { accountId, categoryId, amount, type, note, date } = req.body;
+
       if (!accountId || !amount || !type || !categoryId) {
         return res.status(400).json({
           success: false,
-          message: 'Missing required fields: accountId, categoryId, amount, and type are required'
+          message: 'Missing required fields: accountId, categoryId, amount, and type are required',
         });
       }
 
       // Verify account belongs to user
       const account = await Accounts.findOne({
-        where: { 
+        where: {
           id: accountId,
-          userId: req.user.id
-        }
+          userId: req.user.id,
+        },
       });
 
       if (!account) {
         return res.status(404).json({
           success: false,
-          message: 'Account not found or does not belong to user'
+          message: 'Account not found or does not belong to user',
         });
       }
 
@@ -139,7 +181,7 @@ const transactionController = {
       if (!category) {
         return res.status(404).json({
           success: false,
-          message: 'Category not found'
+          message: 'Category not found',
         });
       }
 
@@ -149,16 +191,15 @@ const transactionController = {
         categoryId,
         amount,
         type,
-        note,        // Changed description to note
+        note,
         date: date || new Date(),
-        userId: req.user.id
+        userId: req.user.id,
       });
 
       // Update account balance
-      const newBalance = type === 'income' 
-        ? account.balance + amount 
-        : account.balance - amount;
-      
+      const newBalance =
+        type === 'income' ? account.balance + amount : account.balance - amount;
+
       await account.update({ balance: newBalance });
 
       // Fetch complete transaction with associations
@@ -167,27 +208,27 @@ const transactionController = {
           {
             model: Accounts,
             as: 'account',
-            attributes: ['id', 'Methods', 'balance', 'currency']
+            attributes: ['id', 'Methods', 'balance', 'currency'],
           },
           {
             model: Category,
             as: 'category',
-            attributes: ['id', 'name']
-          }
-        ]
+            attributes: ['id', 'name'],
+          },
+        ],
       });
 
       return res.status(201).json({
         success: true,
         message: 'Transaction created successfully',
-        data: completeTransaction
+        data: completeTransaction,
       });
     } catch (error) {
       console.error('Error creating transaction:', error);
       return res.status(500).json({
         success: false,
         message: 'Internal server error',
-        error: error.message
+        error: error.message,
       });
     }
   },
@@ -201,24 +242,26 @@ const transactionController = {
       if (!id) {
         return res.status(400).json({
           success: false,
-          message: 'Transaction ID is required'
+          message: 'Transaction ID is required',
         });
       }
 
       // Find transaction through account association instead of direct userId
       const transaction = await Transactions.findOne({
         where: { id: id },
-        include: [{ 
-          model: Accounts, 
-          as: 'account',
-          where: { userId: req.user.id }
-        }]
+        include: [
+          {
+            model: Accounts,
+            as: 'account',
+            where: { userId: req.user.id },
+          },
+        ],
       });
 
       if (!transaction) {
         return res.status(404).json({
           success: false,
-          message: 'Transaction not found'
+          message: 'Transaction not found',
         });
       }
 
@@ -236,10 +279,10 @@ const transactionController = {
             userId: req.user.id,
           },
         });
-        if (!account) {
+        if (!newAccount) {
           return res.status(404).json({
             success: false,
-            message: 'New account not found or does not belong to user'
+            message: 'New account not found or does not belong to user',
           });
         }
       }
@@ -250,18 +293,17 @@ const transactionController = {
         if (!category) {
           return res.status(404).json({
             success: false,
-            message: 'New category not found'
+            message: 'New category not found',
           });
         }
       }
 
       // Revert the effect of the original transaction
-      const originalBalanceAdjustment = originalType === 'income' 
-        ? -originalAmount 
-        : originalAmount;
-      
+      const originalBalanceAdjustment =
+        originalType === 'income' ? -originalAmount : originalAmount;
+
       await transaction.account.update({
-        balance: transaction.account.balance + originalBalanceAdjustment
+        balance: transaction.account.balance + originalBalanceAdjustment,
       });
 
       // Update transaction
@@ -277,12 +319,10 @@ const transactionController = {
       // Apply the effect of the new transaction
       const newAmount = amount || originalAmount;
       const newType = type || originalType;
-      const newBalanceAdjustment = newType === 'income' 
-        ? newAmount 
-        : -newAmount;
+      const newBalanceAdjustment = newType === 'income' ? newAmount : -newAmount;
 
       await newAccount.update({
-        balance: newAccount.balance + newBalanceAdjustment
+        balance: newAccount.balance + newBalanceAdjustment,
       });
 
       // Fetch updated transaction with associations
@@ -291,27 +331,27 @@ const transactionController = {
           {
             model: Accounts,
             as: 'account',
-            attributes: ['id', 'Methods', 'balance', 'currency']
+            attributes: ['id', 'Methods', 'balance', 'currency'],
           },
           {
             model: Category,
             as: 'category',
-            attributes: ['id', 'name']
-          }
-        ]
+            attributes: ['id', 'name'],
+          },
+        ],
       });
 
       return res.status(200).json({
         success: true,
         message: 'Transaction updated successfully',
-        data: updatedTransaction
+        data: updatedTransaction,
       });
     } catch (error) {
       console.error('Error updating transaction:', error);
       return res.status(500).json({
         success: false,
         message: 'Internal server error',
-        error: error.message
+        error: error.message,
       });
     }
   },
@@ -325,43 +365,42 @@ const transactionController = {
           {
             model: Accounts,
             as: 'account',
-            where: { userId: req.user.id }
+            where: { userId: req.user.id },
           },
           {
             model: Category,
-            as: 'category'
-          }
-        ]
+            as: 'category',
+          },
+        ],
       });
 
       if (!transaction) {
         return res.status(404).json({
           success: false,
-          message: 'Transaction not found'
+          message: 'Transaction not found',
         });
       }
 
       // Revert account balance
       const account = transaction.account;
-      const balanceAdjustment = transaction.type === 'income' 
-        ? -transaction.amount 
-        : transaction.amount;
-      
-      await account.update({ 
-        balance: account.balance + balanceAdjustment 
+      const balanceAdjustment =
+        transaction.type === 'income' ? -transaction.amount : transaction.amount;
+
+      await account.update({
+        balance: account.balance + balanceAdjustment,
       });
 
       await transaction.destroy();
       return res.status(200).json({
         success: true,
-        message: 'Transaction deleted successfully'
+        message: 'Transaction deleted successfully',
       });
     } catch (error) {
       console.error('Error deleting transaction:', error);
       return res.status(500).json({
         success: false,
         message: 'Internal server error',
-        error: error.message
+        error: error.message,
       });
     }
   },
