@@ -76,7 +76,7 @@ const Dictionary = () => {
   const [favorites, setFavorites] = useState<{[key: string]: boolean}>({});
   const navigation = useNavigation<NavigationProp>();
   const searchAnimation = new Animated.Value(0);
-  const BASE_URL = process.env.EXPO_PUBLIC_API_URL;
+  const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
   useEffect(() => {
     fetchData();
@@ -88,8 +88,8 @@ const Dictionary = () => {
     try {
       setLoading(true);
       const [cropsResponse, animalsResponse] = await Promise.all([
-        axios.get(`${BASE_URL}/crops`),
-        axios.get(`${BASE_URL}/animal/get`)
+        axios.get(`${API_URL}/crops`),
+        axios.get(`${API_URL}/animal/get`)
       ]);
       setCrops(cropsResponse.data);
       setAnimals(animalsResponse.data);
