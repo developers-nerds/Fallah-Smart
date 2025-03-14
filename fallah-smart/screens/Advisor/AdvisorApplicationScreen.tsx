@@ -12,23 +12,28 @@ import {
   KeyboardAvoidingView,
   Image
 } from 'react-native';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import axios from 'axios';
 import { theme } from '../../theme/theme';
 import { storage } from '../../utils/storage';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const AdvisorApplicationScreen = ({ navigation }) => {
+  const [currentStep, setCurrentStep] = useState(1);
+  const totalSteps = 3;
+  
   const [formData, setFormData] = useState({
     specialization: '',
     experience: '',
     education: '',
     certifications: '',
-    applicationNotes: ''
+    applicationNote: '',
   });
   
   const [documents, setDocuments] = useState([]);
+  const [certificationPhotos, setCertificationPhotos] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [applicationStatus, setApplicationStatus] = useState(null);
@@ -84,19 +89,13 @@ const AdvisorApplicationScreen = ({ navigation }) => {
   const pickDocument = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: ['application/pdf', 'image/*', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
-        copyToCacheDirectory: true
+        type: ['application/pdf', 'image/*'],
+        copyToCacheDirectory: true,
       });
-      
-      if (!result.canceled && result.assets && result.assets.length > 0) {
+
+      if (result.canceled === false && result.assets && result.assets.length > 0) {
         const selectedDoc = result.assets[0];
-        
-        // Check file size (10MB limit)
-        const fileSize = selectedDoc.size || 0;
-        if (fileSize > 10 * 1024 * 1024) {
-          Alert.alert("File too large", "Please select a file smaller than 10MB");
-          return;
-        }
+        console.log('Document picked:', selectedDoc);
         
         // Add to documents list
         setDocuments([...documents, {
@@ -107,7 +106,7 @@ const AdvisorApplicationScreen = ({ navigation }) => {
       }
     } catch (error) {
       console.error('Error picking document:', error);
-      Alert.alert('Error', 'Could not select document. Please try again.');
+      Alert.alert('Error', 'There was an error selecting your document. Please try again.');
     }
   };
   
@@ -117,52 +116,150 @@ const AdvisorApplicationScreen = ({ navigation }) => {
     setDocuments(newDocs);
   };
 
-  const submitApplication = async () => {
-    // Validate form data
-    if (!formData.specialization || !formData.experience || !formData.education) {
-      Alert.alert(
-        'Missing Information',
-        'Please fill in all required fields (specialization, experience, and education).'
-      );
-      return;
-    }
+  const pickCertificationPhoto = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
 
-    if (documents.length === 0) {
-      Alert.alert(
-        'Documents Required',
-        'Please upload at least one document to support your application.'
-      );
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const selectedPhoto = result.assets[0];
+        console.log('Photo picked:', selectedPhoto);
+        
+        // Create a photo object with necessary metadata
+        const certPhoto = {
+          uri: selectedPhoto.uri,
+          name: `certification_${Date.now()}.jpg`,
+          type: 'image/jpeg',
+        };
+        
+        // Add to certification photos list
+        setCertificationPhotos([...certificationPhotos, certPhoto]);
+      }
+    } catch (error) {
+      console.error('Error picking certification photo:', error);
+      Alert.alert('Error', 'There was an error selecting your photo. Please try again.');
+    }
+  };
+
+  const takeCertificationPhoto = async () => {
+    try {
+      const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
+      
+      if (cameraPermission.status !== 'granted') {
+        Alert.alert('Permission Required', 'Camera permission is needed to take photos.');
+        return;
+      }
+      
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const photo = result.assets[0];
+        
+        // Create a photo object with necessary metadata
+        const certPhoto = {
+          uri: photo.uri,
+          name: `certification_${Date.now()}.jpg`,
+          type: 'image/jpeg',
+        };
+        
+        // Add to certification photos list
+        setCertificationPhotos([...certificationPhotos, certPhoto]);
+      }
+    } catch (error) {
+      console.error('Error taking certification photo:', error);
+      Alert.alert('Error', 'There was an error capturing your photo. Please try again.');
+    }
+  };
+
+  const removeCertificationPhoto = (index) => {
+    const newPhotos = [...certificationPhotos];
+    newPhotos.splice(index, 1);
+    setCertificationPhotos(newPhotos);
+  };
+
+  const goToNextStep = () => {
+    if (validateCurrentStep()) {
+      setCurrentStep(prev => Math.min(prev + 1, totalSteps));
+    }
+  };
+
+  const goToPreviousStep = () => {
+    setCurrentStep(prev => Math.max(prev - 1, 1));
+  };
+
+  const validateCurrentStep = () => {
+    if (currentStep === 1) {
+      return true;
+    } else if (currentStep === 2) {
+      if (!formData.specialization.trim()) {
+        Alert.alert('Required Field', 'Please enter your specialization.');
+        return false;
+      }
+      if (!formData.experience.trim()) {
+        Alert.alert('Required Field', 'Please enter your experience.');
+        return false;
+      }
+      if (!formData.education.trim()) {
+        Alert.alert('Required Field', 'Please enter your education.');
+        return false;
+      }
+      return true;
+    } else if (currentStep === 3) {
+      if (!formData.certifications.trim()) {
+        Alert.alert('Required Field', 'Please enter your certifications.');
+        return false;
+      }
+      if (documents.length === 0) {
+        Alert.alert('Required Documents', 'Please upload at least one supporting document.');
+        return false;
+      }
+      return true;
+    }
+    return true;
+  };
+
+  const submitApplication = async () => {
+    if (!validateCurrentStep()) {
       return;
     }
 
     setLoading(true);
+
     try {
       const tokens = await storage.getTokens();
       if (!tokens || !tokens.access) {
-        Alert.alert('Authentication Error', 'Please log in to continue');
+        Alert.alert('Authentication Error', 'Please log in to submit an application.');
         setLoading(false);
         return;
       }
 
-      // Create form data with all required fields
       const form = new FormData();
-      
-      // Add text fields
       form.append('specialization', formData.specialization);
       form.append('experience', formData.experience);
       form.append('education', formData.education);
-      
-      if (formData.certifications) {
-        form.append('certifications', formData.certifications);
-      }
-      
-      if (formData.applicationNotes) {
-        form.append('applicationNotes', formData.applicationNotes);
-      }
+      form.append('certifications', formData.certifications);
+      form.append('applicationNote', formData.applicationNote);
 
-      // Add documents - with proper file handling for iOS and Android
+      // Add certification photos to form data
+      certificationPhotos.forEach((photo, index) => {
+        form.append('certificationPhotos', {
+          uri: Platform.OS === 'android' ? photo.uri : photo.uri.replace('file://', ''),
+          type: photo.type,
+          name: photo.name
+        });
+      });
+
+      // Add supporting documents
       documents.forEach((doc, index) => {
-        // Create a file name if none exists
         const uriParts = doc.uri.split('.');
         const fileType = uriParts[uriParts.length - 1];
         const fileName = doc.name || `document_${index}.${fileType}`;
@@ -174,9 +271,6 @@ const AdvisorApplicationScreen = ({ navigation }) => {
         } as any);
       });
 
-      console.log('Submitting application to:', `${API_URL}/api/users/apply-advisor`);
-
-      // Make the API call with proper headers
       const response = await axios.post(
         `${API_URL}/api/users/apply-advisor`,
         form,
@@ -185,16 +279,18 @@ const AdvisorApplicationScreen = ({ navigation }) => {
             'Authorization': `Bearer ${tokens.access}`,
             'Content-Type': 'multipart/form-data',
           },
-          timeout: 30000 // 30 second timeout for uploads
+          timeout: 30000
         }
       );
 
-      console.log('Application submitted successfully:', response.data);
+      console.log('Application submitted:', response.data);
       
       Alert.alert(
-        'Application Approved!',
-        'Congratulations! You are now an advisor. You can start helping other users immediately.',
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
+        'Application Submitted',
+        'Your application to become an agricultural advisor has been submitted successfully. We will review your application and get back to you soon.',
+        [
+          { text: 'OK', onPress: () => navigation.goBack() }
+        ]
       );
       
       setApplicationStatus('APPROVED');
@@ -202,22 +298,17 @@ const AdvisorApplicationScreen = ({ navigation }) => {
     } catch (error) {
       console.error('Error submitting application:', error);
       
-      // Provide more detailed error information
       if (error.response) {
         console.error('Server response:', error.response.status, error.response.data);
         
-        // Check if this is the specific database relation error
         if (error.response.data?.error?.includes("relation") && 
             error.response.data?.error?.includes("does not exist")) {
           
           Alert.alert(
             'Service Unavailable', 
-            'The advisor application service is not fully set up on the server yet. Please try again later or contact support.',
+            'The advisor application service is temporarily unavailable. Please try again later.', 
             [
-              { 
-                text: 'OK', 
-                onPress: () => navigation.goBack() 
-              }
+              { text: 'OK' }
             ]
           );
         } else {
@@ -234,7 +325,7 @@ const AdvisorApplicationScreen = ({ navigation }) => {
         );
       } else {
         Alert.alert(
-          'Error',
+          'Application Error',
           'An unexpected error occurred. Please try again.'
         );
       }
@@ -252,7 +343,6 @@ const AdvisorApplicationScreen = ({ navigation }) => {
     );
   }
 
-  // Show application status if exists
   if (applicationStatus) {
     return (
       <View style={[styles.container, styles.centerContent]}>
@@ -294,132 +384,275 @@ const AdvisorApplicationScreen = ({ navigation }) => {
     >
       <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
         <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backArrow}
-            onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color={theme.colors.neutral.textPrimary} />
-          </TouchableOpacity>
-          <Text style={styles.title}>Become an Advisor</Text>
-          <Text style={styles.description}>
-            Share your agricultural expertise with the community as a verified advisor.
-            Complete this form to get instant approval and start helping farmers today!
-          </Text>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity 
+              style={styles.backArrow}
+              onPress={() => navigation.goBack()}>
+              <Ionicons name="arrow-back" size={24} color={theme.colors.neutral.textPrimary} />
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.headerCenter}>
+            <Text style={styles.title}>Become an Advisor</Text>
+          </View>
+          
+          <View style={styles.headerRight}></View>
         </View>
         
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Why Become an Advisor?</Text>
-          <Text style={styles.sectionText}>
-            As an advisor, you'll be able to provide expert guidance, answer community questions,
-            and help fellow farmers with your specialized knowledge. Advisors receive a verification
-            badge and have access to additional platform features.
-          </Text>
+        <View style={styles.progressContainer}>
+          {Array.from({ length: totalSteps }).map((_, index) => (
+            <View 
+              key={index}
+              style={[
+                styles.progressDot,
+                currentStep >= index + 1 ? styles.progressDotActive : {}
+              ]}
+            />
+          ))}
         </View>
         
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Application Form</Text>
-          <Text style={styles.sectionText}>
-            Please complete the form below. Fields marked with an asterisk (*) are required.
-          </Text>
-          
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Specialization *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="E.g., Crop Management, Livestock, Organic Farming"
-              value={formData.specialization}
-              onChangeText={(text) => handleInputChange('specialization', text)}
-            />
-          </View>
-          
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Professional Experience *</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="Describe your relevant work experience in agriculture"
-              value={formData.experience}
-              onChangeText={(text) => handleInputChange('experience', text)}
-              multiline
-              numberOfLines={4}
-            />
-          </View>
-          
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Education *</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="List your relevant education, degrees, or training"
-              value={formData.education}
-              onChangeText={(text) => handleInputChange('education', text)}
-              multiline
-              numberOfLines={4}
-            />
-          </View>
-          
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Certifications (Optional)</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="List any professional certifications you hold"
-              value={formData.certifications}
-              onChangeText={(text) => handleInputChange('certifications', text)}
-              multiline
-              numberOfLines={3}
-            />
-          </View>
-          
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Additional Notes (Optional)</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="Any additional information you'd like to share"
-              value={formData.applicationNotes}
-              onChangeText={(text) => handleInputChange('applicationNotes', text)}
-              multiline
-              numberOfLines={3}
-            />
-          </View>
-          
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Supporting Documents *</Text>
-            <Text style={styles.helperText}>
-              Upload certificates, degrees, or other documents supporting your expertise (PDF, DOC, Images).
-              Max file size: 10MB per file. Up to 5 files.
-            </Text>
-            
-            {documents.map((doc, index) => (
-              <View key={index} style={styles.documentItem}>
-                <View style={styles.documentInfo}>
-                  <Ionicons name="document-text" size={24} color={theme.colors.primary.base} />
-                  <Text style={styles.documentName} numberOfLines={1} ellipsizeMode="middle">
-                    {doc.name || `Document ${index + 1}`}
-                  </Text>
-                </View>
-                <TouchableOpacity onPress={() => removeDocument(index)}>
-                  <Ionicons name="close-circle" size={24} color={theme.colors.error} />
-                </TouchableOpacity>
+        <View style={styles.stepContainer}>
+          {currentStep === 1 && (
+            <>
+              <Text style={styles.stepTitle}>Become an Agricultural Advisor</Text>
+              
+              <View style={styles.introIllustration}>
+                <LinearGradient
+                  colors={['#E6F2FF', '#C2E0FF']}
+                  style={styles.illustrationBackground}
+                >
+                  <View style={styles.illustrationContent}>
+                    <MaterialIcons name="agriculture" size={60} color={theme.colors.primary.base} />
+                    <Text style={styles.illustrationText}>Become an Advisor</Text>
+                    <View style={styles.illustrationIconsRow}>
+                      <View style={[styles.illustrationIcon, {backgroundColor: '#E3F2FD'}]}>
+                        <MaterialIcons name="verified-user" size={24} color="#1976D2" />
+                      </View>
+                      <View style={[styles.illustrationIcon, {backgroundColor: '#E8F5E9'}]}>
+                        <MaterialIcons name="eco" size={24} color="#43A047" />
+                      </View>
+                      <View style={[styles.illustrationIcon, {backgroundColor: '#FFF8E1'}]}>
+                        <MaterialIcons name="lightbulb" size={24} color="#FFB300" />
+                      </View>
+                    </View>
+                  </View>
+                </LinearGradient>
               </View>
-            ))}
-            
-            {documents.length < 5 && (
-              <TouchableOpacity style={styles.uploadButton} onPress={pickDocument}>
-                <Ionicons name="add-circle-outline" size={24} color={theme.colors.primary.base} />
-                <Text style={styles.uploadButtonText}>Add Document</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+              
+              <Text style={styles.introText}>
+                Join our network of agricultural experts and help farmers across the country improve their yield and sustainability.
+              </Text>
+              
+              <View style={styles.benefitsContainer}>
+                <Text style={styles.benefitsTitle}>As an Advisor, you'll be able to:</Text>
+                
+                <View style={styles.benefitItem}>
+                  <MaterialIcons name="check-circle" size={24} color={theme.colors.primary.base} />
+                  <Text style={styles.benefitText}>Provide expert advice to farmers</Text>
+                </View>
+                
+                <View style={styles.benefitItem}>
+                  <MaterialIcons name="check-circle" size={24} color={theme.colors.primary.base} />
+                  <Text style={styles.benefitText}>Earn additional income through consultations</Text>
+                </View>
+                
+                <View style={styles.benefitItem}>
+                  <MaterialIcons name="check-circle" size={24} color={theme.colors.primary.base} />
+                  <Text style={styles.benefitText}>Build your professional profile and reputation</Text>
+                </View>
+                
+                <View style={styles.benefitItem}>
+                  <MaterialIcons name="check-circle" size={24} color={theme.colors.primary.base} />
+                  <Text style={styles.benefitText}>Access specialized tools and resources</Text>
+                </View>
+              </View>
+            </>
+          )}
+          
+          {currentStep === 2 && (
+            <>
+              <Text style={styles.stepTitle}>Professional Information</Text>
+              
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Specialization*</Text>
+                <TextInput
+                  style={styles.input}
+                  value={formData.specialization}
+                  onChangeText={(text) => handleInputChange('specialization', text)}
+                  placeholder="e.g. Crop Management, Soil Science, etc."
+                  placeholderTextColor={theme.colors.neutral.textSecondary}
+                />
+              </View>
+              
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Years of Experience*</Text>
+                <TextInput
+                  style={styles.input}
+                  value={formData.experience}
+                  onChangeText={(text) => handleInputChange('experience', text)}
+                  placeholder="e.g. 5 years in organic farming"
+                  placeholderTextColor={theme.colors.neutral.textSecondary}
+                  keyboardType="default"
+                />
+              </View>
+              
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Education*</Text>
+                <TextInput
+                  style={[styles.input, styles.multilineInput]}
+                  value={formData.education}
+                  onChangeText={(text) => handleInputChange('education', text)}
+                  placeholder="Describe your educational background"
+                  placeholderTextColor={theme.colors.neutral.textSecondary}
+                  multiline
+                  numberOfLines={4}
+                  textAlignVertical="top"
+                />
+              </View>
+            </>
+          )}
+          
+          {currentStep === 3 && (
+            <>
+              <Text style={styles.stepTitle}>Certifications & Documents</Text>
+              
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Certifications</Text>
+                <Text style={styles.inputHelper}>
+                  List any relevant certifications you have earned
+                </Text>
+                <TextInput
+                  style={[styles.input, styles.multilineInput]}
+                  placeholder="Enter your certifications"
+                  multiline
+                  value={formData.certifications}
+                  onChangeText={(text) => handleInputChange('certifications', text)}
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Certification Photos</Text>
+                <Text style={styles.inputHelper}>
+                  Add photos of your certificates or licenses
+                </Text>
+
+                <View style={styles.photoButtonsContainer}>
+                  <TouchableOpacity
+                    style={[styles.photoButton, styles.galleryButton]}
+                    onPress={pickCertificationPhoto}
+                  >
+                    <MaterialIcons name="photo-library" size={22} color={theme.colors.primary.base} />
+                    <Text style={styles.photoButtonText}>Gallery</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.photoButton, styles.cameraButton]}
+                    onPress={takeCertificationPhoto}
+                  >
+                    <MaterialIcons name="camera-alt" size={22} color={theme.colors.primary.base} />
+                    <Text style={styles.photoButtonText}>Camera</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {certificationPhotos.length > 0 && (
+                  <View style={styles.photosGrid}>
+                    {certificationPhotos.map((photo, index) => (
+                      <View key={index} style={styles.photoContainer}>
+                        <Image source={{ uri: photo.uri }} style={styles.photoThumbnail} />
+                        <TouchableOpacity
+                          style={styles.removePhotoButton}
+                          onPress={() => removeCertificationPhoto(index)}
+                        >
+                          <MaterialIcons name="cancel" size={20} color="white" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+              
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Application Note</Text>
+                <TextInput
+                  style={[styles.input, styles.multilineInput]}
+                  value={formData.applicationNote}
+                  onChangeText={(text) => handleInputChange('applicationNote', text)}
+                  placeholder="Any additional information you want to share"
+                  placeholderTextColor={theme.colors.neutral.textSecondary}
+                  multiline
+                  numberOfLines={3}
+                  textAlignVertical="top"
+                />
+              </View>
+              
+              <View style={styles.documentsContainer}>
+                <Text style={styles.inputLabel}>Supporting Documents*</Text>
+                <Text style={styles.inputHelper}>
+                  Upload copies of your certificates, diplomas, or other relevant documents
+                </Text>
+                
+                <TouchableOpacity style={styles.uploadButton} onPress={pickDocument}>
+                  <Ionicons name="document-attach" size={24} color={theme.colors.primary.base} />
+                  <Text style={styles.uploadButtonText}>Add Document</Text>
+                </TouchableOpacity>
+                
+                {documents.length > 0 && (
+                  <View style={styles.documentsList}>
+                    {documents.map((doc, index) => (
+                      <View key={index} style={styles.documentItem}>
+                        <View style={styles.documentInfo}>
+                          <Ionicons name="document-text" size={24} color={theme.colors.primary.base} />
+                          <Text style={styles.documentName} numberOfLines={1} ellipsizeMode="middle">
+                            {doc.name || `Document ${index + 1}`}
+                          </Text>
+                        </View>
+                        <TouchableOpacity onPress={() => removeDocument(index)}>
+                          <MaterialIcons name="close" size={24} color={theme.colors.error.base} />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+            </>
+          )}
         </View>
         
-        <View style={styles.submitContainer}>
-          <TouchableOpacity 
-            style={styles.submitButton} 
-            onPress={submitApplication}
-            disabled={loading}>
-            {loading ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Text style={styles.submitButtonText}>Submit and Get Approved</Text>
-            )}
-          </TouchableOpacity>
+        <View style={styles.navigationButtons}>
+          {currentStep > 1 ? (
+            <TouchableOpacity 
+              style={styles.backStepButton} 
+              onPress={goToPreviousStep}
+            >
+              <MaterialIcons name="arrow-back" size={20} color={theme.colors.primary.base} />
+              <Text style={styles.backStepButtonText}>Back</Text>
+            </TouchableOpacity>
+          ) : <View style={{ width: 100 }} />}
+          
+          {currentStep < totalSteps ? (
+            <TouchableOpacity 
+              style={styles.nextStepButton} 
+              onPress={goToNextStep}
+            >
+              <Text style={styles.nextStepButtonText}>Next</Text>
+              <MaterialIcons name="arrow-forward" size={20} color="white" />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity 
+              style={[styles.submitButton, loading && styles.submitButtonDisabled]} 
+              onPress={submitApplication}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color="white" />
+              ) : (
+                <>
+                  <Text style={styles.submitButtonText}>Submit Application</Text>
+                  <MaterialIcons name="send" size={20} color="white" style={styles.submitIcon} />
+                </>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -429,24 +662,27 @@ const AdvisorApplicationScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.neutral.background,
+    backgroundColor: theme.colors.neutral.surface,
   },
   contentContainer: {
     padding: 16,
-  },
-  centerContent: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: theme.colors.neutral.textPrimary,
+    paddingBottom: 32,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 24,
+  },
+  headerLeft: {
+    width: 40,
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  headerRight: {
+    width: 40,
   },
   backArrow: {
     padding: 8,
@@ -455,7 +691,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: theme.colors.neutral.textPrimary,
-    marginLeft: 16,
+    textAlign: 'center',
   },
   description: {
     fontSize: 16,
@@ -464,61 +700,159 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 24,
   },
-  section: {
+  progressContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
     marginBottom: 24,
-    backgroundColor: theme.colors.neutral.surface,
-    borderRadius: 8,
-    padding: 16,
-    ...theme.shadows.small,
   },
-  sectionTitle: {
-    fontSize: 18,
+  progressDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: theme.colors.neutral.gray.light,
+    marginHorizontal: 6,
+  },
+  progressDotActive: {
+    backgroundColor: theme.colors.primary.base,
+  },
+  stepContainer: {
+    marginBottom: 24,
+  },
+  stepTitle: {
+    fontSize: 22,
     fontWeight: 'bold',
-    color: theme.colors.primary.base,
-    marginBottom: 8,
-  },
-  sectionText: {
-    fontSize: 14,
     color: theme.colors.neutral.textPrimary,
-    lineHeight: 20,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  introIllustration: {
+    width: '100%',
+    height: 200,
+    marginBottom: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  illustrationBackground: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  illustrationContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  illustrationText: {
+    fontSize: 22,
+    fontFamily: theme.fonts.bold,
+    color: theme.colors.primary.dark,
+    marginTop: 12,
     marginBottom: 16,
   },
-  formGroup: {
-    marginBottom: 16,
+  illustrationIconsRow: {
+    flexDirection: 'row',
+    marginTop: 8,
   },
-  label: {
+  illustrationIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 8,
+  },
+  introText: {
     fontSize: 16,
-    fontWeight: '500',
+    fontFamily: theme.fonts.regular,
+    color: theme.colors.neutral.textPrimary,
+    lineHeight: 24,
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  benefitsContainer: {
+    backgroundColor: theme.colors.neutral.gray.lighter,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  benefitsTitle: {
+    fontSize: 18,
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.neutral.textPrimary,
+    marginBottom: 12,
+  },
+  benefitItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  benefitText: {
+    fontSize: 16,
+    fontFamily: theme.fonts.regular,
+    color: theme.colors.neutral.textPrimary,
+    marginLeft: 12,
+    flex: 1,
+  },
+  inputContainer: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontFamily: theme.fonts.medium,
     color: theme.colors.neutral.textPrimary,
     marginBottom: 8,
+  },
+  inputHelper: {
+    fontSize: 14,
+    fontFamily: theme.fonts.regular,
+    color: theme.colors.neutral.textSecondary,
+    marginBottom: 12,
   },
   input: {
-    backgroundColor: theme.colors.neutral.background,
+    backgroundColor: theme.colors.neutral.surface,
     borderWidth: 1,
-    borderColor: theme.colors.neutral.border,
+    borderColor: theme.colors.neutral.gray.light,
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
+    fontFamily: theme.fonts.regular,
     color: theme.colors.neutral.textPrimary,
   },
-  textArea: {
+  multilineInput: {
     minHeight: 100,
     textAlignVertical: 'top',
   },
-  helperText: {
-    fontSize: 14,
-    color: theme.colors.neutral.textSecondary,
-    marginBottom: 12,
+  documentsContainer: {
+    marginTop: 16,
+  },
+  uploadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.neutral.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.primary.base,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  uploadButtonText: {
+    fontSize: 16,
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.primary.base,
+    marginLeft: 8,
+  },
+  documentsList: {
+    marginTop: 16,
   },
   documentItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: theme.colors.neutral.background,
-    borderWidth: 1,
-    borderColor: theme.colors.neutral.border,
-    borderRadius: 8,
+    backgroundColor: theme.colors.neutral.gray.lighter,
     padding: 12,
+    borderRadius: 8,
     marginBottom: 8,
   },
   documentInfo: {
@@ -527,41 +861,63 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   documentName: {
-    marginLeft: 8,
     fontSize: 14,
+    fontFamily: theme.fonts.medium,
     color: theme.colors.neutral.textPrimary,
+    marginLeft: 8,
     flex: 1,
   },
-  uploadButton: {
+  navigationButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 24,
+  },
+  backStepButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.primary.base,
+  },
+  backStepButtonText: {
+    fontSize: 16,
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.primary.base,
+    marginLeft: 8,
+  },
+  nextStepButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.primary.base,
+    padding: 12,
+    borderRadius: 8,
+  },
+  nextStepButtonText: {
+    fontSize: 16,
+    fontFamily: theme.fonts.medium,
+    color: 'white',
+    marginRight: 8,
+  },
+  submitButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.neutral.background,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: theme.colors.primary.base,
-    borderRadius: 8,
-    padding: 12,
-  },
-  uploadButtonText: {
-    marginLeft: 8,
-    fontSize: 16,
-    color: theme.colors.primary.base,
-  },
-  submitContainer: {
-    marginVertical: 24,
-  },
-  submitButton: {
     backgroundColor: theme.colors.primary.base,
+    padding: 12,
     borderRadius: 8,
-    padding: 16,
-    alignItems: 'center',
-    ...theme.shadows.medium,
+    minWidth: 180,
+  },
+  submitButtonDisabled: {
+    backgroundColor: theme.colors.neutral.gray.base,
   },
   submitButtonText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: theme.colors.neutral.surface,
+    fontSize: 16,
+    fontFamily: theme.fonts.medium,
+    color: 'white',
+  },
+  submitIcon: {
+    marginLeft: 8,
   },
   statusCard: {
     backgroundColor: theme.colors.neutral.surface,
@@ -597,6 +953,58 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: theme.colors.neutral.surface,
+  },
+  photoButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  photoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.neutral.surface,
+    borderWidth: 1,
+    padding: 12,
+    borderRadius: 8,
+    width: '48%',
+  },
+  galleryButton: {
+    borderColor: theme.colors.primary.base,
+  },
+  cameraButton: {
+    borderColor: theme.colors.primary.base,
+  },
+  photoButtonText: {
+    fontSize: 14,
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.primary.base,
+    marginLeft: 8,
+  },
+  photosGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 8,
+  },
+  photoContainer: {
+    width: '31%',
+    aspectRatio: 1,
+    marginBottom: 12,
+    marginRight: '3.5%',
+    position: 'relative',
+  },
+  photoThumbnail: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 8,
+  },
+  removePhotoButton: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: theme.colors.error.base,
+    borderRadius: 12,
+    padding: 2,
   },
 });
 

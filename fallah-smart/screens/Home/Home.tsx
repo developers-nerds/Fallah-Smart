@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -64,6 +64,7 @@ export const HomeContent = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [timeIcon, setTimeIcon] = useState(getTimeBasedWeatherIcon());
+  const [showForecast, setShowForecast] = useState(false);
 
   useEffect(() => {
     fetchWeatherData();
@@ -162,6 +163,35 @@ export const HomeContent = ({ navigation }) => {
     Alert.alert('Pest Alerts', 'This feature is coming soon!');
   };
 
+  const toggleForecast = () => {
+    setShowForecast(prevState => !prevState);
+  };
+
+  const renderForecastDay = (day, index) => {
+    const date = new Date(day.date);
+    const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+    
+    return (
+      <View key={index} style={styles.forecastDay}>
+        <Text style={styles.forecastDayName}>{dayName}</Text>
+        <Image 
+          source={{ uri: `https:${day.day.condition.icon}` }} 
+          style={styles.forecastIcon} 
+        />
+        <Text style={styles.forecastTemp}>
+          {Math.round(day.day.maxtemp_c)}°/{Math.round(day.day.mintemp_c)}°
+        </Text>
+        <Text style={styles.forecastCondition}>{day.day.condition.text}</Text>
+      </View>
+    );
+  };
+
+  // Add this dynamic style that uses the state variable
+  const weatherCardStyle = useMemo(() => ({
+    ...styles.weatherCard,
+    height: showForecast ? 320 : 160
+  }), [showForecast]);
+  
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={theme.colors.neutral.surface} />
@@ -169,58 +199,75 @@ export const HomeContent = ({ navigation }) => {
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* Weather Card */}
         <View style={styles.weatherSection}>
-          <ImageBackground
-            source={timeIcon.backgroundImage}
-            style={styles.weatherCard}
-            imageStyle={styles.weatherCardImage}
-            resizeMode="cover"
+          <TouchableOpacity 
+            activeOpacity={0.9}
+            onPress={toggleForecast}
           >
-            <View style={[styles.weatherCardOverlay, { backgroundColor: timeIcon.backgroundColor }]}>
-              {loading ? (
-                <ActivityIndicator size="large" color={theme.colors.primary.base} />
-              ) : error ? (
-                <Text style={styles.errorText}>{error}</Text>
-              ) : (
-                <>
-                  <View style={styles.weatherHeader}>
-                    <View style={styles.weatherInfo}>
-                      <View style={styles.timeIconContainer}>
-                        <MaterialCommunityIcons 
-                          name={timeIcon.icon} 
-                          size={24} 
-                          color={timeIcon.color}
-                        />
-                        <Text style={[styles.weatherTime, { color: timeIcon.textColor }]}>
-                          {timeIcon.text}
+            <ImageBackground
+              source={timeIcon.backgroundImage}
+              style={weatherCardStyle}
+              imageStyle={styles.weatherCardImage}
+              resizeMode="cover"
+            >
+              <View style={[styles.weatherCardOverlay, { backgroundColor: timeIcon.backgroundColor }]}>
+                {loading ? (
+                  <ActivityIndicator size="large" color={theme.colors.primary.base} />
+                ) : error ? (
+                  <Text style={styles.errorText}>{error}</Text>
+                ) : (
+                  <>
+                    <View style={styles.weatherHeader}>
+                      <View style={styles.weatherInfo}>
+                        <View style={styles.timeIconContainer}>
+                          <MaterialCommunityIcons 
+                            name={timeIcon.icon} 
+                            size={24} 
+                            color={timeIcon.color}
+                          />
+                          <Text style={[styles.weatherTime, { color: timeIcon.textColor }]}>
+                            {timeIcon.text}
+                          </Text>
+                        </View>
+                        <Text style={[styles.weatherDate, { color: timeIcon.textColor }]}>
+                          {formatDate()}
+                        </Text>
+                        <Text style={[styles.weatherCondition, { color: timeIcon.textColor }]}>
+                          {weather?.current?.condition?.text || 'Clear'} • {Math.round(weather?.current?.temp_c || 24)}°C / {Math.round(weather?.forecast?.forecastday?.[0]?.day?.mintemp_c || 20)}°C
                         </Text>
                       </View>
-                      <Text style={[styles.weatherDate, { color: timeIcon.textColor }]}>
-                        {formatDate()}
-                      </Text>
-                      <Text style={[styles.weatherCondition, { color: timeIcon.textColor }]}>
-                        {weather?.current?.condition?.text || 'Clear'} • {Math.round(weather?.current?.temp_c || 24)}°C / {Math.round(weather?.forecast?.forecastday?.[0]?.day?.mintemp_c || 20)}°C
+                      <Text style={[styles.weatherTemp, { color: timeIcon.textColor }]}>
+                        {Math.round(weather?.current?.temp_c || 24)}°C
                       </Text>
                     </View>
-                    <Text style={[styles.weatherTemp, { color: timeIcon.textColor }]}>
-                      {Math.round(weather?.current?.temp_c || 24)}°C
-                    </Text>
-                  </View>
-                  <View style={styles.locationInfo}>
-                    <MaterialIcons 
-                      name="location-on" 
-                      size={14} 
-                      color="#FFFFFF"
-                    />
-                    <Text style={[styles.locationText, { color: timeIcon.textColor }]}>
-                      {weather?.location?.name 
-                        ? `${weather.location.name}, ${weather.location.country}` 
-                        : 'Please activate your GPS to receive weather information'}
-                    </Text>
-                  </View>
-                </>
-              )}
-            </View>
-          </ImageBackground>
+                    <View style={styles.locationInfo}>
+                      <MaterialIcons 
+                        name="location-on" 
+                        size={14} 
+                        color="#FFFFFF"
+                      />
+                      <Text style={[styles.locationText, { color: timeIcon.textColor }]}>
+                        {weather?.location?.name 
+                          ? `${weather.location.name}, ${weather.location.country}` 
+                          : 'Please activate your GPS to receive weather information'}
+                      </Text>
+                    </View>
+
+                    {/* Show forecast when expanded */}
+                    {showForecast && weather?.forecast?.forecastday && (
+                      <View style={styles.forecastContainer}>
+                        <Text style={styles.forecastTitle}>5-Day Forecast</Text>
+                        <View style={styles.forecastDaysContainer}>
+                          {weather.forecast.forecastday.slice(0, 5).map((day, index) => 
+                            renderForecastDay(day, index)
+                          )}
+                        </View>
+                      </View>
+                    )}
+                  </>
+                )}
+              </View>
+            </ImageBackground>
+          </TouchableOpacity>
         </View>
 
         {/* Heal your crop section */}
@@ -571,6 +618,61 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.medium,
     color: theme.colors.neutral.textPrimary,
     flex: 1,
+  },
+  forecastContainer: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.3)',
+  },
+  forecastTitle: {
+    fontSize: 16,
+    fontFamily: theme.fonts.medium,
+    color: '#FFFFFF',
+    marginBottom: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  forecastDaysContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  forecastDay: {
+    alignItems: 'center',
+    width: '18%', // 5 days with some spacing
+  },
+  forecastDayName: {
+    fontSize: 12,
+    fontFamily: theme.fonts.medium,
+    color: '#FFFFFF',
+    marginBottom: 4,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  forecastIcon: {
+    width: 36,
+    height: 36,
+    marginVertical: 4,
+  },
+  forecastTemp: {
+    fontSize: 12,
+    fontFamily: theme.fonts.medium,
+    color: '#FFFFFF',
+    marginVertical: 2,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  forecastCondition: {
+    fontSize: 10,
+    fontFamily: theme.fonts.regular,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
 });
 
