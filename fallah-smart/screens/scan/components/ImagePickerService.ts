@@ -7,8 +7,8 @@ export default {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert(
-        'Permission Required',
-        'We need gallery access to upload images. Please allow permission in settings.',
+        'مطلوب إذن',
+        'نحتاج إلى الوصول إلى المعرض لرفع الصور. يرجى السماح بالإذن من الإعدادات.',
         [{ text: 'OK' }]
       );
       return null;

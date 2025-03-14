@@ -367,7 +367,7 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <MaterialIcons name="chat" size={24} color={theme.colors.neutral.surface} />
-          <Text style={styles.headerTitle}>Conversations</Text>
+          <Text style={styles.headerTitle}>المحادثات</Text>
         </View>
         <TouchableOpacity onPress={onClose} style={styles.closeButton}>
           <Animated.View style={closeButtonAnimatedStyle}>
@@ -381,7 +381,7 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
           <MaterialIcons name="search" size={20} color={theme.colors.neutral.textSecondary} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search conversations..."
+            placeholder="ابحث عن المحادثات..."
             placeholderTextColor={theme.colors.neutral.textSecondary}
             value={searchTerm}
             onChangeText={setSearchTerm}
@@ -399,7 +399,7 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={theme.colors.primary.base} />
-            <Text style={styles.loadingText}>Loading conversations...</Text>
+            <Text style={styles.loadingText}>جاري تحميل المحادثات...</Text>
           </View>
         ) : error ? (
           <View style={styles.errorContainer}>
@@ -424,7 +424,7 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
                   })
                   .finally(() => setLoading(false));
               }}>
-              <Text style={styles.retryButtonText}>Retry</Text>
+              <Text style={styles.retryButtonText}>إعادة المحاولة</Text>
             </TouchableOpacity>
           </View>
         ) : filteredConversations.length === 0 ? (
@@ -447,7 +447,7 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
                     handleNewConversation(onNewConversation, onClose);
                   }
                 }}>
-                <Text style={styles.newConversationButtonText}>Start a new conversation</Text>
+                <Text style={styles.newConversationButtonText}>ابدأ محادثة جديدة</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -469,7 +469,7 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
             handleNewConversation(onNewConversation, onClose);
           }}>
           <MaterialIcons name="add" size={24} color={theme.colors.neutral.surface} />
-          <Text style={styles.newChatText}>New Chat</Text>
+          <Text style={styles.newChatText}>دردشة جديدة</Text>
         </TouchableOpacity>
       </View>
     </Animated.View>
