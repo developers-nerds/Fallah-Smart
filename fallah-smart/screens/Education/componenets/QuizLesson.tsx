@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Animated, Dimensions } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { theme } from '../../../theme/theme';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface Question {
   id: number;
@@ -46,7 +48,77 @@ const quizzes: { [key: string]: Quiz } = {
         options: ["5-10 درجات", "10-15 درجة", "15-20 درجة", "20-25 درجة"],
         correctAnswer: 2,
         explanation: "درجة الحرارة المثالية لحظيرة الأبقار هي 15-20 درجة مئوية"
-      }
+      },
+      {
+        id: 4,
+        question: "ما هو العلف الأكثر أهمية للأبقار الحلوب لزيادة إنتاج الحليب؟",
+        options: ["التبن", "الذرة", "البرسيم", "الشعير"],
+        correctAnswer: 2,
+        explanation: "البرسيم غني بالبروتين والكالسيوم، مما يعزز إنتاج الحليب لدى الأبقار الحلوب."
+      },
+      {
+        id: 5,
+        question: "ما هو المرض الأكثر شيوعًا الذي يصيب الأبقار الحلوب؟",
+        options: ["الحمى القلاعية", "التهاب الضرع", "السل", "التهاب الأمعاء"],
+        correctAnswer: 1,
+        explanation: "التهاب الضرع هو التهاب يصيب أنسجة الضرع، وينتج عن عدوى بكتيرية غالبًا."
+      },
+      {
+        id: 6,
+        question: "ما هي المدة المثالية لجفاف البقرة قبل الولادة؟",
+        options: ["أسبوعين", "4-6 أسابيع", "8-10 أسابيع", "12 أسبوعًا"],
+        correctAnswer: 2,
+        explanation: "فترة الجفاف تسمح لأنسجة الضرع بالتجدد وتجهيز البقرة للولادة وإنتاج الحليب التالي."
+      },
+      {
+        id: 7,
+        question: "ما هو أفضل وقت لتلقيح البقرة بعد الولادة؟",
+        options: ["بعد أسبوعين", "بعد شهر", "بعد شهرين", "بعد 4 شهور"],
+        correctAnswer: 2,
+        explanation: "يجب أن يكون الرحم قد تعافى تمامًا قبل التلقيح للحصول على نسب حمل عالية."
+      },
+      {
+        id: 8,
+        question: "ما هي أهمية توفير الظل للأبقار في فصل الصيف؟",
+        options: ["زيادة إنتاج الحليب", "تحسين صحة الأبقار", "منع الإجهاد الحراري", "كل ماسبق ذكره"],
+        correctAnswer: 3,
+        explanation: "الظل يقلل من الإجهاد الحراري، ويحسن صحة الأبقار وإنتاج الحليب."
+      },
+      {
+        id: 9,
+        question: "ما هو العمر المناسب لتسمين العجول؟",
+        options: ["من عمر يوم", "من عمر شهرين", "من عمر 6 شهور", "من عمر سنة"],
+        correctAnswer: 2,
+        explanation: "في هذا العمر يكون العجل مهيأ لتحويل العلف إلى لحم بكفاءة عالية."
+      },
+      {
+        id: 10,
+        question: "ماهي أهمية تطعيم الأبقار؟",
+        options: ["لزيادة الوزن", "للوقاية من الأمراض", "لزيادة انتاج الحليب", "لا أهمية له"],
+        correctAnswer: 1,
+        explanation: "التطعيم يحفز جهاز المناعة لدى الأبقار، مما يوفر لها حماية من الأمراض المعدية."
+      },
+      {
+        id: 11,
+        question: "ما هي علامات الشبق في الأبقار؟",
+        options: ["زيادة النشاط والحركة", "إفرازات مهبلية شفافة", "السماح للحيوانات الأخرى بالصعود عليها", "كل ماسبق ذكره"],
+        correctAnswer: 3,
+        explanation: "هذه العلامات تدل على استعداد البقرة للتلقيح."
+      },
+      {
+        id: 12,
+        question: "ما هي أهمية توفير الأملاح المعدنية للأبقار؟",
+        options: ["لزيادة إنتاج الحليب", "لتحسين صحة العظام والأسنان", "لتقوية جهاز المناعة", "كل ماسبق ذكره"],
+        correctAnswer: 3,
+        explanation: "الأملاح المعدنية ضرورية لجميع وظائف الجسم الحيوية."
+      },
+      {
+        id: 13,
+        question: "ما هي أفضل طريقة لتنظيف حظيرة الأبقار؟",
+        options: ["التنظيف اليومي وإزالة الروث", "استخدام المطهرات بانتظام", "توفير تهوية جيدة", "كل ماسبق ذكره"],
+        correctAnswer: 3,
+        explanation: "النظافة الجيدة تقلل من انتشار الأمراض وتحسن صحة الأبقار."
+      },
     ]
   },
   'animal_2': {
@@ -74,7 +146,77 @@ const quizzes: { [key: string]: Quiz } = {
         options: ["3 أشهر", "4 أشهر", "5 أشهر", "6 أشهر"],
         correctAnswer: 2,
         explanation: "مدة حمل النعجة حوالي 5 أشهر"
-      }
+      },
+      {
+        id: 4,
+        question: "ما هو العلف الرئيسي للأغنام في المراعي الطبيعية؟",
+        options: ["التبن", "الشعير", "الحشائش والأعشاب", "الذرة"],
+        correctAnswer: 2,
+        explanation: "تعتمد الأغنام بشكل أساسي على الحشائش والأعشاب في المراعي الطبيعية."
+      },
+      {
+        id: 5,
+        question: "ما هو المرض الطفيلي الأكثر شيوعًا في الأغنام؟",
+        options: ["التهاب الضرع", "الديدان المعوية", "الحمى القلاعية", "السل"],
+        correctAnswer: 1,
+        explanation: "الديدان المعوية هي من أكثر الطفيليات التي تصيب الأغنام وتسبب لها مشاكل صحية."
+      },
+      {
+        id: 6,
+        question: "ما هي أهمية توفير الأملاح المعدنية للأغنام؟",
+        options: ["لزيادة إنتاج الحليب", "لتحسين صحة العظام والصوف", "لتقوية جهاز المناعة", "كل ماسبق ذكره"],
+        correctAnswer: 3,
+        explanation: "الأملاح المعدنية ضرورية لجميع وظائف الجسم الحيوية للأغنام."
+      },
+      {
+        id: 7,
+        question: "ما هو العمر المناسب لتسمين الخراف؟",
+        options: ["من عمر شهر", "من عمر 3 أشهر", "من عمر 6 أشهر", "من عمر سنة"],
+        correctAnswer: 2,
+        explanation: "في عمر 6 أشهر، تكون الخراف مهيأة لتحويل العلف إلى لحم بكفاءة عالية."
+      },
+      {
+        id: 8,
+        question: "ما هي علامات الشبق في النعاج؟",
+        options: ["زيادة النشاط والحركة", "إفرازات مهبلية شفافة", "السماح للخراف بالصعود عليها", "كل ماسبق ذكره"],
+        correctAnswer: 3,
+        explanation: "هذه العلامات تدل على استعداد النعجة للتلقيح."
+      },
+      {
+        id: 9,
+        question: "ما هي أهمية توفير الماء النظيف للأغنام؟",
+        options: ["لزيادة إنتاج الصوف", "لتحسين صحة الأغنام", "لزيادة إنتاج الحليب", "كل ماسبق ذكره"],
+        correctAnswer: 3,
+        explanation: "الماء النظيف ضروري لجميع وظائف الجسم الحيوية للأغنام."
+      },
+      {
+        id: 10,
+        question: "ما هي أفضل طريقة للوقاية من الأمراض في الأغنام؟",
+        options: ["التطعيم المنتظم", "توفير النظافة الجيدة", "توفير التغذية المتوازنة", "كل ماسبق ذكره"],
+        correctAnswer: 3,
+        explanation: "الوقاية الشاملة تتطلب اتباع جميع هذه الإجراءات."
+      },
+      {
+        id: 11,
+        question: "ما هو أفضل وقت لفطام الحملان؟",
+        options: ["بعد شهر من الولادة", "بعد شهرين من الولادة", "بعد 3-4 أشهر من الولادة", "بعد 6 أشهر من الولادة"],
+        correctAnswer: 2,
+        explanation: "بعد 3-4 أشهر تكون الحملان قادرة على الاعتماد على العلف بشكل كامل."
+      },
+      {
+        id: 12,
+        question: "ما هي أهمية توفير الظل للأغنام في فصل الصيف؟",
+        options: ["لزيادة إنتاج الصوف", "لتحسين صحة الأغنام", "لمنع الإجهاد الحراري", "كل ماسبق ذكره"],
+        correctAnswer: 3,
+        explanation: "الظل يقلل من الإجهاد الحراري ويحسن صحة الأغنام وإنتاج الصوف."
+      },
+      {
+        id: 13,
+        question: "ما هي أفضل طريقة لتنظيف حظيرة الأغنام؟",
+        options: ["التنظيف اليومي وإزالة الروث", "استخدام المطهرات بانتظام", "توفير تهوية جيدة", "كل ماسبق ذكره"],
+        correctAnswer: 3,
+        explanation: "النظافة الجيدة تقلل من انتشار الأمراض وتحسن صحة الأغنام."
+      },
     ]
   },
   'animal_3': {
@@ -123,7 +265,77 @@ const quizzes: { [key: string]: Quiz } = {
         options: ["100-150", "150-200", "200-250", "250-300"],
         correctAnswer: 3,
         explanation: "تضع الدجاجة في المتوسط 250-300 بيضة في السنة"
-      }
+      },
+       {
+        id: 4,
+        question: "ما هو العلف الأساسي للدجاج البياض؟",
+        options: ["الذرة", "الشعير", "البروتين النباتي والحيواني", "التبن"],
+        correctAnswer: 2,
+        explanation: "يحتاج الدجاج البياض إلى علف غني بالبروتين لإنتاج البيض."
+      },
+      {
+        id: 5,
+        question: "ما هو المرض الفيروسي الأكثر شيوعًا في الدجاج؟",
+        options: ["الكوليرا", "النيوكاسل", "الإسهال الأبيض", "الكوكسيديا"],
+        correctAnswer: 1,
+        explanation: "مرض النيوكاسل هو من الأمراض الفيروسية الخطيرة التي تصيب الدجاج."
+      },
+      {
+        id: 6,
+        question: "ما هي أهمية توفير الكالسيوم للدجاج البياض؟",
+        options: ["لزيادة إنتاج اللحم", "لتحسين جودة قشرة البيض", "لتقوية جهاز المناعة", "كل ماسبق ذكره"],
+        correctAnswer: 1,
+        explanation: "الكالسيوم ضروري لتكوين قشرة البيض القوية."
+      },
+      {
+        id: 7,
+        question: "ما هو العمر المناسب لتسمين دجاج اللحم؟",
+        options: ["من عمر أسبوع", "من عمر شهر", "من عمر شهرين", "من عمر 3 أشهر"],
+        correctAnswer: 1,
+        explanation: "يتم تسمين دجاج اللحم عادة من عمر شهر للحصول على أفضل النتائج."
+      },
+      {
+        id: 8,
+        question: "ما هي علامات وضع البيض في الدجاج؟",
+        options: ["زيادة النشاط والحركة", "الجلوس في مكان هادئ", "إصدار أصوات معينة", "كل ماسبق ذكره"],
+        correctAnswer: 3,
+        explanation: "تظهر على الدجاج علامات مختلفة قبل وضع البيض."
+      },
+      {
+        id: 9,
+        question: "ما هي أهمية توفير الإضاءة المناسبة للدجاج البياض؟",
+        options: ["لزيادة إنتاج اللحم", "لتحفيز إنتاج البيض", "لتقوية جهاز المناعة", "كل ماسبق ذكره"],
+        correctAnswer: 1,
+        explanation: "الإضاءة المناسبة تحفز الجهاز التناسلي للدجاج وتزيد من إنتاج البيض."
+      },
+      {
+        id: 10,
+        question: "ما هي أفضل طريقة للوقاية من الأمراض في الدجاج؟",
+        options: ["التطعيم المنتظم", "توفير النظافة الجيدة", "توفير التغذية المتوازنة", "كل ماسبق ذكره"],
+        correctAnswer: 3,
+        explanation: "الوقاية الشاملة تتطلب اتباع جميع هذه الإجراءات."
+      },
+      {
+        id: 11,
+        question: "ما هي أهمية توفير مكان للرمل للدجاج؟",
+        options: ["لزيادة إنتاج اللحم", "للتخلص من الطفيليات الخارجية", "لتقوية جهاز المناعة", "كل ماسبق ذكره"],
+        correctAnswer: 1,
+        explanation: "الرمل يساعد الدجاج على التخلص من الطفيليات الخارجية مثل القمل."
+      },
+      {
+        id: 12,
+        question: "ما هي أهمية توفير الظل للدجاج في فصل الصيف؟",
+        options: ["لزيادة إنتاج اللحم", "لتحسين صحة الدجاج", "لمنع الإجهاد الحراري", "كل ماسبق ذكره"],
+        correctAnswer: 3,
+        explanation: "الظل يقلل من الإجهاد الحراري ويحسن صحة الدجاج وإنتاج البيض."
+      },
+      {
+        id: 13,
+        question: "ما هي أفضل طريقة لتنظيف حظيرة الدجاج؟",
+        options: ["التنظيف اليومي وإزالة الروث", "استخدام المطهرات بانتظام", "توفير تهوية جيدة", "كل ماسبق ذكره"],
+        correctAnswer: 3,
+        explanation: "النظافة الجيدة تقلل من انتشار الأمراض وتحسن صحة الدجاج."
+      },
     ]
   },
   'animal_5': {
@@ -144,6 +356,83 @@ const quizzes: { [key: string]: Quiz } = {
         options: ["8-10 أسابيع", "12-14 أسبوع", "16-20 أسبوع", "22-24 أسبوع"],
         correctAnswer: 2,
         explanation: "يحتاج الديك الرومي إلى 16-20 أسبوع للوصول لوزن التسويق"
+      },
+      {
+        id: 3,
+        question: "ما هو العلف الأساسي للديك الرومي في فترة النمو؟",
+        options: ["الذرة", "الشعير", "البروتين النباتي والحيواني", "التبن"],
+        correctAnswer: 2,
+        explanation: "يحتاج الديك الرومي إلى علف غني بالبروتين لنمو العضلات."
+      },
+      {
+        id: 4,
+        question: "ما هو المرض الطفيلي الأكثر شيوعًا في الديك الرومي؟",
+        options: ["الكوليرا", "النيوكاسل", "الكوكسيديا", "التهاب الضرع"],
+        correctAnswer: 2,
+        explanation: "الكوكسيديا هو مرض طفيلي يصيب الأمعاء ويؤثر على نمو الديك الرومي."
+      },
+      {
+        id: 5,
+        question: "ما هي أهمية توفير الفيتامينات للديك الرومي؟",
+        options: ["لزيادة إنتاج اللحم", "لتحسين صحة الجهاز المناعي", "لتقوية العظام", "كل ماسبق ذكره"],
+        correctAnswer: 3,
+        explanation: "الفيتامينات ضرورية لجميع وظائف الجسم الحيوية للديك الرومي."
+      },
+      {
+        id: 6,
+        question: "ما هو العمر المناسب لتسمين الديك الرومي؟",
+        options: ["من عمر أسبوع", "من عمر شهر", "من عمر شهرين", "من عمر 3 أشهر"],
+        correctAnswer: 2,
+        explanation: "يتم تسمين الديك الرومي عادة من عمر شهرين للحصول على أفضل النتائج."
+      },
+      {
+        id: 7,
+        question: "ما هي علامات الصحة الجيدة في الديك الرومي؟",
+        options: ["الريش اللامع", "العيون الصافية", "النشاط والحركة", "كل ماسبق ذكره"],
+        correctAnswer: 3,
+        explanation: "تدل هذه العلامات على صحة جيدة للديك الرومي."
+      },
+      {
+        id: 8,
+        question: "ما هي أهمية توفير المساحة الكافية للديك الرومي؟",
+        options: ["لزيادة إنتاج اللحم", "لمنع الازدحام والإصابات", "لتقوية جهاز المناعة", "كل ماسبق ذكره"],
+        correctAnswer: 1,
+        explanation: "المساحة الكافية تقلل من التوتر والإصابات بين الديوك الرومية."
+      },
+      {
+        id: 9,
+        question: "ما هي أفضل طريقة للوقاية من الأمراض في الديك الرومي؟",
+        options: ["التطعيم المنتظم", "توفير النظافة الجيدة", "توفير التغذية المتوازنة", "كل ماسبق ذكره"],
+        correctAnswer: 3,
+        explanation: "الوقاية الشاملة تتطلب اتباع جميع هذه الإجراءات."
+      },
+      {
+        id: 10,
+        question: "ما هي أهمية توفير الماء النظيف للديك الرومي؟",
+        options: ["لزيادة إنتاج اللحم", "لتحسين صحة الجهاز الهضمي", "لتقوية جهاز المناعة", "كل ماسبق ذكره"],
+        correctAnswer: 3,
+        explanation: "الماء النظيف ضروري لجميع وظائف الجسم الحيوية للديك الرومي."
+      },
+      {
+        id: 11,
+        question: "ما هي أهمية توفير الظل للديك الرومي في فصل الصيف؟",
+        options: ["لزيادة إنتاج اللحم", "لتحسين صحة الديك الرومي", "لمنع الإجهاد الحراري", "كل ماسبق ذكره"],
+        correctAnswer: 3,
+        explanation: "الظل يقلل من الإجهاد الحراري ويحسن صحة الديك الرومي."
+      },
+      {
+        id: 12,
+        question: "ما هي أفضل طريقة لتنظيف حظيرة الديك الرومي؟",
+        options: ["التنظيف اليومي وإزالة الروث", "استخدام المطهرات بانتظام", "توفير تهوية جيدة", "كل ماسبق ذكره"],
+        correctAnswer: 3,
+        explanation: "النظافة الجيدة تقلل من انتشار الأمراض وتحسن صحة الديك الرومي."
+      },
+      {
+        id: 13,
+        question: "ماهي أهمية توفير مواد الفرشة المناسبة لارضية حظيرة الديك الرومي؟",
+        options: ["لزيادة إنتاج اللحم", "للحفاظ على نظافة الأقدام وتقليل الإصابات", "لتقوية جهاز المناعة", "كل ماسبق ذكره"],
+        correctAnswer: 2,
+        explanation: "الفرشة المناسبة تحافظ على نظافة الأقدام وتقلل من الإصابات."
       }
     ]
   },
@@ -165,6 +454,83 @@ const quizzes: { [key: string]: Quiz } = {
         options: ["2-3 مرات", "4-5 مرات", "6-7 مرات", "8-9 مرات"],
         correctAnswer: 1,
         explanation: "تلد الأرنبة في المتوسط 4-5 مرات في السنة"
+      },
+       {
+        id: 3,
+        question: "ما هو العلف الأساسي للأرانب؟",
+        options: ["التبن", "الشعير", "البرسيم المجفف", "الذرة"],
+        correctAnswer: 2,
+        explanation: "البرسيم المجفف يوفر الألياف والبروتين اللازمين للأرانب."
+      },
+      {
+        id: 4,
+        question: "ما هو المرض التنفسي الأكثر شيوعًا في الأرانب؟",
+        options: ["التهاب الضرع", "الزكام", "الكوكسيديا", "الديدان المعوية"],
+        correctAnswer: 1,
+        explanation: "الزكام هو مرض تنفسي شائع يصيب الأرانب نتيجة لظروف غير صحية."
+      },
+      {
+        id: 5,
+        question: "ما هي أهمية توفير الألياف للأرانب؟",
+        options: ["لزيادة إنتاج اللحم", "لتحسين صحة الجهاز الهضمي", "لتقوية العظام", "كل ماسبق ذكره"],
+        correctAnswer: 1,
+        explanation: "الألياف ضرورية لوظائف الجهاز الهضمي السليم للأرانب."
+      },
+      {
+        id: 6,
+        question: "ما هو العمر المناسب لتسويق الأرانب اللحم؟",
+        options: ["من عمر شهر", "من عمر شهرين", "من عمر 3 أشهر", "من عمر 4 أشهر"],
+        correctAnswer: 2,
+        explanation: "يتم تسويق الأرانب اللحم عادة في عمر 3 أشهر للحصول على أفضل النتائج."
+      },
+      {
+        id: 7,
+        question: "ما هي علامات الصحة الجيدة في الأرانب؟",
+        options: ["العيون اللامعة", "الفراء النظيف", "النشاط والحركة", "كل ماسبق ذكره"],
+        correctAnswer: 3,
+        explanation: "تدل هذه العلامات على صحة جيدة للأرانب."
+      },
+      {
+        id: 8,
+        question: "ما هي أهمية توفير مكان للاختباء للأرانب؟",
+        options: ["لزيادة إنتاج اللحم", "لتقليل التوتر والخوف", "لتقوية جهاز المناعة", "كل ماسبق ذكره"],
+        correctAnswer: 1,
+        explanation: "مكان الاختباء يوفر للأرانب شعورًا بالأمان ويقلل من التوتر."
+      },
+      {
+        id: 9,
+        question: "ما هي أفضل طريقة للوقاية من الأمراض في الأرانب؟",
+        options: ["توفير النظافة الجيدة", "توفير التغذية المتوازنة", "تجنب الازدحام", "كل ماسبق ذكره"],
+        correctAnswer: 3,
+        explanation: "الوقاية الشاملة تتطلب اتباع جميع هذه الإجراءات."
+      },
+      {
+        id: 10,
+        question: "ما هي أهمية توفير الماء النظيف للأرانب؟",
+        options: ["لزيادة إنتاج اللحم", "لتحسين صحة الجهاز الهضمي", "لتقوية جهاز المناعة", "كل ماسبق ذكره"],
+        correctAnswer: 3,
+        explanation: "الماء النظيف ضروري لجميع وظائف الجسم الحيوية للأرانب."
+      },
+      {
+        id: 11,
+        question: "ما هي أهمية توفير الظل للأرانب في فصل الصيف؟",
+        options: ["لزيادة إنتاج اللحم", "لتحسين صحة الأرانب", "لمنع الإجهاد الحراري", "كل ماسبق ذكره"],
+        correctAnswer: 3,
+        explanation: "الظل يقلل من الإجهاد الحراري ويحسن صحة الأرانب."
+      },
+      {
+        id: 12,
+        question: "ما هي أفضل طريقة لتنظيف أقفاص الأرانب؟",
+        options: ["التنظيف اليومي وإزالة الروث", "استخدام المطهرات بانتظام", "توفير تهوية جيدة", "كل ماسبق ذكره"],
+        correctAnswer: 3,
+        explanation: "النظافة الجيدة تقلل من انتشار الأمراض وتحسن صحة الأرانب."
+      },
+      {
+        id: 13,
+        question: "ماهي أهمية قص أظافر الأرانب بانتظام؟",
+        options: ["لزيادة إنتاج اللحم", "لمنع الإصابات والتشوهات", "لتقوية جهاز المناعة", "كل ماسبق ذكره"],
+        correctAnswer: 2,
+        explanation: "قص الأظافر يمنع الإصابات والتشوهات في أقدام الأرانب."
       }
     ]
   },
@@ -186,6 +552,83 @@ const quizzes: { [key: string]: Quiz } = {
         options: ["14-16 يوم", "17-19 يوم", "20-22 يوم", "23-25 يوم"],
         correctAnswer: 1,
         explanation: "تستغرق فترة حضانة بيض الحمام 17-19 يوم"
+      },
+      {
+        id: 3,
+        question: "ما هو العلف الأساسي للحمام؟",
+        options: ["الذرة", "الشعير", "البقوليات والبذور", "التبن"],
+        correctAnswer: 2,
+        explanation: "يحتاج الحمام إلى علف متنوع من البقوليات والبذور لتلبية احتياجاته الغذائية."
+      },
+      {
+        id: 4,
+        question: "ما هو المرض الطفيلي الأكثر شيوعًا في الحمام؟",
+        options: ["التهاب الضرع", "الزكام", "الكوكسيديا", "الجدري"],
+        correctAnswer: 3,
+        explanation: "الجدري هو مرض فيروسي شائع يصيب الحمام ويسبب ظهور بثور على الجلد."
+      },
+      {
+        id: 5,
+        question: "ما هي أهمية توفير الأملاح المعدنية للحمام؟",
+        options: ["لزيادة إنتاج اللحم", "لتقوية العظام والريش", "لتقوية جهاز المناعة", "كل ماسبق ذكره"],
+        correctAnswer: 1,
+        explanation: "الأملاح المعدنية ضرورية لتكوين عظام قوية وريش صحي للحمام."
+      },
+      {
+        id: 6,
+        question: "ما هو العمر المناسب لتسويق الحمام اللحم؟",
+        options: ["من عمر أسبوع", "من عمر شهر", "من عمر شهرين", "من عمر 3 أشهر"],
+        correctAnswer: 1,
+        explanation: "يتم تسويق الحمام اللحم عادة في عمر شهر للحصول على أفضل النتائج."
+      },
+      {
+        id: 7,
+        question: "ما هي علامات الصحة الجيدة في الحمام؟",
+        options: ["العيون اللامعة", "الريش النظيف", "النشاط والحركة", "كل ماسبق ذكره"],
+        correctAnswer: 3,
+        explanation: "تدل هذه العلامات على صحة جيدة للحمام."
+      },
+      {
+        id: 8,
+        question: "ما هي أهمية توفير مكان للاستحمام للحمام؟",
+        options: ["لزيادة إنتاج اللحم", "للحفاظ على نظافة الريش", "لتقوية جهاز المناعة", "كل ماسبق ذكره"],
+        correctAnswer: 1,
+        explanation: "الاستحمام يساعد الحمام على التخلص من الطفيليات الخارجية والحفاظ على نظافة الريش."
+      },
+      {
+        id: 9,
+        question: "ما هي أفضل طريقة للوقاية من الأمراض في الحمام؟",
+        options: ["توفير النظافة الجيدة", "توفير التغذية المتوازنة", "تجنب الازدحام", "كل ماسبق ذكره"],
+        correctAnswer: 3,
+        explanation: "الوقاية الشاملة تتطلب اتباع جميع هذه الإجراءات."
+      },
+      {
+        id: 10,
+        question: "ما هي أهمية توفير الماء النظيف للحمام؟",
+        options: ["لزيادة إنتاج اللحم", "لتحسين صحة الجهاز الهضمي", "لتقوية جهاز المناعة", "كل ماسبق ذكره"],
+        correctAnswer: 3,
+        explanation: "الماء النظيف ضروري لجميع وظائف الجسم الحيوية للحمام."
+      },
+      {
+        id: 11,
+        question: "ما هي أهمية توفير الظل للحمام في فصل الصيف؟",
+        options: ["لزيادة إنتاج اللحم", "لتحسين صحة الحمام", "لمنع الإجهاد الحراري", "كل ماسبق ذكره"],
+        correctAnswer: 3,
+        explanation: "الظل يقلل من الإجهاد الحراري ويحسن صحة الحمام."
+      },
+      {
+        id: 12,
+        question: "ما هي أفضل طريقة لتنظيف مساكن الحمام؟",
+        options: ["التنظيف اليومي وإزالة الروث", "استخدام المطهرات بانتظام", "توفير تهوية جيدة", "كل ماسبق ذكره"],
+        correctAnswer: 3,
+        explanation: "النظافة الجيدة تقلل من انتشار الأمراض وتحسن صحة الحمام."
+      },
+      {
+        id: 13,
+        question: "ماهي أهمية توفير مكان للتعشيش للحمام؟",
+        options: ["لزيادة إنتاج اللحم", "لتوفير بيئة مناسبة للتكاثر", "لتقوية جهاز المناعة", "كل ماسبق ذكره"],
+        correctAnswer: 2,
+        explanation: "مكان التعشيش يوفر بيئة آمنة ومناسبة لتكاثر الحمام."
       }
     ]
   },
@@ -740,50 +1183,60 @@ const quizzes: { [key: string]: Quiz } = {
 };
 
 const QuizLesson = () => {
-  const route = useRoute();
-  const navigation = useNavigation();
-  const { lessonId, type } = route.params as { lessonId: number; type: 'animal' | 'crop' };
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<number[]>([]);
-  const [showResults, setShowResults] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const [quizStarted, setQuizStarted] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(30);
+  const [fadeAnim] = useState(new Animated.Value(0));
+  const [scaleAnim] = useState(new Animated.Value(0.9));
+  const [optionAnimValues] = useState<Animated.Value[]>([
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0)
+  ]);
+  const [currentScore, setCurrentScore] = useState(0);
+  
+  const timerRef = useRef<NodeJS.Timeout>();
+  const route = useRoute();
+  const navigation = useNavigation();
+  const scrollViewRef = useRef<ScrollView>(null);
+  
+  const { lessonId, type } = route.params as { lessonId: number; type: 'animal' | 'crop' };
+  const quizKey = `${type}_${lessonId}`;
+  const quiz = quizzes[quizKey];
+  const questions = quiz?.questions || [];
 
-  // Get quiz based on type and lessonId
-  const quiz = quizzes[`${type}_${lessonId}`];
-
-  // Handle case where quiz doesn't exist
-  if (!quiz) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.errorText}>عذراً، هذا الاختبار غير متوفر حالياً</Text>
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.buttonText}>العودة</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  const questions = quiz.questions;
-  const currentQ = questions[currentQuestion];
-
-  const handleAnswer = (answerIndex: number) => {
-    const newAnswers = [...selectedAnswers];
-    newAnswers[currentQuestion] = answerIndex;
-    setSelectedAnswers(newAnswers);
-    setShowExplanation(true);
-  };
-
-  const handleNext = () => {
-    setShowExplanation(false);
-    if (currentQuestion < questions.length - 1) {
-      setCurrentQuestion(currentQuestion + 1);
-    } else {
-      setShowResults(true);
-    }
-  };
+  // Calculate and save score when quiz is completed
+  useEffect(() => {
+    const saveScore = async () => {
+      if (showResults) {
+        const score = calculateScore();
+        setCurrentScore(score);
+        try {
+          // Get the current best score for this quiz
+          const bestScoreKey = `bestScore_${quizKey}`;
+          const storedBestScore = await AsyncStorage.getItem(bestScoreKey);
+          const bestScore = storedBestScore ? parseFloat(storedBestScore) : 0;
+          
+          // Save if the current score is better
+          if (score > bestScore) {
+            await AsyncStorage.setItem(bestScoreKey, score.toString());
+            
+            // Also update the specific animal or crop score
+            const itemScoreKey = `${type}_score_${lessonId}`;
+            await AsyncStorage.setItem(itemScoreKey, score.toString());
+          }
+        } catch (error) {
+          console.error('Error saving score:', error);
+        }
+      }
+    };
+    
+    saveScore();
+  }, [showResults, type, lessonId, quizKey, questions]);
 
   const calculateScore = () => {
     let correct = 0;
@@ -795,84 +1248,393 @@ const QuizLesson = () => {
     return (correct / questions.length) * 100;
   };
 
+  // Add back the animation effect
+  useEffect(() => {
+    if (quizStarted) {
+      // Animate question appearance
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        })
+      ]).start();
+
+      // Animate options appearance sequentially
+      optionAnimValues.forEach((anim, index) => {
+        Animated.timing(anim, {
+          toValue: 1,
+          duration: 300,
+          delay: 300 + (index * 100),
+          useNativeDriver: true,
+        }).start();
+      });
+    }
+  }, [currentQuestion, quizStarted, fadeAnim, scaleAnim, optionAnimValues]);
+
+  // Add back the timer effect
+  useEffect(() => {
+    if (quizStarted && !showExplanation && !showResults) {
+      // Reset timer when starting new question
+      setTimeLeft(30);
+      
+      // Start the timer
+      timerRef.current = setInterval(() => {
+        setTimeLeft((prevTime) => {
+          if (prevTime <= 1) {
+            // Time's up - move to next question
+            clearInterval(timerRef.current);
+            handleTimeUp();
+            return 0;
+          }
+          return prevTime - 1;
+        });
+      }, 1000);
+
+      // Cleanup timer on unmount or when moving to next question
+      return () => {
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+        }
+      };
+    }
+  }, [currentQuestion, quizStarted, showExplanation, showResults]);
+
+  const handleTimeUp = () => {
+    // If no answer was selected, mark it as undefined
+    if (selectedAnswers[currentQuestion] === undefined) {
+      const newAnswers = [...selectedAnswers];
+      newAnswers[currentQuestion] = -1; // -1 indicates no answer
+      setSelectedAnswers(newAnswers);
+    }
+    handleNext();
+  };
+
   if (showResults) {
-    const score = calculateScore();
+    const correctAnswers = questions.filter((q, index) => selectedAnswers[index] === q.correctAnswer).length;
+    
     return (
-      <View style={styles.container}>
-        <Text style={styles.header}>النتيجة النهائية</Text>
+      <ScrollView style={styles.container}>
+        <LinearGradient
+          colors={[theme.colors.primary.base, theme.colors.primary.dark]}
+          style={styles.resultsHeader}
+        >
+          <Text style={styles.resultsTitle}>النتيجة النهائية</Text>
+        </LinearGradient>
+        
         <View style={styles.scoreCard}>
-          <Text style={styles.scoreText}>{score.toFixed(0)}%</Text>
-          <Text style={styles.scoreMessage}>
-            {score >= 70 ? 'أحسنت! نتيجة ممتازة' : 'حاول مرة أخرى للتحسين'}
+          <View style={styles.scoreCircle}>
+            <Text style={styles.scoreText}>{currentScore.toFixed(0)}%</Text>
+          </View>
+          
+          <Text style={styles.scoreDetails}>
+            لقد أجبت على {correctAnswers} من أصل {questions.length} أسئلة بشكل صحيح
+          </Text>
+          
+          <Text style={[
+            styles.scoreMessage,
+            currentScore >= 70 ? styles.successText : styles.warningText
+          ]}>
+            {currentScore >= 90 ? 'ممتاز! أداء رائع' : 
+             currentScore >= 70 ? 'جيد جداً! نتيجة مميزة' : 
+             currentScore >= 50 ? 'حسناً! يمكنك التحسين' : 
+             'حاول مرة أخرى للتحسين'}
           </Text>
         </View>
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => {
-            setCurrentQuestion(0);
-            setSelectedAnswers([]);
-            setShowResults(false);
-          }}
-        >
-          <Text style={styles.buttonText}>إعادة الاختبار</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.button, { backgroundColor: theme.colors.secondary.base }]}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.buttonText}>العودة للدروس</Text>
-        </TouchableOpacity>
+        
+        <View style={styles.resultActions}>
+          <TouchableOpacity
+            style={[styles.resultButton, styles.retryButton]}
+            onPress={() => {
+              setCurrentQuestion(0);
+              setSelectedAnswers([]);
+              setShowResults(false);
+            }}
+          >
+            <MaterialCommunityIcons name="reload" size={20} color="#FFFFFF" />
+            <Text style={styles.resultButtonText}>إعادة الاختبار</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.resultButton, styles.backToLessonsButton]}
+            onPress={() => navigation.goBack()}
+          >
+            <MaterialCommunityIcons name="book-open-variant" size={20} color="#FFFFFF" />
+            <Text style={styles.resultButtonText}>العودة للدروس</Text>
+          </TouchableOpacity>
+        </View>
+        
+        <View style={styles.answersReview}>
+          <Text style={styles.reviewTitle}>مراجعة الإجابات</Text>
+          
+          {questions.map((q, index) => (
+            <View key={index} style={styles.reviewItem}>
+              <View style={styles.reviewQuestion}>
+                <Text style={styles.reviewQuestionNumber}>سؤال {index + 1}</Text>
+                <Text style={styles.reviewQuestionText}>{q.question}</Text>
+              </View>
+              
+              <View style={styles.reviewAnswers}>
+                <View style={[
+                  styles.reviewAnswer,
+                  selectedAnswers[index] === q.correctAnswer ? styles.reviewCorrect : styles.reviewWrong
+                ]}>
+                  <Text style={styles.reviewAnswerLabel}>إجابتك:</Text>
+                  <Text style={styles.reviewAnswerText}>
+                    {q.options[selectedAnswers[index]]}
+                  </Text>
+                </View>
+                
+                {selectedAnswers[index] !== q.correctAnswer && (
+                  <View style={[styles.reviewAnswer, styles.reviewCorrect]}>
+                    <Text style={styles.reviewAnswerLabel}>الإجابة الصحيحة:</Text>
+                    <Text style={styles.reviewAnswerText}>
+                      {q.options[q.correctAnswer]}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+    );
+  }
+
+  if (!quiz) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle" size={48} color={theme.colors.error} />
+          <Text style={styles.errorText}>عذراً، هذا الاختبار غير متوفر حالياً</Text>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.buttonText}>العودة</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
 
+  if (!quizStarted) {
+    return (
+      <View style={styles.startContainer}>
+        <LinearGradient
+          colors={[theme.colors.primary.base, theme.colors.primary.dark]}
+          style={styles.startHeader}
+        >
+          <Text style={styles.startTitle}>{quiz.title}</Text>
+        </LinearGradient>
+        
+        <View style={styles.startContent}>
+          <View style={styles.quizInfoCard}>
+            <Text style={styles.quizDescription}>{quiz.description}</Text>
+            
+            <View style={styles.quizMetaInfo}>
+              <View style={styles.metaItem}>
+                <MaterialCommunityIcons name="help-circle" size={24} color={theme.colors.primary.base} />
+                <Text style={styles.metaText}>{quiz.questions.length} أسئلة</Text>
+              </View>
+              
+              <View style={styles.metaItem}>
+                <MaterialCommunityIcons name="clock-outline" size={24} color={theme.colors.primary.base} />
+                <Text style={styles.metaText}>~{quiz.questions.length * 1} دقائق</Text>
+              </View>
+            </View>
+          </View>
+          
+          <TouchableOpacity
+            style={styles.startButton}
+            onPress={() => setQuizStarted(true)}
+          >
+            <Text style={styles.startButtonText}>ابدأ الاختبار</Text>
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.backButtonText}>العودة للدروس</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  const currentQ = questions[currentQuestion];
+
+  const handleAnswer = (answerIndex: number) => {
+    // Clear the timer when an answer is selected
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+    
+    const newAnswers = [...selectedAnswers];
+    newAnswers[currentQuestion] = answerIndex;
+    setSelectedAnswers(newAnswers);
+    setShowExplanation(true);
+    
+    // Scroll to explanation
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 300);
+  };
+
+  const handleNext = () => {
+    // Reset animations
+    fadeAnim.setValue(0);
+    scaleAnim.setValue(0.9);
+    optionAnimValues.forEach(anim => anim.setValue(0));
+    
+    setShowExplanation(false);
+    if (currentQuestion < questions.length - 1) {
+      setCurrentQuestion(currentQuestion + 1);
+    } else {
+      setShowResults(true);
+    }
+  };
+
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.progressBar}>
-        <View 
-          style={[
-            styles.progressFill, 
-            { width: `${((currentQuestion + 1) / questions.length) * 100}%` }
-          ]} 
-        />
+    <ScrollView 
+      ref={scrollViewRef}
+      style={styles.container}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={styles.quizHeader}>
+        <TouchableOpacity 
+          style={styles.closeButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="close" size={24} color={theme.colors.neutral.textPrimary} />
+        </TouchableOpacity>
+        
+        <View style={styles.progressContainer}>
+          <View style={styles.progressBar}>
+            <View 
+              style={[
+                styles.progressFill, 
+                { width: `${((currentQuestion + 1) / questions.length) * 100}%` }
+              ]} 
+            />
+          </View>
+          <Text style={styles.progressText}>
+            {currentQuestion + 1}/{questions.length}
+          </Text>
+        </View>
+
+        <View style={styles.timerContainer}>
+          <MaterialCommunityIcons 
+            name="clock-outline" 
+            size={20} 
+            color={timeLeft <= 10 ? theme.colors.error : theme.colors.primary.base} 
+          />
+          <Text style={[
+            styles.timerText,
+            timeLeft <= 10 && styles.timerWarning
+          ]}>
+            {timeLeft}s
+          </Text>
+        </View>
       </View>
       
-      <Text style={styles.header}>
-        {quiz.title} - سؤال {currentQuestion + 1} من {questions.length}
-      </Text>
-
-      <View style={styles.questionCard}>
+      <Animated.View 
+        style={[
+          styles.questionCard,
+          {
+            opacity: fadeAnim,
+            transform: [{ scale: scaleAnim }]
+          }
+        ]}
+      >
+        <View style={styles.questionHeader}>
+          <View style={styles.questionNumberBadge}>
+            <Text style={styles.questionNumberText}>{currentQuestion + 1}</Text>
+          </View>
+          <Text style={styles.questionTitle}>سؤال</Text>
+        </View>
+        
         <Text style={styles.question}>{currentQ.question}</Text>
         
         {currentQ.options.map((option, index) => (
-          <TouchableOpacity
+          <Animated.View 
             key={index}
-            style={[
-              styles.option,
-              selectedAnswers[currentQuestion] === index && styles.selectedOption,
-              showExplanation && index === currentQ.correctAnswer && styles.correctOption,
-              showExplanation && selectedAnswers[currentQuestion] === index && 
-              index !== currentQ.correctAnswer && styles.wrongOption
-            ]}
-            onPress={() => !showExplanation && handleAnswer(index)}
-            disabled={showExplanation}
+            style={{ 
+              opacity: optionAnimValues[index],
+              transform: [{ 
+                translateY: optionAnimValues[index].interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [20, 0]
+                })
+              }]
+            }}
           >
-            <Text style={[
-              styles.optionText,
-              selectedAnswers[currentQuestion] === index && styles.selectedOptionText,
-              showExplanation && index === currentQ.correctAnswer && styles.correctOptionText
-            ]}>
-              {option}
-            </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.option,
+                selectedAnswers[currentQuestion] === index && styles.selectedOption,
+                showExplanation && index === currentQ.correctAnswer && styles.correctOption,
+                showExplanation && selectedAnswers[currentQuestion] === index && 
+                index !== currentQ.correctAnswer && styles.wrongOption
+              ]}
+              onPress={() => !showExplanation && handleAnswer(index)}
+              disabled={showExplanation}
+            >
+              <View style={styles.optionContent}>
+                <View style={[
+                  styles.optionIndicator,
+                  selectedAnswers[currentQuestion] === index && styles.selectedIndicator,
+                  showExplanation && index === currentQ.correctAnswer && styles.correctIndicator,
+                  showExplanation && selectedAnswers[currentQuestion] === index && 
+                  index !== currentQ.correctAnswer && styles.wrongIndicator
+                ]}>
+                  {showExplanation && index === currentQ.correctAnswer ? (
+                    <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                  ) : showExplanation && selectedAnswers[currentQuestion] === index && 
+                    index !== currentQ.correctAnswer ? (
+                    <Ionicons name="close" size={16} color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.optionLetter}>
+                      {String.fromCharCode(65 + index)}
+                    </Text>
+                  )}
+                </View>
+                
+                <Text style={[
+                  styles.optionText,
+                  selectedAnswers[currentQuestion] === index && styles.selectedOptionText,
+                  showExplanation && index === currentQ.correctAnswer && styles.correctOptionText,
+                  showExplanation && selectedAnswers[currentQuestion] === index && 
+                  index !== currentQ.correctAnswer && styles.wrongOptionText
+                ]}>
+                  {option}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </Animated.View>
         ))}
 
         {showExplanation && (
           <View style={styles.explanationCard}>
+            <View style={styles.explanationHeader}>
+              <MaterialCommunityIcons 
+                name="lightbulb-on" 
+                size={20} 
+                color={theme.colors.primary.base} 
+              />
+              <Text style={styles.explanationTitle}>التوضيح</Text>
+            </View>
             <Text style={styles.explanationText}>{currentQ.explanation}</Text>
           </View>
         )}
-      </View>
+      </Animated.View>
 
       {selectedAnswers[currentQuestion] !== undefined && (
         <TouchableOpacity 
@@ -882,6 +1644,14 @@ const QuizLesson = () => {
           <Text style={styles.buttonText}>
             {currentQuestion === questions.length - 1 ? 'إنهاء الاختبار' : 'السؤال التالي'}
           </Text>
+          {showExplanation && (
+            <Ionicons 
+              name={currentQuestion === questions.length - 1 ? "checkmark-circle" : "arrow-forward"} 
+              size={20} 
+              color="#FFFFFF" 
+              style={styles.buttonIcon}
+            />
+          )}
         </TouchableOpacity>
       )}
     </ScrollView>
@@ -892,61 +1662,210 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.neutral.background,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
     padding: 20,
   },
-  progressBar: {
-    height: 6,
-    backgroundColor: theme.colors.neutral.gray.light,
-    borderRadius: 3,
+  startContainer: {
+    flex: 1,
+    backgroundColor: theme.colors.neutral.background,
+  },
+  startHeader: {
+    padding: theme.spacing.lg,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 120,
+  },
+  startTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  startContent: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  quizInfoCard: {
+    backgroundColor: theme.colors.neutral.surface,
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    marginVertical: 20,
+    ...theme.shadows.medium,
+  },
+  quizDescription: {
+    fontSize: 16,
+    color: theme.colors.neutral.textPrimary,
+    textAlign: 'center',
     marginBottom: 20,
+    lineHeight: 24,
+  },
+  quizMetaInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.neutral.gray.light,
+    paddingTop: 20,
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  metaText: {
+    fontSize: 14,
+    color: theme.colors.neutral.textSecondary,
+  },
+  startButton: {
+    backgroundColor: theme.colors.primary.base,
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    marginBottom: 12,
+    gap: 8,
+  },
+  startButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  backButton: {
+    padding: 12,
+  },
+  backButtonText: {
+    color: theme.colors.primary.base,
+    fontSize: 16,
+  },
+  quizHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+  },
+  closeButton: {
+    padding: 8,
+  },
+  progressContainer: {
+    flex: 1,
+    marginLeft: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  progressBar: {
+    flex: 1,
+    height: 8,
+    backgroundColor: theme.colors.neutral.gray.light,
+    borderRadius: 4,
   },
   progressFill: {
     height: '100%',
     backgroundColor: theme.colors.primary.base,
-    borderRadius: 3,
+    borderRadius: 4,
   },
-  header: {
-    fontSize: 22,
+  progressText: {
+    fontSize: 14,
     fontWeight: '600',
-    textAlign: 'center',
-    color: theme.colors.primary.base,
-    marginBottom: 20,
+    color: theme.colors.neutral.textPrimary,
+    marginLeft: 8,
   },
   questionCard: {
     backgroundColor: theme.colors.neutral.surface,
     borderRadius: 16,
     padding: 20,
-    marginBottom: 20,
+    margin: 16,
     ...theme.shadows.medium,
+  },
+  questionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  questionNumberBadge: {
+    backgroundColor: theme.colors.primary.base,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  questionNumberText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  questionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: theme.colors.neutral.textPrimary,
   },
   question: {
     fontSize: 18,
     fontWeight: '600',
     color: theme.colors.neutral.textPrimary,
-    marginBottom: 20,
+    marginBottom: 24,
     textAlign: 'right',
+    lineHeight: 26,
   },
   option: {
-    backgroundColor: theme.colors.neutral.gray.light,
+    backgroundColor: theme.colors.neutral.surface,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
     borderWidth: 2,
-    borderColor: 'transparent',
+    borderColor: theme.colors.neutral.gray.light,
+  },
+  optionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  optionIndicator: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: theme.colors.neutral.gray.light,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  optionLetter: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.neutral.textPrimary,
+  },
+  selectedIndicator: {
+    backgroundColor: theme.colors.primary.base,
+  },
+  correctIndicator: {
+    backgroundColor: theme.colors.success,
+  },
+  wrongIndicator: {
+    backgroundColor: theme.colors.error,
   },
   selectedOption: {
-    backgroundColor: `${theme.colors.primary.base}15`,
+    backgroundColor: `${theme.colors.primary.base}10`,
     borderColor: theme.colors.primary.base,
   },
   correctOption: {
-    backgroundColor: `${theme.colors.success}15`,
+    backgroundColor: `${theme.colors.success}10`,
     borderColor: theme.colors.success,
   },
   wrongOption: {
-    backgroundColor: `${theme.colors.error}15`,
+    backgroundColor: `${theme.colors.error}10`,
     borderColor: theme.colors.error,
   },
   optionText: {
+    flex: 1,
     fontSize: 16,
     color: theme.colors.neutral.textPrimary,
     textAlign: 'right',
@@ -959,12 +1878,52 @@ const styles = StyleSheet.create({
     color: theme.colors.success,
     fontWeight: '600',
   },
+  wrongOptionText: {
+    color: theme.colors.error,
+    fontWeight: '600',
+  },
+  explanationCard: {
+    backgroundColor: `${theme.colors.primary.base}10`,
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 20,
+    borderLeftWidth: 4,
+    borderLeftColor: theme.colors.primary.base,
+  },
+  explanationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  explanationTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.primary.base,
+    marginLeft: 8,
+  },
+  explanationText: {
+    fontSize: 14,
+    color: theme.colors.neutral.textPrimary,
+    textAlign: 'right',
+    lineHeight: 22,
+  },
   button: {
+    flexDirection: 'row',
     backgroundColor: theme.colors.primary.base,
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
-    marginTop: 20,
+    justifyContent: 'center',
+    margin: 16,
+    marginTop: 8,
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  buttonIcon: {
+    marginLeft: 8,
   },
   checkButton: {
     backgroundColor: theme.colors.primary.base,
@@ -972,46 +1931,171 @@ const styles = StyleSheet.create({
   nextButton: {
     backgroundColor: theme.colors.secondary.base,
   },
-  buttonText: {
+  resultsHeader: {
+    padding: theme.spacing.lg,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 100,
+  },
+  resultsTitle: {
+    fontSize: 24,
+    fontWeight: '700',
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  explanationCard: {
-    backgroundColor: theme.colors.neutral.gray.light,
-    borderRadius: 8,
-    padding: 16,
-    marginTop: 16,
-  },
-  explanationText: {
-    fontSize: 14,
-    color: theme.colors.neutral.textSecondary,
-    textAlign: 'right',
+    textAlign: 'center',
   },
   scoreCard: {
     backgroundColor: theme.colors.neutral.surface,
     borderRadius: 16,
-    padding: 32,
+    padding: 24,
+    margin: 16,
     alignItems: 'center',
-    marginVertical: 32,
     ...theme.shadows.medium,
   },
+  scoreCircle: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: `${theme.colors.primary.base}15`,
+    borderWidth: 8,
+    borderColor: theme.colors.primary.base,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
   scoreText: {
-    fontSize: 48,
+    fontSize: 36,
     fontWeight: '700',
     color: theme.colors.primary.base,
-    marginBottom: 16,
+  },
+  scoreDetails: {
+    fontSize: 16,
+    color: theme.colors.neutral.textPrimary,
+    textAlign: 'center',
+    marginBottom: 12,
   },
   scoreMessage: {
     fontSize: 18,
-    color: theme.colors.neutral.textSecondary,
+    fontWeight: '600',
     textAlign: 'center',
+    marginTop: 8,
+  },
+  successText: {
+    color: theme.colors.success,
+  },
+  warningText: {
+    color: theme.colors.warning,
+  },
+  resultActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    margin: 16,
+    gap: 12,
+  },
+  resultButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 12,
+    gap: 8,
+  },
+  retryButton: {
+    backgroundColor: theme.colors.primary.base,
+  },
+  backToLessonsButton: {
+    backgroundColor: theme.colors.secondary.base,
+  },
+  resultButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  answersReview: {
+    margin: 16,
+    marginTop: 8,
+  },
+  reviewTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: theme.colors.neutral.textPrimary,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  reviewItem: {
+    backgroundColor: theme.colors.neutral.surface,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    ...theme.shadows.small,
+  },
+  reviewQuestion: {
+    marginBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.neutral.gray.light,
+    paddingBottom: 12,
+  },
+  reviewQuestionNumber: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.primary.base,
+    marginBottom: 4,
+  },
+  reviewQuestionText: {
+    fontSize: 16,
+    color: theme.colors.neutral.textPrimary,
+    textAlign: 'right',
+  },
+  reviewAnswers: {
+    gap: 8,
+  },
+  reviewAnswer: {
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  reviewCorrect: {
+    backgroundColor: `${theme.colors.success}10`,
+    borderColor: theme.colors.success,
+  },
+  reviewWrong: {
+    backgroundColor: `${theme.colors.error}10`,
+    borderColor: theme.colors.error,
+  },
+  reviewAnswerLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 4,
+    textAlign: 'right',
+  },
+  reviewAnswerText: {
+    fontSize: 14,
+    textAlign: 'right',
   },
   errorText: {
     fontSize: 18,
     color: theme.colors.error,
     textAlign: 'center',
     marginBottom: 20,
+  },
+  timerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.neutral.surface,
+    padding: 8,
+    borderRadius: 8,
+    marginLeft: 12,
+  },
+  timerText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.primary.base,
+    marginLeft: 4,
+  },
+  timerWarning: {
+    color: theme.colors.error,
   },
 });
 

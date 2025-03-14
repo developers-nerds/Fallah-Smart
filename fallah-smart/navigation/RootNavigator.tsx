@@ -25,4 +25,4 @@ const RootNavigator = () => {
   );
 };
 
-export default RootNavigator; 
+export default RootNavigator;

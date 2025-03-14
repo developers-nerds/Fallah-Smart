@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Modal } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { theme } from '../../../theme/theme';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type EducationStackParamList = {
   Education: undefined;
@@ -24,6 +25,8 @@ interface Animal {
   videoUrl?: string;
   quizId?: number;
 }
+
+const COMPLETED_COLOR = '#00C853'; // Bright green for 100% completion
 
 const animals: Animal[] = [
   // ماشية (Livestock)
@@ -92,6 +95,7 @@ const AnimalsLessons = () => {
   const navigation = useNavigation<AnimalsLessonsNavigationProp>();
   const [selectedAnimal, setSelectedAnimal] = useState<Animal | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [animalScores, setAnimalScores] = useState<{[key: number]: number}>({});
 
   // Group animals by category
   const animalsByCategory = animals.reduce((acc, animal) => {
@@ -101,6 +105,40 @@ const AnimalsLessons = () => {
     acc[animal.category].push(animal);
     return acc;
   }, {} as { [key: string]: Animal[] });
+
+  // Fetch scores for all animals
+  const fetchScores = async () => {
+    try {
+      const scores: {[key: number]: number} = {};
+      
+      for (const animal of animals) {
+        if (animal.quizId) {
+          const scoreKey = `animal_score_${animal.quizId}`;
+          const score = await AsyncStorage.getItem(scoreKey);
+          if (score) {
+            scores[animal.id] = parseFloat(score);
+          }
+        }
+      }
+      
+      setAnimalScores(scores);
+    } catch (error) {
+      console.error('Error fetching animal scores:', error);
+    }
+  };
+
+  // Fetch scores when component mounts
+  useEffect(() => {
+    fetchScores();
+  }, []);
+
+  // Refetch scores when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchScores();
+      return () => {};
+    }, [])
+  );
 
   const handleAnimalPress = (animal: Animal) => {
     setSelectedAnimal(animal);
@@ -124,6 +162,47 @@ const AnimalsLessons = () => {
     setShowModal(false);
   };
 
+  // Helper function to get icon circle style based on score
+  const getIconCircleStyle = (animalId: number) => {
+    const score = animalScores[animalId];
+    const isCompleted = score === 100;
+    
+    return [
+      styles.iconCircle,
+      isCompleted && {
+        backgroundColor: `${COMPLETED_COLOR}20`,
+        borderWidth: 2,
+        borderColor: COMPLETED_COLOR,
+      }
+    ];
+  };
+
+  // Helper function to get score container style based on score
+  const getScoreContainerStyle = (animalId: number) => {
+    const score = animalScores[animalId];
+    const isCompleted = score === 100;
+    
+    return [
+      styles.scoreContainer,
+      isCompleted && {
+        backgroundColor: `${COMPLETED_COLOR}15`,
+      }
+    ];
+  };
+
+  // Helper function to get score text style based on score
+  const getScoreTextStyle = (animalId: number) => {
+    const score = animalScores[animalId];
+    const isCompleted = score === 100;
+    
+    return [
+      styles.scoreText,
+      isCompleted && {
+        color: COMPLETED_COLOR,
+      }
+    ];
+  };
+
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <LinearGradient
@@ -144,10 +223,22 @@ const AnimalsLessons = () => {
                 style={styles.animalItem}
                 onPress={() => handleAnimalPress(animal)}
               >
-                <View style={styles.iconCircle}>
+                <View style={getIconCircleStyle(animal.id)}>
                   <Text style={styles.animalIcon}>{animal.icon}</Text>
                 </View>
                 <Text style={styles.animalName}>{animal.name}</Text>
+                {animalScores[animal.id] !== undefined && (
+                  <View style={getScoreContainerStyle(animal.id)}>
+                    <MaterialCommunityIcons 
+                      name="star" 
+                      size={10} 
+                      color={animalScores[animal.id] === 100 ? COMPLETED_COLOR : theme.colors.primary.base} 
+                    />
+                    <Text style={getScoreTextStyle(animal.id)}>
+                      {animalScores[animal.id].toFixed(0)}%
+                    </Text>
+                  </View>
+                )}
               </TouchableOpacity>
             ))}
           </View>
@@ -294,6 +385,21 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  scoreContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: `${theme.colors.primary.base}15`,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginTop: 4,
+  },
+  scoreText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: theme.colors.primary.base,
+    marginLeft: 2,
   },
 });
 

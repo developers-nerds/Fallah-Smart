@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Modal } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { theme } from '../../../theme/theme';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type EducationStackParamList = {
   Education: undefined;
@@ -24,6 +25,8 @@ interface Crop {
   videoUrl?: string;
   quizId?: number;
 }
+
+const COMPLETED_COLOR = '#00C853'; // Bright green for 100% completion
 
 const crops: Crop[] = [
   // الحبوب والأرز
@@ -285,6 +288,7 @@ const CropsLessons = () => {
   const navigation = useNavigation<CropsLessonsNavigationProp>();
   const [selectedCrop, setSelectedCrop] = useState<Crop | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [cropScores, setCropScores] = useState<{[key: number]: number}>({});
 
   // Group crops by category
   const cropsByCategory = crops.reduce((acc, crop) => {
@@ -294,6 +298,40 @@ const CropsLessons = () => {
     acc[crop.category].push(crop);
     return acc;
   }, {} as { [key: string]: Crop[] });
+
+  // Fetch scores for all crops
+  const fetchScores = async () => {
+    try {
+      const scores: {[key: number]: number} = {};
+      
+      for (const crop of crops) {
+        if (crop.quizId) {
+          const scoreKey = `crop_score_${crop.quizId}`;
+          const score = await AsyncStorage.getItem(scoreKey);
+          if (score) {
+            scores[crop.id] = parseFloat(score);
+          }
+        }
+      }
+      
+      setCropScores(scores);
+    } catch (error) {
+      console.error('Error fetching crop scores:', error);
+    }
+  };
+
+  // Fetch scores when component mounts
+  useEffect(() => {
+    fetchScores();
+  }, []);
+
+  // Refetch scores when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchScores();
+      return () => {};
+    }, [])
+  );
 
   const handleCropPress = (crop: Crop) => {
     setSelectedCrop(crop);
@@ -317,6 +355,47 @@ const CropsLessons = () => {
     setShowModal(false);
   };
 
+  // Helper function to get icon circle style based on score
+  const getIconCircleStyle = (cropId: number) => {
+    const score = cropScores[cropId];
+    const isCompleted = score === 100;
+    
+    return [
+      styles.iconCircle,
+      isCompleted && {
+        backgroundColor: `${COMPLETED_COLOR}20`,
+        borderWidth: 2,
+        borderColor: COMPLETED_COLOR,
+      }
+    ];
+  };
+
+  // Helper function to get score container style based on score
+  const getScoreContainerStyle = (cropId: number) => {
+    const score = cropScores[cropId];
+    const isCompleted = score === 100;
+    
+    return [
+      styles.scoreContainer,
+      isCompleted && {
+        backgroundColor: `${COMPLETED_COLOR}15`,
+      }
+    ];
+  };
+
+  // Helper function to get score text style based on score
+  const getScoreTextStyle = (cropId: number) => {
+    const score = cropScores[cropId];
+    const isCompleted = score === 100;
+    
+    return [
+      styles.scoreText,
+      isCompleted && {
+        color: COMPLETED_COLOR,
+      }
+    ];
+  };
+
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <LinearGradient
@@ -337,10 +416,22 @@ const CropsLessons = () => {
                 style={styles.cropItem}
                 onPress={() => handleCropPress(crop)}
               >
-                <View style={styles.iconCircle}>
+                <View style={getIconCircleStyle(crop.id)}>
                   <Text style={styles.cropIcon}>{crop.icon}</Text>
                 </View>
                 <Text style={styles.cropName}>{crop.name}</Text>
+                {cropScores[crop.id] !== undefined && (
+                  <View style={getScoreContainerStyle(crop.id)}>
+                    <MaterialCommunityIcons 
+                      name="star" 
+                      size={10} 
+                      color={cropScores[crop.id] === 100 ? COMPLETED_COLOR : theme.colors.primary.base} 
+                    />
+                    <Text style={getScoreTextStyle(crop.id)}>
+                      {cropScores[crop.id].toFixed(0)}%
+                    </Text>
+                  </View>
+                )}
               </TouchableOpacity>
             ))}
           </View>
@@ -487,6 +578,21 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  scoreContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: `${theme.colors.primary.base}15`,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginTop: 4,
+  },
+  scoreText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: theme.colors.primary.base,
+    marginLeft: 2,
   },
 });
 

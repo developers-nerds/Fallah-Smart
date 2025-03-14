@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Animated, Dimensions, ScrollView } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { theme } from '../../theme/theme';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type EducationStackParamList = {
   Education: undefined;
   AnimalsLessons: undefined;
-  CropsLessons: undefined;
+  CropsLessons: undefined;  
   VideoLesson: { videoUrl: string };
   QuizLesson: { lessonId: number };
 };
@@ -19,6 +20,9 @@ type EducationScreenNavigationProp = StackNavigationProp<EducationStackParamList
 
 const { width } = Dimensions.get('window');
 
+const TOTAL_ANIMALS = 7; // Total number of animals with quizzes
+const TOTAL_CROPS = 31; // Total number of crops with quizzes
+
 const categories = [
   {
     id: 1,
@@ -26,7 +30,7 @@ const categories = [
     iconName: 'cow' as const,
     screen: 'AnimalsLessons' as const,
     description: 'تعلم عن رعاية الحيوانات',
-    progress: 0.1,
+    totalItems: TOTAL_ANIMALS,
     color: '#4CAF50',
   },
   {
@@ -35,7 +39,7 @@ const categories = [
     iconName: 'seed' as const,
     screen: 'CropsLessons' as const,
     description: 'تعلم عن زراعة المحاصيل',
-    progress: 0.5,
+    totalItems: TOTAL_CROPS,
     color: '#FF9800',
   },
 ];
@@ -45,9 +49,61 @@ const EducationScreen = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [scaleAnims] = useState(categories.map(() => new Animated.Value(1)));
   const [fadeAnim] = useState(new Animated.Value(0));
+  const [categoryProgress, setCategoryProgress] = useState<{[key: string]: number}>({
+    animals: 0,
+    crops: 0
+  });
+  const [categoryStats, setCategoryStats] = useState<{[key: string]: { completed: number, total: number }}>({
+    animals: { completed: 0, total: TOTAL_ANIMALS },
+    crops: { completed: 0, total: TOTAL_CROPS }
+  });
+
+  const calculateProgress = async () => {
+    try {
+      // Calculate animals progress
+      let animalScores = 0;
+      let completedAnimals = 0;
+      
+      for (let i = 1; i <= TOTAL_ANIMALS; i++) {
+        const score = await AsyncStorage.getItem(`animal_score_${i}`);
+        if (score) {
+          animalScores += parseFloat(score);
+          completedAnimals++;
+        }
+      }
+
+      // Calculate crops progress
+      let cropScores = 0;
+      let completedCrops = 0;
+      
+      for (let i = 1; i <= TOTAL_CROPS; i++) {
+        const score = await AsyncStorage.getItem(`crop_score_${i}`);
+        if (score) {
+          cropScores += parseFloat(score);
+          completedCrops++;
+        }
+      }
+
+      // Calculate total progress including unanswered questions (counted as 0%)
+      const totalAnimalProgress = animalScores / (TOTAL_ANIMALS * 100);
+      const totalCropProgress = cropScores / (TOTAL_CROPS * 100);
+
+      setCategoryProgress({
+        animals: totalAnimalProgress,
+        crops: totalCropProgress
+      });
+
+      setCategoryStats({
+        animals: { completed: completedAnimals, total: TOTAL_ANIMALS },
+        crops: { completed: completedCrops, total: TOTAL_CROPS }
+      });
+    } catch (error) {
+      console.error('Error calculating progress:', error);
+    }
+  };
 
   useEffect(() => {
-    setTimeout(() => setIsLoading(false), 1000); // Simulate loading
+    setTimeout(() => setIsLoading(false), 1000);
     Animated.sequence([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -55,7 +111,15 @@ const EducationScreen = () => {
         useNativeDriver: true,
       }),
     ]).start();
+    calculateProgress();
   }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      calculateProgress();
+      return () => {};
+    }, [])
+  );
 
   const handlePressIn = (index: number) => {
     Animated.spring(scaleAnims[index], {
@@ -135,14 +199,23 @@ const EducationScreen = () => {
                       style={[
                         styles.progressBar, 
                         { 
-                          width: `${category.progress * 100}%`,
+                          width: `${(category.id === 1 ? categoryProgress.animals : categoryProgress.crops) * 100}%`,
                           backgroundColor: category.color,
                         }
                       ]} 
                     />
+                    <Text style={[
+                      styles.progressText, 
+                      { color: 'white' }
+                    ]}>
+                      {Math.round((category.id === 1 ? categoryProgress.animals : categoryProgress.crops) * 100)}%
+                    </Text>
                   </View>
-                  <Text style={[styles.progressText, { color: category.color }]}>
-                    {Math.round(category.progress * 100)}%
+                  <Text style={[styles.completionText, { color: category.color }]}>
+                    {category.id === 1 
+                      ? `${categoryStats.animals.completed}/${categoryStats.animals.total} مكتمل`
+                      : `${categoryStats.crops.completed}/${categoryStats.crops.total} مكتمل`
+                    }
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -258,21 +331,37 @@ const styles = StyleSheet.create({
   },
   progressContainer: {
     width: '100%',
-    height: 2,
+    height: 24,
     backgroundColor: theme.colors.neutral.gray.light,
-    borderRadius: 1,
+    borderRadius: 12,
     overflow: 'hidden',
-    marginBottom: theme.spacing.xs,
+    position: 'relative',
+    justifyContent: 'center',
   },
   progressBar: {
     height: '100%',
-    borderRadius: 1,
+    borderRadius: 12,
+    position: 'absolute',
+    left: 0,
   },
   progressText: {
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
-    marginTop: theme.spacing.xs,
+    width: '100%',
+    position: 'absolute',
+    alignSelf: 'center',
+    zIndex: 1,
+    color: 'white',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
+  },
+  completionText: {
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
+    marginTop: 4,
   },
 });
 
