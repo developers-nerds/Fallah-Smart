@@ -1,9 +1,9 @@
 const sequelize = require("./connection");
 const { DataTypes } = require("sequelize");
 //importing models
+const AnimalDetails =require("./models/AnimalDetails")(sequelize, DataTypes);
 const Accounts = require("./models/Accounts")(sequelize, DataTypes);
 const Animal_doc = require("./models/Animal _doc")(sequelize, DataTypes);
-const AnimalDetails = require("./models/AnimalDetails")(sequelize, DataTypes);
 const AnimalGaston = require("./models/AnimalGaston")(sequelize, DataTypes);
 const BackupSync = require("./models/BackupSync")(sequelize, DataTypes);
 const Category = require("./models/Categories")(sequelize, DataTypes);
@@ -51,6 +51,20 @@ const StockNotification = require("./models/StockNotification")(sequelize, DataT
 const StockTools = require("./models/StockTools")(sequelize, DataTypes);
 const Transactions = require("./models/Transactions")(sequelize, DataTypes);
 const Users = require("./models/Users")(sequelize, DataTypes);
+
+//////////////////////////////////////////Achref////////////////////////////////////////////
+
+const Education_Quiz = require("./models/Education_Quizzes")(sequelize, DataTypes);
+const Education_Question = require("./models/Education_Questions")(sequelize, DataTypes);
+const Education_Video = require("./models/Education_Videos")(sequelize, DataTypes);
+const Education_AdditionalVideo = require("./models/Education_AdditionalVideos")(sequelize, DataTypes);
+const Education_QuestionAndAnswer = require("./models/Education_QuestionsAndAnswers")(sequelize, DataTypes);
+const Education_Reply = require("./models/Education_Replies")(sequelize, DataTypes);
+const Education_UserProgress = require("./models/Education_UserProgress")(sequelize, DataTypes);
+const Education_Chat = require("./models/Education_Chat")(sequelize, DataTypes);
+const Education_Crop = require("./models/Education_Crops")(sequelize, DataTypes);
+const Education_Animal = require("./models/EducationAnimals")(sequelize, DataTypes);
+
 
 // Define associations
 // For users
@@ -353,7 +367,7 @@ Messages.belongsTo(Conversations, {
   as: "conversation",
 });
 
-// Animal and AnimalGaston associations
+// Animal and AnimalDetails associations
 Crop.hasOne(CropDetails, {
   foreignKey: "cropId",
   onDelete: "CASCADE",
@@ -364,11 +378,11 @@ CropDetails.belongsTo(Crop, {
   foreignKey: "cropId",
 });
 
-AnimalGaston.belongsTo(Animal_doc, {
+AnimalDetails.belongsTo(Animal_doc, {
   foreignKey: "animalId",
 });
 
-Animal_doc.hasOne(AnimalGaston, {
+Animal_doc.hasOne(AnimalDetails, {
   foreignKey: "animalId",
   onDelete: "CASCADE",
   onUpdate: "CASCADE",
@@ -663,7 +677,64 @@ Scans.belongsTo(Users, {
   as: "user",
 });
 
-//Sync all models with the database
+
+//Education Associations
+
+// Animals and Quizzes
+Education_Animal.belongsTo(Education_Quiz, { foreignKey: 'quizId' });
+Education_Quiz.hasOne(Education_Animal, { foreignKey: 'quizId' });
+
+// Crops and Quizzes
+Education_Crop.belongsTo(Education_Quiz, { foreignKey: 'quizId' });
+Education_Quiz.hasOne(Education_Crop, { foreignKey: 'quizId' });
+
+// Quizzes and Questions
+Education_Quiz.hasMany(Education_Question, { foreignKey: 'quizId' });
+Education_Question.belongsTo(Education_Quiz, { foreignKey: 'quizId' });
+
+// Videos and Additional Videos
+Education_Video.hasMany(Education_AdditionalVideo, { foreignKey: 'videoId' });
+Education_AdditionalVideo.belongsTo(Education_Video, { foreignKey: 'videoId' });
+
+// Videos and QuestionsAndAnswers
+Education_Video.hasMany(Education_QuestionAndAnswer, { foreignKey: 'videoId' });
+Education_QuestionAndAnswer.belongsTo(Education_Video, { foreignKey: 'videoId' });
+
+// QuestionsAndAnswers and Replies
+Education_QuestionAndAnswer.hasMany(Education_Reply, { foreignKey: 'questionAndAnswerId' });
+Education_Reply.belongsTo(Education_QuestionAndAnswer, { foreignKey: 'questionAndAnswerId' });
+
+// UserProgress and Quizzes
+Education_UserProgress.belongsTo(Education_Quiz, { foreignKey: 'quizId' });
+Education_Quiz.hasMany(Education_UserProgress, { foreignKey: 'quizId' });
+
+// ChatMessages and Users
+// Education_ChatMessage.belongsTo(User, { foreignKey: 'userId' });
+// Users.hasMany(Education_ChatMessage, { foreignKey: 'userId' });
+
+// Animals and Videos
+Education_Animal.belongsTo(Education_Video, { foreignKey: 'videoId' });
+Education_Video.hasOne(Education_Animal, { foreignKey: 'videoId' });
+
+// Crops and Videos
+Education_Crop.belongsTo(Education_Video, { foreignKey: 'videoId' });
+Education_Video.hasOne(Education_Crop, { foreignKey: 'videoId' });
+
+// UserProgress and Users
+Education_UserProgress.belongsTo(Users, { foreignKey: 'userId' });
+Users.hasMany(Education_UserProgress, { foreignKey: 'userId' });
+
+// QuestionsAndAnswers and Users
+Education_QuestionAndAnswer.belongsTo(Users, { foreignKey: 'userId' });
+Users.hasMany(Education_QuestionAndAnswer, { foreignKey: 'userId' });
+
+// Replies and Users
+Education_Reply.belongsTo(Users, { foreignKey: 'userId' });
+Users.hasMany(Education_Reply, { foreignKey: 'userId' });
+
+////////////////////////////////////////Hedhy Associations Mte3i Rodo belkom chabeb ///////////////
+
+// //Sync all models with the database
 // async function syncModels() {
 //   try {
 //     // Use { force: true } for production to safely update schema
@@ -716,4 +787,16 @@ module.exports = {
   Recurring_Transactions,
   Specializations,
   SupplierSpecializations,
+  Education_Quiz,
+  Education_Question,
+  Education_Video,
+  Education_AdditionalVideo,
+  Education_QuestionAndAnswer,
+  Education_Reply,
+  Education_UserProgress,
+  Education_Chat,
+  Education_Crop,
+  Education_Animal,
+
+
 };
