@@ -18,6 +18,14 @@ const Notification = require("./models/notification")(sequelize, DataTypes);
 const Pesticide = require("./models/Pesticide")(sequelize, DataTypes);
 const Posts = require("./models/Posts")(sequelize, DataTypes);
 const Suppliers = require("./models/Suppliers")(sequelize, DataTypes);
+const Specializations = require("./models/Specializations")(
+  sequelize,
+  DataTypes
+);
+const SupplierSpecializations = require("./models/SupplierSpecializations")(
+  sequelize,
+  DataTypes
+);
 const CropOrders = require("./models/CropOrders")(sequelize, DataTypes);
 const CropListings = require("./models/CropListings")(sequelize, DataTypes);
 const AuctionBids = require("./models/AuctionBids")(sequelize, DataTypes);
@@ -53,12 +61,6 @@ const Education_Animal = require("./models/EducationAnimals")(sequelize, DataTyp
 
 // Define associations
 // For users
-Users.hasMany(Scans, {
-  foreignKey: "userId",
-  as: "scans",
-  onDelete: "CASCADE",
-  onUpdate: "CASCADE",
-});
 
 Users.hasMany(Conversations, {
   foreignKey: "userId",
@@ -97,10 +99,6 @@ Suppliers.belongsTo(Users, {
   as: "user",
 });
 // For scans
-Scans.belongsTo(Users, {
-  foreignKey: "userId",
-  as: "user",
-});
 
 Suppliers.hasMany(CropListings, {
   foreignKey: "supplierId",
@@ -563,6 +561,32 @@ Stock.belongsTo(Users, {
   as: "user",
 });
 
+// Add Suppliers and Specializations many-to-many relationship
+Suppliers.belongsToMany(Specializations, {
+  through: SupplierSpecializations,
+  foreignKey: "supplierId",
+  as: "specializations",
+});
+
+Specializations.belongsToMany(Suppliers, {
+  through: SupplierSpecializations,
+  foreignKey: "specializationId",
+  as: "suppliers",
+});
+
+// Add direct Users and Scans association (one-to-many)
+Users.hasMany(Scans, {
+  foreignKey: "userId",
+  as: "scans",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+
+Scans.belongsTo(Users, {
+  foreignKey: "userId",
+  as: "user",
+});
+
 
 //Education Associations
 
@@ -620,11 +644,11 @@ Users.hasMany(Education_Reply, { foreignKey: 'userId' });
 
 ////////////////////////////////////////Hedhy Associations Mte3i Rodo belkom chabeb ///////////////
 
-//Sync all models with the database
+// //Sync all models with the database
 // async function syncModels() {
 //   try {
 //     // Use { force: true } for production to safely update schema
-//     await sequelize.sync({ alter: true });
+//     await sequelize.sync({ force: true });
 //     console.log("Database models synchronized successfully");
 //   } catch (error) {
 //     console.error("Error synchronizing database models:", error);
@@ -664,6 +688,8 @@ module.exports = {
   Media,
   Notification,
   Recurring_Transactions,
+  Specializations,
+  SupplierSpecializations,
   Education_Quiz,
   Education_Question,
   Education_Video,

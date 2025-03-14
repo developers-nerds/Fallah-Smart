@@ -3,7 +3,8 @@ import { View, StyleSheet } from 'react-native';
 import { CameraType, useCameraPermissions } from 'expo-camera';
 import * as FileSystem from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, EventArg } from '@react-navigation/native';
+import { DrawerNavigationProp } from '@react-navigation/drawer';
 import { theme } from '../../theme/theme';
 import { Animated } from 'react-native';
 import { storage } from '../../utils/storage';
@@ -20,6 +21,14 @@ import ImagePickerService from './components/ImagePickerService';
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 const API_KEY = process.env.EXPO_PUBLIC_API_KEY;
 
+type RootDrawerParamList = {
+  HomeContent: { shouldRefresh?: boolean; refreshScanHistory?: boolean } | undefined;
+  Scan: undefined;
+  // ... other routes
+};
+
+type ScanScreenNavigationProp = DrawerNavigationProp<RootDrawerParamList, 'Scan'>;
+
 const ScanScreen = () => {
   const [facing, setFacing] = useState<CameraType>('back');
   const [permission, requestPermission] = useCameraPermissions();
@@ -30,7 +39,7 @@ const ScanScreen = () => {
   const [loading, setLoading] = useState(false);
   const [isButtonDisabled, setIsButtonDisabled] = useState(false);
   const cameraRef = useRef<any>(null);
-  const navigation = useNavigation();
+  const navigation = useNavigation<ScanScreenNavigationProp>();
 
   // Animation refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -192,9 +201,15 @@ const ScanScreen = () => {
 
         // After getting AI response, save to backend
         await saveToBackend(base64Image, aiText);
+
+        // Update scan history without navigation
+        const parentNav = navigation.getParent();
+        if (parentNav) {
+          parentNav.setParams({ refreshScanHistory: true });
+        }
       } catch (error) {
         console.error('Error sending image to AI:', error);
-        setAiResponse('Oops, something went wrong while analyzing the image.');
+        setAiResponse('عذرًا، حدث خطأ أثناء تحليل الصورة.');
       } finally {
         setLoading(false);
       }
@@ -202,46 +217,67 @@ const ScanScreen = () => {
   };
 
   const sendImageToAI = async (base64Image: string) => {
+    // Detect MIME type from the photo URI
+    let mimeType = 'image/jpeg'; // Default MIME type
+    if (photo) {
+      const extension = photo.split('.').pop()?.toLowerCase();
+      if (extension) {
+        // Map common image extensions to MIME types
+        const mimeTypes: Record<string, string> = {
+          jpg: 'image/jpeg',
+          jpeg: 'image/jpeg',
+          png: 'image/png',
+          gif: 'image/gif',
+          webp: 'image/webp',
+          heic: 'image/heic',
+          heif: 'image/heif',
+          bmp: 'image/bmp',
+          tiff: 'image/tiff',
+          tif: 'image/tiff',
+        };
+        mimeType = mimeTypes[extension] || mimeType;
+      }
+    }
+
     const requestBody = {
       contents: [
         {
           parts: [
             {
-              text: `Whenever I upload an image, focus only on identifying any plant, crop, or bug present. Ignore everything else in the image unless it directly affects the plant, crop, or bug. Here’s how to respond:
-
-1. If there’s a plant, crop, or bug, start by telling me its name (e.g., "That’s a tomato plant!" or "Looks like a ladybug!").  
-   - If there’s nothing to identify, just say, “I don’t see any plants, crops, or bugs here,” and stop there—keep it short and sweet.
-
-2. If it’s a plant or crop, check if it’s healthy or sick.  
-   - If it’s a bug, say whether it’s a pest (harmful to plants) or beneficial (helps plants), and name the plant it’s tied to if obvious.
-
-3. For plants or crops:  
-   - If healthy: Tell me it’s healthy and explain why it’s doing well (e.g., "It’s thriving because it’s got great sunlight and no pests nibbling at it"). Add practical tips to keep it strong (e.g., "Keep watering it evenly, and maybe add some compost next month for a boost"). Mention any tools or products if needed (e.g., "A watering can with a fine spout works great").  
-   - If sick: Say it’s sick and name allways say the name of Disease and its must be correct and accurate at the start of the problem (e.g., "It’s got powdery mildew" or "Those yellow leaves mean a nitrogen deficiency"). Explain what’s wrong—like disease, pests, or nutrient issues. Tell me why it happened (e.g., "Too much humidity caused the mildew" or "Overwatering drowned the roots"). Give a clear, step-by-step fix-it plan (e.g., "Step 1: Snip off the yellow leaves with clean scissors. Step 2: Mix 1 tablespoon of neem oil with a quart of water and spray it weekly"). Mention tools or products (e.g., "Grab some pruning shears and a spray bottle"). End with prevention tips (e.g., "Space plants out next time for better airflow").
-
-4. For bugs:  
-   - If it’s a pest, say how it harms plants (e.g., "Aphids suck sap and weaken leaves"). Suggest a fix (e.g., "Blast them off with a hose or use insecticidal soap").  
-   - If it’s beneficial, explain why (e.g., "Ladybugs eat aphids—plant protectors!"). Suggest keeping them around (e.g., "Plant some dill nearby to attract more").
-
-5. Add a quick “Mistakes to Avoid” section with 1-2 common slip-ups (e.g., "Don’t drown it with too much water—that’ll make root rot worse" or "Don’t use harsh chemicals near ladybugs—they’ll take off").
-
-6. Keep it friendly and practical, like a gardener buddy chatting over the fence—none of that stiff, robotic stuff. Use examples or little nudges (e.g., "You’ve got this—just a little TLC and it’ll bounce back!").
-
-**Styling Protocols for Responses**  
-- **## What’s Growing? ##**: Start with this bold title to name the plant, crop, or bug—like "## What’s Growing? ## That’s a tomato plant!"  
-- **++ Health Report ++**: Use this to kick off the health check—like "++ Health Report ++ This one’s sick with powdery mildew."  
-- **>> Plant Care Plan <<**: For plants (healthy or sick), use this to frame the explanation and care steps—like ">> Plant Care Plan << Here’s why it’s sick and how to fix it." Italicize key insights—like _"Too much water’s the culprit"_. Number each step (e.g., "1. Snip the bad leaves").  
-- **|| Bug Control ||**: For bugs (pest or beneficial), use this to detail what they do and how to handle them—like "|| Bug Control || Aphids are pests—here’s the fix." Italicize key effects—like _"They weaken stems fast"_.  
-- **-- Mistakes to Skip --**: Tag the mistakes section with this—like "-- Mistakes to Skip -- Don’t overwater!" Keep it short and sharp.  
-- **~~ Keep It Thriving ~~**: End with prevention or maintenance tips under this—like "~~ Keep It Thriving ~~ Space ‘em out next time."  
-- Wrap up with a chill closer like "You’re set now, bud!" or "Holler if you need more help!"—no extra fluff, just friendly vibes.`,
+              text:
+                "Whenever I upload an image, focus ONLY on identifying any plant,fake plant, crop,fake crop 'crop can be fruits,Vegetables,Cereals/Grains,Legumes,Oilseeds,Fodder Crops,Fiber Crops,Root and Tuber Crops,Sugar Crops,Spice and Herb CropsMedicinal Crops,Ornamental Crops,Nut Crops', or bug present or anything related to farming or agriculture. Ignore everything else in the image unless it directly affects the plant, crop, or bug. Always respond in Arabic and strictly follow the Styling Protocols for Responses outlined below. Here's how to respond:\n\n" +
+                "1. **Identification**: If there's a plant, crop, or bug, start by naming it under the '## What's Growing? ##' section (e.g., \"## What's Growing? ## هذا نبات طماطس!\" or \"## What's Growing? ## يبدو أنها خنفساء الدعسوقة!\"). If there's nothing to identify, write ONLY \"## What's Growing? ## لا أرى أي نباتات أو محاصيل أو حشرات هنا\" and stop—no extra text.\n\n" +
+                '2. **Health or Role Check**: \n' +
+                "   - For plants/crops: Assess if it's healthy or sick under `++ Health Report ++`.\n" +
+                "   - For bugs: State if it's a pest (harmful) or beneficial (helpful) under `|| Bug Control ||`, and name the affected plant if obvious.\n\n" +
+                '3. **Plants/Crops Details**: \n' +
+                '   - **Healthy**: Under `>> Plant Care Plan <<`, say it\'s healthy and explain why (e.g., "إنه مزدهر بسبب الشمس الجيدة وغياب الآفات"). Add practical tips to maintain it (e.g., "استمر في الري بانتظام، أضف سمادًا بعد شهر"). Suggest tools if needed (e.g., "استخدم رذاذة ناعمة"). \n' +
+                '   - **Sick**: Under `>> Plant Care Plan <<`, name the disease or issue accurately at the start (e.g., "++ Health Report ++ هذا العفن البودرة" or "الأوراق الصفراء تعني نقص النيتروجين"). Explain the cause (e.g., "الرطوبة الزائدة تسببت في العفن"). Provide a numbered step-by-step fix (e.g., "1. اقطع الأوراق الصفراء بمقص نظيف. 2. رش زيت النيم أسبوعيًا"). Suggest tools (e.g., "استخدم مقص تقليم"). \n\n' +
+                '4. **Bugs Details**: \n' +
+                '   - **Pest**: Under `|| Bug Control ||`, explain the harm (e.g., "المن يمتص النسغ ويضعف الأوراق"). Suggest a fix (e.g., "اغسلها بالماء أو استخدم صابون حشري"). \n' +
+                '   - **Beneficial**: Under `|| Bug Control ||`, explain the benefit (e.g., "الدعسوقة تأكل المن—حامية النباتات!"). Suggest attracting more (e.g., "ازرع الشبت لجذب المزيد"). \n\n' +
+                '5. **Mistakes Section**: Under `-- Mistakes to Skip --`, ALWAYS include 1-2 common mistakes (e.g., "لا تفرط في الري—سيؤدي ذلك لتعفن الجذور" or "لا تستخدم كيماويات قاسية قرب الدعسوقة"). If no mistakes apply, write "لا توجد أخطاء شائعة هنا". \n\n' +
+                '6. **Prevention Tips**: Under `~~ Keep It Thriving ~~`, ALWAYS add 1-2 tips to maintain or prevent issues (e.g., "اترك مسافات بين النباتات للتهوية"). If nothing applies, write "استمر في ما تفعله—كل شيء رائع!". \n\n' +
+                '**Styling Protocols for Responses** \n' +
+                "- **## What's Growing? ##**: Start EVERY response with this exact title (with spaces) to name the plant, crop, or bug. \n" +
+                '- **++ Health Report ++**: Use this (with spaces) for plant/crop health status. Italicize key issues with underscores (e.g., _العفن البودرة_). \n' +
+                '- **>> Plant Care Plan <<**: Use this (with spaces) for plant/crop explanation and care steps. Italicize insights (e.g., _الرطوبة الزائدة_) and number steps (e.g., "1. اقطع الأوراق"). \n' +
+                '- **|| Bug Control ||**: Use this (with spaces) for bug details. Italicize effects (e.g., _يضعف السيقان_). \n' +
+                '- **-- Mistakes to Skip --**: Use this (with spaces) for mistakes. Keep it short. \n' +
+                '- **~~ Keep It Thriving ~~**: Use this (with spaces) for prevention tips. \n' +
+                '- **Rules**: \n' +
+                '  - ALWAYS include ALL sections in order, even if empty (e.g., "لا توجد أخطاء شائعة هنا"). \n' +
+                '  - Separate EACH section with a newline (`\\n`). \n' +
+                "  - Use EXACTLY these markers with spaces as shown (e.g., `## What's Growing? ##`, not `##What's Growing?##`). \n" +
+                '- End with a friendly closer like "أنت جاهز الآن، يا صديق!" or "ناديني إذا احتجت مساعدة!". \n\n' +
+                '**Example Response (Follow This Exactly)**:',
             },
-            { inline_data: { mime_type: 'image/jpeg', data: base64Image } },
+            { inline_data: { mime_type: mimeType, data: base64Image } },
           ],
         },
       ],
     };
-
+    console.log('requestBody', requestBody);
     const response = await fetch(`${API_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -260,11 +296,39 @@ const ScanScreen = () => {
         return;
       }
 
+      // Generate a unique filename for the image
+      const timestamp = Date.now();
+      const randomString = Math.random().toString(36).substring(2, 10);
+
+      // Detect the MIME type from the file extension or use a default
+      let mimeType = 'image/jpeg'; // Default MIME type
+      if (photo) {
+        const extension = photo.split('.').pop()?.toLowerCase();
+        if (extension) {
+          // Map common image extensions to MIME types
+          const mimeTypes: Record<string, string> = {
+            jpg: 'image/jpeg',
+            jpeg: 'image/jpeg',
+            png: 'image/png',
+            gif: 'image/gif',
+            webp: 'image/webp',
+            heic: 'image/heic',
+            heif: 'image/heif',
+          };
+          mimeType = mimeTypes[extension] || mimeType;
+        }
+
+        // For more accurate detection, we could use FileSystem.getInfoAsync
+        // to get file info including MIME type, but this requires extra work
+      }
+
+      const uniqueFilename = `plant_scan_${timestamp}_${randomString}.${mimeType.split('/')[1] || 'jpg'}`;
+
       const formData = new FormData();
       const imageFile = {
         uri: photo,
-        type: 'image/jpeg',
-        name: 'plant_scan.jpg',
+        type: mimeType,
+        name: uniqueFilename, // Use the unique filename with appropriate extension
       };
 
       formData.append('image', imageFile as any);
