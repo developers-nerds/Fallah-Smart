@@ -26,7 +26,7 @@ export type StockStackParamList = {
   AddHarvest: undefined;
   HarvestDetail: { harvestId: string };
   FertilizerList: undefined;
-  AddFertilizer: undefined;
+  AddFertilizer: { fertilizerId?: string };
   FertilizerDetail: { fertilizerId: string };
   Login: undefined;
   Register: undefined;

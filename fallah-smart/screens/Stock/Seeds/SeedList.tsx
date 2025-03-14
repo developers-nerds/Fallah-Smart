@@ -333,7 +333,9 @@ const SeedListScreen: React.FC<SeedListScreenProps> = ({ navigation }) => {
 
   // Function to render a seed item
   const renderItem = useCallback(({ item, index }: { item: StockSeed; index: number }) => {
-    const seedType = SEED_TYPES[item.type as keyof typeof SEED_TYPES] || { icon: '🌱', name: 'بذور', category: 'أخرى' };
+    const seedType = SEED_TYPES[item.type as keyof typeof SEED_TYPES] || 
+      Object.values(SEED_TYPES).find(seed => seed.name === item.name) || 
+      { icon: '🌱', name: 'بذور', category: 'أخرى' };
     const isLowStock = item.quantity <= (item.minQuantityAlert || 0);
     const isNearExpiry = (() => {
       if (!item.expiryDate) return false;
@@ -377,7 +379,7 @@ const SeedListScreen: React.FC<SeedListScreenProps> = ({ navigation }) => {
         >
           <TouchableOpacity
             style={styles.cardContent}
-            onPress={() => navigation.navigate('SeedDetail', { seedId: item.id })}
+        onPress={() => navigation.navigate('SeedDetail', { seedId: item.id })}
             activeOpacity={0.7}
       >
         <View style={styles.cardHeader}>

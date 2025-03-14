@@ -1,12 +1,11 @@
-const { StockFertilizer, StockHistory } = require('../database/models');
+const { StockFertilizer } = require('../database/models');
 
 const stockFertilizerController = {
   // Get all fertilizers for a user
   getAllFertilizers: async (req, res) => {
     try {
       const fertilizers = await StockFertilizer.findAll({
-        where: { userId: req.user.id },
-        include: [{ model: StockHistory, as: 'history' }]
+        where: { userId: req.user.id }
       });
       res.json(fertilizers);
     } catch (error) {
@@ -22,8 +21,7 @@ const stockFertilizerController = {
         where: { 
           id: req.params.id,
           userId: req.user.id 
-        },
-        include: [{ model: StockHistory, as: 'history' }]
+        }
       });
 
       if (!fertilizer) {
@@ -69,22 +67,7 @@ const stockFertilizerController = {
         safetyGuidelines
       });
 
-      // Create initial stock history entry
-      await StockHistory.create({
-        stockFertilizerId: fertilizer.id,
-        type: 'initial',
-        quantity: quantity,
-        previousQuantity: 0,
-        newQuantity: quantity,
-        notes: 'Initial stock entry'
-      });
-
-      const createdFertilizer = await StockFertilizer.findOne({
-        where: { id: fertilizer.id },
-        include: [{ model: StockHistory, as: 'history' }]
-      });
-
-      res.status(201).json(createdFertilizer);
+      res.status(201).json(fertilizer);
     } catch (error) {
       console.error('Error creating fertilizer:', error);
       res.status(500).json({ error: 'Failed to create fertilizer' });
@@ -105,24 +88,9 @@ const stockFertilizerController = {
         return res.status(404).json({ error: 'Fertilizer not found' });
       }
 
-      const previousQuantity = fertilizer.quantity;
       await fertilizer.update(req.body);
-
-      // If quantity changed, create history entry
-      if (previousQuantity !== req.body.quantity) {
-        await StockHistory.create({
-          stockFertilizerId: fertilizer.id,
-          type: 'update',
-          quantity: req.body.quantity - previousQuantity,
-          previousQuantity,
-          newQuantity: req.body.quantity,
-          notes: req.body.notes || 'Stock update'
-        });
-      }
-
       const updatedFertilizer = await StockFertilizer.findOne({
-        where: { id: req.params.id },
-        include: [{ model: StockHistory, as: 'history' }]
+        where: { id: req.params.id }
       });
 
       res.json(updatedFertilizer);
@@ -158,7 +126,7 @@ const stockFertilizerController = {
   updateFertilizerQuantity: async (req, res) => {
     try {
       const { id } = req.params;
-      const { quantity, type, notes } = req.body;
+      const { quantity, type } = req.body;
 
       const fertilizer = await StockFertilizer.findOne({
         where: {
@@ -184,20 +152,8 @@ const stockFertilizerController = {
       }
 
       await fertilizer.update({ quantity: newQuantity });
-
-      // Create history entry
-      await StockHistory.create({
-        stockFertilizerId: fertilizer.id,
-        type: type === 'add' ? 'addition' : 'reduction',
-        quantity: type === 'add' ? quantity : -quantity,
-        previousQuantity,
-        newQuantity,
-        notes: notes || `Stock ${type === 'add' ? 'addition' : 'reduction'}`
-      });
-
       const updatedFertilizer = await StockFertilizer.findOne({
-        where: { id },
-        include: [{ model: StockHistory, as: 'history' }]
+        where: { id }
       });
 
       res.json(updatedFertilizer);

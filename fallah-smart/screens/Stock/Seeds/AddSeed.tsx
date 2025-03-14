@@ -610,7 +610,7 @@ export const AddSeedScreen = ({ navigation, route }: AddSeedScreenProps) => {
               onPress={() => showDatePickerModal(field as DateField)}
             >
               <Text style={{ color: theme.colors.neutral.textPrimary, fontWeight: '500' }}>
-                {new Date(values[field]).toLocaleDateString('ar')}
+                {new Date(values[field]).toLocaleDateString('en')}
                 </Text>
               <Feather name="calendar" size={20} color={theme.colors.primary.base} />
               </TouchableOpacity>

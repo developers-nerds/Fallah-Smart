@@ -123,21 +123,7 @@ module.exports = (sequelize, DataTypes) => {
       as: 'user'
     });
 
-    // Animal doc association
-    if (models.Animal_doc) {
-      AnimalGaston.belongsTo(models.Animal_doc, {
-        foreignKey: 'animalId',
-        as: 'animalDoc'
-      });
-    }
-
-    // Media association
-    if (models.Media) {
-      AnimalGaston.hasMany(models.Media, {
-        foreignKey: 'animalGastonId',
-        as: 'media'
-      });
-    }
+   
 
     // Self-referential associations for breeding tracking
     AnimalGaston.belongsTo(sequelize.models.AnimalGaston, {
