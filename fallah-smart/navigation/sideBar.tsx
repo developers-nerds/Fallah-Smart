@@ -32,7 +32,7 @@ type MenuItemProps = {
 };
 
 export type DrawerParamList = {
-  HomeContent: undefined;
+  HomeContent: { refreshScanHistory?: boolean } | undefined;
   Chat: undefined;
   Scan: undefined;
   Stock: undefined;
@@ -145,12 +145,12 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
         label="Home"
         active={currentRoute === 'HomeContent'}
         onPress={() => {
-          props.navigation.navigate('HomeContent');
+          props.navigation.navigate('HomeContent', { refreshScanHistory: true });
           props.navigation.closeDrawer();
         }}
         navigation={props.navigation}
       />
-            <MenuItem
+      <MenuItem
         icon="warehouse"
         label="Stock"
         active={currentRoute === 'Stock'}
@@ -160,7 +160,7 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
         }}
         navigation={props.navigation}
       />
-            <MenuItem
+      <MenuItem
         icon="store"
         label="Marketplace"
         active={currentRoute === 'Marketplace'}
@@ -170,7 +170,7 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
         }}
         navigation={props.navigation}
       />
-            <MenuItem
+      <MenuItem
         icon="book-open-variant"
         label="Dictionary"
         active={currentRoute === 'Dictionary'}
@@ -201,7 +201,6 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
         navigation={props.navigation}
       />
 
-
       <MenuItem
         icon="wallet"
         label="Wallet"
@@ -212,7 +211,6 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
         }}
         navigation={props.navigation}
       />
-
 
       <View style={styles.logoutContainer}>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
