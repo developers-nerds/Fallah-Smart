@@ -916,31 +916,47 @@ const PostDetail = ({ route, navigation }) => {
               {/* Post actions with better icons */}
               <View style={styles.postActions}>
             <TouchableOpacity 
-                  style={styles.actionButton} 
-              onPress={toggleLike}
-            >
-                  <Ionicons 
-                name={liked ? "heart" : "heart-outline"} 
-                size={24} 
-                    color={liked ? theme.colors.error.base : theme.colors.neutral.textPrimary} 
-              />
-                  <Text style={styles.actionText}>Like</Text>
-            </TouchableOpacity>
+                  style={styles.actionButton}
+                  onPress={toggleLike}
+                  disabled={loading}
+                >
+                  {liked ? (
+                    <MaterialCommunityIcons 
+                      name="sprout" 
+                      size={24} 
+                      color={theme.colors.primary.base} 
+                    />
+                  ) : (
+                    <MaterialCommunityIcons 
+                      name="sprout-outline" 
+                      size={24} 
+                      color={theme.colors.neutral.textSecondary} 
+                    />
+                  )}
+                  <Text style={[
+                    styles.actionText, 
+                    liked && { color: theme.colors.primary.base }
+                  ]}>
+                    {post?.likesCount || 0}
+                  </Text>
+                </TouchableOpacity>
             
                 <TouchableOpacity 
-                  style={styles.actionButton} 
-                  onPress={showImageOptions}
+                  style={styles.actionButton}
+                  onPress={() => commentInputRef.current?.focus()}
                 >
-                  <Ionicons 
-                    name="chatbubble-outline" 
-                    size={22} 
-                    color={theme.colors.neutral.textPrimary} 
+                  <MaterialCommunityIcons 
+                    name="leaf" 
+                    size={24} 
+                    color={theme.colors.neutral.textSecondary} 
                   />
-                  <Text style={styles.actionText}>Comment</Text>
+                  <Text style={styles.actionText}>
+                    {comments.length}
+                  </Text>
                 </TouchableOpacity>
                 
                 <TouchableOpacity 
-                  style={styles.actionButton} 
+                  style={styles.actionButton}
                   onPress={handleSharePost}
                 >
                   <Ionicons 
@@ -1036,14 +1052,14 @@ const PostDetail = ({ route, navigation }) => {
               
               <TouchableOpacity 
                 style={[
-                  styles.commentSubmitButton,
-                  (!newComment.trim() && !commentImage) && styles.commentSubmitButtonDisabled
-                ]} 
+                  styles.sendButton, 
+                  (!newComment.trim() && !commentImage) && styles.sendButtonDisabled
+                ]}
                 onPress={submitComment}
                 disabled={submitting || (!newComment.trim() && !commentImage)}
               >
                 {submitting ? (
-                  <ActivityIndicator size="small" color="white" />
+                  <ActivityIndicator size="small" color="#fff" />
                 ) : (
                   <Ionicons name="send" size={18} color="white" />
                 )}
