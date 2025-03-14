@@ -10,7 +10,8 @@ import {
   SafeAreaView,
   StatusBar,
   Alert,
-  ImageBackground
+  ImageBackground,
+  RefreshControl,
 } from 'react-native';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { MaterialIcons, FontAwesome5, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -26,7 +27,10 @@ import ChatScreen from '../Chat/Chat';
 import { DictionaryNavigator } from '../../navigation/DictionaryNavigator';
 import Marketplace from '../Marketplace/marketplace';
 import { WEATHER_CONFIG } from '../../api/apiConfig';
-
+import ScanHistory from '../scan/components/ScanHistory';
+import ScanDetailsScreen from '../scan/components/ScanDetailsScreen';
+import ScanHistoryScreen from '../scan/components/ScanHistoryScreen';
+import { DrawerNavigationProp } from '@react-navigation/drawer';
 
 const Drawer = createDrawerNavigator();
 
@@ -59,12 +63,25 @@ const getTimeBasedWeatherIcon = () => {
   }
 };
 
-export const HomeContent = ({ navigation }) => {
+
+
+interface HomeContentProps {
+  navigation: DrawerNavigationProp<any>;
+  route: {
+    params?: {
+      refreshScanHistory?: boolean;
+    };
+  };
+}
+
+export const HomeContent = ({ navigation, route }: HomeContentProps) => {
   const [weather, setWeather] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [timeIcon, setTimeIcon] = useState(getTimeBasedWeatherIcon());
   const [showForecast, setShowForecast] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [scanHistoryRefreshTrigger, setScanHistoryRefreshTrigger] = useState(0);
 
   useEffect(() => {
     fetchWeatherData();
@@ -76,6 +93,23 @@ export const HomeContent = ({ navigation }) => {
     
     return () => clearInterval(interval);
   }, []);
+
+  // Handle scan history refresh
+  useEffect(() => {
+    if (route?.params?.refreshScanHistory) {
+      // Only refresh the scan history by updating the trigger
+      setScanHistoryRefreshTrigger((prev) => prev + 1);
+      // Reset the param to avoid multiple refreshes
+      navigation.setParams({ refreshScanHistory: undefined });
+    }
+  }, [route?.params?.refreshScanHistory]);
+
+  // Handle full refresh
+  const onRefresh = () => {
+    setRefreshing(true);
+    setScanHistoryRefreshTrigger((prev) => prev + 1);
+    fetchWeatherData();
+  };
 
   // Fetch weather data from API
   const fetchWeatherData = async () => {
@@ -112,6 +146,7 @@ export const HomeContent = ({ navigation }) => {
       setError('Failed to load weather data');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -196,7 +231,17 @@ export const HomeContent = ({ navigation }) => {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={theme.colors.neutral.surface} />
 
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.container}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[theme.colors.primary.base]}
+            tintColor={theme.colors.primary.base}
+          />
+        }>
         {/* Weather Card */}
         <View style={styles.weatherSection}>
           <TouchableOpacity 
@@ -377,6 +422,9 @@ export const HomeContent = ({ navigation }) => {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Scan History Section */}
+        <ScanHistory refreshTrigger={scanHistoryRefreshTrigger} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -398,6 +446,22 @@ const HomeScreen = () => {
         options={{ title: 'القاموس الزراعي' }}
       />
       <Drawer.Screen name="Marketplace" component={Marketplace} />
+      <Drawer.Screen
+        name="ScanDetailsScreen"
+        component={ScanDetailsScreen}
+        options={{
+          title: 'Scan Details',
+          drawerItemStyle: { display: 'none' }, // Hide from drawer menu
+        }}
+      />
+      <Drawer.Screen
+        name="ScanHistoryScreen"
+        component={ScanHistoryScreen}
+        options={{
+          title: 'Scan History',
+          drawerItemStyle: { display: 'none' }, // Hide from drawer menu
+        }}
+      />
     </Drawer.Navigator>
   );
 };

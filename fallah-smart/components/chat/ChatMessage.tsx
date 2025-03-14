@@ -429,7 +429,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
             </Animated.View>
           </View>
         </TouchableOpacity>
-        <Text style={styles.speakButtonText}>{isSpeaking ? 'Stop' : 'Listen'}</Text>
+        <Text style={styles.speakButtonText}>{isSpeaking ? 'ايقاف' : 'استماع'}</Text>
       </Animated.View>
     </Animated.View>
   );
