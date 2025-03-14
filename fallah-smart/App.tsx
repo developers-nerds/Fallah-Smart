@@ -5,19 +5,22 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { ThemeProvider } from './context/ThemeContext';
 import { StockProvider } from './context/StockContext';
 import { StockNavigator } from './navigation/StockNavigator';
-import AddIncome from './screens/Wallet/components/AddIncome';
-import AddExpense from './screens/Wallet/components/AddExpense';
-import EditExpense from './screens/Wallet/components/EditExpense';
-import EditIncome from './screens/Wallet/components/EditIncome'; // New import
+import AddTransaction from './screens/Wallet/components/AddTransaction';
 import { EducationNavigator } from "./navigation/EducationNavigator"
+import EditTransaction from './screens/Wallet/components/EditTransaction';
+import Wallet from './screens/Wallet/Wallet'; // Import the Wallet screen
+import { I18nManager } from 'react-native';
+
+// Force RTL and allow RTL globally
+I18nManager.forceRTL(true);
+I18nManager.allowRTL(true);
 
 // Define the navigation param list
 type RootStackParamList = {
   Main: undefined;
-  AddIncome: undefined;
-  AddExpense: undefined;
-  EditExpense: { transaction: Transaction };
-  EditIncome: { transaction: Transaction }; // Added EditIncome
+  AddTransaction: { transactionType: 'income' | 'expense' };
+  EditTransaction: { transaction: Transaction };
+  Wallet: undefined; // Add Wallet to the param list
 };
 
 // Define the Transaction interface
@@ -52,12 +55,14 @@ export const RootNavigator: React.FC = () => {
           </StockProvider>
         )}
       />
-      <Stack.Screen name="AddIncome" component={AddIncome} />
-      <Stack.Screen name="AddExpense" component={AddExpense} />
-      <Stack.Screen name="EditExpense" component={EditExpense} />
-      <Stack.Screen name="EditIncome" component={EditIncome} />
-      <Stack.Screen name="Education" component={EducationNavigator} />
-        
+      <Stack.Screen name="AddTransaction" component={AddTransaction} />
+      <Stack.Screen name="EditTransaction" component={EditTransaction} />
+      <Stack.Screen 
+        name="Wallet" 
+        component={Wallet} 
+        options={{ title: 'محفظتي' }} // Set the header title here
+      />
+          <Stack.Screen name="Education" component={EducationNavigator} />
     </Stack.Navigator>
   );
 };
