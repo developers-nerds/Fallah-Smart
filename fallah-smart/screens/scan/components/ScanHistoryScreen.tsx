@@ -65,19 +65,15 @@ const ScanHistoryScreen = () => {
           Authorization: `Bearer ${tokens.access}`,
         },
       });
-      console.log('Scan response data:', response.data);
-      console.log('Base URL:', baseUrl);
 
       if (response.data && Array.isArray(response.data)) {
         setScans(response.data);
       } else {
-        console.error('Invalid response format:', response.data);
         setError('Invalid data format received');
       }
 
       setError(null);
     } catch (err) {
-      console.error('Error fetching scan history:', err);
       setError('Failed to load scan history');
     } finally {
       setLoading(false);
@@ -94,10 +90,6 @@ const ScanHistoryScreen = () => {
   };
 
   const handleScanPress = (scan: ScanItem) => {
-    console.log('Scan item:', scan);
-    console.log('Image URL:', scan.imageUrl);
-    console.log('Full image URL:', `${baseUrl}${scan.imageUrl}`);
-
     navigation.navigate('ScanDetailsScreen', {
       scan: scan,
       imageUrl: scan.imageUrl,
@@ -166,7 +158,7 @@ const ScanHistoryScreen = () => {
               }}
               style={styles.scanImage}
               resizeMode="cover"
-              onError={(error) => console.log('Image loading error:', error.nativeEvent.error)}
+              onError={() => {}}
             />
             <View style={styles.scanInfo}>
               <Text style={styles.scanDate}>{formatDate(item.createdAt)}</Text>
