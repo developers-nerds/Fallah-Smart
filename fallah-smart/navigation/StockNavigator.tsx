@@ -62,10 +62,13 @@ import FertilizerDetailScreen from '../screens/Stock/Fertilizers/FertilizerDetai
 import AddFertilizerScreen from '../screens/Stock/Fertilizers/AddFertilizer';
 
 import AdvisorApplicationScreen from '../screens/Advisor/AdvisorApplicationScreen';
+import { useTranslation } from 'react-i18next';
+
 const Stack = createStackNavigator<StockStackParamList>();
 
 export const StockNavigator = () => {
   const theme = useTheme();
+  const { t } = useTranslation();
 
   const screenOptions = {
     headerStyle: {
@@ -111,8 +114,7 @@ export const StockNavigator = () => {
                         name="StockList" 
                         component={StockScreen}
                         options={{
-                          title: 'إدارة المخزون',
-                          headerShown: true,
+                          title: t('stock.title'),
                         }}
                       />
                       <Stack.Screen 
@@ -330,4 +332,4 @@ const AddStockScreenContainer = () => {
       isSubmitting={submitting}
     />
   );
-}; 
+};

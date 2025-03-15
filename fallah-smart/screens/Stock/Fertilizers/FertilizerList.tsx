@@ -87,7 +87,7 @@ const FertilizerListScreen: React.FC<FertilizerListScreenProps> = ({ navigation 
       const response = await axios.get(DIRECT_API_URL, {
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': tokens?.accessToken ? `Bearer ${tokens.accessToken}` : ''
+          'Authorization': tokens?.access ? `Bearer ${tokens.access}` : ''
         },
         timeout: 10000
       });
@@ -268,7 +268,7 @@ const FertilizerListScreen: React.FC<FertilizerListScreenProps> = ({ navigation 
                 await axios.delete(deleteURL, {
                   headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': tokens?.accessToken ? `Bearer ${tokens.accessToken}` : ''
+                    'Authorization': tokens?.access ? `Bearer ${tokens.access}` : ''
                   }
                 });
                 
