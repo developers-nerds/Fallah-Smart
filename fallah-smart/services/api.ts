@@ -301,5 +301,78 @@ const seedApi = {
   }
 };
 
+// Stock Equipment API methods
+const stockEquipmentApi = {
+  // Get all equipment
+  getAllEquipment: async () => {
+    try {
+      const response = await api.get('/stock/equipment');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Get single equipment
+  getEquipment: async (id: string) => {
+    try {
+      const response = await api.get(`/stock/equipment/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Create equipment
+  createEquipment: async (equipmentData: any) => {
+    try {
+      const response = await api.post('/stock/equipment', equipmentData);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Update equipment
+  updateEquipment: async (id: string, data: any) => {
+    try {
+      const response = await api.put(`/stock/equipment/${id}`, data);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Delete equipment
+  deleteEquipment: async (id: string) => {
+    try {
+      const response = await api.delete(`/stock/equipment/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Record maintenance
+  recordMaintenance: async (id: string, data: { maintenanceNotes: string; cost: number; nextMaintenanceDate?: Date }) => {
+    try {
+      const response = await api.post(`/stock/equipment/${id}/maintenance`, data);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Update equipment status
+  updateStatus: async (id: string, status: string) => {
+    try {
+      const response = await api.patch(`/stock/equipment/${id}/status`, { status });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+};
+
 // Export both the base API and specific methods
-export { api, stockApi, animalApi, stockStatisticsApi, pesticideApi, seedApi }; 
+export { api, stockApi, animalApi, stockStatisticsApi, pesticideApi, seedApi, stockEquipmentApi }; 
