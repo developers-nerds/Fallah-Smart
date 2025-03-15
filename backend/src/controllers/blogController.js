@@ -56,7 +56,6 @@ const blogController = {
 
       res.status(200).json(formattedPosts);
     } catch (error) {
-      console.error('Error fetching posts:', error);
       res.status(500).json({ message: 'Error fetching posts', error: error.message });
     }
   },
@@ -134,7 +133,6 @@ const blogController = {
       
       res.status(200).json(formattedPost);
     } catch (error) {
-      console.error('Error fetching post by ID:', error);
       res.status(500).json({ message: 'Error fetching post', error: error.message });
     }
   },
@@ -163,7 +161,6 @@ const blogController = {
         const mediaPromises = files.map(file => {
           // Add null check for file and file.path
           if (!file || !file.path) {
-            console.warn('File missing or invalid:', file);
             return null; // Skip this file
           }
           
@@ -172,9 +169,6 @@ const blogController = {
           const fileName = path.basename(file.path);
           // Make URL consistent with how your frontend serves static files
           const filePath = `${BASE_URL}/uploads/${fileName}`;
-          
-          console.log("File path being saved:", filePath);
-          console.log("Original file path:", file.path);
           
           // Determine media type based on mimetype
           let type = 'other';
@@ -214,7 +208,6 @@ const blogController = {
 
       res.status(201).json(createdPost);
     } catch (err) {
-      console.error('Error creating post:', err);
       res.status(500).json({ message: 'Error creating post', error: err.message });
     }
   },
@@ -278,9 +271,6 @@ const blogController = {
           // Use full URL path that will be accessible from the frontend
           const filePath = `${BASE_URL}/uploads/${fileName}`;
           
-          console.log("File path being saved:", filePath);
-          console.log("Original file path:", file.path);
-          
           // Determine media type based on mimetype
           let type = 'other';
           if (file.mimetype.startsWith('image/')) type = 'image';
@@ -317,11 +307,8 @@ const blogController = {
         ]
       });
 
-      console.log("Post media:", updatedPost.media.map(m => m.url));
-
       res.status(200).json(updatedPost);
     } catch (error) {
-      console.error('Error updating post:', error);
       res.status(500).json({ message: 'Error updating post', error: error.message });
     }
   },
@@ -364,7 +351,6 @@ const blogController = {
 
       res.status(200).json({ message: 'Post deleted successfully' });
     } catch (error) {
-      console.error('Error deleting post:', error);
       res.status(500).json({ message: 'Error deleting post', error: error.message });
     }
   },
@@ -395,7 +381,6 @@ const blogController = {
 
       res.status(200).json(comments);
     } catch (error) {
-      console.error('Error fetching comments:', error);
       res.status(500).json({ message: 'Error fetching comments', error: error.message });
     }
   },
@@ -407,14 +392,6 @@ const blogController = {
       const { content } = req.body;
       const userId = req.user.id;
       
-      // Log the request details
-      console.log('Comment request received:', {
-        postId,
-        userId,
-        content: content || '(image only)',
-        hasFile: !!req.file
-      });
-      
       // Create the comment with a default empty string for content if not provided
       const comment = await Comments.create({
         content: content || '',
@@ -422,12 +399,8 @@ const blogController = {
         userId
       });
       
-      console.log('Comment created with ID:', comment.id);
-      
       // Handle image upload if present
       if (req.file) {
-        console.log('Processing uploaded file:', req.file.filename);
-        
         const filePath = `/uploads/${req.file.filename}`;
         
         // Create the media entry
@@ -436,8 +409,6 @@ const blogController = {
           type: 'image',
           commentId: comment.id
         });
-        
-        console.log('Media created with ID:', media.id);
       }
       
       // Get the complete comment with user and media info
@@ -463,11 +434,8 @@ const blogController = {
         responseData.imageUrl = responseData.media[0].url;
       }
       
-      console.log('Sending comment response with id:', responseData.id);
-      
       res.status(201).json(responseData);
     } catch (error) {
-      console.error('Error in addComment:', error);
       res.status(500).json({ 
         message: 'Error adding comment',
         error: error.message
@@ -559,7 +527,6 @@ const blogController = {
 
       res.status(200).json(updatedComment);
     } catch (error) {
-      console.error('Error updating comment:', error);
       res.status(500).json({ message: 'Error updating comment', error: error.message });
     }
   },
@@ -600,7 +567,6 @@ const blogController = {
 
       res.status(200).json({ message: 'Comment deleted successfully' });
     } catch (error) {
-      console.error('Error deleting comment:', error);
       res.status(500).json({ message: 'Error deleting comment', error: error.message });
     }
   },
@@ -634,7 +600,6 @@ const blogController = {
         res.status(201).json({ liked: true, message: 'Post liked successfully' });
       }
     } catch (error) {
-      console.error('Error toggling like:', error);
       res.status(500).json({ message: 'Error toggling like', error: error.message });
     }
   },
@@ -657,7 +622,6 @@ const blogController = {
 
       res.status(200).json(likes);
     } catch (error) {
-      console.error('Error fetching likes:', error);
       res.status(500).json({ message: 'Error fetching likes', error: error.message });
     }
   },
@@ -723,7 +687,6 @@ const blogController = {
 
       res.status(200).json(postsWithCounts);
     } catch (error) {
-      console.error('Error searching posts:', error);
       res.status(500).json({ message: 'Error searching posts', error: error.message });
     }
   },
@@ -781,7 +744,6 @@ const blogController = {
 
       res.status(200).json(postsWithCounts);
     } catch (error) {
-      console.error('Error fetching user posts:', error);
       res.status(500).json({ message: 'Error fetching user posts', error: error.message });
     }
   },
@@ -837,7 +799,6 @@ const blogController = {
       // Without additional role info processing
       res.status(200).json(postsWithCounts);
     } catch (error) {
-      console.error('Error fetching posts:', error);
       res.status(500).json({ message: 'Failed to fetch posts', error: error.message });
     }
   },
@@ -860,7 +821,6 @@ const blogController = {
       
       res.status(200).json({ message: 'Report submitted successfully' });
     } catch (error) {
-      console.error('Error reporting post:', error);
       res.status(500).json({ message: 'Failed to submit report', error: error.message });
     }
   }

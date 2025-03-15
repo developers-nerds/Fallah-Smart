@@ -73,7 +73,7 @@ const FertilizerDetailScreen: React.FC<FertilizerDetailScreenProps> = ({ navigat
       const response = await axios.get(`${DIRECT_API_URL}/${route.params.fertilizerId}`, {
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': tokens?.accessToken ? `Bearer ${tokens.accessToken}` : ''
+          'Authorization': tokens?.access ? `Bearer ${tokens.access}` : ''
         },
         timeout: 10000
       });
@@ -167,7 +167,7 @@ const FertilizerDetailScreen: React.FC<FertilizerDetailScreenProps> = ({ navigat
                 await axios.delete(`${DIRECT_API_URL}/${route.params.fertilizerId}`, {
                   headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': tokens?.accessToken ? `Bearer ${tokens.accessToken}` : ''
+                    'Authorization': tokens?.access ? `Bearer ${tokens.access}` : ''
                   }
                 });
                 console.log('Fertilizer deleted successfully via direct API');
