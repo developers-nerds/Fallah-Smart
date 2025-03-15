@@ -9,6 +9,7 @@ import { theme } from '../../theme/theme';
 import { Animated } from 'react-native';
 import { storage } from '../../utils/storage';
 import axios from 'axios';
+import { Alert } from 'react-native';
 
 // Components
 import PermissionScreen from './components/PermissionScreen';
@@ -208,7 +209,7 @@ const ScanScreen = () => {
           parentNav.setParams({ refreshScanHistory: true });
         }
       } catch (error) {
-        console.error('Error sending image to AI:', error);
+        // Replace console.error with setting error message in state
         setAiResponse('عذرًا، حدث خطأ أثناء تحليل الصورة.');
       } finally {
         setLoading(false);
@@ -277,7 +278,6 @@ const ScanScreen = () => {
         },
       ],
     };
-    console.log('requestBody', requestBody);
     const response = await fetch(`${API_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -290,57 +290,40 @@ const ScanScreen = () => {
 
   const saveToBackend = async (base64Image: string, aiResponse: string, retryCount = 0) => {
     try {
-      const { accessToken } = await storage.getTokens();
-      if (!accessToken) {
-        console.log('No authentication token found, user may need to login');
+      const tokens = await storage.getTokens();
+      
+      // Create request body
+      const requestBody = {
+        picture: base64Image,
+        ai_response: aiResponse
+      };
+      
+      // Check for authentication token
+      if (!tokens || !tokens.access) {
+        Alert.alert(
+          'تسجيل الدخول مطلوب',
+          'يرجى تسجيل الدخول لحفظ نتائج الفحص',
+          [
+            { text: 'حسنًا' }
+          ]
+        );
+        setIsButtonDisabled(false);
         return;
       }
-
-      // Generate a unique filename for the image
-      const timestamp = Date.now();
-      const randomString = Math.random().toString(36).substring(2, 10);
-
-      // Detect the MIME type from the file extension or use a default
-      let mimeType = 'image/jpeg'; // Default MIME type
-      if (photo) {
-        const extension = photo.split('.').pop()?.toLowerCase();
-        if (extension) {
-          // Map common image extensions to MIME types
-          const mimeTypes: Record<string, string> = {
-            jpg: 'image/jpeg',
-            jpeg: 'image/jpeg',
-            png: 'image/png',
-            gif: 'image/gif',
-            webp: 'image/webp',
-            heic: 'image/heic',
-            heif: 'image/heif',
-          };
-          mimeType = mimeTypes[extension] || mimeType;
-        }
-
-        // For more accurate detection, we could use FileSystem.getInfoAsync
-        // to get file info including MIME type, but this requires extra work
-      }
-
-      const uniqueFilename = `plant_scan_${timestamp}_${randomString}.${mimeType.split('/')[1] || 'jpg'}`;
-
-      const formData = new FormData();
-      const imageFile = {
-        uri: photo,
-        type: mimeType,
-        name: uniqueFilename, // Use the unique filename with appropriate extension
-      };
-
-      formData.append('image', imageFile as any);
-      formData.append('ai_response', aiResponse);
-
-      await axios.post(`${API_BASE_URL}/scans`, formData, {
+      
+      // Make API request
+      const response = await axios.post(`${API_BASE_URL}/scans/create`, requestBody, {
         headers: {
-          'Content-Type': 'multipart/form-data',
-          Authorization: `Bearer ${accessToken}`,
-        },
-        timeout: 30000,
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${tokens.access}`
+        }
       });
+      
+      setIsButtonDisabled(false);
+      
+      // We're done, show the response
+      setAiResponse(aiResponse);
+      
     } catch (error: any) {
       handleSaveError(error, base64Image, aiResponse, retryCount);
     }
@@ -352,18 +335,15 @@ const ScanScreen = () => {
     aiResponse: string,
     retryCount: number
   ) => {
-    console.error('Error saving scan to backend:', error.message);
-
     const MAX_RETRIES = 2;
     if (
       retryCount < MAX_RETRIES &&
       (error.message.includes('Network Error') || error.code === 'ECONNABORTED' || !error.response)
     ) {
-      console.log(`Retrying... (${retryCount + 1}/${MAX_RETRIES})`);
       await new Promise((resolve) => setTimeout(resolve, 1000));
       return saveToBackend(base64Image, aiResponse, retryCount + 1);
     }
-
+    
     // Error handling already implemented in the component
   };
 
