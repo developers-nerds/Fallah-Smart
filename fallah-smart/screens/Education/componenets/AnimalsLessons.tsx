@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Modal, ActivityIndicator } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { theme } from '../../../theme/theme';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
 type EducationStackParamList = {
   Education: undefined;
@@ -24,78 +26,33 @@ interface Animal {
   category: string;
   videoUrl?: string;
   quizId?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  videoId?: number | null;
 }
 
 const COMPLETED_COLOR = '#00C853'; // Bright green for 100% completion
-
-const animals: Animal[] = [
-  // ماشية (Livestock)
-  {
-    id: 1,
-    name: 'الأبقار',
-    icon: '🐄',
-    category: 'ماشية',
-    videoUrl: 'animal_1',
-    quizId: 1,
-  },
-  {
-    id: 2,
-    name: 'الأغنام',
-    icon: '🐑',
-    category: 'ماشية',
-    videoUrl: 'animal_2',
-    quizId: 2,
-  },
-  {
-    id: 3,
-    name: 'الماعز',
-    icon: '🐐',
-    category: 'ماشية',
-    videoUrl: 'animal_3',
-    quizId: 3,
-  },
-  // دواجن (Poultry)
-  {
-    id: 4,
-    name: 'الدجاج',
-    icon: '🐔',
-    category: 'دواجن',
-    videoUrl: 'animal_4',
-    quizId: 4,
-  },
-  {
-    id: 5,
-    name: 'الديك الرومي',
-    icon: '🦃',
-    category: 'دواجن',
-    videoUrl: 'animal_5',
-    quizId: 5,
-  },
-  // حيوانات صغيرة (Small Animals)
-  {
-    id: 6,
-    name: 'الأرانب',
-    icon: '🐰',
-    category: 'حيوانات صغيرة',
-    videoUrl: 'animal_6',
-    quizId: 6,
-  },
-  // طيور (Birds)
-  {
-    id: 7,
-    name: 'الحمام',
-    icon: '🕊️',
-    category: 'طيور',
-    videoUrl: 'animal_7',
-    quizId: 7,
-  },
-];
 
 const AnimalsLessons = () => {
   const navigation = useNavigation<AnimalsLessonsNavigationProp>();
   const [selectedAnimal, setSelectedAnimal] = useState<Animal | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [animalScores, setAnimalScores] = useState<{[key: number]: number}>({});
+  const [animals, setAnimals] = useState<Animal[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch animals data
+  const fetchAnimals = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get(`${API_URL}/education/animals`);
+      setAnimals(response.data);
+    } catch (error) {
+      console.error('Error fetching animals:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Group animals by category
   const animalsByCategory = animals.reduce((acc, animal) => {
@@ -129,15 +86,24 @@ const AnimalsLessons = () => {
 
   // Fetch scores when component mounts
   useEffect(() => {
-    fetchScores();
+    fetchAnimals();
   }, []);
+
+  // Fetch scores after animals are loaded
+  useEffect(() => {
+    if (animals.length > 0) {
+      fetchScores();
+    }
+  }, [animals]);
 
   // Refetch scores when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
-      fetchScores();
+      if (animals.length > 0) {
+        fetchScores();
+      }
       return () => {};
-    }, [])
+    }, [animals])
   );
 
   const handleAnimalPress = (animal: Animal) => {
@@ -202,6 +168,15 @@ const AnimalsLessons = () => {
       }
     ];
   };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <ActivityIndicator size="large" color={theme.colors.primary.base} />
+        <Text style={styles.loadingText}>جاري تحميل البيانات...</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -291,6 +266,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.neutral.background,
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: theme.spacing.md,
+    fontSize: 16,
+    color: theme.colors.neutral.textSecondary,
   },
   header: {
     padding: theme.spacing.lg,
