@@ -188,4 +188,49 @@ export interface StockSeed {
   userId: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface StockEquipment {
+  id: number;
+  name: string;
+  quantity: number;
+  type: string;
+  status: string;
+  operationalStatus: string;
+  purchaseDate: string;
+  warrantyExpiryDate?: string | null;
+  lastMaintenanceDate?: string | null;
+  nextMaintenanceDate?: string | null;
+  maintenanceInterval?: number | null;
+  maintenanceSchedule?: any | null;
+  serialNumber?: string | null;
+  manufacturer?: string | null;
+  model?: string | null;
+  yearOfManufacture?: number | null;
+  purchasePrice?: number | null;
+  currentValue?: number | null;
+  depreciationRate?: number | null;
+  fuelType?: string | null;
+  fuelCapacity?: number | null;
+  fuelEfficiency?: number | null;
+  powerOutput?: string | null;
+  dimensions?: string | null;
+  weight?: number | null;
+  location?: string | null;
+  assignedOperator?: string | null;
+  operatingHours?: number | null;
+  lastOperationDate?: string | null;
+  insuranceInfo?: any | null;
+  registrationNumber?: string | null;
+  certifications?: any | null;
+  maintenanceHistory?: any[] | null;
+  partsInventory?: any | null;
+  operatingCost?: number | null;
+  maintenanceCosts?: number | null;
+  notes?: string | null;
+  operatingInstructions?: string | null;
+  safetyGuidelines?: string | null;
+  userId: number;
+  createdAt: string;
+  updatedAt: string;
 } 

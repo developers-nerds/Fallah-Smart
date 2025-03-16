@@ -147,15 +147,9 @@ app.get("/test-image", (req, res) => {
   `);
 });
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ message: "Something went wrong!" });
-});
-
 // Make uploads directory accessible
 app.use('/uploads', express.static('uploads'));
 
 app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+  // Server started successfully
 });

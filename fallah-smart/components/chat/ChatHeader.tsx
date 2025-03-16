@@ -9,14 +9,14 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { theme } from '../../theme/theme';
-import { handleNewConversation, Conversation } from '../../utils/conversationUtils';
 
 interface ChatHeaderProps {
-  onNewConversation: (conversation: Conversation) => void;
-  onTitlePress: () => void;
+  onMenuPress: () => void;
+  onResetPress: () => void;
+  showReset: boolean;
 }
 
-const ChatHeader: React.FC<ChatHeaderProps> = ({ onNewConversation, onTitlePress }) => {
+const ChatHeader: React.FC<ChatHeaderProps> = ({ onMenuPress, onResetPress, showReset }) => {
   const { width } = useWindowDimensions();
   const isSmallScreen = width < 360;
   const isMediumScreen = width < 400;
@@ -38,10 +38,10 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ onNewConversation, onTitlePress
           styles.historyButton,
           { paddingHorizontal: isSmallScreen ? theme.spacing.sm : theme.spacing.md },
         ]}
-        onPress={onTitlePress}
+        onPress={onMenuPress}
         activeOpacity={0.7}>
         <MaterialIcons
-          name="history"
+          name="menu"
           size={isSmallScreen ? 20 : 22}
           color={theme.colors.primary.base}
         />
@@ -56,8 +56,8 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ onNewConversation, onTitlePress
             ]}
             numberOfLines={1}
             adjustsFontSizeToFit>
-فلاح سمارت
-</Text>
+            فلاح سمارت
+          </Text>
           <Text
             style={[
               styles.subtitle,
@@ -68,42 +68,37 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ onNewConversation, onTitlePress
             ]}
             numberOfLines={1}
             adjustsFontSizeToFit>
-            عرض سجل المحادثة
+            المساعد الذكي
           </Text>
         </View>
-        <MaterialIcons
-          name="chevron-right"
-          size={isSmallScreen ? 20 : 22}
-          color={theme.colors.primary.base}
-        />
       </TouchableOpacity>
-      <TouchableOpacity
-        onPress={() => {
-          handleNewConversation(onNewConversation);
-        }}
-        style={[
-          styles.newChatButton,
-          { paddingHorizontal: isSmallScreen ? theme.spacing.sm : theme.spacing.md },
-        ]}
-        activeOpacity={0.7}>
-        <MaterialIcons
-          name="add"
-          size={isSmallScreen ? 18 : 20}
-          color={theme.colors.neutral.surface}
-        />
-        <Text
+      {showReset && (
+        <TouchableOpacity
+          onPress={onResetPress}
           style={[
-            styles.newChatText,
-            {
-              fontSize: getResponsiveFontSize(theme.fontSizes.caption),
-              lineHeight: getResponsiveFontSize(theme.fontSizes.caption) * 1.2,
-            },
+            styles.newChatButton,
+            { paddingHorizontal: isSmallScreen ? theme.spacing.sm : theme.spacing.md },
           ]}
-          numberOfLines={1}
-          adjustsFontSizeToFit>
-          دردشة جديدة
-        </Text>
-      </TouchableOpacity>
+          activeOpacity={0.7}>
+          <MaterialIcons
+            name="refresh"
+            size={isSmallScreen ? 18 : 20}
+            color={theme.colors.neutral.surface}
+          />
+          <Text
+            style={[
+              styles.newChatText,
+              {
+                fontSize: getResponsiveFontSize(theme.fontSizes.caption),
+                lineHeight: getResponsiveFontSize(theme.fontSizes.caption) * 1.2,
+              },
+            ]}
+            numberOfLines={1}
+            adjustsFontSizeToFit>
+            محادثة جديدة
+          </Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 };

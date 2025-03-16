@@ -42,8 +42,6 @@ const ScanDetailsScreen = ({ route }: ScanDetailsProps) => {
   const navigation = useNavigation<NavigationProp>();
   const baseUrl = process.env.EXPO_PUBLIC_API_URL?.replace('/api', '');
 
-  console.log('Scan Details - Image URL:', imageUrl);
-
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -62,7 +60,7 @@ const ScanDetailsScreen = ({ route }: ScanDetailsProps) => {
         url: imageUrl,
       });
     } catch (error) {
-      console.error('Error sharing:', error);
+      // Silently handle error without console.error
     }
   };
 

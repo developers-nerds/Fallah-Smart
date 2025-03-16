@@ -8,10 +8,8 @@ const animalGastonController = {
         where: { userId: req.user.id },
         include: [{ model: Media, as: 'media' }]
       });
-      console.log('Fetched animals:', JSON.stringify(animals, null, 2));
       res.json(animals);
     } catch (error) {
-      console.error('Error fetching animals:', error);
       res.status(500).json({ error: 'Failed to fetch animals' });
     }
   },
@@ -33,7 +31,6 @@ const animalGastonController = {
 
       res.json(animal);
     } catch (error) {
-      console.error('Error fetching animal:', error);
       res.status(500).json({ error: 'Failed to fetch animal' });
     }
   },
@@ -41,8 +38,6 @@ const animalGastonController = {
   // Create a new animal
   createAnimal: async (req, res) => {
     try {
-      console.log('Received create animal request with body:', JSON.stringify(req.body, null, 2));
-      
       const {
         type,
         count,
@@ -88,8 +83,6 @@ const animalGastonController = {
         offspringCount: 0
       });
 
-      console.log('Created animal:', JSON.stringify(animal, null, 2));
-
       const createdAnimal = await AnimalGaston.findOne({
         where: { id: animal.id },
         include: [{ model: Media, as: 'media' }]
@@ -97,7 +90,6 @@ const animalGastonController = {
 
       res.status(201).json(createdAnimal);
     } catch (error) {
-      console.error('Error creating animal:', error);
       res.status(500).json({ error: 'Failed to create animal' });
     }
   },
@@ -105,8 +97,6 @@ const animalGastonController = {
   // Update an animal
   updateAnimal: async (req, res) => {
     try {
-      console.log('Received update animal request with body:', JSON.stringify(req.body, null, 2));
-      
       const {
         type,
         count,
@@ -149,8 +139,6 @@ const animalGastonController = {
         nextVaccinationDate
       });
 
-      console.log('Updated animal:', JSON.stringify(req.animal, null, 2));
-
       const updatedAnimal = await AnimalGaston.findOne({
         where: { id: req.params.id },
         include: [{ model: Media, as: 'media' }]
@@ -158,7 +146,6 @@ const animalGastonController = {
 
       res.json(updatedAnimal);
     } catch (error) {
-      console.error('Error updating animal:', error);
       res.status(500).json({ error: 'Failed to update animal' });
     }
   },
@@ -169,7 +156,6 @@ const animalGastonController = {
       await req.animal.destroy();
       res.json({ message: 'Animal deleted successfully' });
     } catch (error) {
-      console.error('Error deleting animal:', error);
       res.status(500).json({ error: 'Failed to delete animal' });
     }
   }

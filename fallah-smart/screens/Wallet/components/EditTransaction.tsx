@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, ActivityIndicator, Platform, Dimensions } from "react-native"
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, ActivityIndicator, Platform, Dimensions, Alert } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useNavigation, useRoute } from "@react-navigation/native"
 import Icon from "react-native-vector-icons/MaterialIcons"
@@ -142,21 +142,12 @@ export default function EditTransaction() {
           'Authorization': `Bearer ${token}`
         }
       })
-      console.log(`Fetched ${categoryType} categories response (EditTransaction):`, response.data)
-      if (Array.isArray(response.data)) {
-        const validCategories = response.data.filter(
-          (category: any) => category && typeof category === 'object' && category.id && category.name
-        )
-        setCategories(validCategories)
-        if (validCategories.length === 0) {
-          setError(`لم يتم العثور على فئات صالحة لـ ${categoryType === 'Income' ? 'الدخل' : 'المصروف'}`)
-        }
-      } else {
-        setError("تنسيق الاستجابة غير صالح: بيانات الفئات ليست مصفوفة")
-        setCategories([])
+      setCategories(response.data)
+      if (response.data.length === 0) {
+        setError(`لم يتم العثور على فئات صالحة لـ ${categoryType === 'Income' ? 'الدخل' : 'المصروف'}`)
       }
-    } catch (err) {
-      setError("فشل في جلب الفئات: " + err.message)
+    } catch (error) {
+      setError("فشل في جلب الفئات: " + error.message)
       setCategories([])
     } finally {
       setLoading(false)
@@ -173,25 +164,21 @@ export default function EditTransaction() {
       
       if (!token || !userStr) {
         setSubmitError('الرجاء تسجيل الدخول أولاً')
-        console.log("Missing token or user data")
         return
       }
 
       if (!selectedAccountId) {
         setSubmitError('لم يتم اختيار حساب. الرجاء المحاولة مرة أخرى.')
-        console.log("No selectedAccountId")
         return
       }
 
       if (!category || !category.id) {
         setSubmitError('الرجاء اختيار فئة')
-        console.log("Invalid category:", category)
         return
       }
 
       if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
         setSubmitError('الرجاء إدخال مبلغ صالح')
-        console.log("Invalid amount:", amount)
         return
       }
 
@@ -204,8 +191,6 @@ export default function EditTransaction() {
         date: date.toISOString()
       }
 
-      console.log("Sending update request with data:", transactionData)
-
       const response = await axios.put(
         `${API_BASE_URL}/transactions/${transaction.id}`,
         transactionData,
@@ -217,26 +202,20 @@ export default function EditTransaction() {
         }
       )
 
-      console.log("API Response:", response.data, "Status:", response.status)
-
       if (response.data.success) {
-        console.log("Transaction updated successfully")
         navigation.goBack()
       } else {
         setSubmitError(response.data.message || 'فشل في تحديث المعاملة')
-        console.log("Update failed with message:", response.data.message)
       }
     } catch (error) {
       const errorMessage = error.response?.data?.message || error.message || 'خطأ غير معروف'
       setSubmitError(`فشل في تحديث المعاملة: ${errorMessage}`)
-      console.error("Update error:", error.response?.data || error)
     } finally {
       setIsSubmitting(false)
     }
   }, [selectedAccountId, amount, note, date, transaction.id, transaction.type, navigation])
 
   const handleCategorySelect = useCallback((category: Category) => {
-    console.log("Category selected:", category)
     setSelectedCategory(category)
     setShowCategories(false)
     setTimeout(() => handleUpdateTransaction(category), 100) // Slight delay to ensure state settles
@@ -245,20 +224,15 @@ export default function EditTransaction() {
   const handleDeleteTransaction = async () => {
     try {
       setIsSubmitting(true)
-      const token = await AsyncStorage.getItem('@access_token')
-      
-      console.log("Deleting transaction:", transaction.id)
       await axios.delete(`${API_BASE_URL}/transactions/${transaction.id}`, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${await AsyncStorage.getItem('@access_token')}`
         }
       })
-      console.log("Transaction deleted successfully")
       navigation.goBack()
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'فشل في حذف المعاملة'
       setSubmitError(errorMessage)
-      console.error("Delete error:", error.response?.data || error)
     } finally {
       setIsSubmitting(false)
     }
