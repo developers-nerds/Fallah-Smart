@@ -20,17 +20,29 @@ const Url = process.env.EXPO_PUBLIC_API_URL;
 // Function to fetch conversations from the API
 const getConversations = async () => {
   try {
-    console.log('before all conv');
+    const tokens = await storage.getTokens();
+    if (!tokens || !tokens.access) {
+      console.error('No access token found');
+      throw new Error('Authentication required');
+    }
+
+    console.log('Fetching conversations from:', `${Url}/conversations/get`);
+    console.log('Using token:', tokens.access.substring(0, 10) + '...');
+
     const response = await fetch(`${Url}/conversations/get`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${await getToken()}`,
+        'Authorization': `Bearer ${tokens.access}`,
       },
     });
-    console.log('after all conv');
+
+    console.log('Response status:', response.status);
+    
     if (!response.ok) {
-      throw new Error('Failed to fetch conversations');
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Error response:', errorData);
+      throw new Error(`Failed to fetch conversations: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
@@ -45,19 +57,7 @@ const getConversations = async () => {
     }
   } catch (error) {
     console.error('Error fetching conversations:', error);
-    return [];
-  }
-};
-
-// Helper function to get the auth token from storage
-const getToken = async () => {
-  try {
-    // Get token from storage utility
-    const tokens = await storage.getTokens();
-    return tokens.accessToken || '';
-  } catch (error) {
-    console.error('Error getting token:', error);
-    return '';
+    throw error; // Re-throw to handle in the component
   }
 };
 
@@ -123,7 +123,7 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
         }
       } catch (err) {
         console.error('Error in fetchConversations:', err);
-        setError('Failed to load conversations');
+        setError(err instanceof Error ? err.message : 'Failed to load conversations');
         setConversations([]);
       } finally {
         setLoading(false);

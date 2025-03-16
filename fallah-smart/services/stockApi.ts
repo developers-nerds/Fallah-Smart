@@ -18,8 +18,8 @@ const api = axios.create({
 api.interceptors.request.use(async (config) => {
   try {
     const tokens = await storage.getTokens();
-    if (tokens?.accessToken) {
-      config.headers.Authorization = `Bearer ${tokens.accessToken}`;
+    if (tokens?.access) {
+      config.headers.Authorization = `Bearer ${tokens.access}`;
     }
     return config;
   } catch (error) {
