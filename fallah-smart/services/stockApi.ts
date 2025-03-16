@@ -2,8 +2,7 @@ import axios from 'axios';
 import { storage } from '../utils/storage';
 import Constants from 'expo-constants';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL 
-console.log('Using API URL:', API_URL); // For debugging
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
 // Create axios instance
 const api = axios.create({
@@ -23,7 +22,6 @@ api.interceptors.request.use(async (config) => {
     }
     return config;
   } catch (error) {
-    console.error('Error setting auth token:', error);
     return config;
   }
 });
@@ -32,8 +30,6 @@ api.interceptors.request.use(async (config) => {
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    console.error('API Error:', error.response?.data || error.message);
-    
     if (error.response?.status === 401) {
       await storage.clearAuth();
       // TODO: Navigate to login screen
@@ -49,7 +45,6 @@ export const stockApi = {
       const response = await api.get('/stocks');
       return response.data;
     } catch (error) {
-      console.error('Error fetching stocks:', error);
       throw error;
     }
   },
@@ -60,7 +55,6 @@ export const stockApi = {
       const response = await api.get(`/stocks/${id}`);
       return response.data;
     } catch (error) {
-      console.error('Error fetching stock:', error);
       throw error;
     }
   },
@@ -71,7 +65,6 @@ export const stockApi = {
       const response = await api.post('/stocks', stockData);
       return response.data;
     } catch (error) {
-      console.error('Error creating stock:', error);
       throw error;
     }
   },
@@ -82,7 +75,6 @@ export const stockApi = {
       const response = await api.post(`/stocks/${id}/quantity`, data);
       return response.data;
     } catch (error) {
-      console.error('Error updating stock quantity:', error);
       throw error;
     }
   },
@@ -93,7 +85,6 @@ export const stockApi = {
       const response = await api.put(`/stocks/${id}`, data);
       return response.data;
     } catch (error) {
-      console.error('Error updating stock:', error);
       throw error;
     }
   },
@@ -104,7 +95,6 @@ export const stockApi = {
       const response = await api.delete(`/stocks/${id}`);
       return response.data;
     } catch (error) {
-      console.error('Error deleting stock:', error);
       throw error;
     }
   },

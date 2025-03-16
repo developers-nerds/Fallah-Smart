@@ -223,7 +223,7 @@ const PhotoPreviewScreen = ({
         url: photo,
       });
     } catch (error) {
-      console.error('Error sharing:', error);
+      // Silently handle error without console.error
     }
   };
 

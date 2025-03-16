@@ -69,7 +69,7 @@ const SeedListScreen: React.FC<SeedListScreenProps> = ({ navigation }) => {
       const response = await axios.get(DIRECT_API_URL, {
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': tokens?.accessToken ? `Bearer ${tokens.accessToken}` : ''
+          'Authorization': tokens?.access ? `Bearer ${tokens.access}` : ''
         },
         timeout: 10000
       });
@@ -94,7 +94,6 @@ const SeedListScreen: React.FC<SeedListScreenProps> = ({ navigation }) => {
         console.error('- Response data:', error.response?.data);
         console.error('- Request config:', error.config);
         
-        // Try with a fallback
         if (error.response?.status === 401) {
           console.log('Unauthorized, trying without token...');
           try {
@@ -306,7 +305,7 @@ const SeedListScreen: React.FC<SeedListScreenProps> = ({ navigation }) => {
                 await axios.delete(deleteURL, {
                   headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': tokens?.accessToken ? `Bearer ${tokens.accessToken}` : ''
+                    'Authorization': tokens?.access ? `Bearer ${tokens.access}` : ''
                   }
                 });
                 

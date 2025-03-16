@@ -1,15 +1,11 @@
-const { StockEquipment, StockHistory, StockNotification } = require('../database/models');
+const { StockEquipment } = require('../database/models');
 
 const stockEquipmentController = {
   // Get all equipment for a user
   getAllEquipment: async (req, res) => {
     try {
       const equipment = await StockEquipment.findAll({
-        where: { userId: req.user.id },
-        include: [
-          { model: StockHistory, as: 'history' },
-          { model: StockNotification, as: 'notifications' }
-        ]
+        where: { userId: req.user.id }
       });
       res.json(equipment);
     } catch (error) {
@@ -25,11 +21,7 @@ const stockEquipmentController = {
         where: { 
           id: req.params.id,
           userId: req.user.id 
-        },
-        include: [
-          { model: StockHistory, as: 'history' },
-          { model: StockNotification, as: 'notifications' }
-        ]
+        }
       });
 
       if (!equipment) {
@@ -51,44 +43,7 @@ const stockEquipmentController = {
         userId: req.user.id
       });
 
-      // Create initial stock history entry
-      await StockHistory.create({
-        stockEquipmentId: equipment.id,
-        type: 'initial',
-        quantity: 1,
-        previousQuantity: 0,
-        newQuantity: 1,
-        notes: 'Initial equipment entry'
-      });
-
-      // Create maintenance notification if maintenance interval is set
-      if (equipment.maintenanceInterval) {
-        const nextMaintenanceDate = new Date();
-        nextMaintenanceDate.setDate(nextMaintenanceDate.getDate() + equipment.maintenanceInterval);
-        
-        await StockNotification.create({
-          type: 'maintenance',
-          title: `Maintenance Due - ${equipment.name}`,
-          message: `Scheduled maintenance is due for ${equipment.name}`,
-          scheduledFor: nextMaintenanceDate,
-          priority: 'medium',
-          relatedModelType: 'StockEquipment',
-          relatedModelId: equipment.id,
-          userId: req.user.id
-        });
-
-        await equipment.update({ nextMaintenanceDate });
-      }
-
-      const createdEquipment = await StockEquipment.findOne({
-        where: { id: equipment.id },
-        include: [
-          { model: StockHistory, as: 'history' },
-          { model: StockNotification, as: 'notifications' }
-        ]
-      });
-
-      res.status(201).json(createdEquipment);
+      res.status(201).json(equipment);
     } catch (error) {
       console.error('Error creating equipment:', error);
       res.status(500).json({ error: 'Failed to create equipment' });
@@ -109,43 +64,9 @@ const stockEquipmentController = {
         return res.status(404).json({ error: 'Equipment not found' });
       }
 
-      const previousStatus = equipment.status;
       await equipment.update(req.body);
-
-      // Create history entry for status changes
-      if (previousStatus !== req.body.status) {
-        await StockHistory.create({
-          stockEquipmentId: equipment.id,
-          type: 'status_change',
-          notes: `Status changed from ${previousStatus} to ${req.body.status}`
-        });
-      }
-
-      // Update maintenance notification if maintenance interval changed
-      if (req.body.maintenanceInterval && req.body.maintenanceInterval !== equipment.maintenanceInterval) {
-        const nextMaintenanceDate = new Date();
-        nextMaintenanceDate.setDate(nextMaintenanceDate.getDate() + req.body.maintenanceInterval);
-
-        await StockNotification.create({
-          type: 'maintenance',
-          title: `Updated Maintenance Schedule - ${equipment.name}`,
-          message: `Maintenance schedule updated for ${equipment.name}`,
-          scheduledFor: nextMaintenanceDate,
-          priority: 'medium',
-          relatedModelType: 'StockEquipment',
-          relatedModelId: equipment.id,
-          userId: req.user.id
-        });
-
-        await equipment.update({ nextMaintenanceDate });
-      }
-
       const updatedEquipment = await StockEquipment.findOne({
-        where: { id: req.params.id },
-        include: [
-          { model: StockHistory, as: 'history' },
-          { model: StockNotification, as: 'notifications' }
-        ]
+        where: { id: req.params.id }
       });
 
       res.json(updatedEquipment);
@@ -210,33 +131,8 @@ const stockEquipmentController = {
         maintenanceCosts: (equipment.maintenanceCosts || 0) + (cost || 0)
       });
 
-      // Create history entry
-      await StockHistory.create({
-        stockEquipmentId: equipment.id,
-        type: 'maintenance',
-        notes: maintenanceNotes || 'Maintenance performed'
-      });
-
-      // Create next maintenance notification if date is provided
-      if (nextMaintenanceDate) {
-        await StockNotification.create({
-          type: 'maintenance',
-          title: `Next Maintenance - ${equipment.name}`,
-          message: `Next maintenance scheduled for ${equipment.name}`,
-          scheduledFor: nextMaintenanceDate,
-          priority: 'medium',
-          relatedModelType: 'StockEquipment',
-          relatedModelId: equipment.id,
-          userId: req.user.id
-        });
-      }
-
       const updatedEquipment = await StockEquipment.findOne({
-        where: { id },
-        include: [
-          { model: StockHistory, as: 'history' },
-          { model: StockNotification, as: 'notifications' }
-        ]
+        where: { id }
       });
 
       res.json(updatedEquipment);
@@ -250,7 +146,7 @@ const stockEquipmentController = {
   updateStatus: async (req, res) => {
     try {
       const { id } = req.params;
-      const { status, notes } = req.body;
+      const { status } = req.body;
 
       const equipment = await StockEquipment.findOne({
         where: {
@@ -263,22 +159,9 @@ const stockEquipmentController = {
         return res.status(404).json({ error: 'Equipment not found' });
       }
 
-      const previousStatus = equipment.status;
       await equipment.update({ status });
-
-      // Create history entry
-      await StockHistory.create({
-        stockEquipmentId: equipment.id,
-        type: 'status_change',
-        notes: notes || `Status changed from ${previousStatus} to ${status}`
-      });
-
       const updatedEquipment = await StockEquipment.findOne({
-        where: { id },
-        include: [
-          { model: StockHistory, as: 'history' },
-          { model: StockNotification, as: 'notifications' }
-        ]
+        where: { id }
       });
 
       res.json(updatedEquipment);
