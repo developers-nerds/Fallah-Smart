@@ -7,7 +7,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import axios from 'axios';
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
 type EducationStackParamList = {
   Education: undefined;
   AnimalsLessons: undefined;
@@ -20,73 +21,116 @@ type EducationScreenNavigationProp = StackNavigationProp<EducationStackParamList
 
 const { width } = Dimensions.get('window');
 
-const TOTAL_ANIMALS = 7; // Total number of animals with quizzes
-const TOTAL_CROPS = 31; // Total number of crops with quizzes
-
-const categories = [
-  {
-    id: 1,
-    title: 'حيوانات',
-    iconName: 'cow' as const,
-    screen: 'AnimalsLessons' as const,
-    description: 'تعلم عن رعاية الحيوانات',
-    totalItems: TOTAL_ANIMALS,
-    color: '#4CAF50',
-  },
-  {
-    id: 2,
-    title: 'المحاصيل',
-    iconName: 'seed' as const,
-    screen: 'CropsLessons' as const,
-    description: 'تعلم عن زراعة المحاصيل',
-    totalItems: TOTAL_CROPS,
-    color: '#FF9800',
-  },
-];
-
 const EducationScreen = () => {
   const navigation = useNavigation<EducationScreenNavigationProp>();
   const [isLoading, setIsLoading] = useState(true);
-  const [scaleAnims] = useState(categories.map(() => new Animated.Value(1)));
+  const [scaleAnims] = useState(Array(2).fill(new Animated.Value(1)));
   const [fadeAnim] = useState(new Animated.Value(0));
   const [categoryProgress, setCategoryProgress] = useState<{[key: string]: number}>({
     animals: 0,
     crops: 0
   });
   const [categoryStats, setCategoryStats] = useState<{[key: string]: { completed: number, total: number }}>({
-    animals: { completed: 0, total: TOTAL_ANIMALS },
-    crops: { completed: 0, total: TOTAL_CROPS }
+    animals: { completed: 0, total: 0 },
+    crops: { completed: 0, total: 0 }
   });
+  const [categories, setCategories] = useState([
+    {
+      id: 1,
+      title: 'حيوانات',
+      iconName: 'cow' as const,
+      screen: 'AnimalsLessons' as const,
+      description: 'تعلم عن رعاية الحيوانات',
+      totalItems: 0,
+      color: '#4CAF50',
+    },
+    {
+      id: 2,
+      title: 'المحاصيل',
+      iconName: 'seed' as const,
+      screen: 'CropsLessons' as const,
+      description: 'تعلم عن زراعة المحاصيل',
+      totalItems: 0,
+      color: '#FF9800',
+    },
+  ]);
+
+  const fetchTotals = async () => {
+    try {
+      // Fetch animals count
+      const animalsResponse = await axios.get(`${API_URL}/education/animals`);
+      const animalsTotal = animalsResponse.data.length;
+      
+      // Fetch crops count
+      const cropsResponse = await axios.get(`${API_URL}/education/crops`);
+      const cropsTotal = cropsResponse.data.length;
+      
+      // Update categories with the correct totals
+      setCategories(prev => prev.map(cat => {
+        if (cat.id === 1) {
+          return {...cat, totalItems: animalsTotal};
+        } else if (cat.id === 2) {
+          return {...cat, totalItems: cropsTotal};
+        }
+        return cat;
+      }));
+      
+      // Update category stats with the correct totals
+      setCategoryStats({
+        animals: { completed: categoryStats.animals.completed, total: animalsTotal },
+        crops: { completed: categoryStats.crops.completed, total: cropsTotal }
+      });
+      
+    } catch (error) {
+      console.error('Error fetching totals:', error);
+    }
+  };
 
   const calculateProgress = async () => {
     try {
-      // Calculate animals progress
-      let animalScores = 0;
+      // Fetch user progress for animals
       let completedAnimals = 0;
+      let animalScores = 0;
       
-      for (let i = 1; i <= TOTAL_ANIMALS; i++) {
-        const score = await AsyncStorage.getItem(`animal_score_${i}`);
+      // Get animal quizzes
+      const animalQuizzesResponse = await axios.get(`${API_URL}/education/quizzes/type/animal`);
+      const animalQuizzes = animalQuizzesResponse.data;
+      
+      for (const quiz of animalQuizzes) {
+        // Check if user has completed this quiz
+        const userProgressKey = `animal_score_${quiz.id}`;
+        const score = await AsyncStorage.getItem(userProgressKey);
         if (score) {
           animalScores += parseFloat(score);
           completedAnimals++;
         }
       }
-
-      // Calculate crops progress
-      let cropScores = 0;
-      let completedCrops = 0;
       
-      for (let i = 1; i <= TOTAL_CROPS; i++) {
-        const score = await AsyncStorage.getItem(`crop_score_${i}`);
+      // Fetch user progress for crops
+      let completedCrops = 0;
+      let cropScores = 0;
+      
+      // Get crop quizzes
+      const cropQuizzesResponse = await axios.get(`${API_URL}/education/quizzes/type/crop`);
+      const cropQuizzes = cropQuizzesResponse.data;
+      
+      for (const quiz of cropQuizzes) {
+        // Check if user has completed this quiz
+        const userProgressKey = `crop_score_${quiz.id}`;
+        const score = await AsyncStorage.getItem(userProgressKey);
         if (score) {
           cropScores += parseFloat(score);
           completedCrops++;
         }
       }
 
+      // Get totals from current state
+      const totalAnimals = categoryStats.animals.total;
+      const totalCrops = categoryStats.crops.total;
+
       // Calculate total progress including unanswered questions (counted as 0%)
-      const totalAnimalProgress = animalScores / (TOTAL_ANIMALS * 100);
-      const totalCropProgress = cropScores / (TOTAL_CROPS * 100);
+      const totalAnimalProgress = totalAnimals > 0 ? animalScores / (totalAnimals * 100) : 0;
+      const totalCropProgress = totalCrops > 0 ? cropScores / (totalCrops * 100) : 0;
 
       setCategoryProgress({
         animals: totalAnimalProgress,
@@ -94,8 +138,8 @@ const EducationScreen = () => {
       });
 
       setCategoryStats({
-        animals: { completed: completedAnimals, total: TOTAL_ANIMALS },
-        crops: { completed: completedCrops, total: TOTAL_CROPS }
+        animals: { completed: completedAnimals, total: totalAnimals },
+        crops: { completed: completedCrops, total: totalCrops }
       });
     } catch (error) {
       console.error('Error calculating progress:', error);
@@ -103,22 +147,29 @@ const EducationScreen = () => {
   };
 
   useEffect(() => {
-    setTimeout(() => setIsLoading(false), 1000);
-    Animated.sequence([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 1000,
-        useNativeDriver: true,
-      }),
-    ]).start();
-    calculateProgress();
+    const loadData = async () => {
+      setIsLoading(true);
+      await fetchTotals();
+      await calculateProgress();
+      setIsLoading(false);
+      
+      Animated.sequence([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    };
+    
+    loadData();
   }, []);
 
   useFocusEffect(
     React.useCallback(() => {
       calculateProgress();
       return () => {};
-    }, [])
+    }, [categoryStats.animals.total, categoryStats.crops.total])
   );
 
   const handlePressIn = (index: number) => {
