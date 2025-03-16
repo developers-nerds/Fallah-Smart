@@ -110,7 +110,7 @@ app.use("/api/stock/equipment", stockEquipmentRoutes);
 app.use("/api/stock/tools", stockToolsRoutes);
 app.use("/api/stock/harvest", stockHarvestRoutes);
 
-///////////////////////Education Routes///////////////////////
+//Education Routes
 app.use("/api/education/animals", Education_AnimalsRoute);
 app.use("/api/education/crops", Education_CropsRoute);
 app.use("/api/education/questions", Education_QuestionsRoute);
@@ -121,7 +121,7 @@ app.use("/api/education/videos", Education_VideosRoute);
 app.use("/api/education/additionalVideos", Education_AdditionalVideosRoute);
 app.use("/api/education/questionsAndAnswers", Education_QuestionsAndAnswersRoute);
 
-
+// 
 
 
 
