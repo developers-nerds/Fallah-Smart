@@ -80,7 +80,8 @@ export const RootNavigator: React.FC = () => {
         component={Wallet} 
         options={{ title: 'محفظتي' }} // Set the header title here
       />
-      <Stack.Screen name="Education" component={EducationNavigator} />
+      <Stack.Screen name="Education" component={EducationNavigator}
+       options={{ title: 'تعليم' }} />
       <Stack.Screen 
         name="AdvisorApplication" 
         component={AdvisorApplication}

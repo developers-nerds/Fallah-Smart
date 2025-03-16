@@ -239,11 +239,7 @@ const HomeScreen: React.FC = () => {
       newEndDate = new Date(today);
       newEndDate.setHours(23, 59, 59, 999);
     
-      const month = newEndDate.toLocaleDateString("ar", { month: "long" });
-      const startDay = newStartDate.toLocaleDateString("fr", { day: "numeric" });
-      const endDay = newEndDate.toLocaleDateString("fr", { day: "numeric" });
-    
-      displayText = `${startDay} - ${endDay}, ${month}`;
+      displayText = `أسبوعي`;
     }
     
     else if (filterType === "Monthly") {
@@ -405,8 +401,8 @@ const HomeScreen: React.FC = () => {
   };
 
   const months = [
-    "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
-    "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"
+    "جانفي", "فيفري ", "مارس ", "أفريل ", "ماي", "جوان",
+    "جويلية", "أوت", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"
   ];
 
   const currentYear = new Date().getFullYear();
