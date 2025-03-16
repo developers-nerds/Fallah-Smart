@@ -206,7 +206,7 @@ const VideoLesson = () => {
       <View style={styles.container}>
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle" size={48} color={theme.colors.error} />
-          <Text style={styles.errorText}>عذراً، هذا الفيديو غير متوفر حالياً</Text>
+          <Text style={styles.errorText}> هذا الفيديو غير متوفر حالياً</Text>
           <Text style={styles.errorSubText}>{error}</Text>
           <TouchableOpacity 
             style={styles.button}
