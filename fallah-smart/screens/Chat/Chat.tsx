@@ -108,31 +108,30 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
 
     if (inputText.trim() || selectedImage) {
       const messageNumber = messages.length + 1;
+      let conversationId = currentConversationId;
 
-      let conversationId = currentConversationId; // Use a local variable
-
-      // Create conversation only when user sends their first message (which makes it 2 messages total)
-      if (messageNumber === 2) {
+      // If there's no active conversation and we're past the first message, create a new one
+      if (!conversationId && messageNumber > 2) {
         try {
           const conversationNameResponse = await GetConversationName(inputText);
           if (conversationNameResponse.success && conversationNameResponse.parsedData) {
             const tokens = await storage.getTokens();
-            if (tokens.accessToken) {
+            if (tokens.access) {
               const result = await createConversationInDB(
                 conversationNameResponse.parsedData,
-                tokens.accessToken
+                tokens.access
               );
 
               if (result.success) {
-                conversationId = result.data.data.id; // Update local variable
-                setCurrentConversationId(conversationId); // Update state for future renders
+                conversationId = result.data.data.id;
+                setCurrentConversationId(conversationId);
               } else {
                 console.error('Failed to create conversation:', result.error);
               }
             }
           }
         } catch (error) {
-          console.error('Error getting conversation name:', error);
+          console.error('Error creating new conversation:', error);
         }
       }
 
@@ -277,29 +276,37 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
         setIsLoading(true);
         try {
           const response = await sendGreeting(deviceLanguage);
-          const aiResponse: Message = {
-            id: Date.now().toString(),
-            text: response.text,
-            isUser: false,
-            sender: 'assistant',
-          };
-          setMessages([aiResponse]);
-
-          // Remove the conversation creation for the initial greeting
-          // We'll only create the conversation after the user sends their first message
-          setGreetingSent(true);
-          setIsLoading(false);
-          setIsNewConversation(false);
+          if (response.success) {
+            setMessages([
+              {
+                id: Date.now().toString(),
+                text: response.text,
+                isUser: false,
+                sender: 'assistant',
+              },
+            ]);
+            setGreetingSent(true);
+          } else {
+            setMessages([
+              {
+                id: Date.now().toString(),
+                text: 'عذراً، حدث خطأ في تحميل المحادثة. يرجى المحاولة مرة أخرى.',
+                isUser: false,
+                sender: 'assistant',
+              },
+            ]);
+          }
         } catch (error) {
           console.error('Error sending greeting:', error);
           setMessages([
             {
               id: Date.now().toString(),
-              text: 'An error occurred.',
+              text: 'عذراً، حدث خطأ في تحميل المحادثة. يرجى المحاولة مرة أخرى.',
               isUser: false,
               sender: 'assistant',
             },
           ]);
+        } finally {
           setIsLoading(false);
           setIsNewConversation(false);
         }
@@ -369,6 +376,27 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
     }
   }, [currentConversationId]);
 
+  const resetConversation = () => {
+    setMessages([]);
+    setCurrentConversationId(null);
+    setOldRequests('');
+    setGreetingSent(false);
+    // Trigger the greeting message again
+    sendGreeting(deviceLanguage).then((response) => {
+      if (response.success) {
+        setMessages([
+          {
+            id: Date.now().toString(),
+            text: response.text,
+            isUser: false,
+            sender: 'assistant',
+          },
+        ]);
+        setGreetingSent(true);
+      }
+    });
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar backgroundColor={theme.colors.neutral.surface} barStyle="dark-content" />
@@ -377,7 +405,11 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
         style={styles.container}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}>
         <View style={styles.mainContent}>
-          <ChatHeader onNewConversation={handleNewConversation} onTitlePress={toggleSidebar} />
+          <ChatHeader
+            onMenuPress={toggleSidebar}
+            onResetPress={resetConversation}
+            showReset={messages.length > 0}
+          />
           <MessageList
             messages={messages}
             refreshControl={

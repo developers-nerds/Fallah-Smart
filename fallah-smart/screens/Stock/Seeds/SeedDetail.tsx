@@ -171,7 +171,7 @@ const SeedDetailScreen: React.FC<SeedDetailScreenProps> = ({ navigation, route }
           
           const response = await axios.get(directUrl, {
             headers: {
-              'Authorization': tokens?.accessToken ? `Bearer ${tokens.accessToken}` : '',
+              'Authorization': tokens?.access ? `Bearer ${tokens.access}` : '',
               'Content-Type': 'application/json'
             }
           });
@@ -224,7 +224,7 @@ const SeedDetailScreen: React.FC<SeedDetailScreenProps> = ({ navigation, route }
                 await axios.delete(deleteURL, {
                   headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': tokens?.accessToken ? `Bearer ${tokens.accessToken}` : ''
+                    'Authorization': tokens?.access ? `Bearer ${tokens.access}` : ''
                   }
                 });
                 

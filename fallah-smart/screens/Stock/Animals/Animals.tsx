@@ -10,7 +10,8 @@ import {
   Dimensions,
   Platform,
   SafeAreaView,
-  StatusBar
+  StatusBar,
+  Alert
 } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
 import { useStock } from '../../../context/StockContext';
@@ -196,6 +197,13 @@ const getBreedingStatusIcon = (status: BreedingStatus): string => {
   }
 };
 
+// Define AnimalCard component props interface
+interface AnimalCardProps {
+  animal: Animal;
+  onPress: () => void;
+  onDelete: (id: string | number) => void;
+}
+
 export const AnimalsScreen = ({ navigation }: AnimalsScreenProps) => {
   const theme = useTheme();
   const { animals, loading, error, refreshAnimals } = useStock();
@@ -204,28 +212,149 @@ export const AnimalsScreen = ({ navigation }: AnimalsScreenProps) => {
   const [page, setPage] = useState(1);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
-  // Only log once during development, remove in production
-  // console.log('AnimalsScreen render - Animals count:', animals?.length);
-  // console.log('AnimalsScreen render - Loading state:', loading);
-  // console.log('AnimalsScreen render - Error state:', error);
+  // Define filteredAnimals based on search query and selected category
+  const filteredAnimals = useMemo(() => {
+    return animals.filter(animal => {
+      // Filter by search query
+      const matchesQuery = searchQuery === '' || 
+        animal.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        animal.type?.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      // Filter by category
+      const matchesCategory = !selectedCategory || 
+        selectedCategory === 'الكل' || 
+        (animal as any).category === selectedCategory; // Use type assertion for category
+      
+      return matchesQuery && matchesCategory;
+    });
+  }, [animals, searchQuery, selectedCategory]);
+
+  // Define paginatedAnimals for pagination
+  const paginatedAnimals = useMemo(() => {
+    return filteredAnimals.slice(0, page * ITEMS_PER_PAGE);
+  }, [filteredAnimals, page]);
+
+  // Define hasMore for pagination control
+  const hasMore = useMemo(() => {
+    return paginatedAnimals.length < filteredAnimals.length;
+  }, [paginatedAnimals.length, filteredAnimals.length]);
+
+  // Handle delete animal function
+  const handleDelete = useCallback((animalId: string | number) => {
+    // Here you would typically call an API to delete the animal
+    Alert.alert(
+      'تأكيد الحذف',
+      'هل أنت متأكد من رغبتك في حذف هذا الحيوان؟',
+      [
+        { text: 'إلغاء', style: 'cancel' },
+        { 
+          text: 'حذف', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Call delete API here
+              // await deleteAnimal(animalId);
+              // Then refresh the list
+              refreshAnimals();
+            } catch (error) {
+              Alert.alert('خطأ', 'حدث خطأ أثناء محاولة حذف الحيوان');
+            }
+          }
+        }
+      ]
+    );
+  }, [refreshAnimals]);
+
+  // Add AnimalCard component with proper types
+  const AnimalCard = ({ animal, onPress, onDelete }: AnimalCardProps) => {
+    return (
+      <Animated.View 
+        entering={FadeInDown.duration(300).delay(150)}
+        style={[styles.card, { backgroundColor: theme.colors.neutral.surface }]}
+      >
+        <TouchableOpacity 
+          onPress={onPress}
+          style={styles.cardContent}
+        >
+          <View style={styles.cardHeader}>
+            <View style={[
+              styles.iconContainer, 
+              { backgroundColor: theme.colors.primary.surface }
+            ]}>
+              <Text style={styles.animalIcon}>
+                {getAnimalIcon(animal.type)}
+              </Text>
+            </View>
+            <View style={styles.headerInfo}>
+              <View style={styles.titleContainer}>
+                <Text style={[styles.animalType, { color: theme.colors.neutral.textPrimary }]}>
+                  {animal.name || getAnimalName(animal.type)}
+                </Text>
+                <Text style={[styles.animalCategory, { color: theme.colors.neutral.textSecondary }]}>
+                  {(animal as any).category || 'حيوان'}
+                </Text>
+              </View>
+            </View>
+            {(animal as any).count > 1 && (
+              <View style={[
+                styles.countBadge, 
+                { backgroundColor: theme.colors.success + '20', borderColor: theme.colors.success }
+              ]}>
+                <Text style={[styles.countText, { color: theme.colors.success }]}>
+                  {FIELD_ICONS.count} {(animal as any).count}
+                </Text>
+              </View>
+            )}
+          </View>
+          <View style={styles.cardFooter}>
+            <View style={[
+              styles.healthBadge, 
+              { backgroundColor: getHealthStatusColor(animal.healthStatus, theme) }
+            ]}>
+              <Text style={styles.healthText}>
+                {HEALTH_STATUS_ICONS[animal.healthStatus as keyof typeof HEALTH_STATUS_ICONS] || '❓'} {getHealthStatusLabel(animal.healthStatus)}
+              </Text>
+            </View>
+            {animal.birthDate && (
+              <View style={styles.birthDateContainer}>
+                <Text style={[styles.birthDate, { color: theme.colors.neutral.textSecondary }]}>
+                  {FIELD_ICONS.birthDate} {new Date(animal.birthDate).toLocaleDateString('ar-EG')}
+                </Text>
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  };
+
+  // Add renderHeader function
+  const renderHeader = useCallback(() => {
+    return (
+      <View style={styles.searchContainer}>
+        <SearchBar
+          placeholder="البحث عن حيوان..."
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          style={styles.searchBar}
+        />
+      </View>
+    );
+  }, [searchQuery]);
 
   useEffect(() => {
-    console.log('AnimalsScreen mounted - fetching data');
-    // Call refreshAnimals only once when component mounts
     let isMounted = true;
     const loadData = async () => {
       try {
         await refreshAnimals();
-        // Only update state if component is still mounted
         if (!isMounted) return;
       } catch (err) {
-        console.error('Error loading animals:', err);
+        // Handle error silently or show an alert if needed
       }
     };
     
     loadData();
     
-    // Cleanup function
     return () => {
       isMounted = false;
     };
@@ -234,60 +363,33 @@ export const AnimalsScreen = ({ navigation }: AnimalsScreenProps) => {
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      // console.log('Manual refresh triggered');
       await refreshAnimals();
       setPage(1);
-      // console.log('Manual refresh completed');
     } catch (error) {
-      console.error('Error refreshing animals:', error);
+      // Handle error silently or show an alert if needed
     } finally {
       setRefreshing(false);
     }
   }, [refreshAnimals]);
 
-  const categories = useMemo(() => {
-    const uniqueCategories = new Set(
-      animals.map(animal => {
-        const animalType = Object.keys(ANIMAL_TYPES).find(key => 
-          animal.type.toLowerCase() === key || 
-          animal.type.toLowerCase() === ANIMAL_TYPES[key as keyof typeof ANIMAL_TYPES].name
-        );
-        return animalType ? ANIMAL_TYPES[animalType as keyof typeof ANIMAL_TYPES].category : 'أخرى';
-      })
+  const handleLoadMore = () => {
+    if (loading || !hasMore) return;
+    setPage(prevPage => prevPage + 1);
+  };
+
+  const renderItem = useCallback(({ item }: { item: Animal }) => {
+    return (
+      <AnimalCard 
+        animal={item}
+        onPress={() => navigation.navigate('AnimalDetail', { animalId: item.id })}
+        onDelete={handleDelete}
+      />
     );
-    return ['الكل', ...Array.from(uniqueCategories)];
-  }, [animals]);
-
-  const filteredAnimals = useMemo(() => {
-    return animals
-      .filter(animal => {
-        const matchesSearch = animal.type.toLowerCase().includes(searchQuery.toLowerCase());
-        if (!selectedCategory || selectedCategory === 'الكل') return matchesSearch;
-        
-        const animalType = Object.keys(ANIMAL_TYPES).find(key => 
-          animal.type.toLowerCase() === key || 
-          animal.type.toLowerCase() === ANIMAL_TYPES[key as keyof typeof ANIMAL_TYPES].name
-        );
-        const category = animalType ? ANIMAL_TYPES[animalType as keyof typeof ANIMAL_TYPES].category : 'أخرى';
-        return matchesSearch && category === selectedCategory;
-      })
-      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-  }, [animals, searchQuery, selectedCategory]);
-
-  const paginatedAnimals = useMemo(() => {
-    return filteredAnimals.slice(0, page * ITEMS_PER_PAGE);
-  }, [filteredAnimals, page]);
-
-  const handleLoadMore = useCallback(() => {
-    if (paginatedAnimals.length < filteredAnimals.length) {
-      setPage(prev => prev + 1);
-    }
-  }, [paginatedAnimals.length, filteredAnimals.length]);
+  }, [navigation, handleDelete]);
 
   const renderFooter = useCallback(() => {
     if (paginatedAnimals.length >= filteredAnimals.length) return null;
     
-    // console.log('Rendering footer - more animals to show');
     return (
       <TouchableOpacity
         style={[styles.seeMoreButton, { backgroundColor: theme.colors.primary.base }]}
@@ -300,7 +402,6 @@ export const AnimalsScreen = ({ navigation }: AnimalsScreenProps) => {
   }, [paginatedAnimals.length, filteredAnimals.length, handleLoadMore, theme]);
 
   const renderListEmptyComponent = useCallback(() => {
-    // console.log('Rendering empty state - no animals found');
     return (
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyIcon}>🔍</Text>
@@ -318,205 +419,7 @@ export const AnimalsScreen = ({ navigation }: AnimalsScreenProps) => {
     );
   }, [theme, handleRefresh]);
 
-  const renderCategoryChip = useCallback(({ item }: { item: string }) => (
-    <TouchableOpacity
-      style={[
-        styles.categoryChip,
-        { 
-          backgroundColor: selectedCategory === item ? theme.colors.primary.base : theme.colors.neutral.surface,
-          borderColor: selectedCategory === item ? theme.colors.primary.base : theme.colors.neutral.border,
-          opacity: item === 'الكل' ? (selectedCategory === item || !selectedCategory ? 1 : 0.7) : 1,
-        }
-      ]}
-      onPress={() => setSelectedCategory(selectedCategory === item ? null : item)}
-    >
-      <Text style={[styles.categoryIcon, item === 'الكل' && styles.allCategoryIcon]}>
-        {CATEGORY_ICONS[item as keyof typeof CATEGORY_ICONS] || '🐾'}
-      </Text>
-      <Text style={[
-        styles.categoryText,
-        { color: selectedCategory === item ? '#FFF' : theme.colors.neutral.textSecondary }
-      ]}>
-        {item}
-      </Text>
-      {selectedCategory === item && (
-        <MaterialCommunityIcons name="close-circle" size={16} color="#FFF" />
-      )}
-    </TouchableOpacity>
-  ), [selectedCategory, theme]);
-
-  const renderAnimalCard = useCallback(({ item, index }: { item: Animal; index: number }) => {
-    const isPoorHealth = item.healthStatus === 'poor';
-    const animalType = Object.keys(ANIMAL_TYPES).find(key => 
-      item.type.toLowerCase() === key || 
-      item.type.toLowerCase() === ANIMAL_TYPES[key as keyof typeof ANIMAL_TYPES].name
-    );
-    const animalInfo = animalType ? ANIMAL_TYPES[animalType as keyof typeof ANIMAL_TYPES] : null;
-    
-    return (
-      <Animated.View
-        entering={FadeInDown.delay(index * 100).springify()}
-        style={[
-          styles.card,
-          { 
-            backgroundColor: theme.colors.neutral.surface,
-            ...Platform.select({
-              ios: {
-                shadowColor: theme.colors.neutral.textPrimary,
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.1,
-                shadowRadius: 8,
-              },
-              android: {
-                elevation: 4,
-              },
-            }),
-          }
-        ]}
-      >
-        <TouchableOpacity
-          style={styles.cardContent}
-          onPress={() => navigation.navigate('AnimalDetail', { animalId: item.id })}
-          activeOpacity={0.7}
-        >
-          <View style={styles.cardHeader}>
-            <View style={[
-              styles.iconContainer,
-              { backgroundColor: isPoorHealth ? theme.colors.error : theme.colors.primary.base }
-            ]}>
-              <Text style={styles.animalIcon}>{animalInfo?.icon || '🐾'}</Text>
-            </View>
-            <View style={styles.headerInfo}>
-              <View style={styles.titleContainer}>
-                <Text style={[styles.animalType, { color: theme.colors.neutral.textPrimary }]}>
-                  {animalInfo?.name || item.type}
-                </Text>
-                <View style={styles.categoryRow}>
-                  <Text style={styles.categoryIcon}>
-                    {CATEGORY_ICONS[animalInfo?.category as keyof typeof CATEGORY_ICONS] || '🐾'}
-                  </Text>
-                  <Text style={[styles.animalCategory, { color: theme.colors.neutral.textSecondary }]}>
-                    {animalInfo?.category}
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.subtitleContainer}>
-                <View style={styles.genderContainer}>
-                  <Text style={styles.genderIcon}>
-                    {FIELD_ICONS.gender[item.gender]}
-                  </Text>
-                  <Text style={[styles.animalGender, { color: theme.colors.neutral.textSecondary }]}>
-                    {item.gender === 'male' ? 'ذكر' : 'أنثى'}
-                  </Text>
-                </View>
-                <View style={[
-                  styles.breedingBadge,
-                  { backgroundColor: getBreedingStatusColor(item.breedingStatus, theme) }
-                ]}>
-                  <Text style={styles.breedingIcon}>
-                    {BREEDING_STATUS_ICONS[item.breedingStatus]}
-                  </Text>
-                  <Text style={styles.breedingText}>
-                    {getBreedingStatusLabel(item.breedingStatus)}
-                  </Text>
-                </View>
-              </View>
-            </View>
-            <View style={[
-              styles.countBadge,
-              { backgroundColor: theme.colors.primary.base }
-            ]}>
-              <Text style={styles.countIcon}>{FIELD_ICONS.count}</Text>
-              <Text style={[styles.countText, { color: '#FFF' }]}>
-                {item.count} {item.count === 1 ? 'حيوان' : 'حيوانات'}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.cardFooter}>
-            <View style={[
-              styles.healthBadge, 
-              { backgroundColor: getHealthStatusColor(item.healthStatus, theme) }
-            ]}>
-              <Text style={styles.healthIcon}>
-                {HEALTH_STATUS_ICONS[item.healthStatus]}
-              </Text>
-              <Text style={styles.healthText}>
-                {getHealthStatusLabel(item.healthStatus)}
-              </Text>
-            </View>
-            {item.birthDate && (
-              <View style={styles.birthDateContainer}>
-                <Text style={styles.calendarIcon}>{FIELD_ICONS.birthDate}</Text>
-                <Text style={[styles.birthDate, { color: theme.colors.neutral.textSecondary }]}>
-                  {new Date(item.birthDate).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: '2-digit',
-                    day: '2-digit'
-                  })}
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {isPoorHealth && (
-            <View style={[styles.alertContainer, { backgroundColor: theme.colors.error }]}>
-              <Text style={styles.alertIcon}>⚠️</Text>
-              <Text style={styles.alertText}>
-                حالة صحية سيئة - يحتاج إلى رعاية فورية
-              </Text>
-            </View>
-          )}
-
-          {item.vaccination && (
-            <View style={styles.infoRow}>
-              <MaterialCommunityIcons name="needle" size={16} color={theme.colors.neutral.textSecondary} />
-              <Text style={[styles.infoText, { color: theme.colors.neutral.textSecondary }]}>
-                التلقيح: {item.vaccination}
-              </Text>
-            </View>
-          )}
-          {item.nextVaccinationDate && (
-            <View style={styles.infoRow}>
-              <MaterialCommunityIcons name="calendar" size={16} color={theme.colors.neutral.textSecondary} />
-              <Text style={[styles.infoText, { color: theme.colors.neutral.textSecondary }]}>
-                موعد التلقيح القادم: {new Date(item.nextVaccinationDate).toLocaleDateString('en-US', {
-                  year: 'numeric',
-                  month: '2-digit',
-                  day: '2-digit'
-                })}
-              </Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      </Animated.View>
-    );
-  }, [theme, navigation]);
-
-  const renderHeader = useCallback(() => (
-    <Animated.View entering={FadeIn.springify()}>
-      <View style={styles.searchContainer}>
-        <SearchBar
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder="ابحث عن الحيوانات..."
-          style={styles.searchBar}
-        />
-      </View>
-      <FlatList
-        data={categories}
-        renderItem={renderCategoryChip}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.categoriesList}
-        contentContainerStyle={styles.categoriesContent}
-        keyExtractor={item => item}
-      />
-    </Animated.View>
-  ), [searchQuery, categories, renderCategoryChip]);
-
   if (loading && !animals.length) {
-    // console.log('Showing loading indicator');
     return (
       <View style={[styles.container, styles.centerContent]}>
         <ActivityIndicator size="large" color={theme.colors.primary.base} />
@@ -528,7 +431,6 @@ export const AnimalsScreen = ({ navigation }: AnimalsScreenProps) => {
   }
 
   if (error) {
-    // console.log('Showing error state:', error);
     return (
       <View style={[styles.container, styles.centerContent]}>
         <MaterialCommunityIcons 
@@ -561,7 +463,7 @@ export const AnimalsScreen = ({ navigation }: AnimalsScreenProps) => {
           <>
             <FlatList
               data={paginatedAnimals}
-              renderItem={renderAnimalCard}
+              renderItem={renderItem}
               keyExtractor={item => item.id?.toString()}
               contentContainerStyle={styles.listContent}
               ListHeaderComponent={renderHeader}
@@ -840,5 +742,41 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    color: '#666',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  retryButton: {
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: '#2196F3',
+  },
+  retryButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  footer: {
+    padding: 16,
+    alignItems: 'center',
+  },
+  emptySubText: {
+    color: '#666',
   },
 }); 

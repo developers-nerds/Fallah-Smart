@@ -279,7 +279,7 @@ export const AddSeedScreen = ({ navigation, route }: AddSeedScreenProps) => {
         const response = await axios.post(endpoint, directSeedData, {
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': tokens?.accessToken ? `Bearer ${tokens.accessToken}` : ''
+            'Authorization': tokens?.access ? `Bearer ${tokens.access}` : ''
           },
           timeout: 10000
         });
