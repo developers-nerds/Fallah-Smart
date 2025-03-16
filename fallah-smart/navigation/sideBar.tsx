@@ -147,7 +147,7 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
 
       <MenuItem
         icon="home-variant"
-        label="Home"
+        label="بيت"
         active={currentRoute === 'HomeContent'}
         onPress={() => {
           props.navigation.navigate('HomeContent', { refreshScanHistory: true });
@@ -157,7 +157,7 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
       />
       <MenuItem
         icon="warehouse"
-        label="Stock"
+        label="المخزون "
         active={currentRoute === 'Stock'}
         onPress={() => {
           props.navigation.navigate('Stock');
@@ -167,7 +167,7 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
       />
       <MenuItem
         icon="store"
-        label="Marketplace"
+        label="السوق"
         active={currentRoute === 'Marketplace'}
         onPress={() => {
           props.navigation.navigate('Marketplace');
@@ -178,7 +178,7 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
   
       <MenuItem
         icon="chat"
-        label="Chat"
+        label="محادثة"
         active={currentRoute === 'Chat'}
         onPress={() => {
           props.navigation.navigate('Chat');
@@ -188,7 +188,7 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
       />
       <MenuItem
         icon="barcode-scan"
-        label="Scan"
+        label="مسح ضوئي"
         active={currentRoute === 'Scan'}
         onPress={() => {
           props.navigation.navigate('Scan');
@@ -210,7 +210,7 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
 
       <MenuItem
         icon="book-open-variant"
-        label="Dictionary"
+        label="قاموس"
         active={currentRoute === 'Dictionary'}
         onPress={() => {
           props.navigation.navigate('Dictionary');
@@ -220,8 +220,8 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
       />
       <MenuItem
         icon="school"
-        label="Education"
-        active={currentRoute === 'Education'}
+        label="تعليم"
+        active={currentRoute === 'تعليم'}
         onPress={() => {
           props.navigation.navigate('Education')
           props.navigation.closeDrawer();

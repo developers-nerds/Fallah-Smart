@@ -8,15 +8,7 @@ const stockController = {
     try {
       const stocks = await Stock.findAll({
         where: { userId: req.user.id },
-        include: [{
-          model: StockHistory,
-          as: 'stockHistory',
-          order: [['date', 'DESC']]
-        }],
-        order: [
-          ['updatedAt', 'DESC'],
-          [{ model: StockHistory, as: 'stockHistory' }, 'date', 'DESC']
-        ]
+        order: [['updatedAt', 'DESC']]
       });
       
       res.json(stocks);
@@ -36,12 +28,7 @@ const stockController = {
         where: { 
           id: req.params.id,
           userId: req.user.id 
-        },
-        include: [{
-          model: StockHistory,
-          as: 'stockHistory',
-          order: [['date', 'DESC']]
-        }]
+        }
       });
 
       if (!stock) {
@@ -85,24 +72,7 @@ const stockController = {
 
       const stock = await Stock.create(stockData);
 
-      // Create initial history entry
-      await StockHistory.create({
-        stockId: stock.id,
-        quantity: stock.quantity,
-        type: 'add',
-        notes: 'Initial stock'
-      });
-
-      // Fetch the created stock with its history
-      const createdStock = await Stock.findByPk(stock.id, {
-        include: [{
-          model: StockHistory,
-          as: 'stockHistory',
-          order: [['date', 'DESC']]
-        }]
-      });
-
-      res.status(201).json(createdStock);
+      res.status(201).json(stock);
     } catch (error) {
       console.error('Error creating stock:', error);
       res.status(500).json({ 
@@ -195,7 +165,6 @@ const stockController = {
       // Prevent updating certain fields
       delete updates.id;
       delete updates.userId;
-      delete updates.stockHistory;
 
       const stock = await Stock.findOne({
         where: { 
@@ -209,15 +178,7 @@ const stockController = {
       }
 
       await stock.update(updates);
-
-      // Fetch updated stock with history
-      const updatedStock = await Stock.findByPk(stock.id, {
-        include: [{
-          model: StockHistory,
-          as: 'stockHistory',
-          order: [['date', 'DESC']]
-        }]
-      });
+      const updatedStock = await Stock.findByPk(stock.id);
 
       res.json(updatedStock);
     } catch (error) {
@@ -244,11 +205,6 @@ const stockController = {
       if (!stock) {
         return res.status(404).json({ message: 'Stock not found' });
       }
-
-      // Delete associated history first
-      await StockHistory.destroy({
-        where: { stockId: id }
-      });
 
       // Delete the stock
       await stock.destroy();

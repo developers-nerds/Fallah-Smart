@@ -23,7 +23,6 @@ const createConversation = async (req, res) => {
       data: newConversation,
     });
   } catch (error) {
-    console.error("Error creating conversation:", error);
     res.status(500).json({
       success: false,
       message: "Failed to create conversation",
@@ -40,20 +39,19 @@ const createConversation = async (req, res) => {
 const getUserConversations = async (req, res) => {
   try {
     const userId = req.user.id;
-    console.log( "userId",userId);
+    
     // Find all conversations for the user
     const conversations = await Conversations.findAll({
       where: { userId },
       order: [["updatedAt", "DESC"]], // Sort by most recently updated
     });
-    console.log( "conversations",conversations);
+    
     res.status(200).json({
       success: true,
       count: conversations.length,
       data: conversations,
     });
   } catch (error) {
-    console.error("Error fetching conversations:", error);
     res.status(500).json({
       success: false,
       message: "Failed to fetch conversations",

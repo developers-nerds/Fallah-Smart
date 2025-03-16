@@ -53,6 +53,15 @@ interface Transaction {
   };
 }
 
+// Create a separate component for the Main screen
+const MainScreen = () => {
+  return (
+    <StockProvider>
+      <StockNavigator />
+    </StockProvider>
+  );
+};
+
 // Create the stack navigator with typed params
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -62,11 +71,7 @@ export const RootNavigator: React.FC = () => {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen 
         name="Main" 
-        component={() => (
-          <StockProvider>
-            <StockNavigator />
-          </StockProvider>
-        )}
+        component={MainScreen}
       />
       <Stack.Screen name="AddTransaction" component={AddTransaction} />
       <Stack.Screen name="EditTransaction" component={EditTransaction} />
@@ -75,7 +80,8 @@ export const RootNavigator: React.FC = () => {
         component={Wallet} 
         options={{ title: 'محفظتي' }} // Set the header title here
       />
-      <Stack.Screen name="Education" component={EducationNavigator} />
+      <Stack.Screen name="Education" component={EducationNavigator}
+       options={{ title: 'تعليم' }} />
       <Stack.Screen 
         name="AdvisorApplication" 
         component={AdvisorApplication}
