@@ -318,7 +318,11 @@ export const AnimalsScreen = ({ navigation }: AnimalsScreenProps) => {
             {animal.birthDate && (
               <View style={styles.birthDateContainer}>
                 <Text style={[styles.birthDate, { color: theme.colors.neutral.textSecondary }]}>
-                  {FIELD_ICONS.birthDate} {new Date(animal.birthDate).toLocaleDateString('ar-EG')}
+                  {FIELD_ICONS.birthDate} {new Date(animal.birthDate).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                  })}
                 </Text>
               </View>
             )}

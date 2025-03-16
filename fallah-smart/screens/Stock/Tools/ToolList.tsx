@@ -1,224 +1,392 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  RefreshControl,
   Alert,
-  ActivityIndicator,
+  Platform,
+  I18nManager,
+  StatusBar,
+  ScrollView,
 } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
-import { useTool } from '../../../context/ToolContext';
-import { StockTool } from '../types';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { createThemedStyles } from '../../../utils/createThemedStyles';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { StockStackParamList } from '../../../navigation/types';
+import { Button } from '../../../components/Button';
+import { TextInput } from '../../../components/TextInput';
+import { TOOL_TYPES, TOOL_STATUS, TOOL_CONDITION, TOOL_ICONS, ToolType, ToolStatus, ToolCondition } from './constants';
+import { storage } from '../../../utils/storage';
+import axios from 'axios';
+import { Animated } from 'react-native';
 
-const ITEMS_PER_PAGE = 10;
+// Force RTL layout
+I18nManager.allowRTL(true);
+I18nManager.forceRTL(true);
 
 type ToolListScreenProps = {
   navigation: StackNavigationProp<StockStackParamList, 'ToolList'>;
 };
 
+interface Tool {
+  id: string;
+  name: string;
+  quantity: number;
+  minQuantityAlert: number;
+  category: ToolType;
+  status: ToolStatus;
+  condition: ToolCondition;
+  purchaseDate: string | null;
+  lastMaintenanceDate: string | null;
+  nextMaintenanceDate: string | null;
+  maintenanceInterval: number | null;
+  brand: string;
+  model: string;
+  purchasePrice: number | null;
+  replacementCost: number | null;
+  storageLocation: string;
+  assignedTo: string;
+  maintenanceNotes: string;
+  usageInstructions: string;
+  safetyGuidelines: string;
+}
+
+const ToolCard: React.FC<{
+  tool: Tool;
+  onPress: () => void;
+  theme: any;
+}> = ({ tool, onPress, theme }) => {
+  return (
+    <TouchableOpacity
+      style={[
+        styles.card,
+        {
+          backgroundColor: theme.colors.neutral.surface,
+          borderRadius: theme.borderRadius.medium,
+          padding: 16,
+          marginBottom: 12,
+          ...theme.shadows.medium
+        }
+      ]}
+      onPress={onPress}
+    >
+      <View style={styles.cardHeader}>
+        <Text style={[
+          {
+            fontSize: 16,
+            fontWeight: 'bold',
+            color: theme.colors.neutral.textPrimary 
+          }
+        ]}>
+          {TOOL_ICONS.basic.name} {tool.name}
+        </Text>
+        <View style={styles.statusContainer}>
+          <Text style={[
+            {
+              fontSize: 14,
+              color: tool.status === 'available' ? theme.colors.success : theme.colors.error,
+              backgroundColor: tool.status === 'available' ? theme.colors.success + '10' : theme.colors.error + '10',
+              padding: 8,
+              borderRadius: theme.borderRadius.medium
+            }
+          ]}>
+            {tool.status === 'available' ? 'متاح' : 'غير متاح'}
+          </Text>
+        </View>
+      </View>
+
+      <View style={[styles.cardContent, { gap: 12 }]}>
+        <View style={[
+          styles.infoRow,
+          {
+            backgroundColor: theme.colors.neutral.background,
+            padding: 12,
+            borderRadius: theme.borderRadius.medium
+          }
+        ]}>
+          <Text style={[
+            { 
+              fontSize: 14,
+              color: theme.colors.neutral.textSecondary 
+            }
+          ]}>
+            {TOOL_ICONS.basic.category} {TOOL_TYPES[tool.category].name}
+          </Text>
+          <Text style={[
+            { 
+              fontSize: 14,
+              color: theme.colors.neutral.textPrimary 
+            }
+          ]}>
+            {TOOL_ICONS.basic.quantity} {tool.quantity}
+          </Text>
+        </View>
+
+        <View style={[
+          styles.infoRow,
+          {
+            backgroundColor: theme.colors.neutral.background,
+            padding: 12,
+            borderRadius: theme.borderRadius.medium
+          }
+        ]}>
+          <Text style={[
+            { 
+              fontSize: 14,
+              color: theme.colors.neutral.textSecondary 
+            }
+          ]}>
+            {TOOL_ICONS.basic.condition} {TOOL_CONDITION[tool.condition].name}
+          </Text>
+          {tool.storageLocation && (
+            <Text style={[
+              { 
+                fontSize: 14,
+                color: theme.colors.neutral.textPrimary 
+              }
+            ]}>
+              {TOOL_ICONS.location.storage} {tool.storageLocation}
+            </Text>
+          )}
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
 const ToolListScreen: React.FC<ToolListScreenProps> = ({ navigation }) => {
   const theme = useTheme();
-  const { tools, fetchTools, loading } = useTool();
-  const [refreshing, setRefreshing] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [tools, setTools] = useState<Tool[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<ToolType | null>(null);
 
   useEffect(() => {
     fetchTools();
   }, []);
 
-  const onRefresh = React.useCallback(async () => {
-    setRefreshing(true);
+  const fetchTools = async () => {
     try {
-      await fetchTools();
-      setCurrentPage(1);
+      setLoading(true);
+      setError(null);
+      const tokens = await storage.getTokens();
+      
+      const response = await axios.get(
+        `${process.env.EXPO_PUBLIC_API_URL}/stock/tools`,
+        {
+          headers: {
+            'Authorization': `Bearer ${tokens?.access}`
+          }
+        }
+      );
+
+      if (response.data) {
+        setTools(response.data);
+      }
     } catch (error) {
-      Alert.alert('خطأ', 'فشل في تحديث قائمة الأدوات');
+      console.error('Error fetching tools:', error);
+      setError('فشل في تحميل الأدوات');
     } finally {
-      setRefreshing(false);
-    }
-  }, [fetchTools]);
-
-  const loadMoreItems = () => {
-    if (isLoadingMore || tools.length <= currentPage * ITEMS_PER_PAGE) return;
-    
-    setIsLoadingMore(true);
-    setCurrentPage(prev => prev + 1);
-    setIsLoadingMore(false);
-  };
-
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'hand':
-        return '🔨';
-      case 'power':
-        return '⚡';
-      case 'garden':
-        return '🌱';
-      case 'cleaning':
-        return '🧹';
-      default:
-        return '🔧';
+      setLoading(false);
     }
   };
 
-  const renderToolItem = ({ item }: { item: StockTool }) => {
-    return (
+  const filteredTools = tools.filter(tool => {
+    const matchesSearch = tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      tool.brand?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      tool.model?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      tool.storageLocation?.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesCategory = !selectedCategory || tool.category === selectedCategory;
+
+    return matchesSearch && matchesCategory;
+  });
+
+  const renderEmptyState = () => (
+    <View style={[styles.emptyState, { backgroundColor: theme.colors.neutral.background }]}>
+      <Text style={[
+        styles.emptyStateText,
+        theme.typography.arabic.h2,
+        { color: theme.colors.neutral.textSecondary }
+      ]}>
+        {TOOL_ICONS.basic.tools} لا توجد أدوات
+      </Text>
       <TouchableOpacity
-        style={[styles.card, { backgroundColor: theme.colors.neutral.surface }]}
-        onPress={() => navigation.navigate('ToolDetail', { toolId: item.id })}
+        style={[
+          styles.addButton,
+          {
+            backgroundColor: theme.colors.primary.base,
+            ...theme.shadows.medium
+          }
+        ]}
+        onPress={() => navigation.navigate('AddTool')}
       >
-        <View style={styles.cardHeader}>
-          <View style={styles.cardTitleContainer}>
-            <Text style={styles.typeIcon}>{getTypeIcon(item.type)}</Text>
-            <Text style={[styles.cardTitle, { color: theme.colors.neutral.textPrimary }]}>
-              {item.name}
+        <Text style={[
+          theme.typography.arabic.body,
+          { color: theme.colors.neutral.surface }
+        ]}>
+          إضافة أداة جديدة
             </Text>
-          </View>
-          <MaterialCommunityIcons
-            name="chevron-left"
-            size={24}
-            color={theme.colors.neutral.textSecondary}
-          />
-        </View>
-
-        <View style={styles.cardContent}>
-          <View style={styles.infoRow}>
-            <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-              الكمية:
-            </Text>
-            <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-              {item.quantity}
-            </Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-              الحالة:
-            </Text>
-            <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-              {item.condition}
-            </Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-              الموقع:
-            </Text>
-            <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-              {item.location}
-            </Text>
-          </View>
-        </View>
-
-        {item.quantity <= item.minQuantityAlert && (
-          <View style={[styles.alert, { backgroundColor: theme.colors.error.light }]}>
-            <MaterialCommunityIcons
-              name="alert"
-              size={16}
-              color={theme.colors.error.dark}
-            />
-            <Text style={[styles.alertText, { color: theme.colors.error.dark }]}>
-              المخزون منخفض
-            </Text>
-          </View>
-        )}
       </TouchableOpacity>
-    );
-  };
+    </View>
+  );
 
-  const paginatedData = tools.slice(0, currentPage * ITEMS_PER_PAGE);
+  if (loading) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
+        <Text style={{ color: theme.colors.neutral.textSecondary }}>جاري التحميل...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
+        <Text style={{ color: theme.colors.error }}>{error}</Text>
+        <Button title="إعادة المحاولة" onPress={fetchTools} />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
-      <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: theme.colors.neutral.textPrimary }]}>
-          الأدوات
-        </Text>
-        <TouchableOpacity
-          style={[styles.addButton, { backgroundColor: theme.colors.primary.base }]}
-          onPress={() => navigation.navigate('AddTool')}
+      <StatusBar barStyle="dark-content" />
+      <View style={[styles.header, { borderBottomColor: theme.colors.neutral.border, borderBottomWidth: 1 }]}>
+        <TextInput
+          placeholder="بحث عن أداة..."
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          style={[
+            styles.searchInput,
+            {
+              backgroundColor: theme.colors.neutral.surface,
+              borderColor: theme.colors.neutral.border,
+              ...theme.shadows.small
+            }
+          ]}
+        />
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.categoryFilters}
+          contentContainerStyle={{ paddingHorizontal: theme.spacing.md }}
         >
-          <MaterialCommunityIcons name="plus" size={24} color="white" />
+          <TouchableOpacity
+            style={[
+              styles.categoryChip,
+              {
+                backgroundColor: !selectedCategory ? theme.colors.primary.base : theme.colors.neutral.surface,
+                borderColor: theme.colors.primary.base,
+                borderWidth: 1,
+                ...theme.shadows.small
+              }
+            ]}
+            onPress={() => setSelectedCategory(null)}
+          >
+            <Text style={[
+              theme.typography.arabic.body,
+              {
+                color: !selectedCategory ? theme.colors.neutral.surface : theme.colors.primary.base
+              }
+            ]}>
+              الكل
+            </Text>
+          </TouchableOpacity>
+          {Object.entries(TOOL_TYPES).map(([key, value]) => (
+            <TouchableOpacity
+              key={key}
+              style={[
+                styles.categoryChip,
+                {
+                  backgroundColor: selectedCategory === key ? theme.colors.primary.base : theme.colors.neutral.surface,
+                  borderColor: theme.colors.primary.base,
+                  borderWidth: 1,
+                  ...theme.shadows.small
+                }
+              ]}
+              onPress={() => setSelectedCategory(key as ToolType)}
+            >
+              <Text style={[
+                theme.typography.arabic.body,
+                {
+                  color: selectedCategory === key ? theme.colors.neutral.surface : theme.colors.primary.base
+                }
+              ]}>
+                {value.icon} {value.name}
+              </Text>
         </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
 
       <FlatList
-        data={paginatedData}
-        renderItem={renderToolItem}
-        keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={styles.list}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[theme.colors.primary.base]}
+        data={filteredTools}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <ToolCard
+            tool={item}
+            onPress={() => navigation.navigate('ToolDetail', { id: item.id })}
+            theme={theme}
           />
-        }
-        onEndReached={loadMoreItems}
-        onEndReachedThreshold={0.5}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>🔧</Text>
-            <Text style={[styles.emptyText, { color: theme.colors.neutral.textSecondary }]}>
-              لا يوجد أدوات
-            </Text>
-          </View>
-        }
-        ListFooterComponent={
-          isLoadingMore ? (
-            <View style={styles.loadingMore}>
-              <ActivityIndicator size="small" color={theme.colors.primary.base} />
-            </View>
-          ) : null
-        }
+        )}
+        contentContainerStyle={[
+          styles.list,
+          { padding: theme.spacing.md }
+        ]}
+        ListEmptyComponent={renderEmptyState}
       />
+
+      <TouchableOpacity
+        style={[
+          styles.fab,
+          {
+            backgroundColor: theme.colors.primary.base,
+            ...theme.shadows.large
+          }
+        ]}
+        onPress={() => navigation.navigate('AddTool')}
+      >
+        <Text style={[styles.fabText, { color: theme.colors.neutral.surface }]}>+</Text>
+      </TouchableOpacity>
     </View>
   );
 };
 
-const styles = createThemedStyles((theme) => ({
+const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.neutral.border,
+    gap: 16,
   },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
+  searchInput: {
+    height: 48,
+    borderRadius: 24,
+    paddingHorizontal: 20,
+    borderWidth: 1,
+    fontSize: 16,
   },
-  addButton: {
-    width: 40,
-    height: 40,
+  categoryFilters: {
+    flexDirection: 'row',
+  },
+  categoryChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 20,
-    justifyContent: 'center',
+    marginRight: 8,
+    minWidth: 90,
     alignItems: 'center',
   },
   list: {
+    gap: 12,
     padding: 16,
   },
   card: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    width: '100%',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -226,63 +394,44 @@ const styles = createThemedStyles((theme) => ({
     alignItems: 'center',
     marginBottom: 12,
   },
-  cardTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  typeIcon: {
-    fontSize: 24,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+  statusContainer: {
+    alignItems: 'flex-end',
   },
   cardContent: {
-    gap: 8,
+    gap: 12,
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  label: {
-    fontSize: 14,
-  },
-  value: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  alert: {
-    flexDirection: 'row',
+  fab: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: 'center',
-    gap: 4,
-    marginTop: 12,
-    padding: 8,
-    borderRadius: 6,
+    justifyContent: 'center',
   },
-  alertText: {
-    fontSize: 12,
-    fontWeight: '500',
+  fabText: {
+    fontSize: 24,
+    fontWeight: 'bold',
   },
-  emptyContainer: {
+  emptyState: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
-    gap: 16,
+    gap: 24,
+    padding: 24,
   },
-  emptyIcon: {
-    fontSize: 48,
-  },
-  emptyText: {
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  loadingMore: {
-    paddingVertical: 16,
+  addButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 24,
     alignItems: 'center',
   },
-}));
+});
 
 export default ToolListScreen; 
