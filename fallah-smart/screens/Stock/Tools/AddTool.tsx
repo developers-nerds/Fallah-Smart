@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,357 +6,546 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  Platform,
+  I18nManager,
+  Dimensions,
 } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
-import { useTool } from '../../../context/ToolContext';
-import { StockTool, ToolType, StockUnit } from '../types';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { createThemedStyles } from '../../../utils/createThemedStyles';
 import { StackNavigationProp } from '@react-navigation/stack';
+import { RouteProp } from '@react-navigation/native';
 import { StockStackParamList } from '../../../navigation/types';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
 import { TextInput } from '../../../components/TextInput';
 import { Button } from '../../../components/Button';
-import RNPickerSelect from 'react-native-picker-select';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { TOOL_TYPES, TOOL_STATUS, TOOL_CONDITION, TOOL_ICONS, ToolType, ToolStatus, ToolCondition } from './constants';
+import { storage } from '../../../utils/storage';
+import axios from 'axios';
+import Animated, { 
+  useAnimatedStyle, 
+  withSpring, 
+  useSharedValue,
+  withTiming,
+  runOnJS
+} from 'react-native-reanimated';
+
+// Force RTL layout
+I18nManager.allowRTL(true);
+I18nManager.forceRTL(true);
+
+const { width } = Dimensions.get('window');
 
 type AddToolScreenProps = {
   navigation: StackNavigationProp<StockStackParamList, 'AddTool'>;
+  route: RouteProp<StockStackParamList, 'AddTool'>;
 };
 
 interface FormData {
   name: string;
   quantity: string;
-  unit: StockUnit;
   minQuantityAlert: string;
-  price: string;
-  type: ToolType;
-  manufacturer: string;
-  model: string;
+  category: ToolType;
+  status: ToolStatus;
+  condition: ToolCondition;
   purchaseDate: Date | null;
   lastMaintenanceDate: Date | null;
   nextMaintenanceDate: Date | null;
-  condition: 'new' | 'good' | 'fair' | 'poor';
-  location: string;
-  notes: string;
-  supplier: string;
+  maintenanceInterval: string;
+  brand: string;
+  model: string;
+  purchasePrice: string;
+  replacementCost: string;
+  storageLocation: string;
+  assignedTo: string;
+  maintenanceNotes: string;
+  usageInstructions: string;
+  safetyGuidelines: string;
 }
 
 const validationSchema = Yup.object().shape({
-  name: Yup.string().required('الاسم مطلوب'),
+  name: Yup.string().required('اسم الأداة مطلوب'),
   quantity: Yup.number()
     .required('الكمية مطلوبة')
     .min(0, 'الكمية يجب أن تكون أكبر من 0'),
-  unit: Yup.string().required('الوحدة مطلوبة'),
   minQuantityAlert: Yup.number()
     .required('حد التنبيه مطلوب')
     .min(0, 'حد التنبيه يجب أن يكون أكبر من 0'),
-  price: Yup.number()
-    .required('السعر مطلوب')
+  category: Yup.string().required('نوع الأداة مطلوب'),
+  status: Yup.string().required('حالة الأداة مطلوبة'),
+  condition: Yup.string().required('حالة الأداة مطلوبة'),
+  purchasePrice: Yup.number()
     .min(0, 'السعر يجب أن يكون أكبر من 0'),
-  type: Yup.string().required('النوع مطلوب'),
-  condition: Yup.string().required('الحالة مطلوبة'),
 });
 
 const initialFormData: FormData = {
   name: '',
   quantity: '',
-  unit: 'piece',
-  minQuantityAlert: '',
-  price: '',
-  type: 'hand',
-  manufacturer: '',
-  model: '',
+  minQuantityAlert: '2',
+  category: 'hand_tools',
+  status: 'available',
+  condition: 'new',
   purchaseDate: null,
   lastMaintenanceDate: null,
   nextMaintenanceDate: null,
-  condition: 'new',
-  location: '',
-  notes: '',
-  supplier: '',
+  maintenanceInterval: '',
+  brand: '',
+  model: '',
+  purchasePrice: '',
+  replacementCost: '',
+  storageLocation: '',
+  assignedTo: '',
+  maintenanceNotes: '',
+  usageInstructions: '',
+  safetyGuidelines: '',
 };
 
-const AddToolScreen: React.FC<AddToolScreenProps> = ({ navigation }) => {
+const SECTIONS = [
+  {
+    id: 'basic',
+    title: `${TOOL_ICONS.sections.basic} المعلومات الأساسية`,
+    description: 'اسم الأداة، الكمية، والنوع',
+    icon: '🛠️'
+  },
+  {
+    id: 'purchase',
+    title: `${TOOL_ICONS.sections.purchase} معلومات الشراء`,
+    description: 'السعر وتاريخ الشراء',
+    icon: '💰'
+  },
+  {
+    id: 'location',
+    title: `${TOOL_ICONS.sections.location} المكان والمسؤول`,
+    description: 'مكان التخزين والشخص المسؤول',
+    icon: '📍'
+  },
+  {
+    id: 'maintenance',
+    title: `${TOOL_ICONS.sections.maintenance} الصيانة`,
+    description: 'مواعيد وملاحظات الصيانة',
+    icon: '🔧'
+  },
+  {
+    id: 'instructions',
+    title: `${TOOL_ICONS.sections.instructions} التعليمات`,
+    description: 'كيفية الاستخدام وإرشادات السلامة',
+    icon: '📝'
+  }
+];
+
+const AddToolScreen: React.FC<AddToolScreenProps> = ({ navigation, route }) => {
   const theme = useTheme();
-  const { addTool, loading } = useTool();
+  const [loading, setLoading] = useState(false);
+  const [currentSection, setCurrentSection] = useState(0);
   const [showPurchaseDatePicker, setShowPurchaseDatePicker] = useState(false);
   const [showLastMaintenanceDatePicker, setShowLastMaintenanceDatePicker] = useState(false);
   const [showNextMaintenanceDatePicker, setShowNextMaintenanceDatePicker] = useState(false);
+  
+  const translateX = useSharedValue(0);
 
-  const handleSubmit = async (values: FormData) => {
-    try {
-      await addTool({
-        name: values.name,
-        quantity: Number(values.quantity),
-        unit: values.unit,
-        minQuantityAlert: Number(values.minQuantityAlert),
-        price: Number(values.price),
-        type: values.type,
-        manufacturer: values.manufacturer.trim(),
-        model: values.model.trim(),
-        purchaseDate: values.purchaseDate?.toISOString(),
-        lastMaintenanceDate: values.lastMaintenanceDate?.toISOString(),
-        nextMaintenanceDate: values.nextMaintenanceDate?.toISOString(),
-        condition: values.condition,
-        location: values.location.trim(),
-        notes: values.notes.trim(),
-        supplier: values.supplier.trim(),
-      });
-      navigation.goBack();
-    } catch (error) {
-      Alert.alert('خطأ', 'فشل في إضافة الأداة');
+  const handleNext = () => {
+    if (currentSection < SECTIONS.length - 1) {
+      translateX.value = withSpring(-(currentSection + 1) * width);
+      setCurrentSection(prev => prev + 1);
     }
   };
 
+  const handlePrevious = () => {
+    if (currentSection > 0) {
+      translateX.value = withSpring(-(currentSection - 1) * width);
+      setCurrentSection(prev => prev - 1);
+    }
+  };
+
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateX: translateX.value }],
+    };
+  });
+
+  const handleSubmit = async (values: FormData) => {
+    try {
+      setLoading(true);
+      const tokens = await storage.getTokens();
+      
+      const toolData = {
+        ...values,
+        quantity: Number(values.quantity),
+        minQuantityAlert: Number(values.minQuantityAlert),
+        purchasePrice: values.purchasePrice ? Number(values.purchasePrice) : undefined,
+        replacementCost: values.replacementCost ? Number(values.replacementCost) : undefined,
+        maintenanceInterval: values.maintenanceInterval ? Number(values.maintenanceInterval) : undefined,
+      };
+
+      const response = await axios.post(
+        `${process.env.EXPO_PUBLIC_API_URL}/stock/tools`,
+        toolData,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${tokens?.access}`
+          }
+        }
+      );
+
+      if (response.data) {
+        navigation.goBack();
+      }
+    } catch (error) {
+      console.error('Error adding tool:', error);
+      Alert.alert('خطأ', 'فشل في إضافة الأداة');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const renderSectionHeader = () => (
+    <View style={[styles.header, { borderBottomColor: theme.colors.neutral.border }]}>
+      <View style={[styles.sectionIconContainer, { backgroundColor: theme.colors.primary.surface }]}>
+        <Text style={styles.sectionIcon}>{SECTIONS[currentSection].icon}</Text>
+      </View>
+      <Text style={[styles.sectionTitle, theme.typography.arabic.h2, { color: theme.colors.neutral.textPrimary }]}>
+        {SECTIONS[currentSection].title}
+      </Text>
+      <Text style={[styles.sectionDescription, theme.typography.arabic.body, { color: theme.colors.neutral.textSecondary }]}>
+        {SECTIONS[currentSection].description}
+      </Text>
+    </View>
+  );
+
+  const renderProgressBar = () => (
+    <View style={[styles.progressContainer, { padding: theme.spacing.md }]}>
+      <View style={styles.progressBar}>
+        {SECTIONS.map((section, index) => (
+          <TouchableOpacity
+            key={section.id}
+            onPress={() => {
+              translateX.value = withSpring(-index * width);
+              setCurrentSection(index);
+            }}
+            style={[
+              styles.progressStep,
+              {
+                backgroundColor: index <= currentSection 
+                  ? theme.colors.primary.base
+                  : theme.colors.neutral.border,
+                ...theme.shadows.small
+              }
+            ]}
+          >
+            <Text style={[styles.progressStepText, { color: theme.colors.neutral.surface }]}>
+              {index + 1}
+            </Text>
+            <Text style={styles.progressStepLabel}>{section.icon}</Text>
+          </TouchableOpacity>
+        ))}
+        <View 
+          style={[
+            styles.progressLine,
+            { backgroundColor: theme.colors.neutral.border }
+          ]} 
+        />
+      </View>
+    </View>
+  );
+
+  const renderBasicSection = (values: FormData, setFieldValue: any, errors: any, touched: any) => (
+    <View style={[styles.section, { width }]}>
+      <TextInput
+        label={`${TOOL_ICONS.basic.name} اسم الأداة`}
+        value={values.name}
+        onChangeText={(text) => setFieldValue('name', text)}
+        error={touched.name && errors.name}
+      />
+
+      <View style={styles.row}>
+        <View style={styles.halfInput}>
+          <TextInput
+            label={`${TOOL_ICONS.basic.quantity} الكمية`}
+            value={values.quantity}
+            onChangeText={(text) => setFieldValue('quantity', text)}
+            keyboardType="numeric"
+            error={touched.quantity && errors.quantity}
+          />
+        </View>
+        <View style={styles.halfInput}>
+          <TextInput
+            label={`${TOOL_ICONS.basic.minQuantity} حد التنبيه`}
+            value={values.minQuantityAlert}
+            onChangeText={(text) => setFieldValue('minQuantityAlert', text)}
+            keyboardType="numeric"
+            error={touched.minQuantityAlert && errors.minQuantityAlert}
+          />
+        </View>
+      </View>
+
+      <View style={styles.row}>
+        <View style={styles.halfInput}>
+          <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
+            {TOOL_ICONS.basic.category} النوع
+          </Text>
+          <TouchableOpacity
+            style={[styles.select, { borderColor: theme.colors.neutral.border }]}
+            onPress={() => {
+              Alert.alert(
+                'اختر النوع',
+                '',
+                Object.entries(TOOL_TYPES).map(([key, value]) => ({
+                  text: `${value.icon} ${value.name}`,
+                  onPress: () => setFieldValue('category', key)
+                }))
+              );
+            }}
+          >
+            <Text style={{ color: theme.colors.neutral.textPrimary }}>
+              {TOOL_TYPES[values.category].icon} {TOOL_TYPES[values.category].name}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.halfInput}>
+          <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
+            {TOOL_ICONS.basic.condition} الحالة
+          </Text>
+          <TouchableOpacity
+            style={[styles.select, { borderColor: theme.colors.neutral.border }]}
+            onPress={() => {
+              Alert.alert(
+                'اختر الحالة',
+                '',
+                Object.entries(TOOL_CONDITION).map(([key, value]) => ({
+                  text: `${value.icon} ${value.name}`,
+                  onPress: () => setFieldValue('condition', key)
+                }))
+              );
+            }}
+          >
+            <Text style={{ color: theme.colors.neutral.textPrimary }}>
+              {TOOL_CONDITION[values.condition].icon} {TOOL_CONDITION[values.condition].name}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+
+  const renderPurchaseSection = (values: FormData, setFieldValue: any, errors: any, touched: any) => (
+    <View style={[styles.section, { width }]}>
+      <TouchableOpacity
+        style={[styles.dateButton, { borderColor: theme.colors.neutral.border }]}
+        onPress={() => setShowPurchaseDatePicker(true)}
+      >
+        <Text style={[styles.dateButtonText, { color: theme.colors.neutral.textPrimary }]}>
+          {TOOL_ICONS.purchase.date} {values.purchaseDate
+            ? values.purchaseDate.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+              })
+            : 'تاريخ الشراء'}
+        </Text>
+      </TouchableOpacity>
+
+      <TextInput
+        label={`${TOOL_ICONS.purchase.brand} الشركة المصنعة`}
+        value={values.brand}
+        onChangeText={(text) => setFieldValue('brand', text)}
+      />
+
+      <TextInput
+        label={`${TOOL_ICONS.purchase.model} الموديل`}
+        value={values.model}
+        onChangeText={(text) => setFieldValue('model', text)}
+      />
+
+      <View style={styles.row}>
+        <View style={styles.halfInput}>
+          <TextInput
+            label={`${TOOL_ICONS.purchase.price} سعر الشراء`}
+            value={values.purchasePrice}
+            onChangeText={(text) => setFieldValue('purchasePrice', text)}
+            keyboardType="numeric"
+            error={touched.purchasePrice && errors.purchasePrice}
+          />
+        </View>
+        <View style={styles.halfInput}>
+          <TextInput
+            label={`${TOOL_ICONS.purchase.price} تكلفة الاستبدال`}
+            value={values.replacementCost}
+            onChangeText={(text) => setFieldValue('replacementCost', text)}
+            keyboardType="numeric"
+          />
+        </View>
+      </View>
+    </View>
+  );
+
+  const renderLocationSection = (values: FormData, setFieldValue: any) => (
+    <View style={[styles.section, { width }]}>
+      <TextInput
+        label={`${TOOL_ICONS.location.storage} موقع التخزين`}
+        value={values.storageLocation}
+        onChangeText={(text) => setFieldValue('storageLocation', text)}
+      />
+
+      <TextInput
+        label={`${TOOL_ICONS.location.assigned} المستخدم الحالي`}
+        value={values.assignedTo}
+        onChangeText={(text) => setFieldValue('assignedTo', text)}
+      />
+    </View>
+  );
+
+  const renderMaintenanceSection = (values: FormData, setFieldValue: any) => (
+    <View style={[styles.section, { width }]}>
+      <TouchableOpacity
+        style={[styles.dateButton, { borderColor: theme.colors.neutral.border }]}
+        onPress={() => setShowLastMaintenanceDatePicker(true)}
+      >
+        <Text style={[styles.dateButtonText, { color: theme.colors.neutral.textPrimary }]}>
+          {TOOL_ICONS.maintenance.last} {values.lastMaintenanceDate
+            ? values.lastMaintenanceDate.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+              })
+            : 'تاريخ آخر صيانة'}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.dateButton, { borderColor: theme.colors.neutral.border }]}
+        onPress={() => setShowNextMaintenanceDatePicker(true)}
+      >
+        <Text style={[styles.dateButtonText, { color: theme.colors.neutral.textPrimary }]}>
+          {TOOL_ICONS.maintenance.next} {values.nextMaintenanceDate
+            ? values.nextMaintenanceDate.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+              })
+            : 'تاريخ الصيانة القادمة'}
+        </Text>
+      </TouchableOpacity>
+
+      <TextInput
+        label={`${TOOL_ICONS.maintenance.notes} ملاحظات الصيانة`}
+        value={values.maintenanceNotes}
+        onChangeText={(text) => setFieldValue('maintenanceNotes', text)}
+        multiline
+        numberOfLines={4}
+      />
+    </View>
+  );
+
+  const renderInstructionsSection = (values: FormData, setFieldValue: any) => (
+    <View style={[styles.section, { width }]}>
+      <TextInput
+        label={`${TOOL_ICONS.instructions.usage} تعليمات الاستخدام`}
+        value={values.usageInstructions}
+        onChangeText={(text) => setFieldValue('usageInstructions', text)}
+        multiline
+        numberOfLines={4}
+      />
+
+      <TextInput
+        label={`${TOOL_ICONS.instructions.safety} إرشادات السلامة`}
+        value={values.safetyGuidelines}
+        onChangeText={(text) => setFieldValue('safetyGuidelines', text)}
+        multiline
+        numberOfLines={4}
+      />
+    </View>
+  );
+
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
+    <View style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
+      {renderSectionHeader()}
+      {renderProgressBar()}
+
       <Formik
         initialValues={initialFormData}
         validationSchema={validationSchema}
         onSubmit={handleSubmit}
       >
         {({ values, setFieldValue, handleSubmit, errors, touched }) => (
-          <View style={styles.form}>
-            <TextInput
-              label="اسم الأداة"
-              value={values.name}
-              onChangeText={(text) => setFieldValue('name', text)}
-              error={touched.name && errors.name}
-            />
+          <>
+            <ScrollView 
+              style={styles.formContainer}
+              showsVerticalScrollIndicator={false}
+            >
+              <Animated.View style={[styles.sectionsContainer, animatedStyle]}>
+                {renderBasicSection(values, setFieldValue, errors, touched)}
+                {renderPurchaseSection(values, setFieldValue, errors, touched)}
+                {renderLocationSection(values, setFieldValue)}
+                {renderMaintenanceSection(values, setFieldValue)}
+                {renderInstructionsSection(values, setFieldValue)}
+              </Animated.View>
+            </ScrollView>
 
-            <View style={styles.row}>
-              <View style={styles.halfInput}>
-                <TextInput
-                  label="الكمية"
-                  value={values.quantity}
-                  onChangeText={(text) => setFieldValue('quantity', text)}
-                  keyboardType="numeric"
-                  error={touched.quantity && errors.quantity}
-                />
+            <View style={[styles.footer, { 
+              borderTopColor: theme.colors.neutral.border,
+              padding: theme.spacing.md
+            }]}>
+              <View style={styles.navigationButtons}>
+                {currentSection > 0 && (
+                  <TouchableOpacity
+                    style={[
+                      styles.navButton,
+                      {
+                        backgroundColor: theme.colors.neutral.surface,
+                        borderWidth: 1,
+                        borderColor: theme.colors.primary.base,
+                        ...theme.shadows.small
+                      }
+                    ]}
+                    onPress={handlePrevious}
+                  >
+                    <Text style={[
+                      styles.navButtonText,
+                      theme.typography.arabic.body,
+                      { color: theme.colors.primary.base }
+                    ]}>⬅️ السابق</Text>
+                  </TouchableOpacity>
+                )}
+                {currentSection < SECTIONS.length - 1 ? (
+                  <TouchableOpacity
+                    style={[
+                      styles.navButton,
+                      {
+                        backgroundColor: theme.colors.primary.base,
+                        ...theme.shadows.small
+                      }
+                    ]}
+                    onPress={handleNext}
+                  >
+                    <Text style={[
+                      styles.navButtonText,
+                      theme.typography.arabic.body,
+                      { color: theme.colors.neutral.surface }
+                    ]}>التالي ➡️</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={[
+                      styles.navButton,
+                      {
+                        backgroundColor: loading ? theme.colors.primary.disabled : theme.colors.primary.base,
+                        ...theme.shadows.small
+                      }
+                    ]}
+                    onPress={() => handleSubmit()}
+                    disabled={loading}
+                  >
+                    <Text style={[
+                      styles.navButtonText,
+                      theme.typography.arabic.body,
+                      { color: theme.colors.neutral.surface }
+                    ]}>
+                      {loading ? 'جاري الحفظ...' : 'حفظ ✅'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
-              <View style={styles.halfInput}>
-                <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-                  الوحدة
-                </Text>
-                <RNPickerSelect
-                  value={values.unit}
-                  onValueChange={(value) => setFieldValue('unit', value)}
-                  items={[
-                    { label: 'قطعة', value: 'piece' },
-                    { label: 'كيلوغرام', value: 'kg' },
-                    { label: 'غرام', value: 'g' },
-                    { label: 'لتر', value: 'l' },
-                    { label: 'ملليلتر', value: 'ml' },
-                    { label: 'صندوق', value: 'box' },
-                    { label: 'كيس', value: 'bag' },
-                    { label: 'زجاجة', value: 'bottle' },
-                    { label: 'علبة', value: 'can' },
-                    { label: 'حزمة', value: 'pack' },
-                    { label: 'لفة', value: 'roll' },
-                    { label: 'متر', value: 'meter' },
-                    { label: 'سنتيمتر', value: 'cm' },
-                    { label: 'أخرى', value: 'other' },
-                  ]}
-                  style={{
-                    inputIOS: {
-                      fontSize: 16,
-                      paddingVertical: 12,
-                      paddingHorizontal: 10,
-                      borderWidth: 1,
-                      borderColor: theme.colors.neutral.border,
-                      borderRadius: 8,
-                      color: theme.colors.neutral.textPrimary,
-                    },
-                    inputAndroid: {
-                      fontSize: 16,
-                      paddingVertical: 12,
-                      paddingHorizontal: 10,
-                      borderWidth: 1,
-                      borderColor: theme.colors.neutral.border,
-                      borderRadius: 8,
-                      color: theme.colors.neutral.textPrimary,
-                    },
-                  }}
-                />
-              </View>
-            </View>
-
-            <View style={styles.row}>
-              <View style={styles.halfInput}>
-                <TextInput
-                  label="حد التنبيه"
-                  value={values.minQuantityAlert}
-                  onChangeText={(text) => setFieldValue('minQuantityAlert', text)}
-                  keyboardType="numeric"
-                  error={touched.minQuantityAlert && errors.minQuantityAlert}
-                />
-              </View>
-              <View style={styles.halfInput}>
-                <TextInput
-                  label="السعر"
-                  value={values.price}
-                  onChangeText={(text) => setFieldValue('price', text)}
-                  keyboardType="numeric"
-                  error={touched.price && errors.price}
-                />
-              </View>
-            </View>
-
-            <View style={styles.row}>
-              <View style={styles.halfInput}>
-                <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-                  النوع
-                </Text>
-                <RNPickerSelect
-                  value={values.type}
-                  onValueChange={(value) => setFieldValue('type', value)}
-                  items={[
-                    { label: 'يدوي', value: 'hand' },
-                    { label: 'كهربائي', value: 'power' },
-                    { label: 'حديقة', value: 'garden' },
-                    { label: 'ري', value: 'irrigation' },
-                    { label: 'حصاد', value: 'harvesting' },
-                    { label: 'أخرى', value: 'other' },
-                  ]}
-                  style={{
-                    inputIOS: {
-                      fontSize: 16,
-                      paddingVertical: 12,
-                      paddingHorizontal: 10,
-                      borderWidth: 1,
-                      borderColor: theme.colors.neutral.border,
-                      borderRadius: 8,
-                      color: theme.colors.neutral.textPrimary,
-                    },
-                    inputAndroid: {
-                      fontSize: 16,
-                      paddingVertical: 12,
-                      paddingHorizontal: 10,
-                      borderWidth: 1,
-                      borderColor: theme.colors.neutral.border,
-                      borderRadius: 8,
-                      color: theme.colors.neutral.textPrimary,
-                    },
-                  }}
-                />
-              </View>
-              <View style={styles.halfInput}>
-                <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-                  الحالة
-                </Text>
-                <RNPickerSelect
-                  value={values.condition}
-                  onValueChange={(value) => setFieldValue('condition', value)}
-                  items={[
-                    { label: 'جديد', value: 'new' },
-                    { label: 'جيد', value: 'good' },
-                    { label: 'متوسط', value: 'fair' },
-                    { label: 'سيء', value: 'poor' },
-                  ]}
-                  style={{
-                    inputIOS: {
-                      fontSize: 16,
-                      paddingVertical: 12,
-                      paddingHorizontal: 10,
-                      borderWidth: 1,
-                      borderColor: theme.colors.neutral.border,
-                      borderRadius: 8,
-                      color: theme.colors.neutral.textPrimary,
-                    },
-                    inputAndroid: {
-                      fontSize: 16,
-                      paddingVertical: 12,
-                      paddingHorizontal: 10,
-                      borderWidth: 1,
-                      borderColor: theme.colors.neutral.border,
-                      borderRadius: 8,
-                      color: theme.colors.neutral.textPrimary,
-                    },
-                  }}
-                />
-              </View>
-            </View>
-
-            <TextInput
-              label="الشركة المصنعة"
-              value={values.manufacturer}
-              onChangeText={(text) => setFieldValue('manufacturer', text)}
-            />
-
-            <TextInput
-              label="الموديل"
-              value={values.model}
-              onChangeText={(text) => setFieldValue('model', text)}
-            />
-
-            <View style={styles.dateContainer}>
-              <TouchableOpacity
-                style={styles.dateButton}
-                onPress={() => setShowPurchaseDatePicker(true)}
-              >
-                <Text style={[styles.dateButtonText, { color: theme.colors.neutral.textPrimary }]}>
-                  {values.purchaseDate
-                    ? values.purchaseDate.toLocaleDateString()
-                    : 'تاريخ الشراء'}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.dateButton}
-                onPress={() => setShowLastMaintenanceDatePicker(true)}
-              >
-                <Text style={[styles.dateButtonText, { color: theme.colors.neutral.textPrimary }]}>
-                  {values.lastMaintenanceDate
-                    ? values.lastMaintenanceDate.toLocaleDateString()
-                    : 'تاريخ آخر صيانة'}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.dateButton}
-                onPress={() => setShowNextMaintenanceDatePicker(true)}
-              >
-                <Text style={[styles.dateButtonText, { color: theme.colors.neutral.textPrimary }]}>
-                  {values.nextMaintenanceDate
-                    ? values.nextMaintenanceDate.toLocaleDateString()
-                    : 'تاريخ الصيانة القادمة'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            <TextInput
-              label="الموقع"
-              value={values.location}
-              onChangeText={(text) => setFieldValue('location', text)}
-            />
-
-            <TextInput
-              label="المورد"
-              value={values.supplier}
-              onChangeText={(text) => setFieldValue('supplier', text)}
-            />
-
-            <TextInput
-              label="ملاحظات"
-              value={values.notes}
-              onChangeText={(text) => setFieldValue('notes', text)}
-              multiline
-              numberOfLines={4}
-            />
-
-            <View style={styles.buttonContainer}>
-              <Button
-                title="إلغاء"
-                onPress={() => navigation.goBack()}
-                variant="secondary"
-              />
-              <Button
-                title="حفظ"
-                onPress={() => handleSubmit()}
-                loading={loading}
-                disabled={loading}
-              />
             </View>
 
             {showPurchaseDatePicker && (
@@ -403,49 +592,132 @@ const AddToolScreen: React.FC<AddToolScreenProps> = ({ navigation }) => {
                 minimumDate={new Date()}
               />
             )}
-          </View>
+          </>
         )}
       </Formik>
-    </ScrollView>
+    </View>
   );
 };
 
-const styles = createThemedStyles((theme) => ({
+const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  form: {
-    padding: 16,
-    gap: 16,
+  header: {
+    padding: 20,
+    alignItems: 'center',
+    borderBottomWidth: 1,
+  },
+  sectionIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  sectionIcon: {
+    fontSize: 32,
+  },
+  sectionTitle: {
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  sectionDescription: {
+    textAlign: 'center',
+    paddingHorizontal: 20,
+  },
+  progressContainer: {
+    padding: 20,
+  },
+  progressBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    position: 'relative',
+    height: 60,
+  },
+  progressLine: {
+    position: 'absolute',
+    height: 3,
+    top: '50%',
+    left: '10%',
+    zIndex: 0,
+    width: '80%',
+  },
+  progressStep: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  progressStepText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  progressStepLabel: {
+    position: 'absolute',
+    bottom: -25,
+    fontSize: 20,
+  },
+  formContainer: {
+    flex: 1,
+  },
+  sectionsContainer: {
+    flexDirection: 'row',
+  },
+  section: {
+    padding: 20,
+    gap: 20,
   },
   row: {
     flexDirection: 'row',
-    gap: 16,
+    gap: 20,
   },
   halfInput: {
     flex: 1,
   },
-  label: {
-    fontSize: 14,
-    marginBottom: 8,
+  footer: {
+    borderTopWidth: 1,
   },
-  dateContainer: {
-    gap: 8,
+  navigationButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 20,
+  },
+  navButton: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navButtonText: {
+    fontWeight: 'bold',
   },
   dateButton: {
     borderWidth: 1,
-    borderColor: theme.colors.neutral.border,
-    borderRadius: 8,
-    padding: 12,
+    borderRadius: 12,
+    padding: 16,
+    backgroundColor: '#f8f8f8',
   },
   dateButtonText: {
+    fontSize: 18,
+    textAlign: 'center',
+  },
+  select: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 16,
+    backgroundColor: '#f8f8f8',
+  },
+  label: {
     fontSize: 16,
+    marginBottom: 10,
+    fontWeight: '500',
   },
-  buttonContainer: {
-    flexDirection: 'row',
-    gap: 16,
-    marginTop: 16,
-  },
-}));
+});
 
 export default AddToolScreen; 

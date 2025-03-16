@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,325 +6,718 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  ActivityIndicator,
+  Platform,
+  I18nManager,
+  StatusBar,
 } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
-import { useTool } from '../../../context/ToolContext';
-import { StockTool } from '../types';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { createThemedStyles } from '../../../utils/createThemedStyles';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { StockStackParamList } from '../../../navigation/types';
 import { Button } from '../../../components/Button';
+import { TextInput } from '../../../components/TextInput';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { TOOL_TYPES, TOOL_STATUS, TOOL_CONDITION, TOOL_ICONS, ToolType, ToolStatus, ToolCondition } from './constants';
+import { storage } from '../../../utils/storage';
+import axios from 'axios';
+import { Animated } from 'react-native';
+
+// Force RTL layout
+I18nManager.allowRTL(true);
+I18nManager.forceRTL(true);
 
 type ToolDetailScreenProps = {
   navigation: StackNavigationProp<StockStackParamList, 'ToolDetail'>;
   route: RouteProp<StockStackParamList, 'ToolDetail'>;
 };
 
+interface Tool {
+  id: string;
+  name: string;
+  quantity: number;
+  minQuantityAlert: number;
+  category: ToolType;
+  status: ToolStatus;
+  condition: ToolCondition;
+  purchaseDate: string | null;
+  lastMaintenanceDate: string | null;
+  nextMaintenanceDate: string | null;
+  maintenanceInterval: number | null;
+  brand: string;
+  model: string;
+  purchasePrice: number | null;
+  replacementCost: number | null;
+  storageLocation: string;
+  assignedTo: string;
+  maintenanceNotes: string;
+  usageInstructions: string;
+  safetyGuidelines: string;
+}
+
 const ToolDetailScreen: React.FC<ToolDetailScreenProps> = ({ navigation, route }) => {
   const theme = useTheme();
-  const { tools, updateTool, deleteTool, loading } = useTool();
-  const [tool, setTool] = useState<StockTool | null>(null);
+  const [tool, setTool] = useState<Tool | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedTool, setEditedTool] = useState<Tool | null>(null);
+  const [showPurchaseDatePicker, setShowPurchaseDatePicker] = useState(false);
+  const [showLastMaintenanceDatePicker, setShowLastMaintenanceDatePicker] = useState(false);
+  const [showNextMaintenanceDatePicker, setShowNextMaintenanceDatePicker] = useState(false);
+  const [fadeAnim] = useState(new Animated.Value(1));
 
   useEffect(() => {
-    const foundTool = tools.find(t => t.id === route.params.toolId);
-    if (foundTool) {
-      setTool(foundTool);
+    fetchToolDetails();
+  }, [route.params.id]);
+
+  const fetchToolDetails = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const tokens = await storage.getTokens();
+      
+      const response = await axios.get(
+        `${process.env.EXPO_PUBLIC_API_URL}/stock/tools/${route.params.id}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${tokens?.access}`
+          }
+        }
+      );
+
+      if (response.data) {
+        setTool(response.data);
+        setEditedTool(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching tool details:', error);
+      setError('فشل في تحميل تفاصيل الأداة');
+    } finally {
+      setLoading(false);
     }
-  }, [tools, route.params.toolId]);
+  };
+
+  const handleUpdate = async () => {
+    if (!editedTool) return;
+
+    try {
+      setLoading(true);
+      const tokens = await storage.getTokens();
+      
+      const response = await axios.put(
+        `${process.env.EXPO_PUBLIC_API_URL}/stock/tools/${route.params.id}`,
+        editedTool,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${tokens?.access}`
+          }
+        }
+      );
+
+      if (response.data) {
+        setTool(response.data);
+        setEditedTool(response.data);
+        setIsEditing(false);
+        Alert.alert('نجاح', 'تم تحديث الأداة بنجاح');
+      }
+    } catch (error) {
+      console.error('Error updating tool:', error);
+      Alert.alert('خطأ', 'فشل في تحديث الأداة');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleDelete = async () => {
     Alert.alert(
       'تأكيد الحذف',
       'هل أنت متأكد من حذف هذه الأداة؟',
       [
-        {
-          text: 'إلغاء',
-          style: 'cancel',
-        },
+        { text: 'إلغاء', style: 'cancel' },
         {
           text: 'حذف',
           style: 'destructive',
           onPress: async () => {
             try {
-              await deleteTool(route.params.toolId);
+              setLoading(true);
+              const tokens = await storage.getTokens();
+              
+              await axios.delete(
+                `${process.env.EXPO_PUBLIC_API_URL}/stock/tools/${route.params.id}`,
+                {
+                  headers: {
+                    'Authorization': `Bearer ${tokens?.access}`
+                  }
+                }
+              );
+
               navigation.goBack();
             } catch (error) {
+              console.error('Error deleting tool:', error);
               Alert.alert('خطأ', 'فشل في حذف الأداة');
+            } finally {
+              setLoading(false);
             }
-          },
-        },
+          }
+        }
       ]
+    );
+  };
+
+  const toggleEdit = () => {
+    if (isEditing) {
+      setEditedTool(tool);
+    }
+    setIsEditing(!isEditing);
+  };
+
+  const renderStatusIcon = (status: ToolStatus) => {
+    return TOOL_STATUS[status].icon;
+  };
+
+  const renderInfoRow = (label: string, value: string | number | null, icon?: string) => {
+    if (!value) return null;
+    return (
+      <View style={[
+        styles.infoRow,
+        {
+          borderBottomColor: theme.colors.neutral.border,
+          padding: theme.spacing.sm,
+          backgroundColor: theme.colors.neutral.surface,
+          borderRadius: theme.borderRadius.small,
+          ...theme.shadows.small
+        }
+      ]}>
+        <Text style={[
+          styles.label,
+          theme.typography.arabic.caption,
+          { color: theme.colors.neutral.textSecondary }
+        ]}>
+          {icon} {label}
+        </Text>
+        <Text style={[
+          styles.value,
+          theme.typography.arabic.caption,
+          { color: theme.colors.neutral.textPrimary }
+        ]}>
+          {value}
+        </Text>
+      </View>
+    );
+  };
+
+  const renderSection = (title: string, icon: string, content: React.ReactNode) => {
+    return (
+      <Animated.View style={[
+        styles.section,
+        {
+          backgroundColor: theme.colors.neutral.surface,
+          borderRadius: theme.borderRadius.medium,
+          ...theme.shadows.small,
+          margin: theme.spacing.sm
+        }
+      ]}>
+        <View style={[
+          styles.sectionHeader,
+          {
+            backgroundColor: theme.colors.primary.surface,
+            borderTopLeftRadius: theme.borderRadius.medium,
+            borderTopRightRadius: theme.borderRadius.medium,
+            padding: theme.spacing.sm
+          }
+        ]}>
+          <Text style={[
+            styles.sectionTitle,
+            theme.typography.arabic.h3,
+            { color: theme.colors.primary.base }
+          ]}>
+            {icon} {title}
+          </Text>
+        </View>
+        <View style={{ padding: theme.spacing.sm, gap: theme.spacing.xs }}>
+          {content}
+        </View>
+      </Animated.View>
     );
   };
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.centerContent, { backgroundColor: theme.colors.neutral.background }]}>
-        <ActivityIndicator size="large" color={theme.colors.primary.base} />
+      <View style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
+        <Text style={{ color: theme.colors.neutral.textSecondary }}>جاري التحميل...</Text>
       </View>
     );
   }
 
-  if (!tool) {
+  if (error) {
     return (
-      <View style={[styles.container, styles.centerContent, { backgroundColor: theme.colors.neutral.background }]}>
-        <MaterialCommunityIcons
-          name="tools"
-          size={48}
-          color={theme.colors.neutral.textSecondary}
-        />
-        <Text style={[styles.errorText, { color: theme.colors.neutral.textSecondary }]}>
-          لم يتم العثور على الأداة
-        </Text>
+      <View style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
+        <Text style={{ color: theme.colors.error }}>{error}</Text>
+        <Button title="إعادة المحاولة" onPress={fetchToolDetails} />
       </View>
     );
   }
 
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'hand':
-        return 'hand';
-      case 'power':
-        return 'power-plug';
-      case 'garden':
-        return 'shovel';
-      case 'irrigation':
-        return 'water-pump';
-      case 'harvesting':
-        return 'sickle';
-      default:
-        return 'tools';
-    }
-  };
+  if (!tool || !editedTool) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
+        <Text style={{ color: theme.colors.neutral.textSecondary }}>لم يتم العثور على الأداة</Text>
+      </View>
+    );
+  }
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
-      <View style={[styles.header, { backgroundColor: theme.colors.neutral.surface }]}>
-        <View style={styles.headerContent}>
-          <MaterialCommunityIcons
-            name={getTypeIcon(tool.type)}
-            size={32}
-            color={theme.colors.primary.base}
-          />
-          <Text style={[styles.title, { color: theme.colors.neutral.textPrimary }]}>
-            {tool.name}
-          </Text>
+    <View style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
+      <StatusBar barStyle="dark-content" />
+      <ScrollView style={styles.scrollView}>
+        {isEditing ? (
+          <View style={[styles.form, { padding: theme.spacing.md, gap: theme.spacing.md }]}>
+            <TextInput
+              label={`${TOOL_ICONS.basic.name} اسم الأداة`}
+              value={editedTool.name}
+              onChangeText={(text) => setEditedTool({ ...editedTool, name: text })}
+            />
+
+            <View style={styles.row}>
+              <View style={styles.halfInput}>
+                <TextInput
+                  label={`${TOOL_ICONS.basic.quantity} الكمية`}
+                  value={String(editedTool.quantity)}
+                  onChangeText={(text) => setEditedTool({ ...editedTool, quantity: Number(text) })}
+                  keyboardType="numeric"
+                />
+              </View>
+              <View style={styles.halfInput}>
+                <TextInput
+                  label={`${TOOL_ICONS.basic.minQuantity} حد التنبيه`}
+                  value={String(editedTool.minQuantityAlert)}
+                  onChangeText={(text) => setEditedTool({ ...editedTool, minQuantityAlert: Number(text) })}
+                  keyboardType="numeric"
+                />
         </View>
       </View>
 
-      <View style={styles.content}>
-        <View style={[styles.section, { backgroundColor: theme.colors.neutral.surface }]}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.neutral.textPrimary }]}>
-            المعلومات الأساسية
-          </Text>
-          <View style={styles.infoRow}>
+            <View style={styles.row}>
+              <View style={styles.halfInput}>
             <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-              النوع:
+                  {TOOL_ICONS.basic.category} النوع
             </Text>
-            <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-              {tool.type}
+                <TouchableOpacity
+                  style={[styles.select, { borderColor: theme.colors.neutral.border }]}
+                  onPress={() => {
+                    Alert.alert(
+                      'اختر النوع',
+                      '',
+                      Object.entries(TOOL_TYPES).map(([key, value]) => ({
+                        text: `${value.icon} ${value.name}`,
+                        onPress: () => setEditedTool({ ...editedTool, category: key as ToolType })
+                      }))
+                    );
+                  }}
+                >
+                  <Text style={{ color: theme.colors.neutral.textPrimary }}>
+                    {TOOL_TYPES[editedTool.category].icon} {TOOL_TYPES[editedTool.category].name}
             </Text>
+                </TouchableOpacity>
           </View>
-          <View style={styles.infoRow}>
+              <View style={styles.halfInput}>
             <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-              الكمية:
+                  {TOOL_ICONS.basic.condition} الحالة
             </Text>
-            <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-              {tool.quantity} {tool.unit}
+                <TouchableOpacity
+                  style={[styles.select, { borderColor: theme.colors.neutral.border }]}
+                  onPress={() => {
+                    Alert.alert(
+                      'اختر الحالة',
+                      '',
+                      Object.entries(TOOL_CONDITION).map(([key, value]) => ({
+                        text: `${value.icon} ${value.name}`,
+                        onPress: () => setEditedTool({ ...editedTool, condition: key as ToolCondition })
+                      }))
+                    );
+                  }}
+                >
+                  <Text style={{ color: theme.colors.neutral.textPrimary }}>
+                    {TOOL_CONDITION[editedTool.condition].icon} {TOOL_CONDITION[editedTool.condition].name}
             </Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-              السعر:
-            </Text>
-            <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-              {tool.price} د.أ
-            </Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-              الحالة:
-            </Text>
-            <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-              {tool.condition}
-            </Text>
+                </TouchableOpacity>
           </View>
         </View>
 
-        <View style={[styles.section, { backgroundColor: theme.colors.neutral.surface }]}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.neutral.textPrimary }]}>
-            معلومات إضافية
+            <View style={styles.dateContainer}>
+              <TouchableOpacity
+                style={styles.dateButton}
+                onPress={() => setShowPurchaseDatePicker(true)}
+              >
+                <Text style={[styles.dateButtonText, { color: theme.colors.neutral.textPrimary }]}>
+                  {TOOL_ICONS.purchase.date} {editedTool.purchaseDate
+                    ? new Date(editedTool.purchaseDate).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric'
+                      })
+                    : 'تاريخ الشراء'}
           </Text>
-          {tool.manufacturer && (
-            <View style={styles.infoRow}>
-              <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-                الشركة المصنعة:
-              </Text>
-              <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-                {tool.manufacturer}
-              </Text>
-            </View>
-          )}
-          {tool.model && (
-            <View style={styles.infoRow}>
-              <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-                الموديل:
-              </Text>
-              <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-                {tool.model}
-              </Text>
-            </View>
-          )}
-          {tool.purchaseDate && (
-            <View style={styles.infoRow}>
-              <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-                تاريخ الشراء:
-              </Text>
-              <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-                {new Date(tool.purchaseDate).toLocaleDateString()}
-              </Text>
-            </View>
-          )}
-          {tool.location && (
-            <View style={styles.infoRow}>
-              <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-                الموقع:
-              </Text>
-              <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-                {tool.location}
-              </Text>
-            </View>
-          )}
-          {tool.supplier && (
-            <View style={styles.infoRow}>
-              <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-                المورد:
-              </Text>
-              <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-                {tool.supplier}
-              </Text>
-            </View>
-          )}
-        </View>
+              </TouchableOpacity>
 
-        <View style={[styles.section, { backgroundColor: theme.colors.neutral.surface }]}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.neutral.textPrimary }]}>
-            معلومات الصيانة
+              <TouchableOpacity
+                style={styles.dateButton}
+                onPress={() => setShowLastMaintenanceDatePicker(true)}
+              >
+                <Text style={[styles.dateButtonText, { color: theme.colors.neutral.textPrimary }]}>
+                  {TOOL_ICONS.maintenance.last} {editedTool.lastMaintenanceDate
+                    ? new Date(editedTool.lastMaintenanceDate).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric'
+                      })
+                    : 'تاريخ آخر صيانة'}
+              </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.dateButton}
+                onPress={() => setShowNextMaintenanceDatePicker(true)}
+              >
+                <Text style={[styles.dateButtonText, { color: theme.colors.neutral.textPrimary }]}>
+                  {TOOL_ICONS.maintenance.next} {editedTool.nextMaintenanceDate
+                    ? new Date(editedTool.nextMaintenanceDate).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric'
+                      })
+                    : 'تاريخ الصيانة القادمة'}
+              </Text>
+              </TouchableOpacity>
+            </View>
+
+            <TextInput
+              label={`${TOOL_ICONS.purchase.brand} الشركة المصنعة`}
+              value={editedTool.brand}
+              onChangeText={(text) => setEditedTool({ ...editedTool, brand: text })}
+            />
+
+            <TextInput
+              label={`${TOOL_ICONS.purchase.model} الموديل`}
+              value={editedTool.model}
+              onChangeText={(text) => setEditedTool({ ...editedTool, model: text })}
+            />
+
+            <View style={styles.row}>
+              <View style={styles.halfInput}>
+                <TextInput
+                  label={`${TOOL_ICONS.purchase.price} سعر الشراء`}
+                  value={editedTool.purchasePrice ? String(editedTool.purchasePrice) : ''}
+                  onChangeText={(text) => setEditedTool({ ...editedTool, purchasePrice: Number(text) })}
+                  keyboardType="numeric"
+                />
+            </View>
+              <View style={styles.halfInput}>
+                <TextInput
+                  label={`${TOOL_ICONS.purchase.price} تكلفة الاستبدال`}
+                  value={editedTool.replacementCost ? String(editedTool.replacementCost) : ''}
+                  onChangeText={(text) => setEditedTool({ ...editedTool, replacementCost: Number(text) })}
+                  keyboardType="numeric"
+                />
+            </View>
+            </View>
+
+            <TextInput
+              label={`${TOOL_ICONS.location.storage} موقع التخزين`}
+              value={editedTool.storageLocation}
+              onChangeText={(text) => setEditedTool({ ...editedTool, storageLocation: text })}
+            />
+
+            <TextInput
+              label={`${TOOL_ICONS.location.assigned} المستخدم الحالي`}
+              value={editedTool.assignedTo}
+              onChangeText={(text) => setEditedTool({ ...editedTool, assignedTo: text })}
+            />
+
+            <TextInput
+              label={`${TOOL_ICONS.maintenance.notes} ملاحظات الصيانة`}
+              value={editedTool.maintenanceNotes}
+              onChangeText={(text) => setEditedTool({ ...editedTool, maintenanceNotes: text })}
+              multiline
+              numberOfLines={4}
+            />
+
+            <TextInput
+              label={`${TOOL_ICONS.instructions.usage} تعليمات الاستخدام`}
+              value={editedTool.usageInstructions}
+              onChangeText={(text) => setEditedTool({ ...editedTool, usageInstructions: text })}
+              multiline
+              numberOfLines={4}
+            />
+
+            <TextInput
+              label={`${TOOL_ICONS.instructions.safety} إرشادات السلامة`}
+              value={editedTool.safetyGuidelines}
+              onChangeText={(text) => setEditedTool({ ...editedTool, safetyGuidelines: text })}
+              multiline
+              numberOfLines={4}
+            />
+
+            <View style={[styles.buttonContainer, { gap: theme.spacing.md }]}>
+              <TouchableOpacity
+                style={[
+                  styles.button,
+                  {
+                    backgroundColor: theme.colors.neutral.surface,
+                    borderWidth: 1,
+                    borderColor: theme.colors.primary.base,
+                    ...theme.shadows.small
+                  }
+                ]}
+                onPress={toggleEdit}
+              >
+                <Text style={[
+                  theme.typography.arabic.body,
+                  { color: theme.colors.primary.base }
+                ]}>
+                  إلغاء
+              </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.button,
+                  {
+                    backgroundColor: theme.colors.primary.base,
+                    ...theme.shadows.small
+                  }
+                ]}
+                onPress={handleUpdate}
+                disabled={loading}
+              >
+                <Text style={[
+                  theme.typography.arabic.body,
+                  { color: theme.colors.neutral.surface }
+                ]}>
+                  {loading ? 'جاري الحفظ...' : 'حفظ'}
+              </Text>
+              </TouchableOpacity>
+            </View>
+        </View>
+        ) : (
+          <>
+            {renderSection('معلومات أساسية', TOOL_ICONS.sections.basic, (
+              <>
+                {renderInfoRow('اسم الأداة', tool.name, TOOL_ICONS.basic.name)}
+                {renderInfoRow('الكمية', tool.quantity, TOOL_ICONS.basic.quantity)}
+                {renderInfoRow('حد التنبيه', tool.minQuantityAlert, TOOL_ICONS.basic.minQuantity)}
+                {renderInfoRow('النوع', `${TOOL_TYPES[tool.category].icon} ${TOOL_TYPES[tool.category].name}`, TOOL_ICONS.basic.category)}
+                {renderInfoRow('الحالة', `${TOOL_STATUS[tool.status].icon} ${TOOL_STATUS[tool.status].name}`, TOOL_ICONS.basic.status)}
+                {renderInfoRow('الحالة', `${TOOL_CONDITION[tool.condition].icon} ${TOOL_CONDITION[tool.condition].name}`, TOOL_ICONS.basic.condition)}
+              </>
+            ))}
+
+            {renderSection('معلومات الشراء', TOOL_ICONS.sections.purchase, (
+              <>
+                {tool.purchaseDate && renderInfoRow('تاريخ الشراء', new Date(tool.purchaseDate).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric'
+                }), TOOL_ICONS.purchase.date)}
+                {renderInfoRow('الشركة المصنعة', tool.brand, TOOL_ICONS.purchase.brand)}
+                {renderInfoRow('الموديل', tool.model, TOOL_ICONS.purchase.model)}
+                {renderInfoRow('سعر الشراء', tool.purchasePrice, TOOL_ICONS.purchase.price)}
+                {renderInfoRow('تكلفة الاستبدال', tool.replacementCost, TOOL_ICONS.purchase.price)}
+              </>
+            ))}
+
+            {renderSection('معلومات الموقع', TOOL_ICONS.sections.location, (
+              <>
+                {renderInfoRow('موقع التخزين', tool.storageLocation, TOOL_ICONS.location.storage)}
+                {renderInfoRow('المستخدم الحالي', tool.assignedTo, TOOL_ICONS.location.assigned)}
+              </>
+            ))}
+
+            {renderSection('معلومات الصيانة', TOOL_ICONS.sections.maintenance, (
+              <>
+                {tool.lastMaintenanceDate && renderInfoRow('تاريخ آخر صيانة', new Date(tool.lastMaintenanceDate).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric'
+                }), TOOL_ICONS.maintenance.last)}
+                {tool.nextMaintenanceDate && renderInfoRow('تاريخ الصيانة القادمة', new Date(tool.nextMaintenanceDate).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric'
+                }), TOOL_ICONS.maintenance.next)}
+                {renderInfoRow('فترة الصيانة (بالأيام)', tool.maintenanceInterval, TOOL_ICONS.maintenance.interval)}
+                {renderInfoRow('ملاحظات الصيانة', tool.maintenanceNotes, TOOL_ICONS.maintenance.notes)}
+              </>
+            ))}
+
+            {renderSection('التعليمات', TOOL_ICONS.sections.instructions, (
+              <>
+                {renderInfoRow('تعليمات الاستخدام', tool.usageInstructions, TOOL_ICONS.instructions.usage)}
+                {renderInfoRow('إرشادات السلامة', tool.safetyGuidelines, TOOL_ICONS.instructions.safety)}
+              </>
+            ))}
+
+            <View style={[
+              styles.buttonContainer,
+              {
+                padding: theme.spacing.md,
+                gap: theme.spacing.md,
+                backgroundColor: theme.colors.neutral.surface,
+                borderTopWidth: 1,
+                borderTopColor: theme.colors.neutral.border
+              }
+            ]}>
+              <TouchableOpacity
+                style={[
+                  styles.button,
+                  {
+                    backgroundColor: theme.colors.neutral.surface,
+                    borderWidth: 1,
+                    borderColor: theme.colors.primary.base,
+                    ...theme.shadows.small
+                  }
+                ]}
+                onPress={toggleEdit}
+              >
+                <Text style={[
+                  theme.typography.arabic.body,
+                  { color: theme.colors.primary.base }
+                ]}>
+                  تعديل
           </Text>
-          {tool.lastMaintenanceDate && (
-            <View style={styles.infoRow}>
-              <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-                تاريخ آخر صيانة:
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.button,
+                  {
+                    backgroundColor: theme.colors.error,
+                    ...theme.shadows.small
+                  }
+                ]}
+                onPress={handleDelete}
+                disabled={loading}
+              >
+                <Text style={[
+                  theme.typography.arabic.body,
+                  { color: theme.colors.neutral.surface }
+                ]}>
+                  {loading ? 'جاري الحذف...' : 'حذف'}
               </Text>
-              <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-                {new Date(tool.lastMaintenanceDate).toLocaleDateString()}
-              </Text>
+              </TouchableOpacity>
             </View>
-          )}
-          {tool.nextMaintenanceDate && (
-            <View style={styles.infoRow}>
-              <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-                تاريخ الصيانة القادمة:
-              </Text>
-              <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-                {new Date(tool.nextMaintenanceDate).toLocaleDateString()}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {tool.notes && (
-          <View style={[styles.section, { backgroundColor: theme.colors.neutral.surface }]}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.neutral.textPrimary }]}>
-              ملاحظات
-            </Text>
-            <Text style={[styles.notes, { color: theme.colors.neutral.textPrimary }]}>
-              {tool.notes}
-            </Text>
-          </View>
+          </>
         )}
 
-        <View style={styles.buttonContainer}>
-          <Button
-            title="تعديل"
-            onPress={() => navigation.navigate('AddTool', { toolId: tool.id })}
-            variant="primary"
+        {showPurchaseDatePicker && (
+          <DateTimePicker
+            value={editedTool.purchaseDate ? new Date(editedTool.purchaseDate) : new Date()}
+            mode="date"
+            display="default"
+            onChange={(event, date) => {
+              setShowPurchaseDatePicker(false);
+              if (date) {
+                setEditedTool({ ...editedTool, purchaseDate: date.toISOString() });
+              }
+            }}
+            maximumDate={new Date()}
           />
-          <Button
-            title="حذف"
-            onPress={handleDelete}
-            variant="danger"
+        )}
+
+        {showLastMaintenanceDatePicker && (
+          <DateTimePicker
+            value={editedTool.lastMaintenanceDate ? new Date(editedTool.lastMaintenanceDate) : new Date()}
+            mode="date"
+            display="default"
+            onChange={(event, date) => {
+              setShowLastMaintenanceDatePicker(false);
+              if (date) {
+                setEditedTool({ ...editedTool, lastMaintenanceDate: date.toISOString() });
+              }
+            }}
+            maximumDate={new Date()}
           />
-        </View>
+        )}
+
+        {showNextMaintenanceDatePicker && (
+          <DateTimePicker
+            value={editedTool.nextMaintenanceDate ? new Date(editedTool.nextMaintenanceDate) : new Date()}
+            mode="date"
+            display="default"
+            onChange={(event, date) => {
+              setShowNextMaintenanceDatePicker(false);
+              if (date) {
+                setEditedTool({ ...editedTool, nextMaintenanceDate: date.toISOString() });
+              }
+            }}
+            minimumDate={new Date()}
+          />
+        )}
+      </ScrollView>
       </View>
-    </ScrollView>
   );
 };
 
-const styles = createThemedStyles((theme) => ({
+const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  centerContent: {
-    justifyContent: 'center',
-    alignItems: 'center',
+  scrollView: {
+    flex: 1,
   },
-  header: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.neutral.border,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  content: {
-    padding: 16,
-    gap: 16,
+  form: {
+    flex: 1,
   },
   section: {
-    borderRadius: 12,
-    padding: 16,
-    gap: 12,
+    overflow: 'hidden',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 8,
+    textAlign: 'center',
+    flex: 1,
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  label: {
-    fontSize: 14,
-  },
-  value: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  notes: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
   buttonContainer: {
     flexDirection: 'row',
-    gap: 16,
-    marginTop: 16,
+    justifyContent: 'space-between',
   },
-  errorText: {
-    fontSize: 16,
-    marginTop: 16,
+  button: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-}));
+  row: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  halfInput: {
+    flex: 1,
+  },
+  select: {
+    borderWidth: 1,
+    borderRadius: 6,
+    padding: 8,
+  },
+  dateContainer: {
+    gap: 6,
+  },
+  dateButton: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 6,
+    padding: 8,
+  },
+  dateButtonText: {
+    fontSize: 14,
+  },
+});
 
 export default ToolDetailScreen; 
