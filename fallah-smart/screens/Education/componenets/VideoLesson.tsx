@@ -8,6 +8,7 @@ import Chat from './Chat';
 import QuestionAndAnswer from './QuestionAndAnswer';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getUserIdFromToken, saveVideoProgress } from '../utils/userProgress';
 
 // API base URL
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
@@ -163,29 +164,25 @@ const VideoLesson = () => {
     
     const timer = setTimeout(async () => {
       try {
-        const token = await AsyncStorage.getItem('userToken');
-        const userId = await AsyncStorage.getItem('userId');
+        // Get user ID using the improved function
+        const userId = await getUserIdFromToken();
+        if (!userId) {
+          console.log('User not authenticated, video progress will not be saved');
+          return;
+        }
         
-        if (!token || !userId) return;
+        console.log(`Marking video ID ${videoData.id} as watched for user ${userId}`);
         
-        // Update user progress to mark video as watched
-        await axios.post(
-          `${API_URL}/education/userProgress`,
-          {
-            userId: parseInt(userId),
-            videoId: videoData.id,
-            completed: true,
-            timeWatched: 30 // seconds watched
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          }
-        );
-        console.log("Marked video as watched");
+        // Save video progress using the utility function
+        const saveSuccess = await saveVideoProgress(userId, videoData.id, true);
+        
+        if (saveSuccess) {
+          console.log("Video marked as watched successfully");
+        } else {
+          console.error("Failed to mark video as watched");
+        }
       } catch (err) {
-        console.error("Error updating progress:", err);
+        console.error("Error updating video progress:", err);
       }
     }, 30000); // 30 seconds
     

@@ -3,12 +3,15 @@ import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Animated, 
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { theme } from '../../theme/theme';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+import { getUserIdFromToken, getAllUserProgress, getCompletedQuizCount, getTotalCounts } from './utils/userProgress';
+
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
+
 type EducationStackParamList = {
   Education: undefined;
   AnimalsLessons: undefined;
@@ -57,13 +60,8 @@ const EducationScreen = () => {
 
   const fetchTotals = async () => {
     try {
-      // Fetch animals count
-      const animalsResponse = await axios.get(`${API_URL}/education/animals`);
-      const animalsTotal = animalsResponse.data.length;
-      
-      // Fetch crops count
-      const cropsResponse = await axios.get(`${API_URL}/education/crops`);
-      const cropsTotal = cropsResponse.data.length;
+      // Use the getTotalCounts function
+      const { animals: animalsTotal, crops: cropsTotal } = await getTotalCounts();
       
       // Update categories with the correct totals
       setCategories(prev => prev.map(cat => {
@@ -76,11 +74,12 @@ const EducationScreen = () => {
       }));
       
       // Update category stats with the correct totals
-      setCategoryStats({
-        animals: { completed: categoryStats.animals.completed, total: animalsTotal },
-        crops: { completed: categoryStats.crops.completed, total: cropsTotal }
-      });
+      setCategoryStats(prev => ({
+        animals: { completed: prev.animals.completed, total: animalsTotal },
+        crops: { completed: prev.crops.completed, total: cropsTotal }
+      }));
       
+      console.log(`Totals fetched - Animals: ${animalsTotal}, Crops: ${cropsTotal}`);
     } catch (error) {
       console.error('Error fetching totals:', error);
     }
@@ -88,49 +87,56 @@ const EducationScreen = () => {
 
   const calculateProgress = async () => {
     try {
-      // Fetch user progress for animals
-      let completedAnimals = 0;
-      let animalScores = 0;
+      // Get user ID from improved function
+      const userId = await getUserIdFromToken();
       
-      // Get animal quizzes
-      const animalQuizzesResponse = await axios.get(`${API_URL}/education/quizzes/type/animal`);
-      const animalQuizzes = animalQuizzesResponse.data;
+      // Get the latest totals to ensure consistency
+      const { animals: totalAnimals, crops: totalCrops } = await getTotalCounts();
       
-      for (const quiz of animalQuizzes) {
-        // Check if user has completed this quiz
-        const userProgressKey = `animal_score_${quiz.id}`;
-        const score = await AsyncStorage.getItem(userProgressKey);
-        if (score) {
-          animalScores += parseFloat(score);
-          completedAnimals++;
-        }
+      if (!userId) {
+        console.log('No user ID found, progress cannot be calculated');
+        // Set zero progress for unauthenticated users
+        setCategoryProgress({
+          animals: 0,
+          crops: 0
+        });
+        setCategoryStats({
+          animals: { completed: 0, total: totalAnimals },
+          crops: { completed: 0, total: totalCrops }
+        });
+        return;
       }
       
-      // Fetch user progress for crops
-      let completedCrops = 0;
-      let cropScores = 0;
+      // Fetch user progress directly from API using the utility function
+      const userProgressData = await getAllUserProgress(userId);
       
-      // Get crop quizzes
-      const cropQuizzesResponse = await axios.get(`${API_URL}/education/quizzes/type/crop`);
-      const cropQuizzes = cropQuizzesResponse.data;
+      // Organize progress data by quiz type
+      let animalCompletedCount = 0;
+      let animalTotalScore = 0;
+      let cropCompletedCount = 0;
+      let cropTotalScore = 0;
       
-      for (const quiz of cropQuizzes) {
-        // Check if user has completed this quiz
-        const userProgressKey = `crop_score_${quiz.id}`;
-        const score = await AsyncStorage.getItem(userProgressKey);
-        if (score) {
-          cropScores += parseFloat(score);
-          completedCrops++;
-        }
+      if (userProgressData && Array.isArray(userProgressData) && userProgressData.length > 0) {
+        // Process each progress entry
+        userProgressData.forEach(progress => {
+          if (progress.Education_Quiz) {
+            const quizType = progress.Education_Quiz.type;
+            
+            if (quizType === 'animal') {
+              animalCompletedCount++;
+              animalTotalScore += progress.score;
+            } else if (quizType === 'crop') {
+              cropCompletedCount++;
+              cropTotalScore += progress.score;
+            }
+          }
+        });
       }
-
-      // Get totals from current state
-      const totalAnimals = categoryStats.animals.total;
-      const totalCrops = categoryStats.crops.total;
 
       // Calculate total progress including unanswered questions (counted as 0%)
-      const totalAnimalProgress = totalAnimals > 0 ? animalScores / (totalAnimals * 100) : 0;
-      const totalCropProgress = totalCrops > 0 ? cropScores / (totalCrops * 100) : 0;
+      // 100 is the max score per quiz
+      const totalAnimalProgress = totalAnimals > 0 ? animalTotalScore / (totalAnimals * 100) : 0;
+      const totalCropProgress = totalCrops > 0 ? cropTotalScore / (totalCrops * 100) : 0;
 
       setCategoryProgress({
         animals: totalAnimalProgress,
@@ -138,9 +144,11 @@ const EducationScreen = () => {
       });
 
       setCategoryStats({
-        animals: { completed: completedAnimals, total: totalAnimals },
-        crops: { completed: completedCrops, total: totalCrops }
+        animals: { completed: animalCompletedCount, total: totalAnimals },
+        crops: { completed: cropCompletedCount, total: totalCrops }
       });
+      
+      console.log(`Progress updated - Animals: ${animalCompletedCount}/${totalAnimals}, Crops: ${cropCompletedCount}/${totalCrops}`);
     } catch (error) {
       console.error('Error calculating progress:', error);
     }
@@ -167,9 +175,24 @@ const EducationScreen = () => {
 
   useFocusEffect(
     React.useCallback(() => {
-      calculateProgress();
-      return () => {};
-    }, [categoryStats.animals.total, categoryStats.crops.total])
+      console.log('Education screen focused, refreshing data...');
+      // Set loading state to true to show loading indicator
+      setIsLoading(true);
+      
+      // Load data in sequence
+      const refreshData = async () => {
+        await fetchTotals();
+        await calculateProgress();
+        setIsLoading(false);
+      };
+      
+      refreshData();
+      
+      return () => {
+        // Cleanup function when screen loses focus
+        console.log('Education screen unfocused');
+      };
+    }, [])
   );
 
   const handlePressIn = (index: number) => {
