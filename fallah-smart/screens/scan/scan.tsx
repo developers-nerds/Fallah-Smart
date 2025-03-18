@@ -291,39 +291,41 @@ const ScanScreen = () => {
   const saveToBackend = async (base64Image: string, aiResponse: string, retryCount = 0) => {
     try {
       const tokens = await storage.getTokens();
-      
-      // Create request body
-      const requestBody = {
-        picture: base64Image,
-        ai_response: aiResponse
-      };
-      
+
       // Check for authentication token
       if (!tokens || !tokens.access) {
-        Alert.alert(
-          'تسجيل الدخول مطلوب',
-          'يرجى تسجيل الدخول لحفظ نتائج الفحص',
-          [
-            { text: 'حسنًا' }
-          ]
-        );
+        Alert.alert('تسجيل الدخول مطلوب', 'يرجى تسجيل الدخول لحفظ نتائج الفحص', [
+          { text: 'حسنًا' },
+        ]);
         setIsButtonDisabled(false);
         return;
       }
-      
-      // Make API request
-      const response = await axios.post(`${API_BASE_URL}/scans/create`, requestBody, {
+
+      // Create a FormData object
+      const formData = new FormData();
+
+      // Convert photo URI to a file object
+      const photoUri = photo as string;
+      const filename = photoUri.split('/').pop() || 'photo.jpg';
+
+      formData.append('image', {
+        uri: photoUri,
+        type: 'image/jpeg', // You might want to detect this dynamically
+        name: filename,
+      } as any);
+
+      formData.append('ai_response', aiResponse);
+
+      // Make API request with FormData
+      const response = await axios.post(`${API_BASE_URL}/scans/create`, formData, {
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${tokens.access}`
-        }
+          'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${tokens.access}`,
+        },
       });
-      
+
       setIsButtonDisabled(false);
-      
-      // We're done, show the response
       setAiResponse(aiResponse);
-      
     } catch (error: any) {
       handleSaveError(error, base64Image, aiResponse, retryCount);
     }
@@ -343,7 +345,7 @@ const ScanScreen = () => {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       return saveToBackend(base64Image, aiResponse, retryCount + 1);
     }
-    
+
     // Error handling already implemented in the component
   };
 
