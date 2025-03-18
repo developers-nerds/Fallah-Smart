@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   SafeAreaView,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
@@ -42,6 +43,9 @@ const ScanHistoryScreen = () => {
   const [scans, setScans] = useState<ScanItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedScan, setSelectedScan] = useState<number | null>(null);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedScans, setSelectedScans] = useState<number[]>([]);
   const navigation = useNavigation<NavigationProp>();
   const baseUrl = process.env.EXPO_PUBLIC_API_URL?.replace('/api', '');
 
@@ -53,7 +57,7 @@ const ScanHistoryScreen = () => {
     try {
       setLoading(true);
       const tokens = await storage.getTokens();
-      
+
       if (!tokens.access) {
         setError('Authentication required');
         setLoading(false);
@@ -65,7 +69,6 @@ const ScanHistoryScreen = () => {
           Authorization: `Bearer ${tokens.access}`,
         },
       });
-
       if (response.data && Array.isArray(response.data)) {
         setScans(response.data);
       } else {
@@ -101,11 +104,73 @@ const ScanHistoryScreen = () => {
     navigation.navigate('HomeContent', { refreshScanHistory: true });
   };
 
+  const handleLongPress = (scanId: number) => {
+    setIsSelectionMode(true);
+    setSelectedScans([scanId]);
+  };
+
+  const handleSelection = (scanId: number) => {
+    if (isSelectionMode) {
+      setSelectedScans((prev) =>
+        prev.includes(scanId) ? prev.filter((id) => id !== scanId) : [...prev, scanId]
+      );
+    } else {
+      handleScanPress(scans.find((scan) => scan.id === scanId)!);
+    }
+  };
+
+  const cancelSelectionMode = () => {
+    setIsSelectionMode(false);
+    setSelectedScans([]);
+  };
+
+  const handleDelete = async (scanIds: number[]) => {
+    try {
+      const tokens = await storage.getTokens();
+      if (!tokens?.access) {
+        Alert.alert('Error', 'Authentication required');
+        return;
+      }
+
+      await Promise.all(
+        scanIds.map((id) =>
+          axios.delete(`${baseUrl}/api/scans/${id}`, {
+            headers: {
+              Authorization: `Bearer ${tokens.access}`,
+            },
+          })
+        )
+      );
+
+      setScans((prevScans) => prevScans.filter((scan) => !scanIds.includes(scan.id)));
+      Alert.alert('نجاح', 'تم حذف عمليات المسح المحددة بنجاح');
+      cancelSelectionMode();
+    } catch (error) {
+      Alert.alert('خطأ', 'فشل في حذف عمليات المسح المحددة');
+    }
+  };
+
+  const confirmDelete = (scanIds: number[]) => {
+    const message =
+      scanIds.length === 1
+        ? 'هل أنت متأكد من حذف هذا المسح؟'
+        : `هل أنت متأكد من حذف ${scanIds.length} عمليات مسح؟`;
+
+    Alert.alert('حذف المسح', message, [
+      { text: 'إلغاء', style: 'cancel' },
+      {
+        text: 'حذف',
+        onPress: () => handleDelete(scanIds),
+        style: 'destructive',
+      },
+    ]);
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={theme.colors.primary.base} />
-        <Text style={styles.loadingText}>Loading scan history...</Text>
+        <Text style={styles.loadingText}>جاري تحميل سجل المسح...</Text>
       </View>
     );
   }
@@ -121,13 +186,24 @@ const ScanHistoryScreen = () => {
 
   if (scans.length === 0) {
     return (
-      <View style={styles.emptyContainer}>
-        <Ionicons name="leaf-outline" size={40} color={theme.colors.neutral.gray.base} />
-        <Text style={styles.emptyText}>No scan history yet</Text>
-        <TouchableOpacity style={styles.scanButton} onPress={() => navigation.navigate('Scan')}>
-          <Text style={styles.scanButtonText}>Scan a plant</Text>
+      <SafeAreaView style={styles.container}>
+        <TouchableOpacity style={styles.backButton} onPress={goToHome}>
+          <Ionicons name="arrow-back" size={24} color={theme.colors.primary.base} />
         </TouchableOpacity>
-      </View>
+        <View style={styles.emptyContainer}>
+          <Ionicons name="leaf-outline" size={40} color={theme.colors.neutral.gray.base} />
+          <Text style={styles.emptyText}>لا يوجد سجل مسح حتى الآن</Text>
+          <View style={styles.emptyStateButtons}>
+            <TouchableOpacity style={styles.refreshButton} onPress={fetchScanHistory}>
+              <Ionicons name="refresh-outline" size={24} color={theme.colors.primary.base} />
+              <Text style={styles.refreshButtonText}>تحديث</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.scanButton} onPress={() => navigation.navigate('Scan')}>
+              <Text style={styles.scanButtonText}>مسح نبات</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -135,21 +211,40 @@ const ScanHistoryScreen = () => {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <TouchableOpacity style={styles.backButton} onPress={goToHome}>
-            <Ionicons name="arrow-back" size={24} color={theme.colors.primary.base} />
-          </TouchableOpacity>
-          <Text style={styles.title}>Scan History</Text>
+          {isSelectionMode ? (
+            <TouchableOpacity style={styles.backButton} onPress={cancelSelectionMode}>
+              <Ionicons name="close" size={24} color={theme.colors.primary.base} />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={styles.backButton} onPress={goToHome}>
+              <Ionicons name="arrow-back" size={24} color={theme.colors.primary.base} />
+            </TouchableOpacity>
+          )}
+          <Text style={styles.title}>
+            {isSelectionMode ? `تم اختيار ${selectedScans.length} عناصر` : 'سجل المسح'}
+          </Text>
         </View>
-        <TouchableOpacity onPress={fetchScanHistory}>
-          <Ionicons name="refresh-outline" size={24} color={theme.colors.primary.base} />
-        </TouchableOpacity>
+        {isSelectionMode ? (
+          selectedScans.length > 0 && (
+            <TouchableOpacity onPress={() => confirmDelete(selectedScans)}>
+              <Ionicons name="trash-outline" size={24} color={theme.colors.error.base} />
+            </TouchableOpacity>
+          )
+        ) : (
+          <TouchableOpacity onPress={fetchScanHistory}>
+            <Ionicons name="refresh-outline" size={24} color={theme.colors.primary.base} />
+          </TouchableOpacity>
+        )}
       </View>
 
       <FlatList
         data={scans}
         keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) => (
-          <TouchableOpacity style={styles.scanItem} onPress={() => handleScanPress(item)}>
+          <TouchableOpacity
+            style={[styles.scanItem, selectedScans.includes(item.id) && styles.selectedScanItem]}
+            onPress={() => handleSelection(item.id)}
+            onLongPress={() => handleLongPress(item.id)}>
             <Image
               source={{
                 uri: item.imageUrl.startsWith('http')
@@ -161,9 +256,27 @@ const ScanHistoryScreen = () => {
               onError={() => {}}
             />
             <View style={styles.scanInfo}>
-              <Text style={styles.scanDate}>{formatDate(item.createdAt)}</Text>
+              <View style={styles.scanHeader}>
+                <Text style={styles.scanDate}>{formatDate(item.createdAt)}</Text>
+                {!isSelectionMode && (
+                  <TouchableOpacity
+                    style={styles.menuButton}
+                    onPress={() => confirmDelete([item.id])}>
+                    <Ionicons
+                      name="ellipsis-vertical"
+                      size={20}
+                      color={theme.colors.neutral.textSecondary}
+                    />
+                  </TouchableOpacity>
+                )}
+                {isSelectionMode && selectedScans.includes(item.id) && (
+                  <View style={styles.checkmark}>
+                    <Ionicons name="checkmark-circle" size={24} color={theme.colors.primary.base} />
+                  </View>
+                )}
+              </View>
               <Text style={styles.scanSummary} numberOfLines={2}>
-                Tap to view details
+                انقر للمزيد من التفاصيل
               </Text>
             </View>
           </TouchableOpacity>
@@ -221,6 +334,12 @@ const styles = StyleSheet.create({
   },
   scanInfo: {
     padding: 16,
+  },
+  scanHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
   },
   scanDate: {
     fontSize: 14,
@@ -280,6 +399,44 @@ const styles = StyleSheet.create({
     color: theme.colors.neutral.surface,
     fontSize: 16,
     fontFamily: theme.fonts.medium,
+  },
+  menuButton: {
+    padding: 4,
+    borderRadius: 15,
+  },
+  selectedScanItem: {
+    backgroundColor: theme.colors.primary.lighter,
+    borderWidth: 2,
+    borderColor: theme.colors.primary.base,
+  },
+  checkmark: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: theme.colors.neutral.surface,
+    borderRadius: 12,
+    padding: 0,
+  },
+  emptyStateButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'center',
+  },
+  refreshButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.neutral.surface,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.primary.base,
+  },
+  refreshButtonText: {
+    color: theme.colors.primary.base,
+    fontSize: 16,
+    fontFamily: theme.fonts.medium,
+    marginLeft: 8,
   },
 });
 
