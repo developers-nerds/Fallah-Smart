@@ -18,7 +18,9 @@ import {
   Linking,
   Modal,
   Animated,
-  RefreshControl
+  RefreshControl,
+  GestureResponderEvent,
+  FlatList
 } from 'react-native';
 import axios from 'axios';
 import { 
@@ -34,6 +36,16 @@ import { theme } from '../../theme/theme';
 import { BackButton } from '../../components/BackButton';
 import { Button } from '../../components/Button';
 import { storage } from '../../utils/storage';
+import { Camera } from 'expo-camera';
+import { ParsedTextPart, Author, Post } from '../../types/blog';
+import { 
+  PostDetailNavigationProps, 
+  Comment, 
+  MediaItem, 
+  CommentImageGalleryProps, 
+  PostImageGalleryProps,
+  PostDetailState
+} from '../../types/postDetail';
 
 // Constants
 const BASE_URL = process.env.EXPO_PUBLIC_API;
@@ -42,7 +54,7 @@ const { width } = Dimensions.get('window');
 const placeholderImage = 'https://via.placeholder.com/100';
 
 // Enhanced getImageUrl function with better URL handling
-const getImageUrl = (imageUrl) => {
+const getImageUrl = (imageUrl: string | undefined): string => {
   if (!imageUrl) {
     console.log("No image URL provided");
     return placeholderImage;
@@ -76,43 +88,118 @@ const getImageUrl = (imageUrl) => {
 };
 
 // Helper function to format full name
-const formatUserName = (user, author) => {
+const formatUserName = (user: Author | undefined, author: Author | undefined): string => {
   console.log('Formatting name for:', JSON.stringify({
     user: user ? {
       hasUsername: !!user.username,
+      hasFirstName: !!user.firstName,
+      username: user.username,
       firstName: user.firstName,
-      lastName: user.lastName,
-      role: user.role,
-    } : null,
+      lastName: user.lastName
+    } : 'null',
     author: author ? {
       hasUsername: !!author.username,
+      hasFirstName: !!author.firstName,
+      username: author.username,
       firstName: author.firstName,
-      lastName: author.lastName,
-      role: author.role,
-    } : null
+      lastName: author.lastName
+    } : 'null'
   }));
 
-  // First, determine which data source to use
-  const userData = user || author || {};
+  // Use user if available, otherwise fall back to author
+  const userData = user || author;
   
-  // Show appropriate available name
-  return userData.username || 
-    (userData.firstName && userData.lastName 
-      ? `${userData.firstName} ${userData.lastName}`
-      : 'Anonymous');
+  if (!userData) return 'Unknown User';
+  
+  // Use username if available
+  if (userData.username) return userData.username;
+  
+  // Otherwise use first and last name
+  const firstName = userData.firstName || '';
+  const lastName = userData.lastName || '';
+  
+  if (firstName || lastName) {
+    return `${firstName} ${lastName}`.trim();
+  }
+  
+  // Final fallback
+  return 'Anonymous User';
+};
+
+// Gallery component for comment images
+const CommentImageGallery = ({ media }: CommentImageGalleryProps) => {
+  if (!media || media.length === 0) return null;
+  
+  const getCommentImageUrl = (mediaItem: MediaItem): string => {
+    if (typeof mediaItem === 'string') {
+      return getImageUrl(mediaItem);
+    }
+    return getImageUrl(mediaItem.url || mediaItem.uri);
+  };
+
+  // For a single image
+  if (media.length === 1) {
+    const imageUrl = getCommentImageUrl(media[0]);
+    if (!imageUrl) return null;
+    
+    return (
+      <View style={styles.commentImageContainer}>
+        <Image
+          source={{ uri: imageUrl }}
+          style={styles.commentSingleImage}
+          resizeMode="cover"
+        />
+      </View>
+    );
+  }
+
+  // We won't implement multiple images for comments for simplicity
+  return (
+    <View style={styles.commentImageContainer}>
+      <Image
+        source={{ uri: getCommentImageUrl(media[0]) }}
+        style={styles.commentSingleImage}
+        resizeMode="cover"
+      />
+      {media.length > 1 && (
+        <View style={styles.moreImagesIndicator}>
+          <Text style={styles.moreImagesText}>+{media.length - 1}</Text>
+        </View>
+      )}
+    </View>
+  );
+};
+
+// Add the getCommentImageUrl function at file level (not inside any component)
+const getCommentImageUrl = (comment: Comment): string | null => {
+  // First try direct image field
+  if (comment && comment.image) {
+    return getImageUrl(comment.image);
+  }
+  
+  // Then check media array
+  if (comment && comment.media && comment.media.length > 0) {
+    if (typeof comment.media[0] === 'string') {
+      return getImageUrl(comment.media[0]);
+    }
+    return comment.media[0].url ? getImageUrl(comment.media[0].url) : null;
+  }
+  
+  // If no image found
+  return null;
 };
 
 // Gallery component for post images
-const PostImageGallery = ({ media }) => {
+const PostImageGallery = ({ media }: PostImageGalleryProps) => {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   
   if (!media || media.length === 0) return null;
   
-  const processMediaUrl = (mediaItem) => {
+  const processMediaUrl = (mediaItem: MediaItem): string => {
     if (typeof mediaItem === 'string') {
       return getImageUrl(mediaItem);
     }
-    return mediaItem.url ? getImageUrl(mediaItem.url) : null;
+    return mediaItem.url ? getImageUrl(mediaItem.url) : placeholderImage;
   };
 
   return (
@@ -165,53 +252,9 @@ const PostImageGallery = ({ media }) => {
   );
 };
 
-// Gallery component for comment images
-const CommentImageGallery = ({ media }) => {
-  if (!media || media.length === 0) return null;
-  
-  const getCommentImageUrl = (mediaItem) => {
-    if (typeof mediaItem === 'string') {
-      return getImageUrl(mediaItem);
-    }
-    return mediaItem.url ? getImageUrl(mediaItem.url) : null;
-  };
-
-  // For a single image
-  if (media.length === 1) {
-    const imageUrl = getCommentImageUrl(media[0]);
-    if (!imageUrl) return null;
-    
-    return (
-      <View style={styles.commentImageContainer}>
-        <Image
-          source={{ uri: imageUrl }}
-          style={styles.commentSingleImage}
-          resizeMode="cover"
-        />
-      </View>
-    );
-  }
-
-  // We won't implement multiple images for comments for simplicity
-  return (
-    <View style={styles.commentImageContainer}>
-          <Image
-        source={{ uri: getCommentImageUrl(media[0]) }}
-        style={styles.commentSingleImage}
-            resizeMode="cover"
-          />
-      {media.length > 1 && (
-        <View style={styles.moreImagesIndicator}>
-          <Text style={styles.moreImagesText}>+{media.length - 1}</Text>
-      </View>
-      )}
-    </View>
-  );
-};
-
-// First, add the parseTextForHashtags function near the top of the file, after the imports
-const parseTextForHashtags = (text) => {
-  if (!text) return [{ type: 'text', content: '' }];
+// Optimize the hashtag regex pattern and add hashtag handling
+const parseTextForHashtags = (text: string | undefined): ParsedTextPart[] => {
+  if (!text) return [{ type: 'text' as const, content: '' }];
   
   // Improved regex that better matches hashtags
   const hashtagRegex = /#[a-zA-Z0-9_]+\b/g;
@@ -221,11 +264,11 @@ const parseTextForHashtags = (text) => {
   
   // If no hashtags, return just the original text
   if (hashtags.length === 0) {
-    return [{ type: 'text', content: text }];
+    return [{ type: 'text' as const, content: text }];
   }
   
   // Split text into parts with hashtags preserved
-  let result = [];
+  let result: ParsedTextPart[] = [];
   let lastIndex = 0;
   
   // Find each hashtag position and split accordingly
@@ -235,15 +278,16 @@ const parseTextForHashtags = (text) => {
     // Add any text before the hashtag
     if (hashtagIndex > lastIndex) {
       result.push({ 
-        type: 'text', 
+        type: 'text' as const, 
         content: text.substring(lastIndex, hashtagIndex)
       });
     }
     
     // Add the hashtag
     result.push({ 
-      type: 'hashtag', 
-      content: hashtag
+      type: 'hashtag' as const, 
+      content: hashtag,
+      tag: hashtag.substring(1) // Store the tag without the # symbol
     });
     
     lastIndex = hashtagIndex + hashtag.length;
@@ -252,7 +296,7 @@ const parseTextForHashtags = (text) => {
   // Add any remaining text after the last hashtag
   if (lastIndex < text.length) {
     result.push({
-      type: 'text',
+      type: 'text' as const,
       content: text.substring(lastIndex)
     });
   }
@@ -260,14 +304,26 @@ const parseTextForHashtags = (text) => {
   return result;
 };
 
+// Add a handler for hashtag taps
+const handleHashtagPress = (tag: string, navigation: any) => {
+  // Remove the # symbol if present
+  const cleanTag = tag.startsWith('#') ? tag.substring(1) : tag;
+  
+  // Set search term in the blogs screen and navigate back
+  navigation.navigate('Blogs', { 
+    searchTerm: cleanTag,
+    searchByHashtag: true 
+  });
+};
+
 // Add this helper function to get profile picture URL
-const getProfilePictureUrl = (postData) => {
+const getProfilePictureUrl = (postData: Post): string => {
   // Log the data we're working with for debugging
   console.log("Getting profile picture from:", {
     hasUserData: !!postData?.user,
     hasAuthorData: !!postData?.author,
-    userProfilePic: postData?.user?.profilePicture,
-    authorProfilePic: postData?.author?.profilePicture
+    userPic: postData?.user?.profilePicture,
+    authorPic: postData?.author?.profilePicture
   });
   
   // Try to get profile picture from user or author
@@ -283,7 +339,7 @@ const getProfilePictureUrl = (postData) => {
 };
 
 // Add this improved function to check for advisor role
-const isUserAdvisor = (user, author) => {
+const isUserAdvisor = (user: Author | undefined, author: Author | undefined): boolean => {
   // Debug log the data we're checking
   console.log('Checking advisor status for:', {
     userRole: user?.role,
@@ -299,14 +355,14 @@ const isUserAdvisor = (user, author) => {
   return isAdvisor;
 };
 
-const PostDetail = ({ route, navigation }) => {
+const PostDetail = ({ route, navigation }: PostDetailNavigationProps) => {
   const { postId } = route.params;
-  const [post, setPost] = useState(null);
+  const [post, setPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [comments, setComments] = useState([]);
+  const [error, setError] = useState<string | null>(null);
+  const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
-  const [commentImage, setCommentImage] = useState(null);
+  const [commentImage, setCommentImage] = useState<MediaItem | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [liked, setLiked] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
@@ -314,19 +370,20 @@ const PostDetail = ({ route, navigation }) => {
   const [reportReason, setReportReason] = useState('');
   const [customReason, setCustomReason] = useState('');
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
-  const commentInputRef = useRef(null);
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const commentInputRef = useRef<TextInput | null>(null);
   const [content, setContent] = useState('');
   const [likeCount, setLikeCount] = useState(0);
 
   // Add the report reasons array
   const reportReasons = [
-    'Inappropriate content',
-    'Spam',
-    'Misleading information',
-    'Harassment or bullying',
-    'Violence',
-    'Hate speech',
-    'Other'
+    'محتوى غير لائق',
+    'محتوى مزعج',
+    'معلومات مضللة',
+    'تنمر أو مضايقة',
+    'عنف',
+    'خطاب كراهية',
+    'أخرى'
   ];
 
   // Fetch post details including comments
@@ -360,7 +417,7 @@ const PostDetail = ({ route, navigation }) => {
       
       // Update likes and comments
       if (postData.likes?.length > 0) {
-        setLiked(postData.likes.some(like => like.userId === userData?.id));
+        setLiked(postData.likes.some((like: { userId: string }) => like.userId === userData?.id));
       }
       
       if (postData.comments) {
@@ -389,11 +446,11 @@ const PostDetail = ({ route, navigation }) => {
       setLiked(newLiked);
       
       // Update post with new like count
-      setPost(prevPost => ({
-        ...prevPost,
+      setPost((prevPost: Post | null) => ({
+        ...prevPost!,
         likesCount: newLiked 
-          ? (prevPost.likesCount || 0) + 1 
-          : Math.max(0, (prevPost.likesCount || 0) - 1)
+          ? (prevPost?.likesCount || 0) + 1 
+          : Math.max(0, (prevPost?.likesCount || 0) - 1)
       }));
     } catch (err) {
       console.error('Error toggling like:', err);
@@ -501,27 +558,27 @@ const PostDetail = ({ route, navigation }) => {
   // Submit a new comment
   const submitComment = async () => {
     if (!newComment.trim() && !commentImage) {
-      Alert.alert('Empty Comment', 'Please write a comment or add an image.');
+      Alert.alert('تعليق فارغ', 'يرجى كتابة تعليق أو إضافة صورة.');
       return;
     }
 
     try {
-      setSubmitting(true);
+      setIsSubmittingComment(true);
       
       // Get auth token
       const tokens = await storage.getTokens();
       if (!tokens?.access) {
-        Alert.alert('Login Required', 'Please log in to comment on posts.');
-        setSubmitting(false);
+        Alert.alert('تسجيل الدخول مطلوب', 'يرجى تسجيل الدخول للتعليق على المنشورات.');
+        setIsSubmittingComment(false);
         return;
       }
 
       // Create form data
       const formData = new FormData();
-      formData.append('text', newComment.trim());
+      formData.append('content', newComment.trim());
 
       // Add image if selected
-      if (commentImage) {
+      if (commentImage && commentImage.uri) {
         console.log('Adding image to comment:', commentImage);
         
         // Create a properly formatted file object that multer can process
@@ -530,7 +587,7 @@ const PostDetail = ({ route, navigation }) => {
           : commentImage.uri.replace('file://', '');
         
         // Extract file extension and determine MIME type
-        const uriParts = commentImage.uri.split('.');
+        const uriParts = commentImage.uri ? commentImage.uri.split('.') : [];
         const fileExtension = uriParts[uriParts.length - 1];
         
         let mimeType;
@@ -547,10 +604,10 @@ const PostDetail = ({ route, navigation }) => {
           uri: fileUri,
           name: `comment_image_${Date.now()}.${fileExtension}`,
           type: mimeType
-        });
+        } as any);
         
         console.log('Appended image to form data:', {
-          uri: fileUri.substring(0, 50) + '...',
+          uri: fileUri ? fileUri.substring(0, 50) + '...' : 'undefined',
           type: mimeType
         });
       }
@@ -587,44 +644,37 @@ const PostDetail = ({ route, navigation }) => {
         // Show confirmation
         console.log('Comment added successfully');
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Failed to submit comment:', error);
       
-      // Detailed error logging
-      if (error.response) {
-        console.error('Server response error:', {
-          status: error.response.status,
-          data: error.response.data,
-          headers: error.response.headers
-        });
-        Alert.alert('Error', `Server error: ${error.response.status}. Please try again.`);
-      } else if (error.request) {
-        console.error('Network error: No response received', error.request);
-        Alert.alert('Network Error', 'Could not reach the server. Please check your connection.');
+      const typedError = error as any;
+      if (typedError.response) {
+        Alert.alert('خطأ', `خطأ في الخادم: ${typedError.response.status}. يرجى المحاولة مرة أخرى.`);
+      } else if (typedError.request) {
+        Alert.alert('خطأ في الشبكة', 'تعذر الوصول إلى الخادم. يرجى التحقق من اتصالك.');
       } else {
-        console.error('Error setting up request:', error.message);
-        Alert.alert('Error', 'Could not upload comment. Please try again.');
+        Alert.alert('خطأ', 'تعذر تحميل التعليق. يرجى المحاولة مرة أخرى.');
       }
     } finally {
-      setSubmitting(false);
+      setIsSubmittingComment(false);
     }
   };
 
   // Time ago formatter for dates
-  const timeAgo = (date) => {
+  const timeAgo = (date: string): string => {
     const now = new Date();
     const postDate = new Date(date);
-    const diffInSeconds = Math.floor((now - postDate) / 1000);
+    const diffInSeconds = Math.floor((now.getTime() - postDate.getTime()) / 1000);
     
-    if (diffInSeconds < 60) return `${diffInSeconds}s`;
-    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m`;
-    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h`;
-    if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d`;
-    return `${Math.floor(diffInSeconds / 604800)}w`;
+    if (diffInSeconds < 60) return `${diffInSeconds} ث`;
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} د`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} س`;
+    if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} ي`;
+    return `${Math.floor(diffInSeconds / 604800)} أ`;
   };
 
   // Update the renderComment function
-  const renderComment = ({ item }) => {
+  const renderComment = ({ item }: { item: Comment }) => {
     // Get user data from the comment
     const userData = item.user || item.author || {};
     
@@ -634,6 +684,9 @@ const PostDetail = ({ route, navigation }) => {
       role: userData.role,
       isAdvisor: isUserAdvisor(item.user, item.author)
     });
+    
+    // Get image URL using our helper function
+    const imageUrl = getCommentImageUrl(item);
     
     return (
       <View style={styles.commentContainer}>
@@ -671,11 +724,17 @@ const PostDetail = ({ route, navigation }) => {
             </View>
             
             {/* Comment content */}
-            <Text style={styles.commentText}>{item.content}</Text>
+            <Text style={styles.commentText}>{item.text}</Text>
             
             {/* Comment images */}
-            {item.media && item.media.length > 0 && (
-              <CommentImageGallery media={item.media} />
+            {imageUrl && (
+              <View style={styles.commentImageContainer}>
+                <Image
+                  source={{ uri: imageUrl }}
+                  style={styles.commentSingleImage}
+                  resizeMode="cover"
+                />
+              </View>
             )}
             
             {/* Comment footer with timestamp */}
@@ -776,13 +835,14 @@ const PostDetail = ({ route, navigation }) => {
         );
       }, 300);
       
-    } catch (error) {
-      console.error('Error submitting report:', error);
+    } catch (error: unknown) {
+      console.error('Error reporting post:', error);
       
       // Show more detailed error message based on the error
-      if (error.response) {
+      const typedError = error as any;
+      if (typedError.response) {
         Alert.alert('Error', 
-          `Could not submit report (${error.response.status}). ${error.response.data?.message || 'Please try again later.'}`
+          `Could not submit report (${typedError.response.status}). ${typedError.response.data?.message || 'Please try again later.'}`
         );
       } else {
         Alert.alert('Error', 'Could not submit report. Please check your connection and try again.');
@@ -797,7 +857,7 @@ const PostDetail = ({ route, navigation }) => {
     return (
       <SafeAreaView style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.primary.base} />
-        <Text style={styles.loadingText}>Loading post...</Text>
+        <Text style={styles.loadingText}>جارِ التحميل...</Text>
       </SafeAreaView>
     );
   }
@@ -807,10 +867,10 @@ const PostDetail = ({ route, navigation }) => {
     return (
       <SafeAreaView style={styles.errorContainer}>
         <AntDesign name="exclamationcircleo" size={48} color={theme.colors.error} />
-        <Text style={styles.errorTitle}>Oops!</Text>
+        <Text style={styles.errorTitle}>عفواً!</Text>
           <Text style={styles.errorText}>{error}</Text>
         <Button 
-          title="Try Again" 
+          title="حاول مرة أخرى" 
           onPress={fetchPostDetails}
           style={styles.retryButton}
         />
@@ -829,7 +889,7 @@ const PostDetail = ({ route, navigation }) => {
         {/* Enhanced header with shadow and better alignment */}
         <View style={styles.header}>
           <BackButton onPress={() => navigation.goBack()} />
-          <Text style={styles.headerTitle}>Post Details</Text>
+          <Text style={styles.headerTitle}>تفاصيل المنشور</Text>
           <View style={styles.headerRight} />
         </View>
 
@@ -888,9 +948,17 @@ const PostDetail = ({ route, navigation }) => {
                 <Text style={styles.postTitle}>{post.title}</Text>
                 <Text style={styles.postDescription}>
                   {parseTextForHashtags(post.description).map((part, index) => (
-                    part.type === 'hashtag' ? 
-                      <Text key={index} style={styles.hashtag}>{part.content}</Text> : 
+                    part.type === 'hashtag' ? (
+                      <Text 
+                        key={index} 
+                        style={styles.hashtag}
+                        onPress={() => handleHashtagPress(part.tag || '', navigation)}
+                      >
+                        {part.content}
+                      </Text>
+                    ) : (
                       <Text key={index}>{part.content}</Text>
+                    )
                   ))}
                 </Text>
           
@@ -904,12 +972,12 @@ const PostDetail = ({ route, navigation }) => {
               <View style={styles.postStats}>
                 <View style={styles.statsItem}>
                   <Ionicons name="heart" size={14} color={theme.colors.neutral.textSecondary} />
-                  <Text style={styles.statsText}>{post.likesCount || 0} likes</Text>
+                  <Text style={styles.statsText}>{post.likesCount || 0} إعجاب</Text>
                 </View>
                 
                 <View style={styles.statsItem}>
                   <Ionicons name="chatbubble-outline" size={14} color={theme.colors.neutral.textSecondary} />
-                  <Text style={styles.statsText}>{post.comments?.length || 0} comments</Text>
+                  <Text style={styles.statsText}>{post.comments?.length || 0} تعليق</Text>
                 </View>
               </View>
               
@@ -964,7 +1032,7 @@ const PostDetail = ({ route, navigation }) => {
                     size={22} 
                     color={theme.colors.neutral.textPrimary} 
                   />
-                  <Text style={styles.actionText}>Share</Text>
+                  <Text style={styles.actionText}>مشاركة</Text>
                 </TouchableOpacity>
                 
                 <TouchableOpacity 
@@ -976,7 +1044,7 @@ const PostDetail = ({ route, navigation }) => {
                     size={22} 
                     color={theme.colors.neutral.textPrimary} 
                   />
-                  <Text style={styles.actionText}>Report</Text>
+                  <Text style={styles.actionText}>إبلاغ</Text>
                 </TouchableOpacity>
               </View>
               
@@ -985,7 +1053,7 @@ const PostDetail = ({ route, navigation }) => {
                 <View style={styles.sectionHeader}>
                   <Ionicons name="chatbubbles-outline" size={18} color={theme.colors.neutral.textPrimary} />
                   <Text style={styles.commentsHeader}>
-                    Comments ({comments.length})
+                    التعليقات ({comments.length})
               </Text>
             </View>
             
@@ -997,9 +1065,13 @@ const PostDetail = ({ route, navigation }) => {
                   ))
                 ) : (
                   <View style={styles.emptyCommentsContainer}>
-                    <Ionicons name="chatbubble-ellipses-outline" size={48} color={theme.colors.neutral.gray.medium} />
+                    <Ionicons 
+                      name="chatbubble-ellipses-outline" 
+                      size={48} 
+                      color={theme.colors.neutral.gray.base} 
+                    />
                     <Text style={styles.noCommentsText}>
-                      No comments yet. Be the first to comment!
+                      لا توجد تعليقات بعد. كن أول من يعلق!
               </Text>
             </View>
                 )}
@@ -1010,59 +1082,51 @@ const PostDetail = ({ route, navigation }) => {
         
         {/* Comment input area with improved design */}
         <View style={styles.commentInputContainer}>
-            {commentImage && (
+          {/* Image preview - show this when an image is selected */}
+          {commentImage && (
             <View style={styles.commentImagePreviewContainer}>
-              <Image source={{ uri: commentImage.uri }} style={styles.commentImagePreview} />
-              <View style={styles.imageSourceIndicator}>
-                <Text style={styles.imageSourceText}>
-                  {commentImage.name.includes('photo_') ? 'Camera' : 'Gallery'}
-                </Text>
-              </View>
-                <TouchableOpacity 
-                  style={styles.removeImageButton}
+              <Image 
+                source={{ uri: commentImage.uri }}
+                style={styles.commentImagePreview}
+                resizeMode="cover"
+              />
+              <TouchableOpacity 
+                style={styles.removeImageButton}
                 onPress={() => setCommentImage(null)}
-                >
-                <MaterialCommunityIcons name="close-circle" size={24} color="white" />
-                </TouchableOpacity>
-              </View>
-            )}
-            
+              >
+                <FontAwesome name="remove" size={18} color="white" />
+              </TouchableOpacity>
+            </View>
+          )}
+          
           <View style={styles.commentInputRow}>
             <TextInput
               ref={commentInputRef}
               value={newComment}
               onChangeText={setNewComment}
-              placeholder="Write a comment..."
+              placeholder="اكتب تعليقًا..."
               placeholderTextColor={theme.colors.neutral.textSecondary}
               style={styles.commentInput}
               multiline={true}
             />
             
-            <View style={styles.commentActionButtons}>
+            <View style={styles.commentInputActions}>
               <TouchableOpacity 
-                style={styles.commentImageButton} 
+                style={styles.attachmentButton} 
                 onPress={showImageOptions}
               >
-                <Ionicons 
-                  name="camera-outline" 
-                  size={22} 
-                  color={theme.colors.primary.base} 
-                />
+                <Feather name="camera" size={24} color={theme.colors.primary.base} />
               </TouchableOpacity>
               
               <TouchableOpacity 
                 style={[
                   styles.sendButton, 
-                  (!newComment.trim() && !commentImage) && styles.sendButtonDisabled
-                ]}
+                  { opacity: (newComment.trim() || commentImage) ? 1 : 0.5 }
+                ]} 
                 onPress={submitComment}
-                disabled={submitting || (!newComment.trim() && !commentImage)}
+                disabled={!newComment.trim() && !commentImage}
               >
-                {submitting ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Ionicons name="send" size={18} color="white" />
-                )}
+                <Ionicons name="send" size={24} color={theme.colors.primary.base} />
               </TouchableOpacity>
             </View>
           </View>
@@ -1083,7 +1147,7 @@ const PostDetail = ({ route, navigation }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.reportModalContainer}>
             <View style={styles.reportModalHeader}>
-              <Text style={styles.reportModalTitle}>Report Post</Text>
+              <Text style={styles.reportModalTitle}>الإبلاغ عن منشور</Text>
               <TouchableOpacity 
                 onPress={() => {
                   setReportModalVisible(false);
@@ -1095,7 +1159,7 @@ const PostDetail = ({ route, navigation }) => {
               </TouchableOpacity>
             </View>
             
-            <Text style={styles.reportModalSubtitle}>Why are you reporting this post?</Text>
+            <Text style={styles.reportModalSubtitle}>لماذا تريد الإبلاغ عن هذا المنشور؟</Text>
             
             <ScrollView style={styles.reportReasonsList}>
               {reportReasons.map((reason) => (
@@ -1120,7 +1184,7 @@ const PostDetail = ({ route, navigation }) => {
               <View style={styles.customReasonContainer}>
                 <TextInput
                   style={styles.customReasonInput}
-                  placeholder="Please specify your reason"
+                  placeholder="يرجى تحديد السبب"
                   value={customReason}
                   onChangeText={setCustomReason}
                   multiline
@@ -1138,7 +1202,7 @@ const PostDetail = ({ route, navigation }) => {
                   setCustomReason('');
                 }}
               >
-                <Text style={styles.reportCancelButtonText}>Cancel</Text>
+                <Text style={styles.reportCancelButtonText}>إلغاء</Text>
               </TouchableOpacity>
               
               <TouchableOpacity
@@ -1153,7 +1217,7 @@ const PostDetail = ({ route, navigation }) => {
                 {isSubmittingReport ? (
                   <ActivityIndicator size="small" color="white" />
                 ) : (
-                  <Text style={styles.reportSubmitButtonText}>Submit</Text>
+                  <Text style={styles.reportSubmitButtonText}>إرسال</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -1317,7 +1381,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
     marginTop: 12,
-    backgroundColor: theme.colors.neutral.gray.lighter,
+    backgroundColor: theme.colors.neutral.gray.light,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -1408,36 +1472,53 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   emptyCommentsContainer: {
+    padding: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 32,
   },
   noCommentsText: {
     fontSize: 14,
     fontFamily: theme.fonts.regular,
-    color: theme.colors.neutral.textSecondary,
-    fontStyle: 'italic',
+    color: theme.colors.neutral.gray.base || '#8A8A8A',
     textAlign: 'center',
-    marginTop: 12,
+    marginTop: 8,
   },
   commentContainer: {
     marginBottom: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.neutral.gray.lighter,
-  },
-  lastComment: {
-    borderBottomWidth: 0,
-    marginBottom: 0,
-    paddingBottom: 0,
+    paddingHorizontal: 12,
   },
   commentHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
   },
-  commentAuthorContainer: {
-    flexDirection: 'row',
+  commentAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginTop: 2,
+  },
+  commentAvatarPlaceholder: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: theme.colors.primary.base,
+    justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 2,
+  },
+  commentAvatarInitial: {
+    fontSize: 16,
+    color: 'white',
+    fontFamily: theme.fonts.bold,
+  },
+  commentContentContainer: {
+    flex: 1,
+    marginLeft: 10,
+    backgroundColor: 'rgba(0,0,0,0.03)', // Very light gray that's almost white
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
   },
   commentUsername: {
     fontSize: 14,
@@ -1445,117 +1526,93 @@ const styles = StyleSheet.create({
     color: theme.colors.neutral.textPrimary,
     marginBottom: 2,
   },
+  commentText: {
+    fontSize: 14,
+    fontFamily: theme.fonts.regular,
+    color: theme.colors.neutral.textPrimary || '#333333',
+  },
+  commentFooter: {
+    flexDirection: 'row',
+    marginTop: 4,
+    alignItems: 'center',
+  },
   commentTime: {
     fontSize: 12,
     fontFamily: theme.fonts.regular,
-    color: theme.colors.neutral.textSecondary,
+    color: theme.colors.neutral.textSecondary || '#8A8A8A',
   },
   commentImageContainer: {
     marginTop: 8,
     borderRadius: 8,
     overflow: 'hidden',
-    position: 'relative',
+    marginBottom: 4,
+    backgroundColor: theme.colors.neutral.gray.light,
   },
   commentSingleImage: {
     width: '100%',
-    height: 150,
+    height: 160,
     borderRadius: 8,
-  },
-  moreImagesIndicator: {
-    position: 'absolute',
-    right: 8,
-    bottom: 8,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  moreImagesText: {
-    color: 'white',
-    fontSize: 12,
-    fontFamily: theme.fonts.bold,
   },
   commentInputContainer: {
     padding: 12,
     borderTopWidth: 1,
-    borderTopColor: theme.colors.neutral.border,
+    borderTopColor: 'rgba(0,0,0,0.05)',
     backgroundColor: theme.colors.neutral.surface,
   },
   commentInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
   },
   commentInput: {
     flex: 1,
     borderWidth: 1,
-    borderColor: theme.colors.neutral.border,
+    borderColor: 'rgba(0,0,0,0.08)',
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 10,
     maxHeight: 100,
     fontSize: 14,
     fontFamily: theme.fonts.regular,
-    backgroundColor: theme.colors.neutral.gray.lighter,
+    backgroundColor: '#FFFFFF',
     color: theme.colors.neutral.textPrimary,
   },
-  commentActionButtons: {
+  commentInputActions: {
     flexDirection: 'row',
     alignItems: 'center',
     marginLeft: 8,
   },
-  commentImageButton: {
-    marginRight: 8,
-    padding: 4,
+  attachmentButton: {
+    padding: 6,
   },
-  commentSubmitButton: {
-    backgroundColor: theme.colors.primary.base,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  sendButton: {
+    padding: 6,
+    marginLeft: 4,
+  },
+  commentImagePreviewContainer: {
+    position: 'relative',
+    width: 80,
+    height: 80,
+    marginBottom: 10,
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+  },
+  commentImagePreview: {
+    width: '100%',
+    height: '100%',
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
   },
-  commentSubmitButtonDisabled: {
-    backgroundColor: theme.colors.primary.disabled,
-  },
-  currentUserInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  currentUserAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    marginRight: 8,
-  },
-  currentUserAvatarPlaceholder: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: theme.colors.primary.base,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  currentUserAvatarInitial: {
-    fontSize: 14,
-    color: 'white',
-    fontFamily: theme.fonts.bold,
-  },
-  currentUserName: {
-    fontSize: 12,
-    fontFamily: theme.fonts.medium,
-    color: theme.colors.neutral.textSecondary,
-  },
-  // Report modal styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -1671,8 +1728,7 @@ const styles = StyleSheet.create({
   },
   hashtag: {
     color: theme.colors.primary.base,
-    fontWeight: 'bold',
-    textDecorationLine: 'none',
+    fontWeight: '600',
   },
   postAuthorSection: {
     flexDirection: 'row',
@@ -1716,44 +1772,24 @@ const styles = StyleSheet.create({
     color: 'white',
     fontFamily: theme.fonts.bold,
   },
-  commentAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  moreImagesIndicator: {
+    position: 'absolute',
+    right: 8,
+    bottom: 8,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
-  commentAvatarPlaceholder: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: theme.colors.primary.base,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  commentAvatarInitial: {
-    fontSize: 16,
+  moreImagesText: {
     color: 'white',
-    fontFamily: theme.fonts.bold,
-  },
-  commentContentContainer: {
-    flex: 1,
-    marginLeft: 10,
-    backgroundColor: theme.colors.neutral.gray.lighter,
-    borderRadius: 16,
-    padding: 12,
+    fontSize: 12,
+    fontFamily: theme.fonts.medium,
   },
   commentAuthorRow: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  commentText: {
-    fontSize: 14,
-    fontFamily: theme.fonts.regular,
-    color: theme.colors.neutral.textPrimary,
-    lineHeight: 20,
-  },
-  commentFooter: {
-    flexDirection: 'row',
-    marginTop: 6,
+    marginBottom: 2,
   },
 });
 
