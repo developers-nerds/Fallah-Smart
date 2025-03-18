@@ -19,13 +19,16 @@ export type StockStackParamList = {
   EditAnimal: { animalId: string };
   ToolList: undefined;
   ToolDetail: { toolId: string };
+  AddTool: { toolId?: string };
   EquipmentList: undefined;
   SeedList: undefined;
   SeedDetail: { seedId: string };
   FeedList: undefined;
   FeedDetail: { feedId: string };
+  AddFeed: { feedId?: string };
   HarvestList: undefined;
   HarvestDetail: { harvestId: string };
+  AddHarvest: { harvestId?: string };
   FertilizerList: undefined;
   FertilizerDetail: { fertilizerId: string };
   Login: undefined;

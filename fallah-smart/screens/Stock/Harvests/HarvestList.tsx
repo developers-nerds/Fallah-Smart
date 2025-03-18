@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { createThemedStyles } from '../../../utils/createThemedStyles';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { StockStackParamList } from '../../../navigation/types';
+import { HARVEST_TYPES } from './constants';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -23,50 +24,47 @@ type HarvestListScreenProps = {
   navigation: StackNavigationProp<StockStackParamList, 'HarvestList'>;
 };
 
+type MaterialIconName = keyof typeof MaterialCommunityIcons.glyphMap;
+
+const getCategoryIcon = (type: string): string => {
+  if (type === 'vegetable') return '🥕';
+  if (type === 'fruit') return '🍎';
+  if (type === 'grain') return '🌾';
+  if (type === 'herb') return '🌿';
+  return '🌱';
+};
+
+const getTypeIcon = (type: string): MaterialIconName => {
+  if (type === 'vegetable') return 'carrot';
+  if (type === 'fruit') return 'fruit-cherries';
+  if (type === 'grain') return 'grain';
+  if (type === 'herb') return 'grass';
+  return 'sprout';
+};
+
 const HarvestListScreen: React.FC<HarvestListScreenProps> = ({ navigation }) => {
   const theme = useTheme();
-  const { harvests, fetchHarvests, loading } = useHarvest();
+  const { harvests, fetchHarvests, loading, error } = useHarvest();
   const [refreshing, setRefreshing] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchHarvests();
+    setRefreshing(false);
+  }, [fetchHarvests]);
 
   useEffect(() => {
     fetchHarvests();
-  }, []);
-
-  const onRefresh = React.useCallback(async () => {
-    setRefreshing(true);
-    try {
-      await fetchHarvests();
-      setCurrentPage(1);
-    } catch (error) {
-      Alert.alert('خطأ', 'فشل في تحديث قائمة المحاصيل');
-    } finally {
-      setRefreshing(false);
-    }
   }, [fetchHarvests]);
 
-  const loadMoreItems = () => {
-    if (isLoadingMore || harvests.length <= currentPage * ITEMS_PER_PAGE) return;
-    
-    setIsLoadingMore(true);
-    setCurrentPage(prev => prev + 1);
-    setIsLoadingMore(false);
-  };
-
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'vegetable':
-        return '🥬';
-      case 'fruit':
-        return '🍎';
-      case 'grain':
-        return '🌾';
-      case 'herb':
-        return '🌿';
-      default:
-        return '🌱';
-    }
+  const handleLoadMore = () => {
+    if (loadingMore || harvests.length <= page * pageSize) return;
+    setLoadingMore(true);
+    setPage(prevPage => prevPage + 1);
+    setLoadingMore(false);
   };
 
   const renderHarvestItem = ({ item }: { item: StockHarvest }) => {
@@ -77,9 +75,9 @@ const HarvestListScreen: React.FC<HarvestListScreenProps> = ({ navigation }) => 
       >
         <View style={styles.cardHeader}>
           <View style={styles.cardTitleContainer}>
-            <Text style={styles.typeIcon}>{getTypeIcon(item.type)}</Text>
+            <Text style={styles.typeIcon}>{getCategoryIcon(item.type)}</Text>
             <Text style={[styles.cardTitle, { color: theme.colors.neutral.textPrimary }]}>
-              {item.name}
+              {item.cropName}
             </Text>
           </View>
           <MaterialCommunityIcons
@@ -118,7 +116,7 @@ const HarvestListScreen: React.FC<HarvestListScreenProps> = ({ navigation }) => 
           </View>
         </View>
 
-        {item.quantity <= item.minQuantityAlert && (
+        {(item.minQuantityAlert !== undefined && item.quantity <= item.minQuantityAlert && item.minQuantityAlert > 0) && (
           <View style={[styles.alert, { backgroundColor: theme.colors.error.light }]}>
             <MaterialCommunityIcons
               name="alert"
@@ -134,7 +132,33 @@ const HarvestListScreen: React.FC<HarvestListScreenProps> = ({ navigation }) => 
     );
   };
 
-  const paginatedData = harvests.slice(0, currentPage * ITEMS_PER_PAGE);
+  const renderFooter = () => {
+    if (!loadingMore) return null;
+    return (
+      <View style={styles.footerLoader}>
+        <ActivityIndicator size="small" color={theme.colors.primary.base} />
+      </View>
+    );
+  };
+
+  if (loading && !refreshing && !loadingMore) {
+    return (
+      <View style={[styles.container, styles.centerContent, { backgroundColor: theme.colors.neutral.background }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary.base} />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={[styles.container, styles.centerContent, { backgroundColor: theme.colors.neutral.background }]}>
+        <Text style={{ color: theme.colors.error.base }}>{error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={onRefresh}>
+          <Text style={{ color: theme.colors.primary.base }}>إعادة المحاولة</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
@@ -151,10 +175,10 @@ const HarvestListScreen: React.FC<HarvestListScreenProps> = ({ navigation }) => 
       </View>
 
       <FlatList
-        data={paginatedData}
+        data={harvests.slice(0, page * pageSize)}
         renderItem={renderHarvestItem}
-        keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={styles.list}
+        keyExtractor={item => item.id.toString()}
+        contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -162,22 +186,23 @@ const HarvestListScreen: React.FC<HarvestListScreenProps> = ({ navigation }) => 
             colors={[theme.colors.primary.base]}
           />
         }
-        onEndReached={loadMoreItems}
+        onEndReached={handleLoadMore}
         onEndReachedThreshold={0.5}
+        ListFooterComponent={renderFooter}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>🌾</Text>
+            <MaterialCommunityIcons
+              name="sprout"
+              size={48}
+              color={theme.colors.neutral.textSecondary}
+            />
             <Text style={[styles.emptyText, { color: theme.colors.neutral.textSecondary }]}>
-              لا يوجد محاصيل
+              لا توجد محاصيل
+            </Text>
+            <Text style={[styles.emptySubtext, { color: theme.colors.neutral.textTertiary }]}>
+              قم بإضافة محاصيل جديدة للبدء
             </Text>
           </View>
-        }
-        ListFooterComponent={
-          isLoadingMore ? (
-            <View style={styles.loadingMore}>
-              <ActivityIndicator size="small" color={theme.colors.primary.base} />
-            </View>
-          ) : null
         }
       />
     </View>
@@ -207,44 +232,43 @@ const styles = createThemedStyles((theme) => ({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  list: {
+  listContent: {
     padding: 16,
+    paddingBottom: 80,
   },
   card: {
-    borderRadius: 12,
-    padding: 16,
     marginBottom: 16,
+    borderRadius: 8,
+    overflow: 'hidden',
     elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.neutral.border,
   },
   cardTitleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
   typeIcon: {
     fontSize: 24,
+    marginRight: 8,
   },
   cardTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: 'bold',
   },
   cardContent: {
-    gap: 8,
+    padding: 16,
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    marginBottom: 8,
   },
   label: {
     fontSize: 14,
@@ -256,31 +280,54 @@ const styles = createThemedStyles((theme) => ({
   alert: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginTop: 12,
     padding: 8,
-    borderRadius: 6,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.error.border,
   },
   alertText: {
     fontSize: 12,
     fontWeight: '500',
+    marginLeft: 4,
+  },
+  footerLoader: {
+    marginVertical: 16,
+    alignItems: 'center',
+  },
+  retryButton: {
+    marginTop: 16,
+    padding: 8,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: theme.colors.primary.base,
   },
   emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
-    gap: 16,
-  },
-  emptyIcon: {
-    fontSize: 48,
+    justifyContent: 'center',
+    padding: 48,
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 16,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    marginTop: 8,
     textAlign: 'center',
   },
-  loadingMore: {
-    paddingVertical: 16,
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
+  },
+  centerContent: {
+    justifyContent: 'center',
     alignItems: 'center',
   },
 }));

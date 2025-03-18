@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,185 +8,57 @@ import {
   RefreshControl,
   Alert,
   ActivityIndicator,
+  Dimensions,
+  Animated,
+  GestureResponderEvent,
+  ViewStyle,
+  TextStyle,
 } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
+import { theme as defaultTheme } from '../../../theme/theme';
 import { useFeed } from '../../../context/FeedContext';
 import { StockFeed } from '../types';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { createThemedStyles } from '../../../utils/createThemedStyles';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { StockStackParamList } from '../../../navigation/types';
+import axios from 'axios';
+import { storage } from '../../../utils/storage';
 
-const ITEMS_PER_PAGE = 10;
+// Define fallback colors to prevent undefined errors
+const fallbackColors = {
+  primary: { base: '#4CAF50', light: '#81C784', dark: '#388E3C' },
+  secondary: { base: '#FFC107', light: '#FFD54F', dark: '#FFA000' },
+  accent: { base: '#FF5722', light: '#FFAB91', dark: '#E64A19' },
+  neutral: {
+    background: '#F5F5F5',
+    surface: '#FFFFFF',
+    border: '#E0E0E0',
+    textPrimary: '#212121',
+    textSecondary: '#757575',
+  },
+  error: '#F44336',
+  warning: '#FF9800',
+  success: '#4CAF50',
+  info: '#2196F3',
+};
+
+const ITEMS_PER_PAGE = 8;
+const { width } = Dimensions.get('window');
 
 type FeedListScreenProps = {
   navigation: StackNavigationProp<StockStackParamList, 'FeedList'>;
 };
 
-const FeedListScreen: React.FC<FeedListScreenProps> = ({ navigation }) => {
-  const theme = useTheme();
-  const { feed, fetchFeed, loading } = useFeed();
-  const [refreshing, setRefreshing] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-
-  useEffect(() => {
-    fetchFeed();
-  }, []);
-
-  const onRefresh = React.useCallback(async () => {
-    setRefreshing(true);
-    try {
-      await fetchFeed();
-      setCurrentPage(1);
-    } catch (error) {
-      Alert.alert('خطأ', 'فشل في تحديث قائمة الأعلاف');
-    } finally {
-      setRefreshing(false);
-    }
-  }, [fetchFeed]);
-
-  const loadMoreItems = () => {
-    if (isLoadingMore || feed.length <= currentPage * ITEMS_PER_PAGE) return;
-    
-    setIsLoadingMore(true);
-    setCurrentPage(prev => prev + 1);
-    setIsLoadingMore(false);
-  };
-
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'hay':
-        return '🌾';
-      case 'grain':
-        return '🌽';
-      case 'pellets':
-        return '🥜';
-      case 'supplement':
-        return '💊';
-      default:
-        return '🌿';
-    }
-  };
-
-  const renderFeedItem = ({ item }: { item: StockFeed }) => {
-    return (
-      <TouchableOpacity
-        style={[styles.card, { backgroundColor: theme.colors.neutral.surface }]}
-        onPress={() => navigation.navigate('FeedDetail', { feedId: item.id })}
-      >
-        <View style={styles.cardHeader}>
-          <View style={styles.cardTitleContainer}>
-            <Text style={styles.typeIcon}>{getTypeIcon(item.type)}</Text>
-            <Text style={[styles.cardTitle, { color: theme.colors.neutral.textPrimary }]}>
-              {item.name}
-            </Text>
-          </View>
-          <MaterialCommunityIcons
-            name="chevron-left"
-            size={24}
-            color={theme.colors.neutral.textSecondary}
-          />
-        </View>
-
-        <View style={styles.cardContent}>
-          <View style={styles.infoRow}>
-            <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-              الكمية:
-            </Text>
-            <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-              {item.quantity} {item.unit}
-            </Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-              السعر:
-            </Text>
-            <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-              {item.price} د.أ
-            </Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-              تاريخ الصلاحية:
-            </Text>
-            <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-              {new Date(item.expiryDate).toLocaleDateString()}
-            </Text>
-          </View>
-        </View>
-
-        {item.quantity <= item.minQuantityAlert && (
-          <View style={[styles.alert, { backgroundColor: theme.colors.error.light }]}>
-            <MaterialCommunityIcons
-              name="alert"
-              size={16}
-              color={theme.colors.error.dark}
-            />
-            <Text style={[styles.alertText, { color: theme.colors.error.dark }]}>
-              المخزون منخفض
-            </Text>
-          </View>
-        )}
-      </TouchableOpacity>
-    );
-  };
-
-  const paginatedData = feed.slice(0, currentPage * ITEMS_PER_PAGE);
-
-  return (
-    <View style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
-      <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: theme.colors.neutral.textPrimary }]}>
-          الأعلاف
-        </Text>
-        <TouchableOpacity
-          style={[styles.addButton, { backgroundColor: theme.colors.primary.base }]}
-          onPress={() => navigation.navigate('AddFeed')}
-        >
-          <MaterialCommunityIcons name="plus" size={24} color="white" />
-        </TouchableOpacity>
-      </View>
-
-      <FlatList
-        data={paginatedData}
-        renderItem={renderFeedItem}
-        keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={styles.list}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[theme.colors.primary.base]}
-          />
-        }
-        onEndReached={loadMoreItems}
-        onEndReachedThreshold={0.5}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>🌿</Text>
-            <Text style={[styles.emptyText, { color: theme.colors.neutral.textSecondary }]}>
-              لا يوجد أعلاف
-            </Text>
-          </View>
-        }
-        ListFooterComponent={
-          isLoadingMore ? (
-            <View style={styles.loadingMore}>
-              <ActivityIndicator size="small" color={theme.colors.primary.base} />
-            </View>
-          ) : null
-        }
-      />
-    </View>
-  );
-};
-
-const styles = createThemedStyles((theme) => ({
+// Define styles globally to fix the reference issue
+const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#f8f9fa',
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
   header: {
     flexDirection: 'row',
@@ -194,7 +66,7 @@ const styles = createThemedStyles((theme) => ({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.neutral.border,
+    borderBottomColor: '#e0e0e0',
   },
   headerTitle: {
     fontSize: 24,
@@ -283,6 +155,357 @@ const styles = createThemedStyles((theme) => ({
     paddingVertical: 16,
     alignItems: 'center',
   },
-}));
+  errorText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 12,
+    marginBottom: 20,
+  },
+  retryButton: {
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  addButtonEmpty: {
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  loadingMoreText: {
+    fontSize: 14,
+  },
+});
+
+// Create a dedicated component for feed item to properly use hooks
+const FeedItem = ({ 
+  item, 
+  index, 
+  theme, 
+  onPress,
+  getAnimalTypeIcon
+}: { 
+  item: StockFeed; 
+  index: number; 
+  theme: any;
+  onPress: () => void;
+  getAnimalTypeIcon: (type: string) => string;
+}) => {
+  const itemAnimation = React.useRef(new Animated.Value(0)).current;
+  
+  React.useEffect(() => {
+    Animated.timing(itemAnimation, {
+      toValue: 1,
+      duration: 300,
+      delay: index * 50,
+      useNativeDriver: true,
+    }).start();
+  }, [index, itemAnimation]);
+
+  if (!item) return null;
+
+  return (
+    <Animated.View
+      style={[
+        {
+          opacity: itemAnimation,
+          transform: [
+            {
+              translateY: itemAnimation.interpolate({
+                inputRange: [0, 1],
+                outputRange: [20, 0],
+              }),
+            },
+          ],
+        },
+      ]}
+    >
+      <TouchableOpacity
+        style={[
+          styles.card,
+          { backgroundColor: theme.colors.neutral.surface }
+        ]}
+        onPress={onPress}
+      >
+        <View style={styles.cardHeader}>
+          <View style={styles.cardTitleContainer}>
+            <Text style={styles.typeIcon}>{getAnimalTypeIcon(item.animalType || '')}</Text>
+            <Text style={[styles.cardTitle, { color: theme.colors.neutral.textPrimary }]}>
+              {item.name || 'علف بدون اسم'}
+            </Text>
+          </View>
+          <MaterialCommunityIcons
+            name="chevron-left"
+            size={24}
+            color={theme.colors.neutral.textSecondary}
+          />
+        </View>
+
+        <View style={styles.cardContent}>
+          <View style={styles.infoRow}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
+              الكمية:
+            </Text>
+            <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
+              {item.quantity || 0} {item.unit || ''}
+            </Text>
+          </View>
+
+          <View style={styles.infoRow}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
+              السعر:
+            </Text>
+            <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
+              {item.price || 0} د.أ
+            </Text>
+          </View>
+
+          <View style={styles.infoRow}>
+            <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
+              تاريخ الصلاحية:
+            </Text>
+            <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
+              {item.expiryDate ? new Date(item.expiryDate).toLocaleDateString() : '-'}
+            </Text>
+          </View>
+        </View>
+
+        {item.quantity && item.minQuantityAlert && item.quantity <= item.minQuantityAlert && (
+          <View style={[styles.alert, { backgroundColor: theme.colors.accent.light }]}>
+            <MaterialCommunityIcons
+              name="alert"
+              size={16}
+              color={theme.colors.accent.dark}
+            />
+            <Text style={[styles.alertText, { color: theme.colors.accent.dark }]}>
+              المخزون منخفض
+            </Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
+
+const FeedListScreen = ({ navigation }: FeedListScreenProps) => {
+  // Get theme with fallbacks to prevent undefined errors
+  const rawTheme = useTheme();
+  const currentTheme = {
+    ...defaultTheme,
+    colors: {
+      ...fallbackColors,
+      ...(rawTheme?.colors || {}),
+    }
+  };
+  
+  const { feed: contextFeed } = useFeed();
+  const [feed, setFeed] = useState<StockFeed[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [totalPages, setTotalPages] = useState(1);
+  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+
+  const fetchFeed = async (page = 1) => {
+    try {
+      if (page === 1) {
+        setLoading(true);
+      }
+      setError(null);
+      
+      const tokens = await storage.getTokens();
+      
+      if (!tokens?.access) {
+        setError('يرجى تسجيل الدخول أولا');
+        setLoading(false);
+        return;
+      }
+      
+      try {
+        const response = await axios.get(
+          `${process.env.EXPO_PUBLIC_API_URL}/stock/feed`,
+          {
+            headers: {
+              'Authorization': `Bearer ${tokens.access}`
+            }
+          }
+        );
+        
+        if (response.data) {
+          // Assuming direct array response without pagination
+          setFeed(response.data || []);
+          setTotalPages(1); // Set to 1 since we're not using pagination in API
+          
+          // Animate new items
+          Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: true,
+          }).start();
+        }
+      } catch (err) {
+        console.error('Error fetching feed:', err);
+        setError('فشل في جلب قائمة الأعلاف');
+      }
+    } catch (error) {
+      console.error('General error:', error);
+      setError('حدث خطأ ما');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchFeed();
+  }, []);
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await fetchFeed();
+      setCurrentPage(1);
+    } catch (error) {
+      Alert.alert('خطأ', 'فشل في تحديث قائمة الأعلاف');
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
+
+  const loadMoreItems = () => {
+    // Simple client-side pagination since we're loading all data at once
+    if (isLoadingMore || currentPage * ITEMS_PER_PAGE >= feed.length) return;
+    
+    setIsLoadingMore(true);
+    setTimeout(() => {
+      setCurrentPage(prev => prev + 1);
+      setIsLoadingMore(false);
+    }, 500);
+  };
+
+  const getAnimalTypeIcon = (animalType: string) => {
+    switch (animalType) {
+      case 'cattle': return '🐄';
+      case 'sheep': return '🐑';
+      case 'poultry': return '🐓';
+      case 'camel': return '🐪';
+      case 'fish': return '🐟';
+      default: return '🌿';
+    }
+  };
+
+  const handleRetry = () => {
+    fetchFeed(1);
+  };
+
+  const renderFeedItem = ({ item, index }: { item: StockFeed; index: number }) => {
+    if (!item) return null;
+    
+    return (
+      <FeedItem 
+        item={item} 
+        index={index} 
+        theme={currentTheme}
+        onPress={() => navigation.navigate('FeedDetail', { feedId: item.id })}
+        getAnimalTypeIcon={getAnimalTypeIcon}
+      />
+    );
+  };
+
+  const renderFooter = () => {
+    if (!isLoadingMore) return null;
+
+    return (
+      <View style={styles.loadingMore}>
+        <ActivityIndicator size="small" color={currentTheme.colors.primary.base} />
+        <Text style={[styles.loadingMoreText, { color: currentTheme.colors.neutral.textSecondary }]}>
+          جاري تحميل المزيد...
+        </Text>
+      </View>
+    );
+  };
+
+  // Display loading indicator
+  if (loading && !refreshing) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <ActivityIndicator size="large" color={currentTheme.colors.primary.base} />
+      </View>
+    );
+  }
+
+  // Display error state
+  if (error && !refreshing && (!feed || feed.length === 0)) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <MaterialCommunityIcons
+          name="alert-circle-outline" 
+          size={48}
+          color={currentTheme.colors.neutral.textSecondary}
+        />
+        <Text style={[styles.errorText, { color: currentTheme.colors.neutral.textSecondary }]}>
+          {error}
+        </Text>
+        <TouchableOpacity
+          style={[styles.retryButton, { backgroundColor: currentTheme.colors.primary.base }]}
+          onPress={handleRetry}
+        >
+          <Text style={{ color: currentTheme.colors.neutral.surface }}>إعادة المحاولة</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Main content view
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={[styles.headerTitle, { color: currentTheme.colors.neutral.textPrimary }]}>
+          الأعلاف ({feed?.length || 0})
+        </Text>
+        <TouchableOpacity
+          style={[styles.addButton, { backgroundColor: currentTheme.colors.primary.base }]}
+          onPress={() => navigation.navigate('AddFeed', {})}
+        >
+          <MaterialCommunityIcons name="plus" size={24} color="white" />
+        </TouchableOpacity>
+      </View>
+
+      <FlatList
+        data={feed || []}
+        renderItem={renderFeedItem}
+        keyExtractor={(item, index) => `feed-${item?.id || index}`}
+        contentContainerStyle={styles.list}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[currentTheme.colors.primary.base]}
+            tintColor={currentTheme.colors.primary.base}
+          />
+        }
+        onEndReached={loadMoreItems}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={renderFooter}
+        ListEmptyComponent={
+          !loading ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyIcon}>🌿</Text>
+              <Text style={[styles.emptyText, { color: currentTheme.colors.neutral.textSecondary }]}>
+                لا يوجد أعلاف
+              </Text>
+              <TouchableOpacity
+                style={[styles.addButtonEmpty, { backgroundColor: currentTheme.colors.primary.base }]}
+                onPress={() => navigation.navigate('AddFeed', {})}
+              >
+                <Text style={{ color: currentTheme.colors.neutral.surface }}>إضافة علف جديد</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null
+        }
+      />
+    </View>
+  );
+};
 
 export default FeedListScreen; 

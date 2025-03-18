@@ -459,15 +459,15 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
     const selectedItem = items.find(item => item.value === value);
 
     const handlePress = (item: { value: string; label: string; icon: string }) => {
-      if (label === 'نوع المعدة') {
-        handleTypeSelect(item.value as EquipmentType);
-      } else if (label === 'حالة المعدة') {
-        handleStatusSelect(item.value as EquipmentStatus);
-      } else if (label === 'الحالة التشغيلية') {
-        handleOperationalStatusSelect(item.value as OperationalStatus);
-      } else if (label === 'نوع الوقود') {
-        handleFuelTypeSelect(item.value as FuelType);
-      }
+              if (label === 'نوع المعدة') {
+                handleTypeSelect(item.value as EquipmentType);
+              } else if (label === 'حالة المعدة') {
+                handleStatusSelect(item.value as EquipmentStatus);
+              } else if (label === 'الحالة التشغيلية') {
+                handleOperationalStatusSelect(item.value as OperationalStatus);
+              } else if (label === 'نوع الوقود') {
+                handleFuelTypeSelect(item.value as FuelType);
+              }
       setShowOptions(false);
     };
 
@@ -526,8 +526,8 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
                 key={item.value}
                 mode={value === item.value ? "contained" : "outlined"}
                 onPress={() => handlePress(item)}
-                style={[
-                  styles.selectButton,
+            style={[
+              styles.selectButton,
                   { 
                     borderColor: value === item.value ? theme.colors.primary.base : theme.colors.neutral.border,
                     backgroundColor: value === item.value ? theme.colors.primary.base : theme.colors.neutral.surface,
@@ -551,20 +551,20 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
                   </Text>
                   <Text 
                     style={[
-                      styles.selectButtonText,
+              styles.selectButtonText,
                       { 
                         color: value === item.value ? theme.colors.neutral.surface : theme.colors.primary.base,
                       }
-                    ]}
+            ]}
                     numberOfLines={2}
                     adjustsFontSizeToFit
-                  >
+          >
                     {item.label}
                   </Text>
                 </View>
-              </Button>
-            ))}
-          </View>
+          </Button>
+        ))}
+      </View>
         ) : (
           <Button
             mode="outlined"
@@ -591,12 +591,12 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
           </Button>
         )}
 
-        {error && (
+      {error && (
           <Animated.Text 
             entering={FadeIn.duration(300)}
             style={[styles.errorText, { color: theme.colors.error }]}
           >
-            {error}
+          {error}
           </Animated.Text>
         )}
       </Animated.View>
@@ -987,10 +987,10 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
     return (
       <View style={styles.progressContainer}>
         {formPages.map((_, index) => (
-          <Animated.View
-            key={index}
+          <Animated.View 
+            key={index} 
             style={[
-              styles.progressStep,
+              styles.progressStep, 
               {
                 flex: 1,
                 backgroundColor: index <= currentPage ? theme.colors.primary.base : theme.colors.neutral.border,
@@ -1010,41 +1010,41 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
           name={currentPageData.icon}
           style={[styles.pageIcon, { color: theme.colors.primary.base }]}
         />
-        <View style={styles.pageTitleContainer}>
+      <View style={styles.pageTitleContainer}>
           <Text style={[styles.pageTitle, { color: theme.colors.neutral.textPrimary }]}>
             {currentPageData.title}
           </Text>
           <Text style={[styles.pageSubtitle, { color: theme.colors.neutral.textSecondary }]}>
             {currentPageData.subtitle}
-          </Text>
+      </Text>
         </View>
-      </View>
-    );
+    </View>
+  );
   };
 
   const renderFormProgress = () => {
-    return (
+  return (
       <View style={styles.formProgressContainer}>
         <Text style={[styles.formProgressText, { color: theme.colors.neutral.textPrimary }]}>
           {`الخطوة ${currentPage + 1} من ${formPages.length}`}
-        </Text>
-      </View>
-    );
-  };
+              </Text>
+            </View>
+  );
+};
 
-  const styles = StyleSheet.create({
-    container: {
-      flex: 1,
-    },
-    form: {
-      padding: 16,
-      paddingBottom: 48,
-    },
-    progressContainer: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  form: {
+    padding: 16,
+    paddingBottom: 48,
+  },
+  progressContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
       marginBottom: 32,
-      alignItems: 'center',
+    alignItems: 'center',
       backgroundColor: theme.colors.neutral.surface,
       padding: 16,
       borderRadius: 16,
@@ -1056,15 +1056,15 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
       },
       shadowOpacity: 0.1,
       shadowRadius: 3,
-    },
-    progressStep: {
+  },
+  progressStep: {
       height: 8,
       marginHorizontal: 3,
       borderRadius: 4,
-    },
-    pageHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
+  },
+  pageHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
       marginBottom: 24,
       backgroundColor: theme.colors.neutral.surface,
       padding: 16,
@@ -1077,31 +1077,31 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
       },
       shadowOpacity: 0.1,
       shadowRadius: 3,
-    },
-    pageIcon: {
+  },
+  pageIcon: {
       fontSize: 32,
-      marginRight: 16,
+    marginRight: 16,
       backgroundColor: theme.colors.primary.surface,
       padding: 12,
       borderRadius: 12,
       overflow: 'hidden',
-    },
-    pageTitleContainer: {
-      flex: 1,
-    },
-    pageTitle: {
-      fontSize: 24,
-      fontWeight: 'bold',
+  },
+  pageTitleContainer: {
+    flex: 1,
+  },
+  pageTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
       marginBottom: 6,
-      textAlign: 'right',
-    },
-    pageSubtitle: {
+    textAlign: 'right',
+  },
+  pageSubtitle: {
       fontSize: 26,
-      textAlign: 'right',
+    textAlign: 'right',
       opacity: 0.8,
-    },
-    formProgressContainer: {
-      alignItems: 'center',
+  },
+  formProgressContainer: {
+    alignItems: 'center',
       marginBottom: 16,
       backgroundColor: theme.colors.neutral.surface,
       padding: 12,
@@ -1114,34 +1114,34 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
       },
       shadowOpacity: 0.1,
       shadowRadius: 3,
-    },
-    formProgressText: {
+  },
+  formProgressText: {
       fontSize: 26,
       fontWeight: '600',
       textAlign: 'center',
-    },
-    divider: {
-      marginVertical: 16,
-      height: 1,
-    },
-    formContent: {
-      marginBottom: 24,
-    },
-    fieldsContainer: {
-      gap: 20,
-    },
-    labelContainer: {
-      flexDirection: 'row',
-      justifyContent: 'flex-end',
-      alignItems: 'center',
-      marginBottom: 8,
-    },
-    inputIcon: {
+  },
+  divider: {
+    marginVertical: 16,
+    height: 1,
+  },
+  formContent: {
+    marginBottom: 24,
+  },
+  fieldsContainer: {
+    gap: 20,
+  },
+  labelContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  inputIcon: {
       fontSize: 24,
       marginLeft: 12,
       opacity: 0.9,
-    },
-    inputContainer: {
+  },
+  inputContainer: {
       marginBottom: 24,
       backgroundColor: theme.colors.neutral.surface,
       padding: 16,
@@ -1154,54 +1154,54 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
       },
       shadowOpacity: 0.1,
       shadowRadius: 3,
-    },
-    inputLabel: {
+  },
+  inputLabel: {
       fontSize: 18,
-      fontWeight: '600',
-      textAlign: 'right',
+    fontWeight: '600',
+    textAlign: 'right',
       marginBottom: 8,
       color: theme.colors.neutral.textPrimary,
-    },
-    textInput: {
-      height: 50,
-      textAlign: 'right',
+  },
+  textInput: {
+    height: 50,
+    textAlign: 'right',
       fontSize: 26,
-    },
-    textInputMultiline: {
-      minHeight: 100,
-      textAlign: 'right',
-      fontSize: 16,
-      paddingTop: 12,
-    },
-    inputError: {
-      borderWidth: 1.5,
-    },
-    errorText: {
-      fontSize: 13,
-      marginTop: 6,
-      marginRight: 4,
-      textAlign: 'right',
-    },
-    errorMessage: {
-      fontSize: 14,
-      textAlign: 'center',
-      marginBottom: 16,
-      padding: 10,
-      borderRadius: 8,
-    },
-    selectContainer: {
-      flexDirection: 'row-reverse',
-      flexWrap: 'wrap',
+  },
+  textInputMultiline: {
+    minHeight: 100,
+    textAlign: 'right',
+    fontSize: 16,
+    paddingTop: 12,
+  },
+  inputError: {
+    borderWidth: 1.5,
+  },
+  errorText: {
+    fontSize: 13,
+    marginTop: 6,
+    marginRight: 4,
+    textAlign: 'right',
+  },
+  errorMessage: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 16,
+    padding: 10,
+    borderRadius: 8,
+  },
+  selectContainer: {
+    flexDirection: 'row-reverse',
+    flexWrap: 'wrap',
       gap: 12,
       justifyContent: 'space-between',
       backgroundColor: theme.colors.neutral.background,
       padding: 12,
       borderRadius: 12,
-    },
-    horizontalSelect: {
-      justifyContent: 'space-between',
-    },
-    selectButton: {
+  },
+  horizontalSelect: {
+    justifyContent: 'space-between',
+  },
+  selectButton: {
       marginBottom: 12,
       borderRadius: 12,
       width: '48%',
@@ -1228,34 +1228,34 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
     selectButtonIcon: {
       fontSize: 24,
       marginBottom: 4,
-    },
-    selectButtonText: {
+  },
+  selectButtonText: {
       fontWeight: '700',
       fontSize: 20,
       textAlign: 'center',
       flexWrap: 'wrap',
       lineHeight: 20,
-    },
-    datePickerButton: {
-      borderRadius: 12,
-      justifyContent: 'flex-start',
-      alignItems: 'flex-start',
-      paddingVertical: 10,
-    },
-    datePickerButtonText: {
-      marginVertical: 2,
-      fontWeight: 'normal',
-      fontSize: 16,
-    },
-    buttonContainer: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
+  },
+  datePickerButton: {
+    borderRadius: 12,
+    justifyContent: 'flex-start',
+    alignItems: 'flex-start',
+    paddingVertical: 10,
+  },
+  datePickerButtonText: {
+    marginVertical: 2,
+    fontWeight: 'normal',
+    fontSize: 16,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
       gap: 20,
       marginTop: 32,
       paddingHorizontal: 8,
-    },
-    button: {
-      flex: 1,
+  },
+  button: {
+    flex: 1,
       paddingVertical: 12,
       borderRadius: 16,
       elevation: 3,
@@ -1266,12 +1266,12 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
       },
       shadowOpacity: 0.15,
       shadowRadius: 3,
-    },
-    buttonText: {
+  },
+  buttonText: {
       fontSize: 18,
-      fontWeight: 'bold',
-      textAlign: 'center',
-    },
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
     selectedButton: {
       width: '100%',
       borderRadius: 12,
