@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -33,12 +33,12 @@ const getConversations = async () => {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${tokens.access}`,
+        Authorization: `Bearer ${tokens.access}`,
       },
     });
 
     console.log('Response status:', response.status);
-    
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       console.error('Error response:', errorData);
@@ -81,6 +81,8 @@ interface ConversationSidebarProps {
   onClose: () => void;
   onSelectConversation: (conversationId: string) => void;
   onNewConversation?: (conversation: Conversation) => void;
+  currentConversationId?: string | number;
+  onCurrentConversationDeleted?: () => void;
 }
 
 const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
@@ -88,24 +90,207 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
   onClose,
   onSelectConversation,
   onNewConversation,
+  currentConversationId,
+  onCurrentConversationDeleted,
 }) => {
-  const slideAnim = useRef(new Animated.Value(-300)).current; // Slide from left
-  const scaleAnim = useRef(new Animated.Value(0.95)).current; // Slight scale effect
-  const rotateAnim = useRef(new Animated.Value(0)).current; // Rotation animation
-  const bounceAnim = useRef(new Animated.Value(0)).current; // Bounce animation
-  const [isAnimationComplete, setIsAnimationComplete] = useState(!isVisible);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [loading, setLoading] = useState(true); // Start with loading true
-  const [error, setError] = useState<string | null>(null);
-
-  // Create animated values for each conversation item - max 20 for performance
+  // All hooks must be declared at the top level
+  const slideAnim = useRef(new Animated.Value(-300)).current;
+  const scaleAnim = useRef(new Animated.Value(0.95)).current;
+  const rotateAnim = useRef(new Animated.Value(0)).current;
+  const bounceAnim = useRef(new Animated.Value(0)).current;
+  const multiSelectAnim = useRef(new Animated.Value(0)).current;
+  const longPressTimeout = useRef<NodeJS.Timeout>();
+  const itemScaleAnims = useRef<{ [key: string]: Animated.Value }>({});
+  const itemPressAnims = useRef<{ [key: string]: Animated.Value }>({});
   const itemAnimations = useRef(
     Array(20)
       .fill(0)
       .map(() => new Animated.Value(0))
   ).current;
+
+  const [isAnimationComplete, setIsAnimationComplete] = useState(!isVisible);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
+  const [selectedConversations, setSelectedConversations] = useState<string[]>([]);
+  const [showOptionsMenu, setShowOptionsMenu] = useState<string | null>(null);
+  const [isLongPressing, setIsLongPressing] = useState(false);
+  const [isLongPressActive, setIsLongPressActive] = useState(false);
+
+  // All handlers must be declared at the top level
+  const handleDeleteConversations = useCallback(
+    async (ids: string[]) => {
+      try {
+        const tokens = await storage.getTokens();
+        if (!tokens || !tokens.access) {
+          throw new Error('Authentication required');
+        }
+
+        const response = await fetch(`${Url}/conversations/delete`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${tokens.access}`,
+          },
+          body: JSON.stringify({ conversationIds: ids }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to delete conversations');
+        }
+
+        // Check if current conversation was deleted
+        if (currentConversationId && ids.includes(currentConversationId.toString())) {
+          onCurrentConversationDeleted?.();
+        }
+
+        // Remove deleted conversations from state
+        setConversations((prev) => prev.filter((conv) => !ids.includes(conv.id)));
+        setSelectedConversations([]);
+        setIsMultiSelectMode(false);
+        setShowOptionsMenu(null);
+      } catch (error) {
+        console.error('Error deleting conversations:', error);
+        // Show error message to user
+      }
+    },
+    [currentConversationId, onCurrentConversationDeleted]
+  );
+
+  const handleLongPress = useCallback((conversationId: string) => {
+    setIsMultiSelectMode(true);
+    setSelectedConversations([conversationId]);
+    Animated.spring(multiSelectAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      friction: 8,
+      tension: 40,
+    }).start();
+  }, []);
+
+  const handlePressIn = useCallback(
+    (conversationId: string) => {
+      setIsLongPressing(true);
+      const scale = itemScaleAnims.current[conversationId] || new Animated.Value(1);
+      const press = itemPressAnims.current[conversationId] || new Animated.Value(0);
+
+      itemScaleAnims.current[conversationId] = scale;
+      itemPressAnims.current[conversationId] = press;
+
+      longPressTimeout.current = setTimeout(() => {
+        setIsLongPressActive(true);
+        handleLongPress(conversationId);
+      }, 1500);
+
+      Animated.parallel([
+        Animated.spring(scale, {
+          toValue: 0.98,
+          useNativeDriver: true,
+          friction: 8,
+        }),
+        Animated.timing(press, {
+          toValue: 1,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    },
+    [handleLongPress]
+  );
+
+  const handlePressOut = useCallback((conversationId: string) => {
+    setIsLongPressing(false);
+    if (longPressTimeout.current) {
+      clearTimeout(longPressTimeout.current);
+    }
+
+    const scale = itemScaleAnims.current[conversationId];
+    const press = itemPressAnims.current[conversationId];
+
+    if (scale && press) {
+      Animated.parallel([
+        Animated.spring(scale, {
+          toValue: 1,
+          useNativeDriver: true,
+          friction: 8,
+        }),
+        Animated.timing(press, {
+          toValue: 0,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, []);
+
+  const handleConversationPress = useCallback(
+    (conversationId: string) => {
+      // If we're in multi-select mode or a long press just happened
+      if (isMultiSelectMode) {
+        setSelectedConversations((prev) => {
+          const newSelected = prev.includes(conversationId)
+            ? prev.filter((id) => id !== conversationId)
+            : [...prev, conversationId];
+
+          if (newSelected.length === 0) {
+            Animated.spring(multiSelectAnim, {
+              toValue: 0,
+              useNativeDriver: true,
+              friction: 8,
+              tension: 40,
+            }).start(() => {
+              setIsMultiSelectMode(false);
+              setIsLongPressActive(false);
+            });
+          }
+          return newSelected;
+        });
+      } else if (!isLongPressActive) {
+        // Only handle normal press if not a long press
+        setSelectedId(conversationId);
+        onSelectConversation(conversationId);
+      }
+      setIsLongPressActive(false); // Reset the long press state
+    },
+    [isMultiSelectMode, multiSelectAnim, onSelectConversation, isLongPressActive]
+  );
+
+  const handleSelectAll = useCallback(() => {
+    const allIds = conversations.map((conv) => conv.id);
+    setSelectedConversations(allIds);
+    setIsMultiSelectMode(true);
+    Animated.spring(multiSelectAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      friction: 8,
+      tension: 40,
+    }).start();
+  }, [conversations]);
+
+  const handleCancelSelection = useCallback(() => {
+    setIsLongPressActive(false);
+    Animated.sequence([
+      Animated.spring(multiSelectAnim, {
+        toValue: 0,
+        useNativeDriver: true,
+        friction: 8,
+        tension: 40,
+      }),
+      Animated.timing(bounceAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+        easing: Easing.elastic(1),
+      }),
+    ]).start(() => {
+      setIsMultiSelectMode(false);
+      setSelectedConversations([]);
+      bounceAnim.setValue(0);
+    });
+  }, [multiSelectAnim, bounceAnim]);
 
   // Fetch conversations when component mounts
   useEffect(() => {
@@ -240,11 +425,6 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
   // Don't render if not visible and animation is complete
   if (!isVisible && isAnimationComplete) return null;
 
-  const handleSelectConversation = (id: string) => {
-    setSelectedId(id);
-    onSelectConversation(id);
-  };
-
   // Use the actual conversations only
   const displayConversations = conversations;
 
@@ -254,25 +434,21 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
   );
 
   const renderItem = ({ item, index }: { item: Conversation; index: number }) => {
-    const scale = new Animated.Value(1); // For hover-like effect
+    // Get or create animation values for this item
+    const scale = itemScaleAnims.current[item.id] || new Animated.Value(1);
+    const pressAnim = itemPressAnims.current[item.id] || new Animated.Value(0);
+
+    // Store the animation values if they're new
+    if (!itemScaleAnims.current[item.id]) {
+      itemScaleAnims.current[item.id] = scale;
+    }
+    if (!itemPressAnims.current[item.id]) {
+      itemPressAnims.current[item.id] = pressAnim;
+    }
+
     const isSelected = selectedId === item.id;
+    const isMultiSelected = selectedConversations.includes(item.id);
 
-    const onPressIn = () => {
-      Animated.spring(scale, {
-        toValue: 0.98,
-        useNativeDriver: true,
-      }).start();
-    };
-
-    const onPressOut = () => {
-      Animated.spring(scale, {
-        toValue: 1,
-        useNativeDriver: true,
-      }).start();
-    };
-
-    // Calculate item animation styles
-    // Check if the animation exists for this index, use a default value if not
     const animValue = index < itemAnimations.length ? itemAnimations[index] : new Animated.Value(1);
 
     const itemAnimStyle = {
@@ -285,12 +461,22 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
           }),
         },
         {
-          scale: animValue.interpolate({
-            inputRange: [0, 1],
-            outputRange: [0.8, 1],
-          }),
+          scale: Animated.multiply(
+            scale,
+            animValue.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0.8, 1],
+            })
+          ),
         },
       ],
+    };
+
+    const pressStyle = {
+      backgroundColor: pressAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [theme.colors.neutral.surface, `${theme.colors.primary.base}08`],
+      }),
     };
 
     return (
@@ -298,18 +484,39 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
         style={[
           styles.conversationItem,
           itemAnimStyle,
-          { transform: [...itemAnimStyle.transform, { scale }] },
+          pressStyle,
           isSelected && styles.conversationItemSelected,
+          isMultiSelected && styles.conversationItemMultiSelected,
         ]}>
         <TouchableOpacity
-          onPressIn={onPressIn}
-          onPressOut={onPressOut}
-          onPress={() => handleSelectConversation(item.id)}
-          activeOpacity={0.9}
+          onPressIn={() => handlePressIn(item.id)}
+          onPressOut={() => handlePressOut(item.id)}
+          onPress={() => handleConversationPress(item.id)}
+          activeOpacity={1}
           style={styles.touchableItem}>
           <View style={styles.conversationContent}>
             <View style={styles.conversationHeader}>
-              <View style={styles.iconContainer}>
+              <Animated.View
+                style={[
+                  styles.checkbox,
+                  isMultiSelected && styles.checkboxSelected,
+                  {
+                    opacity: multiSelectAnim,
+                    transform: [
+                      {
+                        scale: multiSelectAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0.5, 1],
+                        }),
+                      },
+                    ],
+                  },
+                ]}>
+                {isMultiSelected && (
+                  <MaterialIcons name="check" size={16} color={theme.colors.neutral.surface} />
+                )}
+              </Animated.View>
+              <View style={[styles.iconContainer, isMultiSelected && styles.iconContainerSelected]}>
                 <Text style={styles.iconText}>{item.icon}</Text>
               </View>
               <View style={styles.titleContainer}>
@@ -318,8 +525,30 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
                 </Text>
                 <Text style={styles.conversationDate}>{item.date}</Text>
               </View>
-              {item.unread && <View style={styles.unreadIndicator} />}
+              {!isMultiSelectMode && (
+                <TouchableOpacity
+                  style={styles.optionsButton}
+                  onPress={() => setShowOptionsMenu(showOptionsMenu === item.id ? null : item.id)}>
+                  <MaterialIcons
+                    name="more-vert"
+                    size={20}
+                    color={theme.colors.neutral.textSecondary}
+                  />
+                </TouchableOpacity>
+              )}
             </View>
+            {showOptionsMenu === item.id && (
+              <View style={styles.optionsMenu}>
+                <TouchableOpacity
+                  style={styles.optionItem}
+                  onPress={() => handleDeleteConversations([item.id])}>
+                  <MaterialIcons name="delete" size={20} color={theme.colors.error} />
+                  <Text style={[styles.optionText, { color: theme.colors.error }]}>
+                    حذف المحادثة
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
             <Text style={styles.conversationPreview} numberOfLines={2}>
               {item.preview}
             </Text>
@@ -366,14 +595,37 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
     <Animated.View style={[styles.container, sidebarAnimatedStyle]}>
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <MaterialIcons name="chat" size={24} color={theme.colors.neutral.surface} />
-          <Text style={styles.headerTitle}>المحادثات</Text>
+          {isMultiSelectMode ? (
+            <>
+              <Text style={styles.headerTitle}>تم تحديد {selectedConversations.length} محادثة</Text>
+              <TouchableOpacity style={styles.selectAllButton} onPress={handleSelectAll}>
+                <Text style={styles.selectAllButtonText}>تحديد الكل</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.cancelButton} onPress={handleCancelSelection}>
+                <Text style={styles.cancelButtonText}>إلغاء</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <MaterialIcons name="chat" size={24} color={theme.colors.neutral.surface} />
+              <Text style={styles.headerTitle}>المحادثات</Text>
+            </>
+          )}
         </View>
-        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-          <Animated.View style={closeButtonAnimatedStyle}>
-            <MaterialIcons name="close" size={24} color={theme.colors.neutral.textPrimary} />
-          </Animated.View>
-        </TouchableOpacity>
+        {isMultiSelectMode ? (
+          <TouchableOpacity
+            style={[styles.deleteButton, { opacity: selectedConversations.length > 0 ? 1 : 0.5 }]}
+            onPress={() => handleDeleteConversations(selectedConversations)}
+            disabled={selectedConversations.length === 0}>
+            <MaterialIcons name="delete" size={24} color={theme.colors.error} />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <Animated.View style={closeButtonAnimatedStyle}>
+              <MaterialIcons name="close" size={24} color={theme.colors.neutral.textPrimary} />
+            </Animated.View>
+          </TouchableOpacity>
+        )}
       </View>
 
       <View style={styles.searchContainer}>
@@ -435,9 +687,7 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
               color={theme.colors.neutral.textSecondary}
             />
             <Text style={styles.emptyText}>
-              {searchTerm
-                ? `No conversations found matching "${searchTerm}"`
-                : 'No conversations yet'}
+              {searchTerm ? `لا يوجد محادثات مطابقة لـ "${searchTerm}"` : 'لا يوجد محادثات بعد'}
             </Text>
             {!searchTerm && (
               <TouchableOpacity
@@ -485,15 +735,15 @@ const styles = StyleSheet.create({
     width: '85%',
     backgroundColor: theme.colors.neutral.surface,
     borderRightWidth: 1,
-    borderRightColor: 'rgba(0, 0, 0, 0.1)',
+    borderRightColor: 'rgba(0, 0, 0, 0.08)',
     zIndex: 1000,
     elevation: 10,
     shadowColor: '#000',
     shadowOffset: { width: 6, height: 0 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    borderTopRightRadius: 24,
-    borderBottomRightRadius: 24,
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    borderTopRightRadius: 28,
+    borderBottomRightRadius: 28,
     overflow: 'hidden',
   },
   header: {
@@ -507,8 +757,8 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   headerContent: {
     flexDirection: 'row',
@@ -523,12 +773,13 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     padding: theme.spacing.sm,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
     borderRadius: 24,
     width: 44,
     height: 44,
     justifyContent: 'center',
     alignItems: 'center',
+    backdropFilter: 'blur(8px)',
   },
   searchContainer: {
     padding: theme.spacing.md,
@@ -546,9 +797,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.04)',
   },
   searchInput: {
     flex: 1,
@@ -570,19 +823,19 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.neutral.surface,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
     elevation: 2,
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.04)',
   },
   conversationItemSelected: {
-    backgroundColor: `${theme.colors.primary.base}10`,
+    backgroundColor: `${theme.colors.primary.base}08`,
+    borderColor: theme.colors.primary.base,
     borderLeftWidth: 4,
-    borderLeftColor: theme.colors.primary.base,
     transform: [{ scale: 1.02 }],
     shadowOpacity: 0.12,
-    shadowRadius: 6,
+    shadowRadius: 8,
   },
   touchableItem: {
     width: '100%',
@@ -599,15 +852,21 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: `${theme.colors.primary.base}15`,
+    backgroundColor: `${theme.colors.primary.base}12`,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: theme.spacing.md,
     shadowColor: theme.colors.primary.base,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
-    shadowRadius: 3,
+    shadowRadius: 4,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: `${theme.colors.primary.base}20`,
+  },
+  iconContainerSelected: {
+    backgroundColor: `${theme.colors.primary.base}20`,
+    borderColor: theme.colors.primary.base,
   },
   iconText: {
     fontSize: 18,
@@ -663,15 +922,17 @@ const styles = StyleSheet.create({
   newChatButton: {
     backgroundColor: theme.colors.primary.base,
     borderRadius: theme.borderRadius.large,
-    padding: theme.spacing.md,
+    padding: theme.spacing.md + 2,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: theme.colors.primary.base,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
-    shadowRadius: 6,
+    shadowRadius: 8,
     elevation: 4,
+    borderWidth: 1,
+    borderColor: `${theme.colors.primary.base}40`,
   },
   newChatText: {
     color: theme.colors.neutral.surface,
@@ -759,6 +1020,90 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.medium,
     fontSize: theme.fontSizes.body,
     letterSpacing: 0.5,
+  },
+  conversationItemMultiSelected: {
+    backgroundColor: `${theme.colors.primary.base}12`,
+    borderColor: theme.colors.primary.base,
+    borderWidth: 1.5,
+    transform: [{ scale: 1.01 }],
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: theme.colors.neutral.textSecondary,
+    marginRight: theme.spacing.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+  },
+  checkboxSelected: {
+    backgroundColor: theme.colors.primary.base,
+    borderColor: theme.colors.primary.base,
+  },
+  optionsButton: {
+    padding: theme.spacing.xs,
+    marginLeft: theme.spacing.sm,
+  },
+  optionsMenu: {
+    position: 'absolute',
+    right: theme.spacing.lg,
+    top: 50,
+    backgroundColor: theme.colors.neutral.surface,
+    borderRadius: theme.borderRadius.medium,
+    padding: theme.spacing.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+    zIndex: 1000,
+  },
+  optionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: theme.spacing.sm,
+  },
+  optionText: {
+    marginLeft: theme.spacing.sm,
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.medium,
+  },
+  deleteButton: {
+    padding: theme.spacing.sm,
+    backgroundColor: 'rgba(255, 59, 48, 0.1)',
+    borderRadius: 24,
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cancelButton: {
+    marginLeft: theme.spacing.md,
+    backgroundColor: 'rgba(255, 59, 48, 0.15)',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.medium,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 59, 48, 0.3)',
+  },
+  cancelButtonText: {
+    color: '#FF3B30',
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.medium,
+  },
+  selectAllButton: {
+    marginLeft: theme.spacing.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.medium,
+  },
+  selectAllButtonText: {
+    color: theme.colors.neutral.surface,
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.medium,
   },
 });
 
