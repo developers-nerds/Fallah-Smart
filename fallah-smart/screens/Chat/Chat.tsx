@@ -110,8 +110,8 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
       const messageNumber = messages.length + 1;
       let conversationId = currentConversationId;
 
-      // If there's no active conversation and we're past the first message, create a new one
-      if (!conversationId && messageNumber > 2) {
+      // If there's no active conversation and we're at the second message (first user message), create a new one
+      if (!conversationId && messageNumber === 2) {
         try {
           const conversationNameResponse = await GetConversationName(inputText);
           if (conversationNameResponse.success && conversationNameResponse.parsedData) {
@@ -150,12 +150,13 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
       setIsLoading(true);
 
       try {
-        if (!conversationId && messageNumber > 2) {
+        if (!conversationId && messageNumber > 1) {
           throw new Error('لا توجد محادثة نشطة. يرجى بدء محادثة جديدة.');
         }
 
         // Store user message in database - only from message 2 onwards (which creates message pair)
         if (messageNumber >= 2 && conversationId) {
+          console.log('messageNumber', messageNumber);
           const userMessageResponse = await fetch(`${API_URL}/messages/create`, {
             method: 'POST',
             headers: {
@@ -465,6 +466,13 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
           onClose={toggleSidebar}
           onSelectConversation={handleSelectConversation}
           onNewConversation={handleNewConversation}
+          currentConversationId={currentConversationId}
+          onCurrentConversationDeleted={() => {
+            // Close the sidebar
+            toggleSidebar();
+            // Start a new conversation
+            handleNewConversation();
+          }}
         />
       </KeyboardAvoidingView>
     </SafeAreaView>

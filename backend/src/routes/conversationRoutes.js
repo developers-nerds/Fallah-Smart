@@ -3,6 +3,7 @@ const router = express.Router();
 const {
   createConversation,
   getUserConversations,
+  deleteConversations,
 } = require("../controllers/conversationController");
 const auth = require("../middleware/auth");
 
@@ -19,5 +20,12 @@ router.post("/create", auth, createConversation);
  * @access  Private
  */
 router.get("/get", auth, getUserConversations);
+
+/**
+ * @route   DELETE /api/conversations/delete
+ * @desc    Delete one or multiple conversations
+ * @access  Private
+ */
+router.delete("/delete", auth, deleteConversations);
 
 module.exports = router;
