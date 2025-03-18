@@ -42,13 +42,11 @@ const ScanHistory: React.FC<ScanHistoryProps> = ({ refreshTrigger = 0 }) => {
     try {
       setLoading(true);
       const tokens = await storage.getTokens();
-      
-      if (!tokens.access) {
+      if (!tokens?.access) {
         setError('Authentication required');
         setLoading(false);
         return;
       }
-
       const response = await axios.get(`${baseUrl}/api/scans/getScans`, {
         headers: {
           Authorization: `Bearer ${tokens.access}`,
@@ -57,11 +55,10 @@ const ScanHistory: React.FC<ScanHistoryProps> = ({ refreshTrigger = 0 }) => {
 
       if (response.data && Array.isArray(response.data)) {
         setScans(response.data);
+        setError(null);
       } else {
         setError('Invalid data format received');
       }
-
-      setError(null);
     } catch (err) {
       setError('Failed to load scan history');
     } finally {
@@ -103,7 +100,7 @@ const ScanHistory: React.FC<ScanHistoryProps> = ({ refreshTrigger = 0 }) => {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="small" color={theme.colors.primary.base} />
-        <Text style={styles.loadingText}>Loading scan history...</Text>
+        <Text style={styles.loadingText}>جاري تحميل سجل المسح...</Text>
       </View>
     );
   }
@@ -113,6 +110,9 @@ const ScanHistory: React.FC<ScanHistoryProps> = ({ refreshTrigger = 0 }) => {
       <View style={styles.errorContainer}>
         <Ionicons name="alert-circle-outline" size={24} color={theme.colors.error.base} />
         <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity style={styles.refreshButton} onPress={fetchScanHistory}>
+          <Ionicons name="refresh-outline" size={20} color={theme.colors.primary.base} />
+        </TouchableOpacity>
       </View>
     );
   }
@@ -121,24 +121,28 @@ const ScanHistory: React.FC<ScanHistoryProps> = ({ refreshTrigger = 0 }) => {
     return (
       <View style={styles.container}>
         <View style={styles.headerRow}>
-          <Text style={styles.headerTitle}>Scan History</Text>
-          <TouchableOpacity 
+          <Text style={styles.headerTitle}>سجل المسح</Text>
+          <TouchableOpacity
             style={styles.viewAllButton}
             onPress={() => navigation.navigate('ScanHistoryScreen')}>
-            <Text style={styles.viewAllText}>View all</Text>
+            <Text style={styles.viewAllText}>عرض الكل</Text>
             <Ionicons name="chevron-forward" size={16} color={theme.colors.primary.base} />
           </TouchableOpacity>
         </View>
-        
+
         <View style={styles.emptyContainer}>
           <Ionicons name="leaf-outline" size={24} color={theme.colors.neutral.gray.base} />
-          <Text style={styles.emptyText}>No scan history yet</Text>
-          <TouchableOpacity 
-            style={styles.scanButton} 
-            onPress={() => navigation.navigate('Scan')}
-          >
-            <Text style={styles.scanButtonText}>Scan a plant</Text>
-          </TouchableOpacity>
+          <Text style={styles.emptyText}>لا يوجد سجل مسح حتى الآن</Text>
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity style={styles.scanButton} onPress={() => navigation.navigate('Scan')}>
+              <Text style={styles.scanButtonText}>مسح نبات</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.scanButton, styles.refreshButton]}
+              onPress={fetchScanHistory}>
+              <Ionicons name="refresh-outline" size={20} color={theme.colors.neutral.surface} />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     );
@@ -147,7 +151,7 @@ const ScanHistory: React.FC<ScanHistoryProps> = ({ refreshTrigger = 0 }) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Recent Scans</Text>
+        <Text style={styles.title}>عمليات المسح الأخيرة</Text>
         <TouchableOpacity onPress={fetchScanHistory}>
           <Ionicons name="refresh-outline" size={20} color={theme.colors.primary.base} />
         </TouchableOpacity>
@@ -174,7 +178,7 @@ const ScanHistory: React.FC<ScanHistoryProps> = ({ refreshTrigger = 0 }) => {
               <Text style={styles.scanDate}>{formatDate(item.createdAt)}</Text>
               {/* Only show a minimal preview in the home page */}
               <Text style={styles.scanSummary} numberOfLines={1}>
-                Tap to view details
+                انقر للمزيد من التفاصيل
               </Text>
             </View>
           </TouchableOpacity>
@@ -184,7 +188,7 @@ const ScanHistory: React.FC<ScanHistoryProps> = ({ refreshTrigger = 0 }) => {
       <TouchableOpacity
         style={styles.viewAllButton}
         onPress={() => navigation.navigate('ScanHistoryScreen')}>
-        <Text style={styles.viewAllText}>View all scans</Text>
+        <Text style={styles.viewAllText}>عرض كل عمليات المسح</Text>
         <Ionicons name="chevron-forward" size={16} color={theme.colors.primary.base} />
       </TouchableOpacity>
     </View>
@@ -278,6 +282,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
+    gap: 10,
   },
   errorText: {
     marginLeft: 10,
@@ -318,6 +323,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: theme.fonts.bold,
     color: theme.colors.neutral.textPrimary,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  refreshButton: {
+    paddingHorizontal: 12,
   },
 });
 

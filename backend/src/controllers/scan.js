@@ -31,21 +31,8 @@ exports.createScan = async (req, res) => {
       fs.mkdirSync(scansDir, { recursive: true });
     }
 
-    // Save the buffer directly to the file
-    if (req.file.buffer) {
-      // If multer is configured with memory storage
-      fs.writeFileSync(uniqueFilePath, req.file.buffer);
-    } else if (req.file.path) {
-      // If multer is configured with disk storage
-      fs.copyFileSync(req.file.path, uniqueFilePath);
-
-      // Optionally remove the temporary file if needed
-      if (fs.existsSync(req.file.path) && req.file.path !== uniqueFilePath) {
-        fs.unlinkSync(req.file.path);
-      }
-    } else {
-      throw new Error("Invalid file upload configuration");
-    }
+    // Save the file using multer's buffer
+    fs.writeFileSync(uniqueFilePath, req.file.buffer);
 
     // Get the file path and mime type
     const mimeType = req.file.mimetype;
@@ -53,31 +40,17 @@ exports.createScan = async (req, res) => {
     // For image URL construction - update to include scans subfolder
     const imageUrl = `/uploads/scans/${uniqueFilename}`;
 
-    // Get AI response from request body or set default
+    // Get AI response from request body
     const aiResponse = req.body.ai_response || "No analysis available";
-
-    // Use raw SQL query instead of Sequelize model API
-    const [results] = await sequelize.query(
-      `INSERT INTO "Scans" (
-        "picture", 
-        "picture_mime_type", 
-        "ai_response", 
-        "createdAt", 
-        "updatedAt", 
-        "userId"
-      ) 
-      VALUES (
-        :picture, 
-        :picture_mime_type, 
-        :ai_response, 
-        CURRENT_TIMESTAMP, 
-        CURRENT_TIMESTAMP, 
-        :userId
-      )
-      RETURNING *`,
+    console.log("userId", userId);
+    // Create scan record in database using raw SQL
+    const [scan] = await sequelize.query(
+      `INSERT INTO "Scans" ("picture", "picture_mime_type", "ai_response", "userId", "createdAt", "updatedAt")
+       VALUES (:picture, :picture_mime_type, :ai_response, :userId, NOW(), NOW())
+       RETURNING *`,
       {
         replacements: {
-          picture: uniqueFilename, // Store the unique filename
+          picture: uniqueFilename,
           picture_mime_type: mimeType,
           ai_response: aiResponse,
           userId: userId,
@@ -85,10 +58,6 @@ exports.createScan = async (req, res) => {
         type: sequelize.QueryTypes.INSERT,
       }
     );
-
-    // Now results contains the full inserted record
-    const scan = results;
-
     return res.status(201).json({
       message: "Scan created successfully",
       scan: {
@@ -96,6 +65,7 @@ exports.createScan = async (req, res) => {
         ai_response: scan.ai_response,
         createdAt: scan.createdAt,
         userId: userId,
+        imageUrl: imageUrl,
       },
     });
   } catch (error) {
@@ -129,5 +99,43 @@ exports.getScans = async (req, res) => {
     return res
       .status(500)
       .json({ message: "Error getting scans", error: error.message });
+  }
+};
+
+// Add delete scan function
+exports.deleteScan = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const scanId = req.params.id;
+
+    const scan = await Scan.findOne({
+      where: { id: scanId, userId },
+    });
+
+    if (!scan) {
+      return res
+        .status(404)
+        .json({ message: "Scan not found or unauthorized" });
+    }
+
+    // Delete the image file if it exists
+    if (scan.picture) {
+      const imagePath = path.join(
+        __dirname,
+        "../../uploads/scans",
+        scan.picture
+      );
+      if (fs.existsSync(imagePath)) {
+        fs.unlinkSync(imagePath);
+      }
+    }
+
+    await scan.destroy();
+    return res.status(200).json({ message: "Scan deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting scan:", error);
+    return res
+      .status(500)
+      .json({ message: "Error deleting scan", error: error.message });
   }
 };
