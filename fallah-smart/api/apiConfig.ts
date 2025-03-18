@@ -1,4 +1,4 @@
-import axios from 'axios';
+  import axios from 'axios';
 
 // Get environment variables without exposing IP addresses in code
 const API_URL = process.env.EXPO_PUBLIC_API_URL;

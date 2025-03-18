@@ -41,7 +41,7 @@ const WEATHER_API_URL = WEATHER_CONFIG.API_URL;
 // Add this helper function at the top of the file
 const getTimeBasedWeatherIcon = () => {
   const hour = new Date().getHours();
-  
+
   if (hour >= 6 && hour < 18) {
     return {
       icon: 'weather-sunny',
@@ -49,7 +49,7 @@ const getTimeBasedWeatherIcon = () => {
       backgroundColor: 'rgba(255, 255, 255, 0.15)', // More transparent
       text: 'Day',
       textColor: '#FFFFFF', // White text for better contrast
-      backgroundImage: require('../../assets/images/weather/sun.png')
+      backgroundImage: require('../../assets/images/weather/sun.png'),
     };
   } else {
     return {
@@ -58,12 +58,10 @@ const getTimeBasedWeatherIcon = () => {
       backgroundColor: 'rgba(0, 0, 0, 0.2)', // Darker, more transparent overlay
       text: 'Night',
       textColor: '#FFFFFF',
-      backgroundImage: require('../../assets/images/weather/moon.png')
+      backgroundImage: require('../../assets/images/weather/moon.png'),
     };
   }
 };
-
-
 
 interface HomeContentProps {
   navigation: DrawerNavigationProp<any>;
@@ -85,12 +83,12 @@ export const HomeContent = ({ navigation, route }: HomeContentProps) => {
 
   useEffect(() => {
     fetchWeatherData();
-    
+
     // Update time icon every minute
     const interval = setInterval(() => {
       setTimeIcon(getTimeBasedWeatherIcon());
     }, 60000);
-    
+
     return () => clearInterval(interval);
   }, []);
 
@@ -199,20 +197,17 @@ export const HomeContent = ({ navigation, route }: HomeContentProps) => {
   };
 
   const toggleForecast = () => {
-    setShowForecast(prevState => !prevState);
+    setShowForecast((prevState) => !prevState);
   };
 
   const renderForecastDay = (day, index) => {
     const date = new Date(day.date);
     const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
-    
+
     return (
       <View key={index} style={styles.forecastDay}>
         <Text style={styles.forecastDayName}>{dayName}</Text>
-        <Image 
-          source={{ uri: `https:${day.day.condition.icon}` }} 
-          style={styles.forecastIcon} 
-        />
+        <Image source={{ uri: `https:${day.day.condition.icon}` }} style={styles.forecastIcon} />
         <Text style={styles.forecastTemp}>
           {Math.round(day.day.maxtemp_c)}°/{Math.round(day.day.mintemp_c)}°
         </Text>
@@ -222,14 +217,17 @@ export const HomeContent = ({ navigation, route }: HomeContentProps) => {
   };
 
   // Add this dynamic style that uses the state variable
-  const weatherCardStyle = useMemo(() => ({
-    ...styles.weatherCard,
-    height: showForecast ? 320 : 160
-  }), [showForecast]);
-  
+  const weatherCardStyle = useMemo(
+    () => ({
+      ...styles.weatherCard,
+      height: showForecast ? 320 : 160,
+    }),
+    [showForecast]
+  );
+
   const refreshScanHistory = () => {
     console.log('Refreshing scan history');
-    setScanHistoryRefreshTrigger(prev => prev + 1);
+    setScanHistoryRefreshTrigger((prev) => prev + 1);
   };
 
   return (
@@ -249,17 +247,14 @@ export const HomeContent = ({ navigation, route }: HomeContentProps) => {
         }>
         {/* Weather Card */}
         <View style={styles.weatherSection}>
-          <TouchableOpacity 
-            activeOpacity={0.9}
-            onPress={toggleForecast}
-          >
+          <TouchableOpacity activeOpacity={0.9} onPress={toggleForecast}>
             <ImageBackground
               source={timeIcon.backgroundImage}
               style={weatherCardStyle}
               imageStyle={styles.weatherCardImage}
-              resizeMode="cover"
-            >
-              <View style={[styles.weatherCardOverlay, { backgroundColor: timeIcon.backgroundColor }]}>
+              resizeMode="cover">
+              <View
+                style={[styles.weatherCardOverlay, { backgroundColor: timeIcon.backgroundColor }]}>
                 {loading ? (
                   <ActivityIndicator size="large" color={theme.colors.primary.base} />
                 ) : error ? (
@@ -269,9 +264,9 @@ export const HomeContent = ({ navigation, route }: HomeContentProps) => {
                     <View style={styles.weatherHeader}>
                       <View style={styles.weatherInfo}>
                         <View style={styles.timeIconContainer}>
-                          <MaterialCommunityIcons 
-                            name={timeIcon.icon} 
-                            size={24} 
+                          <MaterialCommunityIcons
+                            name={timeIcon.icon}
+                            size={24}
                             color={timeIcon.color}
                           />
                           <Text style={[styles.weatherTime, { color: timeIcon.textColor }]}>
@@ -282,7 +277,9 @@ export const HomeContent = ({ navigation, route }: HomeContentProps) => {
                           {formatDate()}
                         </Text>
                         <Text style={[styles.weatherCondition, { color: timeIcon.textColor }]}>
-                          {weather?.current?.condition?.text || 'Clear'} • {Math.round(weather?.current?.temp_c || 24)}°C / {Math.round(weather?.forecast?.forecastday?.[0]?.day?.mintemp_c || 20)}°C
+                          {weather?.current?.condition?.text || 'Clear'} •{' '}
+                          {Math.round(weather?.current?.temp_c || 24)}°C /{' '}
+                          {Math.round(weather?.forecast?.forecastday?.[0]?.day?.mintemp_c || 20)}°C
                         </Text>
                       </View>
                       <Text style={[styles.weatherTemp, { color: timeIcon.textColor }]}>
@@ -290,14 +287,10 @@ export const HomeContent = ({ navigation, route }: HomeContentProps) => {
                       </Text>
                     </View>
                     <View style={styles.locationInfo}>
-                      <MaterialIcons 
-                        name="location-on" 
-                        size={14} 
-                        color="#FFFFFF"
-                      />
+                      <MaterialIcons name="location-on" size={14} color="#FFFFFF" />
                       <Text style={[styles.locationText, { color: timeIcon.textColor }]}>
-                        {weather?.location?.name 
-                          ? `${weather.location.name}, ${weather.location.country}` 
+                        {weather?.location?.name
+                          ? `${weather.location.name}, ${weather.location.country}`
                           : 'Please activate your GPS to receive weather information'}
                       </Text>
                     </View>
@@ -307,9 +300,9 @@ export const HomeContent = ({ navigation, route }: HomeContentProps) => {
                       <View style={styles.forecastContainer}>
                         <Text style={styles.forecastTitle}>5-Day Forecast</Text>
                         <View style={styles.forecastDaysContainer}>
-                          {weather.forecast.forecastday.slice(0, 5).map((day, index) => 
-                            renderForecastDay(day, index)
-                          )}
+                          {weather.forecast.forecastday
+                            .slice(0, 5)
+                            .map((day, index) => renderForecastDay(day, index))}
                         </View>
                       </View>
                     )}
