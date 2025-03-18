@@ -181,11 +181,11 @@ const userController = {
       // Generate tokens
       const tokens = {
         access: {
-          token: jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '1d' }),
+          token: jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '1d' }),
           expires: new Date(Date.now() + 24 * 60 * 60 * 1000),
         },
         refresh: {
-          token: jwt.sign({ id: user.id }, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' }),
+          token: jwt.sign({ id: user.id }, JWT_REFRESH_SECRET, { expiresIn: '7d' }),
           expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         },
       };
@@ -406,7 +406,7 @@ const userController = {
         return res.status(401).json({ message: 'No token provided' });
       }
 
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const decoded = jwt.verify(token, JWT_SECRET);
       const user = await Users.findByPk(decoded.id);
 
       if (!user) {
@@ -432,7 +432,7 @@ const userController = {
     try {
       const { refreshToken } = req.body;
       
-      const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+      const decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
       const user = await Users.findByPk(decoded.id);
 
       if (!user) {
@@ -441,11 +441,11 @@ const userController = {
 
       const tokens = {
         access: {
-          token: jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '1d' }),
+          token: jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '1d' }),
           expires: new Date(Date.now() + 24 * 60 * 60 * 1000),
         },
         refresh: {
-          token: jwt.sign({ id: user.id }, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' }),
+          token: jwt.sign({ id: user.id }, JWT_REFRESH_SECRET, { expiresIn: '7d' }),
           expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         },
       };

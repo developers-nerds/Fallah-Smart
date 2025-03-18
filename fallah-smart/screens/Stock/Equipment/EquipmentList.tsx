@@ -318,7 +318,7 @@ export const EquipmentListScreen = ({ navigation }: EquipmentListScreenProps) =>
       
       // Then update context
       try {
-        await fetchEquipment();
+    await fetchEquipment();
       } catch (contextError) {
         console.error('Failed to update context during refresh:', contextError);
       }
@@ -331,7 +331,7 @@ export const EquipmentListScreen = ({ navigation }: EquipmentListScreenProps) =>
       setLocalEquipment(MOCK_EQUIPMENT);
       setLocalError('Failed to refresh equipment. Using mock data.');
     } finally {
-      setRefreshing(false);
+    setRefreshing(false);
     }
   }, [fetchEquipment, fetchEquipmentDirectly]);
 
@@ -356,11 +356,11 @@ export const EquipmentListScreen = ({ navigation }: EquipmentListScreenProps) =>
           text: 'حذف',
           style: 'destructive',
           onPress: async () => {
-            try {
+    try {
               await deleteEquipment(id.toString());
               Alert.alert('نجاح', 'تم حذف المعدة بنجاح');
-            } catch (err) {
-              console.error('Error deleting equipment:', err);
+    } catch (err) {
+      console.error('Error deleting equipment:', err);
               Alert.alert('خطأ', 'فشل في حذف المعدة');
             }
           },
@@ -504,25 +504,25 @@ export const EquipmentListScreen = ({ navigation }: EquipmentListScreenProps) =>
           onChangeText={setSearchQuery}
           style={styles.searchBar}
         />
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filterContainer}
-        >
-          <TouchableOpacity
-            style={[
+      >
+        <TouchableOpacity
+          style={[
               styles.filterButton,
               !selectedType && { backgroundColor: theme.colors.primary.base }
-            ]}
-            onPress={() => setSelectedType(null)}
-          >
-            <Text style={[
+          ]}
+          onPress={() => setSelectedType(null)}
+        >
+          <Text style={[
               styles.filterButtonText,
               !selectedType && { color: '#FFF' }
-            ]}>
-              الكل
-            </Text>
-          </TouchableOpacity>
+          ]}>
+            الكل
+          </Text>
+        </TouchableOpacity>
           {Object.entries(EQUIPMENT_TYPES).map(([type, info]) => (
             <TouchableOpacity
               key={type}
@@ -539,8 +539,8 @@ export const EquipmentListScreen = ({ navigation }: EquipmentListScreenProps) =>
                 {info.icon} {info.name}
               </Text>
             </TouchableOpacity>
-          ))}
-        </ScrollView>
+        ))}
+      </ScrollView>
       </View>
     );
   }, [searchQuery, selectedType, theme]);
@@ -550,7 +550,7 @@ export const EquipmentListScreen = ({ navigation }: EquipmentListScreenProps) =>
     return (
       <EquipmentCard 
         equipment={item}
-        onPress={() => handleViewEquipment(item.id)}
+            onPress={() => handleViewEquipment(item.id)}
         onDelete={handleDeleteEquipment}
       />
     );
@@ -567,58 +567,58 @@ export const EquipmentListScreen = ({ navigation }: EquipmentListScreenProps) =>
       >
         <Text style={styles.seeMoreText}>عرض المزيد</Text>
         <MaterialCommunityIcons name="chevron-down" size={24} color="#FFF" />
-      </TouchableOpacity>
+          </TouchableOpacity>
     );
   }, [paginatedEquipment.length, filteredEquipment.length, handleLoadMore, theme]);
 
   // Function to render empty list component
   const renderListEmptyComponent = useCallback(() => {
-    return (
+      return (
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyIcon}>🔍</Text>
         <Text style={[styles.emptyText, { color: theme.colors.neutral.textSecondary }]}>
           لا توجد معدات
         </Text>
-        <TouchableOpacity
+          <TouchableOpacity
           style={[styles.seeMoreButton, { backgroundColor: theme.colors.primary.base }]}
           onPress={onRefresh}
-        >
+          >
           <Text style={styles.seeMoreText}>تحديث</Text>
           <MaterialCommunityIcons name="refresh" size={24} color="#FFF" />
-        </TouchableOpacity>
+          </TouchableOpacity>
       </View>
-    );
+      );
   }, [theme, onRefresh]);
 
   if (loading && !localEquipment.length && !contextEquipment.length) {
     return (
-      <View style={[styles.container, styles.centerContent]}>
+        <View style={[styles.container, styles.centerContent]}>
         <ActivityIndicator size="large" color={theme.colors.primary.base} />
         <Text style={{ marginTop: 10, color: theme.colors.neutral.textSecondary }}>
-          جاري تحميل المعدات...
-        </Text>
-      </View>
+              جاري تحميل المعدات...
+            </Text>
+        </View>
     );
   }
 
   if ((localError || contextError) && !localEquipment.length && !contextEquipment.length) {
     return (
-      <View style={[styles.container, styles.centerContent]}>
+        <View style={[styles.container, styles.centerContent]}>
         <MaterialCommunityIcons 
           name="alert-circle-outline" 
           size={64} 
           color={theme.colors.error} 
         />
         <Text style={[styles.errorText, { color: theme.colors.error }]}>
-          حدث خطأ: {localError || contextError}
-        </Text>
-        <TouchableOpacity
+              حدث خطأ: {localError || contextError}
+            </Text>
+            <TouchableOpacity
           style={[styles.seeMoreButton, { backgroundColor: theme.colors.primary.base, marginTop: 20 }]}
-          onPress={onRefresh}
-        >
+              onPress={onRefresh}
+            >
           <Text style={styles.seeMoreText}>إعادة المحاولة</Text>
-          <MaterialCommunityIcons name="refresh" size={24} color="#FFF" />
-        </TouchableOpacity>
+              <MaterialCommunityIcons name="refresh" size={24} color="#FFF" />
+            </TouchableOpacity>
       </View>
     );
   }
@@ -633,11 +633,11 @@ export const EquipmentListScreen = ({ navigation }: EquipmentListScreenProps) =>
         {localEquipment.length > 0 ? (
           <>
             <FlatList
-              data={paginatedEquipment}
-              renderItem={renderItem}
+          data={paginatedEquipment}
+          renderItem={renderItem}
               keyExtractor={item => item.id.toString()}
-              contentContainerStyle={styles.listContent}
-              ListHeaderComponent={renderHeader}
+          contentContainerStyle={styles.listContent}
+          ListHeaderComponent={renderHeader}
               ListFooterComponent={renderFooter}
               ListEmptyComponent={renderListEmptyComponent}
               refreshControl={
@@ -652,22 +652,22 @@ export const EquipmentListScreen = ({ navigation }: EquipmentListScreenProps) =>
           </>
         ) : (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>🔧</Text>
+              <Text style={styles.emptyIcon}>🔧</Text>
             <Text style={[styles.emptyText, { color: theme.colors.neutral.textSecondary }]}>
               لم يتم العثور على معدات
-            </Text>
-            <TouchableOpacity
+              </Text>
+              <TouchableOpacity
               style={[styles.seeMoreButton, { backgroundColor: theme.colors.primary.base, marginTop: 20 }]}
-              onPress={onRefresh}
-            >
-              <Text style={styles.seeMoreText}>تحديث</Text>
-              <MaterialCommunityIcons name="refresh" size={24} color="#FFF" />
-            </TouchableOpacity>
-          </View>
+                onPress={onRefresh}
+              >
+                <Text style={styles.seeMoreText}>تحديث</Text>
+                <MaterialCommunityIcons name="refresh" size={24} color="#FFF" />
+              </TouchableOpacity>
+            </View>
         )}
-        <FAB
-          icon="plus"
-          onPress={handleAddEquipment}
+      <FAB
+        icon="plus"
+        onPress={handleAddEquipment}
           style={{
             position: 'absolute',
             margin: 16,
@@ -675,8 +675,8 @@ export const EquipmentListScreen = ({ navigation }: EquipmentListScreenProps) =>
             bottom: 0,
             backgroundColor: theme.colors.primary.base
           }}
-        />
-      </View>
+      />
+    </View>
     </SafeAreaView>
   );
 };

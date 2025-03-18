@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { storage } from '../utils/storage';
 import Constants from 'expo-constants';
-import { StockItem } from '../screens/Stock/types';
+import { StockItem, StockHarvest } from '../screens/Stock/types';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
@@ -374,5 +374,205 @@ const stockEquipmentApi = {
   }
 };
 
+// Stock Feed API methods
+const stockFeedApi = {
+  // Get all feeds
+  getAllFeed: async () => {
+    try {
+      const response = await api.get('/stock/feed');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Get single feed
+  getFeed: async (id: string) => {
+    try {
+      const response = await api.get(`/stock/feed/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Create feed
+  createFeed: async (feedData: any) => {
+    try {
+      const response = await api.post('/stock/feed', feedData);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Update feed
+  updateFeed: async (id: string, data: any) => {
+    try {
+      const response = await api.put(`/stock/feed/${id}`, data);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Delete feed
+  deleteFeed: async (id: string) => {
+    try {
+      const response = await api.delete(`/stock/feed/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Update feed quantity
+  updateFeedQuantity: async (id: string, data: { quantity: number; type: 'add' | 'remove'; notes?: string }) => {
+    try {
+      const response = await api.patch(`/stock/feed/${id}/quantity`, data);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+};
+
+// Stock Fertilizer API methods
+const stockFertilizerApi = {
+  // Get all fertilizers
+  getAllFertilizers: async () => {
+    try {
+      const response = await api.get('/stock/fertilizer');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Get single fertilizer
+  getFertilizer: async (id: string) => {
+    try {
+      const response = await api.get(`/stock/fertilizer/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Create fertilizer
+  createFertilizer: async (fertilizerData: any) => {
+    try {
+      const response = await api.post('/stock/fertilizer', fertilizerData);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Update fertilizer
+  updateFertilizer: async (id: string, data: any) => {
+    try {
+      const response = await api.put(`/stock/fertilizer/${id}`, data);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Delete fertilizer
+  deleteFertilizer: async (id: string) => {
+    try {
+      const response = await api.delete(`/stock/fertilizer/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Update fertilizer quantity
+  updateFertilizerQuantity: async (id: string, data: { quantity: number; type: 'add' | 'remove'; notes?: string }) => {
+    try {
+      const response = await api.patch(`/stock/fertilizer/${id}/quantity`, data);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+};
+
+// Stock Harvest API methods
+const harvestApi = {
+  // Get all harvests
+  getAllHarvests: async () => {
+    try {
+      const response = await api.get('/stock/harvest');
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Get single harvest
+  getHarvest: async (id: string) => {
+    try {
+      const response = await api.get(`/stock/harvest/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Create harvest
+  createHarvest: async (harvestData: Partial<StockHarvest>) => {
+    try {
+      const response = await api.post('/stock/harvest', harvestData);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Update harvest
+  updateHarvest: async (id: string, data: Partial<StockHarvest>) => {
+    try {
+      const response = await api.put(`/stock/harvest/${id}`, data);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Delete harvest
+  deleteHarvest: async (id: string) => {
+    try {
+      const response = await api.delete(`/stock/harvest/${id}`);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  // Update harvest quantity
+  updateHarvestQuantity: async (id: string, data: { quantity: number; type: 'add' | 'remove'; notes?: string }) => {
+    try {
+      const response = await api.patch(`/stock/harvest/${id}/quantity`, data);
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+};
+
 // Export both the base API and specific methods
-export { api, stockApi, animalApi, stockStatisticsApi, pesticideApi, seedApi, stockEquipmentApi }; 
+export { 
+  api, 
+  stockApi, 
+  animalApi, 
+  stockStatisticsApi, 
+  pesticideApi, 
+  seedApi, 
+  stockEquipmentApi,
+  stockFeedApi,
+  stockFertilizerApi,
+  harvestApi
+}; 

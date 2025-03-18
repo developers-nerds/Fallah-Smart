@@ -189,7 +189,7 @@ const AddToolScreen: React.FC<AddToolScreenProps> = ({ navigation, route }) => {
       );
 
       if (response.data) {
-        navigation.goBack();
+      navigation.goBack();
       }
     } catch (error) {
       console.error('Error adding tool:', error);
@@ -251,39 +251,39 @@ const AddToolScreen: React.FC<AddToolScreenProps> = ({ navigation, route }) => {
 
   const renderBasicSection = (values: FormData, setFieldValue: any, errors: any, touched: any) => (
     <View style={[styles.section, { width }]}>
-      <TextInput
+            <TextInput
         label={`${TOOL_ICONS.basic.name} اسم الأداة`}
-        value={values.name}
-        onChangeText={(text) => setFieldValue('name', text)}
-        error={touched.name && errors.name}
-      />
+              value={values.name}
+              onChangeText={(text) => setFieldValue('name', text)}
+              error={touched.name && errors.name}
+            />
 
-      <View style={styles.row}>
-        <View style={styles.halfInput}>
-          <TextInput
+            <View style={styles.row}>
+              <View style={styles.halfInput}>
+                <TextInput
             label={`${TOOL_ICONS.basic.quantity} الكمية`}
-            value={values.quantity}
-            onChangeText={(text) => setFieldValue('quantity', text)}
-            keyboardType="numeric"
-            error={touched.quantity && errors.quantity}
-          />
-        </View>
-        <View style={styles.halfInput}>
-          <TextInput
+                  value={values.quantity}
+                  onChangeText={(text) => setFieldValue('quantity', text)}
+                  keyboardType="numeric"
+                  error={touched.quantity && errors.quantity}
+                />
+              </View>
+              <View style={styles.halfInput}>
+                <TextInput
             label={`${TOOL_ICONS.basic.minQuantity} حد التنبيه`}
-            value={values.minQuantityAlert}
-            onChangeText={(text) => setFieldValue('minQuantityAlert', text)}
-            keyboardType="numeric"
-            error={touched.minQuantityAlert && errors.minQuantityAlert}
-          />
-        </View>
-      </View>
+                  value={values.minQuantityAlert}
+                  onChangeText={(text) => setFieldValue('minQuantityAlert', text)}
+                  keyboardType="numeric"
+                  error={touched.minQuantityAlert && errors.minQuantityAlert}
+                />
+              </View>
+            </View>
 
-      <View style={styles.row}>
-        <View style={styles.halfInput}>
-          <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
+            <View style={styles.row}>
+              <View style={styles.halfInput}>
+                <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
             {TOOL_ICONS.basic.category} النوع
-          </Text>
+                </Text>
           <TouchableOpacity
             style={[styles.select, { borderColor: theme.colors.neutral.border }]}
             onPress={() => {
@@ -301,11 +301,11 @@ const AddToolScreen: React.FC<AddToolScreenProps> = ({ navigation, route }) => {
               {TOOL_TYPES[values.category].icon} {TOOL_TYPES[values.category].name}
             </Text>
           </TouchableOpacity>
-        </View>
-        <View style={styles.halfInput}>
-          <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
+              </View>
+              <View style={styles.halfInput}>
+                <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
             {TOOL_ICONS.basic.condition} الحالة
-          </Text>
+                </Text>
           <TouchableOpacity
             style={[styles.select, { borderColor: theme.colors.neutral.border }]}
             onPress={() => {
@@ -324,8 +324,8 @@ const AddToolScreen: React.FC<AddToolScreenProps> = ({ navigation, route }) => {
             </Text>
           </TouchableOpacity>
         </View>
-      </View>
-    </View>
+              </View>
+            </View>
   );
 
   const renderPurchaseSection = (values: FormData, setFieldValue: any, errors: any, touched: any) => (
@@ -345,17 +345,17 @@ const AddToolScreen: React.FC<AddToolScreenProps> = ({ navigation, route }) => {
         </Text>
       </TouchableOpacity>
 
-      <TextInput
+            <TextInput
         label={`${TOOL_ICONS.purchase.brand} الشركة المصنعة`}
         value={values.brand}
         onChangeText={(text) => setFieldValue('brand', text)}
-      />
+            />
 
-      <TextInput
+            <TextInput
         label={`${TOOL_ICONS.purchase.model} الموديل`}
-        value={values.model}
-        onChangeText={(text) => setFieldValue('model', text)}
-      />
+              value={values.model}
+              onChangeText={(text) => setFieldValue('model', text)}
+            />
 
       <View style={styles.row}>
         <View style={styles.halfInput}>
@@ -397,37 +397,37 @@ const AddToolScreen: React.FC<AddToolScreenProps> = ({ navigation, route }) => {
 
   const renderMaintenanceSection = (values: FormData, setFieldValue: any) => (
     <View style={[styles.section, { width }]}>
-      <TouchableOpacity
+              <TouchableOpacity
         style={[styles.dateButton, { borderColor: theme.colors.neutral.border }]}
-        onPress={() => setShowLastMaintenanceDatePicker(true)}
-      >
-        <Text style={[styles.dateButtonText, { color: theme.colors.neutral.textPrimary }]}>
+                onPress={() => setShowLastMaintenanceDatePicker(true)}
+              >
+                <Text style={[styles.dateButtonText, { color: theme.colors.neutral.textPrimary }]}>
           {TOOL_ICONS.maintenance.last} {values.lastMaintenanceDate
             ? values.lastMaintenanceDate.toLocaleDateString('en-US', {
                 year: 'numeric',
                 month: 'short',
                 day: 'numeric'
               })
-            : 'تاريخ آخر صيانة'}
-        </Text>
-      </TouchableOpacity>
+                    : 'تاريخ آخر صيانة'}
+                </Text>
+              </TouchableOpacity>
 
-      <TouchableOpacity
+              <TouchableOpacity
         style={[styles.dateButton, { borderColor: theme.colors.neutral.border }]}
-        onPress={() => setShowNextMaintenanceDatePicker(true)}
-      >
-        <Text style={[styles.dateButtonText, { color: theme.colors.neutral.textPrimary }]}>
+                onPress={() => setShowNextMaintenanceDatePicker(true)}
+              >
+                <Text style={[styles.dateButtonText, { color: theme.colors.neutral.textPrimary }]}>
           {TOOL_ICONS.maintenance.next} {values.nextMaintenanceDate
             ? values.nextMaintenanceDate.toLocaleDateString('en-US', {
                 year: 'numeric',
                 month: 'short',
                 day: 'numeric'
               })
-            : 'تاريخ الصيانة القادمة'}
-        </Text>
-      </TouchableOpacity>
+                    : 'تاريخ الصيانة القادمة'}
+                </Text>
+              </TouchableOpacity>
 
-      <TextInput
+            <TextInput
         label={`${TOOL_ICONS.maintenance.notes} ملاحظات الصيانة`}
         value={values.maintenanceNotes}
         onChangeText={(text) => setFieldValue('maintenanceNotes', text)}
@@ -439,21 +439,21 @@ const AddToolScreen: React.FC<AddToolScreenProps> = ({ navigation, route }) => {
 
   const renderInstructionsSection = (values: FormData, setFieldValue: any) => (
     <View style={[styles.section, { width }]}>
-      <TextInput
+            <TextInput
         label={`${TOOL_ICONS.instructions.usage} تعليمات الاستخدام`}
         value={values.usageInstructions}
         onChangeText={(text) => setFieldValue('usageInstructions', text)}
         multiline
         numberOfLines={4}
-      />
+            />
 
-      <TextInput
+            <TextInput
         label={`${TOOL_ICONS.instructions.safety} إرشادات السلامة`}
         value={values.safetyGuidelines}
         onChangeText={(text) => setFieldValue('safetyGuidelines', text)}
-        multiline
-        numberOfLines={4}
-      />
+              multiline
+              numberOfLines={4}
+            />
     </View>
   );
 
@@ -533,8 +533,8 @@ const AddToolScreen: React.FC<AddToolScreenProps> = ({ navigation, route }) => {
                         ...theme.shadows.small
                       }
                     ]}
-                    onPress={() => handleSubmit()}
-                    disabled={loading}
+                onPress={() => handleSubmit()}
+                disabled={loading}
                   >
                     <Text style={[
                       styles.navButtonText,

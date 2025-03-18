@@ -22,6 +22,7 @@ import * as Yup from 'yup';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { TextInput } from '../../../components/TextInput';
 import { Picker } from '@react-native-picker/picker';
+import { HARVEST_TYPES, QUALITY_TYPES } from './constants';
 
 type AddHarvestScreenProps = {
   navigation: StackNavigationProp<StockStackParamList, 'AddHarvest'>;
@@ -29,7 +30,7 @@ type AddHarvestScreenProps = {
 };
 
 const validationSchema = Yup.object().shape({
-  name: Yup.string().required('الاسم مطلوب'),
+  cropName: Yup.string().required('الاسم مطلوب'),
   type: Yup.string().required('النوع مطلوب'),
   quantity: Yup.number()
     .required('الكمية مطلوبة')
@@ -52,6 +53,7 @@ const AddHarvestScreen: React.FC<AddHarvestScreenProps> = ({ navigation, route }
   const theme = useTheme();
   const { harvests, addHarvest, updateHarvest, loading } = useHarvest();
   const [showHarvestDatePicker, setShowHarvestDatePicker] = useState(false);
+  const [showExpiryDatePicker, setShowExpiryDatePicker] = useState(false);
   const [existingHarvest, setExistingHarvest] = useState<StockHarvest | null>(null);
 
   useEffect(() => {
@@ -64,31 +66,44 @@ const AddHarvestScreen: React.FC<AddHarvestScreenProps> = ({ navigation, route }
   }, [harvests, route.params?.harvestId]);
 
   const initialValues: Partial<StockHarvest> = {
-    name: existingHarvest?.name || '',
+    cropName: existingHarvest?.cropName || '',
     type: existingHarvest?.type || 'vegetable',
     quantity: existingHarvest?.quantity || 0,
     unit: existingHarvest?.unit || 'كيلوجرام',
     price: existingHarvest?.price || 0,
-    harvestDate: existingHarvest?.harvestDate || new Date(),
-    variety: existingHarvest?.variety || '',
-    location: existingHarvest?.location || '',
-    quality: existingHarvest?.quality || '',
+    harvestDate: existingHarvest?.harvestDate ? new Date(existingHarvest.harvestDate) : new Date(),
+    storageLocation: existingHarvest?.storageLocation || '',
+    quality: existingHarvest?.quality || 'standard',
+    batchNumber: existingHarvest?.batchNumber || '',
+    expiryDate: existingHarvest?.expiryDate ? new Date(existingHarvest.expiryDate) : undefined,
     storageConditions: existingHarvest?.storageConditions || '',
-    harvestMethod: existingHarvest?.harvestMethod || '',
-    yield: existingHarvest?.yield || '',
-    weatherConditions: existingHarvest?.weatherConditions || '',
+    certifications: existingHarvest?.certifications || '',
     notes: existingHarvest?.notes || '',
+    minQuantityAlert: existingHarvest?.minQuantityAlert || 0,
+    moisture: existingHarvest?.moisture || 0,
   };
 
   const handleSubmit = async (values: Partial<StockHarvest>) => {
     try {
+      // Ensure the dates are in the correct format
+      const formattedValues = {
+        ...values,
+        harvestDate: values.harvestDate instanceof Date ? 
+          values.harvestDate.toISOString() : values.harvestDate,
+        expiryDate: values.expiryDate instanceof Date ? 
+          values.expiryDate.toISOString() : values.expiryDate
+      };
+      
       if (existingHarvest) {
-        await updateHarvest(existingHarvest.id, values);
+        await updateHarvest(existingHarvest.id, formattedValues);
+        Alert.alert('نجاح', 'تم تحديث المحصول بنجاح');
       } else {
-        await addHarvest(values);
+        await addHarvest(formattedValues);
+        Alert.alert('نجاح', 'تمت إضافة المحصول بنجاح');
       }
       navigation.goBack();
     } catch (error) {
+      console.error('Error submitting harvest:', error);
       Alert.alert('خطأ', 'فشل في حفظ المحصول');
     }
   };
@@ -117,10 +132,10 @@ const AddHarvestScreen: React.FC<AddHarvestScreenProps> = ({ navigation, route }
               </Text>
               <TextInput
                 label="الاسم"
-                value={values.name}
-                onChangeText={handleChange('name')}
-                onBlur={handleBlur('name')}
-                error={touched.name && errors.name}
+                value={values.cropName}
+                onChangeText={handleChange('cropName')}
+                onBlur={handleBlur('cropName')}
+                error={touched.cropName && errors.cropName ? String(errors.cropName) : undefined}
               />
               <View style={styles.pickerContainer}>
                 <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
@@ -141,7 +156,7 @@ const AddHarvestScreen: React.FC<AddHarvestScreenProps> = ({ navigation, route }
                 value={values.quantity?.toString()}
                 onChangeText={handleChange('quantity')}
                 onBlur={handleBlur('quantity')}
-                error={touched.quantity && errors.quantity}
+                error={touched.quantity && errors.quantity ? String(errors.quantity) : undefined}
                 keyboardType="numeric"
               />
               <TextInput
@@ -149,14 +164,21 @@ const AddHarvestScreen: React.FC<AddHarvestScreenProps> = ({ navigation, route }
                 value={values.unit}
                 onChangeText={handleChange('unit')}
                 onBlur={handleBlur('unit')}
-                error={touched.unit && errors.unit}
+                error={touched.unit && errors.unit ? String(errors.unit) : undefined}
               />
               <TextInput
                 label="السعر"
                 value={values.price?.toString()}
                 onChangeText={handleChange('price')}
                 onBlur={handleBlur('price')}
-                error={touched.price && errors.price}
+                error={touched.price && errors.price ? String(errors.price) : undefined}
+                keyboardType="numeric"
+              />
+              <TextInput
+                label="الحد الأدنى للتنبيه"
+                value={values.minQuantityAlert?.toString()}
+                onChangeText={handleChange('minQuantityAlert')}
+                onBlur={handleBlur('minQuantityAlert')}
                 keyboardType="numeric"
               />
               <TouchableOpacity
@@ -164,7 +186,9 @@ const AddHarvestScreen: React.FC<AddHarvestScreenProps> = ({ navigation, route }
                 onPress={() => setShowHarvestDatePicker(true)}
               >
                 <Text style={[styles.dateButtonText, { color: theme.colors.neutral.textPrimary }]}>
-                  تاريخ الحصاد: {new Date(values.harvestDate).toLocaleDateString()}
+                  تاريخ الحصاد: {values.harvestDate instanceof Date ? 
+                    values.harvestDate.toLocaleDateString() : 
+                    new Date(values.harvestDate as string).toLocaleDateString()}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -174,22 +198,47 @@ const AddHarvestScreen: React.FC<AddHarvestScreenProps> = ({ navigation, route }
                 معلومات إضافية
               </Text>
               <TextInput
-                label="الصنف"
-                value={values.variety}
-                onChangeText={handleChange('variety')}
-                onBlur={handleBlur('variety')}
+                label="موقع التخزين"
+                value={values.storageLocation}
+                onChangeText={handleChange('storageLocation')}
+                onBlur={handleBlur('storageLocation')}
               />
+              <View style={styles.pickerContainer}>
+                <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
+                  الجودة
+                </Text>
+                <Picker
+                  selectedValue={values.quality}
+                  onValueChange={handleChange('quality')}
+                  style={[styles.picker, { color: theme.colors.neutral.textPrimary }]}
+                >
+                  <Picker.Item label="ممتاز" value="premium" />
+                  <Picker.Item label="قياسي" value="standard" />
+                  <Picker.Item label="ثانوي" value="secondary" />
+                </Picker>
+              </View>
               <TextInput
-                label="موقع الحصاد"
-                value={values.location}
-                onChangeText={handleChange('location')}
-                onBlur={handleBlur('location')}
+                label="رقم الدفعة"
+                value={values.batchNumber}
+                onChangeText={handleChange('batchNumber')}
+                onBlur={handleBlur('batchNumber')}
               />
+              <TouchableOpacity
+                style={styles.dateButton}
+                onPress={() => setShowExpiryDatePicker(true)}
+              >
+                <Text style={[styles.dateButtonText, { color: theme.colors.neutral.textPrimary }]}>
+                  تاريخ انتهاء الصلاحية: {values.expiryDate instanceof Date ? 
+                    values.expiryDate.toLocaleDateString() : 
+                    values.expiryDate ? new Date(values.expiryDate as string).toLocaleDateString() : 'غير محدد'}
+                </Text>
+              </TouchableOpacity>
               <TextInput
-                label="الجودة"
-                value={values.quality}
-                onChangeText={handleChange('quality')}
-                onBlur={handleBlur('quality')}
+                label="نسبة الرطوبة (%)"
+                value={values.moisture?.toString()}
+                onChangeText={handleChange('moisture')}
+                onBlur={handleBlur('moisture')}
+                keyboardType="numeric"
               />
               <TextInput
                 label="ظروف التخزين"
@@ -199,33 +248,11 @@ const AddHarvestScreen: React.FC<AddHarvestScreenProps> = ({ navigation, route }
                 multiline
                 numberOfLines={2}
               />
-            </View>
-
-            <View style={[styles.section, { backgroundColor: theme.colors.neutral.surface }]}>
-              <Text style={[styles.sectionTitle, { color: theme.colors.neutral.textPrimary }]}>
-                معلومات الحصاد
-              </Text>
               <TextInput
-                label="طريقة الحصاد"
-                value={values.harvestMethod}
-                onChangeText={handleChange('harvestMethod')}
-                onBlur={handleBlur('harvestMethod')}
-                multiline
-                numberOfLines={2}
-              />
-              <TextInput
-                label="الإنتاجية"
-                value={values.yield}
-                onChangeText={handleChange('yield')}
-                onBlur={handleBlur('yield')}
-              />
-              <TextInput
-                label="الظروف الجوية"
-                value={values.weatherConditions}
-                onChangeText={handleChange('weatherConditions')}
-                onBlur={handleBlur('weatherConditions')}
-                multiline
-                numberOfLines={2}
+                label="الشهادات"
+                value={values.certifications}
+                onChangeText={handleChange('certifications')}
+                onBlur={handleBlur('certifications')}
               />
             </View>
 
@@ -260,7 +287,8 @@ const AddHarvestScreen: React.FC<AddHarvestScreenProps> = ({ navigation, route }
 
           {showHarvestDatePicker && (
             <DateTimePicker
-              value={new Date(values.harvestDate)}
+              value={values.harvestDate instanceof Date ? 
+                values.harvestDate : new Date(values.harvestDate as string)}
               mode="date"
               display="default"
               onChange={(event, selectedDate) => {
@@ -271,13 +299,28 @@ const AddHarvestScreen: React.FC<AddHarvestScreenProps> = ({ navigation, route }
               }}
             />
           )}
+
+          {showExpiryDatePicker && (
+            <DateTimePicker
+              value={values.expiryDate instanceof Date ? 
+                values.expiryDate : values.expiryDate ? new Date(values.expiryDate as string) : new Date()}
+              mode="date"
+              display="default"
+              onChange={(event, selectedDate) => {
+                setShowExpiryDatePicker(false);
+                if (selectedDate) {
+                  setFieldValue('expiryDate', selectedDate);
+                }
+              }}
+            />
+          )}
         </ScrollView>
       )}
     </Formik>
   );
 };
 
-const styles = createThemedStyles((theme) => ({
+const styles = createThemedStyles(theme => ({
   container: {
     flex: 1,
   },
@@ -287,44 +330,45 @@ const styles = createThemedStyles((theme) => ({
   },
   content: {
     padding: 16,
-    gap: 16,
   },
   section: {
-    borderRadius: 12,
+    marginBottom: 16,
+    borderRadius: 8,
     padding: 16,
-    gap: 12,
+    elevation: 2,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 8,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    textAlign: 'right',
   },
   label: {
-    fontSize: 14,
+    fontSize: 16,
     marginBottom: 4,
+    textAlign: 'right',
   },
   pickerContainer: {
-    marginBottom: 12,
+    marginBottom: 16,
   },
   picker: {
     height: 50,
-    borderWidth: 1,
-    borderColor: theme.colors.neutral.border,
-    borderRadius: 8,
+    width: '100%',
   },
   dateButton: {
     padding: 12,
-    borderWidth: 1,
-    borderColor: theme.colors.neutral.border,
-    borderRadius: 8,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 4,
+    marginVertical: 8,
   },
   dateButtonText: {
-    fontSize: 14,
+    fontSize: 16,
+    textAlign: 'center',
   },
   buttonContainer: {
     flexDirection: 'row',
-    gap: 16,
-    marginTop: 16,
+    justifyContent: 'space-between',
+    marginTop: 24,
   },
 }));
 
