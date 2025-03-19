@@ -14,11 +14,30 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING(50),
         allowNull: true,
       },
+      userId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        references: {
+          model: 'users',
+          key: 'id'
+        }
+      }
     },
     {
       timestamps: true,
+      tableName: "Scans"
     }
   );
+
+  Scan.associate = function(models) {
+    if (models.Users) {
+      Scan.belongsTo(models.Users, {
+        foreignKey: 'userId',
+        as: 'user',
+        constraints: false // To prevent SQL errors if column doesn't exist yet
+      });
+    }
+  };
 
   return Scan;
 };

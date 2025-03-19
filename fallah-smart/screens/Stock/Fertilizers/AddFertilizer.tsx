@@ -262,7 +262,7 @@ export const AddFertilizerScreen = ({ navigation, route }: AddFertilizerScreenPr
         const response = await axios.post(endpoint, fertilizerData, {
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': tokens?.accessToken ? `Bearer ${tokens.accessToken}` : ''
+            'Authorization': tokens?.access ? `Bearer ${tokens.access}` : ''
           },
           timeout: 10000
         });

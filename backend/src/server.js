@@ -4,6 +4,7 @@ const cors = require("cors");
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+const { startNotificationCron } = require('./cron/notificationCron');
 
 // Route imports
 const animalGastonRoutes = require("./routes/animalGastonRoutes");
@@ -45,8 +46,7 @@ const Education_QuestionsAndAnswersRoute = require("./routes/Education_Questions
 
   ////////////////////////////////End of Education Routes///////////////////////  
 
-
-
+const notificationRoutes = require('./routes/notificationRoutes');
 
 const app = express();
 const port = process.env.PORT;
@@ -121,10 +121,8 @@ app.use("/api/education/videos", Education_VideosRoute);
 app.use("/api/education/additionalVideos", Education_AdditionalVideosRoute);
 app.use("/api/education/questionsAndAnswers", Education_QuestionsAndAnswersRoute);
 
-// 
-
-
-
+// Notification routes
+app.use('/api/stock/notifications', notificationRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -149,6 +147,16 @@ app.get("/test-image", (req, res) => {
 
 // Make uploads directory accessible
 app.use('/uploads', express.static('uploads'));
+
+// Start cron jobs
+startNotificationCron();
+
+// Validate required environment variables
+if (!process.env.FCM_SERVER_KEY) {
+  console.warn('FCM_SERVER_KEY environment variable is not set! Push notifications via FCM will not work.');
+} else {
+  console.log('FCM_SERVER_KEY is configured, push notifications should work.');
+}
 
 app.listen(port, () => {
   // Server started successfully
