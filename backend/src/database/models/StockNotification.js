@@ -68,6 +68,14 @@ module.exports = (sequelize, DataTypes) => {
           model: 'users',
           key: 'id'
         }
+      },
+      equipmentId: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        references: {
+          model: 'stock_equipment',
+          key: 'id'
+        }
       }
     },
     {
@@ -81,6 +89,14 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: 'userId',
       as: 'user'
     });
+    
+    if (models.StockEquipment) {
+      StockNotification.belongsTo(models.StockEquipment, {
+        foreignKey: 'equipmentId',
+        as: 'equipment',
+        constraints: false
+      });
+    }
   };
 
   return StockNotification;

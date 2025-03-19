@@ -21,6 +21,8 @@ import EditTransaction from './screens/Wallet/components/EditTransaction';
 import Wallet from './screens/Wallet/Wallet'; // Import the Wallet screen
 import AdvisorApplication from './screens/AdvisorApplication/AdvisorApplication';
 import { I18nManager } from 'react-native';
+import { NotificationProvider } from './context/NotificationContext';
+import NotificationService from './services/NotificationService';
 
 // Force RTL and allow RTL globally
 I18nManager.forceRTL(true);
@@ -93,31 +95,39 @@ export const RootNavigator: React.FC = () => {
 
 // Default export remains the App component
 export default function App() {
+  // Initialize notification service
+  React.useEffect(() => {
+    const notificationService = NotificationService.getInstance();
+    notificationService.initialize();
+  }, []);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider>
         <AuthProvider>
-          <StockProvider>
-            <AnimalProvider>
-              <SeedProvider>
-                <PesticideProvider>
-                  <ToolProvider>
-                    <EquipmentProvider>
-                      <FeedProvider>
-                        <HarvestProvider>
-                          <FertilizerProvider>
-                            <NavigationContainer>
-                              <RootNavigator />
-                            </NavigationContainer>
-                          </FertilizerProvider>
-                        </HarvestProvider>
-                      </FeedProvider>
-                    </EquipmentProvider>
-                  </ToolProvider>
-                </PesticideProvider>
-              </SeedProvider>
-            </AnimalProvider>
-          </StockProvider>
+          <NotificationProvider>
+            <StockProvider>
+              <AnimalProvider>
+                <SeedProvider>
+                  <PesticideProvider>
+                    <ToolProvider>
+                      <EquipmentProvider>
+                        <FeedProvider>
+                          <HarvestProvider>
+                            <FertilizerProvider>
+                              <NavigationContainer>
+                                <RootNavigator />
+                              </NavigationContainer>
+                            </FertilizerProvider>
+                          </HarvestProvider>
+                        </FeedProvider>
+                      </EquipmentProvider>
+                    </ToolProvider>
+                  </PesticideProvider>
+                </SeedProvider>
+              </AnimalProvider>
+            </StockProvider>
+          </NotificationProvider>
         </AuthProvider>
       </ThemeProvider>
     </GestureHandlerRootView>

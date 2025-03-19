@@ -63,6 +63,7 @@ import AddFertilizerScreen from '../screens/Stock/Fertilizers/AddFertilizer';
 
 import AdvisorApplicationScreen from '../screens/Advisor/AdvisorApplicationScreen';
 import { useTranslation } from 'react-i18next';
+import NotificationSettingsScreen from '../screens/Settings/NotificationSettings';
 
 const Stack = createStackNavigator<StockStackParamList>();
 
@@ -274,6 +275,11 @@ export const StockNavigator = () => {
                         name="Statistics" 
                         component={StockStatisticsScreen}
                         options={{ title: 'إحصائيات المخزون', headerShown: true }}
+                      />
+                      <Stack.Screen 
+                        name="NotificationSettings" 
+                        component={NotificationSettingsScreen}
+                        options={{ title: 'إعدادات الإشعارات', headerShown: true }}
                       />
                     </Stack.Navigator>
                   </FertilizerProvider>

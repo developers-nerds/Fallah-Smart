@@ -261,7 +261,7 @@ export interface StockFeed {
 }
 
 export interface StockHarvest {
-  id: string;
+  id?: string;
   cropName: string;
   type: string;
   quantity: number;

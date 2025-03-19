@@ -206,6 +206,8 @@ const AddFeedScreen: React.FC<AddFeedScreenProps> = ({ navigation, route }) => {
   const [showNameModal, setShowNameModal] = useState(false);
   const [showUnitModal, setShowUnitModal] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
+  // Keep a local copy of form values to prevent data loss between steps
+  const [formValues, setFormValues] = useState<Partial<StockFeed> | null>(null);
   
   // For direct access to form ref
   const formikRef = React.useRef<FormikProps<any>>(null);
@@ -227,24 +229,50 @@ const AddFeedScreen: React.FC<AddFeedScreenProps> = ({ navigation, route }) => {
     }
   }, [feed, route.params?.feedId]);
 
-  const initialValues: Partial<StockFeed> = {
-    name: existingFeed?.name || '',
-    animalType: existingFeed?.animalType || '',
-    quantity: existingFeed?.quantity || 0,
-    unit: existingFeed?.unit || '',
-    price: existingFeed?.price || 0,
-    expiryDate: existingFeed?.expiryDate ? new Date(existingFeed.expiryDate).toISOString() : new Date().toISOString(),
-    manufacturer: existingFeed?.manufacturer || '',
-    batchNumber: existingFeed?.batchNumber || '',
-    purchaseDate: existingFeed?.purchaseDate ? new Date(existingFeed.purchaseDate).toISOString() : new Date().toISOString(),
-    location: existingFeed?.location || '',
-    supplier: existingFeed?.supplier || '',
-    nutritionalInfo: existingFeed?.nutritionalInfo || '',
-    recommendedUsage: existingFeed?.recommendedUsage || '',
-    targetAnimals: existingFeed?.targetAnimals || '',
-    notes: existingFeed?.notes || '',
-    dailyConsumptionRate: existingFeed?.dailyConsumptionRate || 0,
-    minQuantityAlert: existingFeed?.minQuantityAlert || 100,
+  useEffect(() => {
+    // Log whenever formikRef changes or initializes
+    if (formikRef.current) {
+      console.log('Formik initialized with values:', formikRef.current.values);
+      
+      // If we have saved form values, restore them
+      if (formValues && Object.keys(formValues).length > 0) {
+        console.log('Restoring saved form values:', formValues);
+        Object.keys(formValues).forEach(key => {
+          formikRef.current?.setFieldValue(key, formValues[key as keyof StockFeed]);
+        });
+      }
+    }
+  }, [formikRef.current]);
+
+  // Use formValues if available, otherwise fall back to initialValues from existingFeed or defaults
+  const getInitialValues = () => {
+    if (formValues) {
+      console.log('Using saved form values:', formValues);
+      return formValues;
+    }
+    
+    const defaultValues: Partial<StockFeed> = {
+      name: existingFeed?.name || '',
+      animalType: existingFeed?.animalType || '',
+      quantity: existingFeed?.quantity || 0,
+      unit: existingFeed?.unit || '',
+      price: existingFeed?.price || 0,
+      expiryDate: existingFeed?.expiryDate ? new Date(existingFeed.expiryDate).toISOString() : new Date().toISOString(),
+      manufacturer: existingFeed?.manufacturer || '',
+      batchNumber: existingFeed?.batchNumber || '',
+      purchaseDate: existingFeed?.purchaseDate ? new Date(existingFeed.purchaseDate).toISOString() : new Date().toISOString(),
+      location: existingFeed?.location || '',
+      supplier: existingFeed?.supplier || '',
+      nutritionalInfo: existingFeed?.nutritionalInfo || '',
+      recommendedUsage: existingFeed?.recommendedUsage || '',
+      targetAnimals: existingFeed?.targetAnimals || '',
+      notes: existingFeed?.notes || '',
+      dailyConsumptionRate: existingFeed?.dailyConsumptionRate || 0,
+      minQuantityAlert: existingFeed?.minQuantityAlert || 100,
+    };
+    
+    console.log('Using default initial values');
+    return defaultValues;
   };
 
   // Handlers for form steps navigation
@@ -254,6 +282,12 @@ const AddFeedScreen: React.FC<AddFeedScreenProps> = ({ navigation, route }) => {
       const errors = formikRef.current.errors;
       const touched = formikRef.current.touched;
       const values = formikRef.current.values;
+      
+      console.log(`Step ${currentStep} values:`, values);
+      console.log(`Step ${currentStep} errors:`, errors);
+      
+      // Save current form values to state
+      setFormValues(values);
       
       // Validate essential fields in first step before proceeding
       if (currentStep === 0) {
@@ -280,12 +314,14 @@ const AddFeedScreen: React.FC<AddFeedScreenProps> = ({ navigation, route }) => {
           errors.price ||
           errors.expiryDate
         ) {
+          console.log('Validation failed on step 0');
           Alert.alert('تحقق من البيانات', 'يرجى إدخال جميع المعلومات الأساسية بشكل صحيح');
           return;
         }
       }
       
       if (currentStep < formSteps.length - 1) {
+        console.log(`Moving from step ${currentStep} to step ${currentStep + 1}`);
         setCurrentStep(prevStep => prevStep + 1);
       }
     }
@@ -293,6 +329,10 @@ const AddFeedScreen: React.FC<AddFeedScreenProps> = ({ navigation, route }) => {
 
   const handlePrevStep = () => {
     if (currentStep > 0) {
+      // Save current form values when going back
+      if (formikRef.current) {
+        setFormValues(formikRef.current.values);
+      }
       setCurrentStep(prevStep => prevStep - 1);
     }
   };
@@ -325,6 +365,7 @@ const AddFeedScreen: React.FC<AddFeedScreenProps> = ({ navigation, route }) => {
   const handleSubmit = async (values: Partial<StockFeed>) => {
     try {
       setIsSubmitting(true);
+      console.log('Starting form submission with values:', values);
       
       // Format the dates properly for API submission
       const formattedValues = {
@@ -332,23 +373,36 @@ const AddFeedScreen: React.FC<AddFeedScreenProps> = ({ navigation, route }) => {
         expiryDate: new Date(values.expiryDate || '').toISOString(),
         purchaseDate: values.purchaseDate ? new Date(values.purchaseDate).toISOString() : undefined,
         // Ensure numbers are properly typed
-        quantity: Number(values.quantity),
-        price: Number(values.price),
-        minQuantityAlert: Number(values.minQuantityAlert),
-        dailyConsumptionRate: Number(values.dailyConsumptionRate),
+        quantity: Number(values.quantity || 0),
+        price: Number(values.price || 0),
+        minQuantityAlert: Number(values.minQuantityAlert || 0),
+        dailyConsumptionRate: Number(values.dailyConsumptionRate || 0),
       };
+
+      console.log('Formatted values:', formattedValues);
 
       // Get token for authentication
       const tokens = await storage.getTokens();
+      console.log('Auth tokens available:', !!tokens?.access);
       
       if (!tokens?.access) {
         Alert.alert('خطأ', 'الرجاء تسجيل الدخول أولا');
         return;
       }
       
+      const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+      console.log('API URL:', apiUrl);
+      
+      if (!apiUrl) {
+        Alert.alert('خطأ', 'API URL غير متوفر');
+        return;
+      }
+
+      let response;
       if (existingFeed) {
-        await axios.put(
-          `${process.env.EXPO_PUBLIC_API_URL}/stock/feed/${existingFeed.id}`,
+        console.log(`Updating feed with ID: ${existingFeed.id}`);
+        response = await axios.put(
+          `${apiUrl}/stock/feed/${existingFeed.id}`,
           formattedValues,
           {
             headers: {
@@ -358,8 +412,9 @@ const AddFeedScreen: React.FC<AddFeedScreenProps> = ({ navigation, route }) => {
           }
         );
       } else {
-        await axios.post(
-          `${process.env.EXPO_PUBLIC_API_URL}/stock/feed`,
+        console.log('Creating new feed');
+        response = await axios.post(
+          `${apiUrl}/stock/feed`,
           formattedValues,
           {
             headers: {
@@ -370,11 +425,22 @@ const AddFeedScreen: React.FC<AddFeedScreenProps> = ({ navigation, route }) => {
         );
       }
         
-          // Navigate back after successful submission
-          navigation.goBack();
+      console.log('Feed saved successfully:', response.data);
+      Alert.alert('نجاح', 'تم حفظ العلف بنجاح', [
+        { 
+          text: 'حسنا', 
+          onPress: () => navigation.goBack() 
+        }
+      ]);
     } catch (error) {
       console.error('Error saving feed:', error);
-      Alert.alert('خطأ', 'فشل في حفظ العلف');
+      if (axios.isAxiosError(error)) {
+        console.error('API error status:', error.response?.status);
+        console.error('API error data:', error.response?.data);
+        Alert.alert('خطأ', `فشل في حفظ العلف: ${error.response?.data?.message || error.message}`);
+      } else {
+        Alert.alert('خطأ', 'فشل في حفظ العلف');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -441,11 +507,11 @@ const AddFeedScreen: React.FC<AddFeedScreenProps> = ({ navigation, route }) => {
         barStyle="dark-content"
       />
       <Formik
-        initialValues={initialValues}
+        initialValues={getInitialValues()}
         validationSchema={validationSchema}
         onSubmit={handleSubmit}
         innerRef={formikRef}
-        enableReinitialize
+        enableReinitialize={false}
       >
         {({ handleChange, handleBlur, handleSubmit: formikSubmit, values, errors, touched, setFieldValue }) => (
           <View style={styles(theme).formContainer}>
@@ -776,7 +842,30 @@ const AddFeedScreen: React.FC<AddFeedScreenProps> = ({ navigation, route }) => {
               ) : (
                 <TouchableOpacity
                   style={[styles(theme).navigationButton, styles(theme).submitButton]}
-                  onPress={(e: GestureResponderEvent) => formikSubmit()}
+                  onPress={() => {
+                    console.log('Submit button pressed');
+                    
+                    // Make sure we have the current values
+                    if (formikRef.current) {
+                      const currentValues = formikRef.current.values;
+                      console.log('Current form values before submission:', currentValues);
+                      
+                      // Basic validation before submitting
+                      if (!currentValues.name || !currentValues.animalType) {
+                        Alert.alert('خطأ', 'يرجى ملء جميع الحقول المطلوبة');
+                        return;
+                      }
+                      
+                      // Update stored form values one last time
+                      setFormValues(currentValues);
+                      
+                      // Submit the form
+                      formikRef.current.handleSubmit();
+                    } else {
+                      console.error('Form reference not available');
+                      Alert.alert('خطأ', 'حدث خطأ في النموذج، يرجى المحاولة مرة أخرى');
+                    }
+                  }}
                   disabled={isSubmitting}
                 >
                   <Text style={[styles(theme).navigationButtonText, { color: "white" }]}>
