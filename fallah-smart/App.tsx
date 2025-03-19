@@ -23,6 +23,16 @@ import AdvisorApplication from './screens/AdvisorApplication/AdvisorApplication'
 import { I18nManager } from 'react-native';
 import { NotificationProvider } from './context/NotificationContext';
 import NotificationService from './services/NotificationService';
+import * as Notifications from 'expo-notifications';
+
+// Configure notification behavior for the entire app
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
 
 // Force RTL and allow RTL globally
 I18nManager.forceRTL(true);
@@ -97,8 +107,30 @@ export const RootNavigator: React.FC = () => {
 export default function App() {
   // Initialize notification service
   React.useEffect(() => {
-    const notificationService = NotificationService.getInstance();
-    notificationService.initialize();
+    const initializeNotifications = async () => {
+      try {
+        const notificationService = NotificationService.getInstance();
+        await notificationService.initialize();
+        
+        // You can use this for testing notifications during development
+        if (__DEV__) {
+          // Wait a bit to allow initialization to complete
+          setTimeout(async () => {
+            await notificationService.scheduleTestNotification();
+          }, 3000);
+        }
+      } catch (error) {
+        console.error('Failed to initialize notifications:', error);
+      }
+    };
+
+    initializeNotifications();
+    
+    // Clean up notification listeners when component unmounts
+    return () => {
+      const notificationService = NotificationService.getInstance();
+      notificationService.cleanup();
+    };
   }, []);
 
   return (
