@@ -1,13 +1,13 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const path = require('path');
-const fs = require('fs');
-const multer = require('multer');
+const path = require("path");
+const fs = require("fs");
+const multer = require("multer");
 
 // Route imports
 const animalGastonRoutes = require("./routes/animalGastonRoutes");
-const categoryRoutes = require('./routes/categoryRoutes');
+const categoryRoutes = require("./routes/categoryRoutes");
 const transactionRoutes = require("./routes/transactionRoutes");
 const userRoutes = require("./routes/userRoutes");
 const stockRoutes = require("./routes/stockRoutes");
@@ -23,6 +23,7 @@ const animalRoutes = require("./routes/animalRoutes");
 const animalDetailsRoutes = require("./routes/animalsDetails");
 const animal = require("./routes/animal");
 const stockStatisticsRoutes = require("./routes/stockStatisticsRoutes");
+const suppliersRoutes = require("./routes/suppliersRoutes");
 
 // New stock management routes
 const stockFeedRoutes = require("./routes/stockFeedRoutes");
@@ -43,10 +44,7 @@ const Education_VideosRoute = require("./routes/Education_VideosRoute");
 const Education_AdditionalVideosRoute = require("./routes/Education_AdditionalVideosRoute");
 const Education_QuestionsAndAnswersRoute = require("./routes/Education_QuestionsAndAnswersRoute");
 
-  ////////////////////////////////End of Education Routes///////////////////////  
-
-
-
+////////////////////////////////End of Education Routes///////////////////////
 
 const app = express();
 const port = process.env.PORT;
@@ -57,28 +55,30 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Create uploads directory if it doesn't exist
-const uploadsDir = path.join(__dirname, '../uploads');
-const profilesDir = path.join(uploadsDir, 'profiles');
-const commentsUploadsDir = path.join(uploadsDir, 'comments');
+const uploadsDir = path.join(__dirname, "../uploads");
+const profilesDir = path.join(uploadsDir, "profiles");
+const commentsUploadsDir = path.join(uploadsDir, "comments");
+const companyUploadsDir = path.join(uploadsDir, "company");
 
 fs.mkdirSync(uploadsDir, { recursive: true });
 fs.mkdirSync(profilesDir, { recursive: true });
 fs.mkdirSync(commentsUploadsDir, { recursive: true });
+fs.mkdirSync(companyUploadsDir, { recursive: true });
 
 // Add this after your middleware setup
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 // Add error handling for multer
 app.use((err, req, res, next) => {
   if (err instanceof multer.MulterError) {
-    if (err.code === 'LIMIT_FILE_SIZE') {
+    if (err.code === "LIMIT_FILE_SIZE") {
       return res.status(400).json({
-        message: 'File is too large. Maximum size is 5MB'
+        message: "File is too large. Maximum size is 5MB",
       });
     }
     return res.status(400).json({
-      message: 'File upload error',
-      error: err.message
+      message: "File upload error",
+      error: err.message,
     });
   }
   next(err);
@@ -89,7 +89,7 @@ app.use("/api/transactions", transactionRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/stocks", stockRoutes);
 app.use("/api/animals", animalGastonRoutes);
-app.use('/api/pesticides', pesticideRoutes);
+app.use("/api/pesticides", pesticideRoutes);
 app.use("/api/blog", blogRoutes);
 app.use("/api/scans", scanRoutes);
 app.use("/api/conversations", conversationRoutes);
@@ -101,6 +101,7 @@ app.use("/api/animalDetails", animalDetailsRoutes);
 app.use("/api/animal", animal);
 app.use("/api/stock-statistics", stockStatisticsRoutes);
 app.use("/api/categories", categoryRoutes);
+app.use("/api/suppliers", suppliersRoutes);
 
 // New stock management routes
 app.use("/api/stock/feed", stockFeedRoutes);
@@ -119,17 +120,17 @@ app.use("/api/education/replies", Education_RepliesRoute);
 app.use("/api/education/userProgress", Education_UserProgressRoute);
 app.use("/api/education/videos", Education_VideosRoute);
 app.use("/api/education/additionalVideos", Education_AdditionalVideosRoute);
-app.use("/api/education/questionsAndAnswers", Education_QuestionsAndAnswersRoute);
+app.use(
+  "/api/education/questionsAndAnswers",
+  Education_QuestionsAndAnswersRoute
+);
 
-// 
-
-
-
+//
 
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ message: 'Something went wrong!' });
+  res.status(500).json({ message: "Something went wrong!" });
 });
 
 // Test route for image serving
@@ -148,7 +149,7 @@ app.get("/test-image", (req, res) => {
 });
 
 // Make uploads directory accessible
-app.use('/uploads', express.static('uploads'));
+app.use("/uploads", express.static("uploads"));
 
 app.listen(port, () => {
   // Server started successfully
