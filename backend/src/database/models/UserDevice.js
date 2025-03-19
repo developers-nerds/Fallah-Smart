@@ -8,7 +8,7 @@ module.exports = (sequelize, DataTypes) => {
         unique: true,
       },
       deviceType: {
-        type: DataTypes.ENUM('mobile', 'tablet', 'web'),
+        type: DataTypes.STRING,
         defaultValue: 'mobile',
       },
       isActive: {
@@ -33,6 +33,13 @@ module.exports = (sequelize, DataTypes) => {
       timestamps: true,
     }
   );
+
+  UserDevice.associate = function(models) {
+    UserDevice.belongsTo(models.Users, {
+      foreignKey: 'userId',
+      as: 'user'
+    });
+  };
 
   return UserDevice;
 }; 

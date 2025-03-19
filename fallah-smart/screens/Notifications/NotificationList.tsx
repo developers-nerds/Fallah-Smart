@@ -12,8 +12,6 @@ import {
 import { useTheme } from '../../context/ThemeContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import axios from 'axios';
-import { storage } from '../../utils/storage';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 
@@ -31,73 +29,43 @@ interface Notification {
 
 const NotificationListScreen: React.FC = () => {
   const theme = useTheme();
-  const { markAsRead, markAllAsRead, updateUnreadCount } = useNotifications();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const { 
+    markAsRead, 
+    markAllAsRead, 
+    updateUnreadCount, 
+    refreshNotifications, 
+    notifications,
+    scheduleTestNotification 
+  } = useNotifications();
+  
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
 
-  const fetchNotifications = async (pageNum: number = 1) => {
+  useEffect(() => {
+    loadNotifications();
+  }, []);
+
+  const loadNotifications = async () => {
+    setLoading(true);
     try {
-      const tokens = await storage.getTokens();
-      if (!tokens?.access) return;
-
-      const response = await axios.get(
-        `${process.env.EXPO_PUBLIC_API_URL}/stock/notifications`,
-        {
-          params: {
-            page: pageNum,
-            limit: 20,
-          },
-          headers: {
-            Authorization: `Bearer ${tokens.access}`,
-          },
-        }
-      );
-
-      // Handle different API response formats
-      let newNotifications: Notification[] = [];
-      if (Array.isArray(response.data)) {
-        // If response.data is already an array of notifications
-        newNotifications = response.data;
-      } else if (response.data.notifications && Array.isArray(response.data.notifications)) {
-        // If response.data has a notifications property that is an array
-        newNotifications = response.data.notifications;
-      } else {
-        console.error('Unexpected notification data format:', response.data);
-        newNotifications = [];
-      }
-
-      setNotifications(prev =>
-        pageNum === 1 ? newNotifications : [...prev, ...newNotifications]
-      );
-      setHasMore(newNotifications.length === 20);
-      setPage(pageNum);
+      await refreshNotifications();
     } catch (error) {
-      console.error('Error fetching notifications:', error);
-      if (error.response) {
-        console.error('Response error details:', error.response.status, error.response.data);
-      }
+      console.error('Error loading notifications:', error);
       Alert.alert('خطأ', 'فشل في تحميل الإشعارات');
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   };
 
-  useEffect(() => {
-    fetchNotifications();
-  }, []);
-
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setRefreshing(true);
-    fetchNotifications(1);
-  };
-
-  const handleLoadMore = () => {
-    if (!hasMore || loading) return;
-    fetchNotifications(page + 1);
+    try {
+      await refreshNotifications();
+    } catch (error) {
+      console.error('Error refreshing notifications:', error);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const handleNotificationPress = async (notification: Notification) => {
@@ -117,11 +85,21 @@ const NotificationListScreen: React.FC = () => {
   const handleMarkAllAsRead = async () => {
     try {
       await markAllAsRead();
-      await updateUnreadCount();
-      await fetchNotifications(1);
     } catch (error) {
       console.error('Error marking all as read:', error);
       Alert.alert('خطأ', 'فشل في تحديث حالة الإشعارات');
+    }
+  };
+
+  const handleTestNotification = async () => {
+    try {
+      const notificationId = await scheduleTestNotification();
+      if (notificationId) {
+        Alert.alert('تم', 'تم إرسال إشعار تجريبي');
+      }
+    } catch (error) {
+      console.error('Error sending test notification:', error);
+      Alert.alert('خطأ', 'فشل في إرسال الإشعار التجريبي');
     }
   };
 
@@ -151,80 +129,91 @@ const NotificationListScreen: React.FC = () => {
       style={[
         styles.notificationItem,
         {
-          backgroundColor: theme.colors.neutral.surface,
-          borderLeftColor: item.status === 'pending' ? theme.colors.primary.base : 'transparent',
+          backgroundColor: item.status === 'pending' 
+            ? theme.colors.primaryLight 
+            : theme.colors.background,
         },
       ]}
       onPress={() => handleNotificationPress(item)}
     >
-      <View style={styles.notificationContent}>
-        <View style={styles.notificationHeader}>
-          <MaterialCommunityIcons
-            name={getNotificationIcon(item.type)}
-            size={24}
-            color={theme.colors.primary.base}
-          />
-          <Text style={[styles.notificationTitle, { color: theme.colors.neutral.textPrimary }]}>
-            {item.title}
-          </Text>
-        </View>
-        <Text style={[styles.notificationMessage, { color: theme.colors.neutral.textSecondary }]}>
+      <View style={styles.iconContainer}>
+        <MaterialCommunityIcons
+          name={getNotificationIcon(item.type)}
+          size={24}
+          color={theme.colors.primary}
+        />
+      </View>
+      <View style={styles.contentContainer}>
+        <Text style={[styles.title, { color: theme.colors.text }]}>{item.title}</Text>
+        <Text style={[styles.message, { color: theme.colors.textSecondary }]}>
           {item.message}
         </Text>
-        <Text style={[styles.notificationTime, { color: theme.colors.neutral.textTertiary }]}>
-          {format(new Date(item.createdAt), 'PPp', { locale: ar })}
+        <Text style={[styles.time, { color: theme.colors.textTertiary }]}>
+          {format(new Date(item.createdAt), 'PPpp', { locale: ar })}
         </Text>
       </View>
+      {item.status === 'pending' && (
+        <View style={[styles.unreadIndicator, { backgroundColor: theme.colors.primary }]} />
+      )}
     </TouchableOpacity>
   );
 
-  if (loading && !refreshing) {
-    return (
-      <View style={[styles.container, styles.centerContent]}>
-        <ActivityIndicator size="large" color={theme.colors.primary.base} />
-      </View>
-    );
-  }
+  const renderEmptyList = () => (
+    <View style={styles.emptyContainer}>
+      <MaterialCommunityIcons
+        name="bell-outline"
+        size={64}
+        color={theme.colors.textTertiary}
+      />
+      <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+        لا توجد إشعارات
+      </Text>
+    </View>
+  );
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: theme.colors.neutral.textPrimary }]}>
-          الإشعارات
-        </Text>
-        {notifications.length > 0 && (
-          <TouchableOpacity
-            style={[styles.markAllRead, { backgroundColor: theme.colors.primary.base }]}
-            onPress={handleMarkAllAsRead}
+        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>الإشعارات</Text>
+        <View style={styles.headerActions}>
+          <TouchableOpacity 
+            style={styles.headerButton} 
+            onPress={handleTestNotification}
           >
-            <Text style={styles.markAllReadText}>تعليم الكل كمقروء</Text>
+            <MaterialCommunityIcons name="bell-ring" size={22} color={theme.colors.primary} />
           </TouchableOpacity>
-        )}
+          {notifications.length > 0 && (
+            <TouchableOpacity style={styles.headerButton} onPress={handleMarkAllAsRead}>
+              <MaterialCommunityIcons
+                name="check-all"
+                size={22}
+                color={theme.colors.primary}
+              />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
-      <FlatList
-        data={notifications}
-        renderItem={renderNotification}
-        keyExtractor={item => item.id.toString()}
-        contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-        }
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.5}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <MaterialCommunityIcons
-              name="bell-off"
-              size={48}
-              color={theme.colors.neutral.textSecondary}
+      {loading ? (
+        <ActivityIndicator size="large" color={theme.colors.primary} style={styles.loader} />
+      ) : (
+        <FlatList
+          data={notifications}
+          renderItem={renderNotification}
+          keyExtractor={(item) => item.id.toString()}
+          contentContainerStyle={
+            notifications.length === 0 ? styles.emptyListContent : styles.listContent
+          }
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={[theme.colors.primary]}
             />
-            <Text style={[styles.emptyText, { color: theme.colors.neutral.textSecondary }]}>
-              لا توجد إشعارات
-            </Text>
-          </View>
-        }
-      />
+          }
+          ListEmptyComponent={renderEmptyList}
+        />
+      )}
     </View>
   );
 };
@@ -233,80 +222,84 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  centerContent: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.1)',
+    borderBottomColor: '#eee',
   },
-  title: {
-    fontSize: 24,
+  headerTitle: {
+    fontSize: 18,
     fontWeight: 'bold',
   },
-  markAllRead: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+  headerActions: {
+    flexDirection: 'row',
   },
-  markAllReadText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '500',
+  headerButton: {
+    marginLeft: 16,
+    padding: 4,
   },
   listContent: {
-    padding: 16,
+    paddingBottom: 20,
+  },
+  emptyListContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   notificationItem: {
     flexDirection: 'row',
     padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    borderLeftWidth: 4,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
-  notificationContent: {
-    flex: 1,
-  },
-  notificationHeader: {
-    flexDirection: 'row',
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
-    gap: 8,
+    marginRight: 12,
   },
-  notificationTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+  contentContainer: {
     flex: 1,
   },
-  notificationMessage: {
-    fontSize: 14,
-    marginBottom: 8,
-    lineHeight: 20,
+  title: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 4,
   },
-  notificationTime: {
+  message: {
+    fontSize: 14,
+    marginBottom: 6,
+  },
+  time: {
     fontSize: 12,
+  },
+  unreadIndicator: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginLeft: 10,
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 32,
+    padding: 40,
   },
   emptyText: {
-    fontSize: 16,
     marginTop: 16,
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  loader: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

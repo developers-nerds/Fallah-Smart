@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
-import axios from 'axios';
-import { storage } from '../../utils/storage';
+import { useNotifications } from '../../context/NotificationContext';
 
 const TestNotification = () => {
   const { colors } = useTheme();
+  const { scheduleTestNotification, deviceToken } = useNotifications();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
 
@@ -14,42 +14,15 @@ const TestNotification = () => {
     setResult(null);
     
     try {
-      const tokens = await storage.getTokens();
-      if (!tokens?.access) {
-        setResult('يرجى تسجيل الدخول أولا');
-        setLoading(false);
-        return;
-      }
+      const notificationId = await scheduleTestNotification();
       
-      const response = await axios.post(
-        `${process.env.EXPO_PUBLIC_API_URL}/stock/notifications/test`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${tokens.access}`,
-          },
-        }
-      );
-      
-      console.log('Test notification response:', response.data);
-      
-      if (response.data.success) {
-        setResult(
-          response.data.note 
-            ? `${response.data.message}. ملاحظة: ${response.data.note}`
-            : 'تم إرسال الإشعار التجريبي بنجاح! يرجى التحقق من الإشعارات على جهازك.'
-        );
+      if (notificationId) {
+        setResult('تم إرسال الإشعار التجريبي بنجاح! يرجى التحقق من الإشعارات على جهازك.');
       } else {
         setResult('حدث خطأ أثناء إرسال الإشعار. يرجى المحاولة مرة أخرى.');
       }
     } catch (error) {
       console.error('Error sending test notification:', error);
-      if (error.response) {
-        console.error('Server error details:', {
-          status: error.response.status,
-          data: error.response.data
-        });
-      }
       setResult('حدث خطأ أثناء إرسال الإشعار. يرجى المحاولة مرة أخرى.');
     } finally {
       setLoading(false);
@@ -62,6 +35,15 @@ const TestNotification = () => {
       <Text style={[styles.description, { color: colors.text }]}>
         انقر على الزر أدناه لإرسال إشعار تجريبي إلى جهازك للتأكد من عمل نظام الإشعارات بشكل صحيح.
       </Text>
+      
+      {deviceToken && (
+        <View style={styles.tokenContainer}>
+          <Text style={[styles.tokenLabel, { color: colors.text }]}>معرف الجهاز:</Text>
+          <Text style={[styles.tokenText, { color: colors.text }]} numberOfLines={2} ellipsizeMode="middle">
+            {deviceToken}
+          </Text>
+        </View>
+      )}
       
       <TouchableOpacity
         style={[styles.button, { backgroundColor: colors.primary }]}
@@ -101,6 +83,24 @@ const styles = StyleSheet.create({
   description: {
     marginBottom: 16,
     textAlign: 'right',
+  },
+  tokenContainer: {
+    marginBottom: 16,
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  tokenLabel: {
+    fontWeight: 'bold',
+    marginBottom: 4,
+    textAlign: 'right',
+  },
+  tokenText: {
+    fontSize: 12,
+    textAlign: 'center',
+    padding: 4,
+    borderRadius: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.03)',
   },
   button: {
     padding: 12,
