@@ -17,12 +17,23 @@ import NotificationService from '../../services/NotificationService';
 
 // Define the icon names as a type to avoid TypeScript errors
 type IconName = 
-  | 'package-variant' 
-  | 'clock-alert' 
+  | 'package-variant-alert' 
+  | 'timer-alert-outline' 
   | 'tools' 
   | 'needle' 
   | 'heart-pulse'
-  | 'bell-ring';
+  | 'bell-ring'
+  | 'alert-circle-outline';
+
+// Define notification category colors
+const categoryColors = {
+  automatic: '#4CAF50', // Green
+  stock: '#FF9800',     // Orange
+  expiry: '#F44336',    // Red
+  maintenance: '#2196F3', // Blue
+  vaccination: '#9C27B0', // Purple
+  breeding: '#E91E63',  // Pink
+};
 
 const NotificationSettingsScreen: React.FC = () => {
   const theme = useTheme();
@@ -80,16 +91,28 @@ const NotificationSettingsScreen: React.FC = () => {
     title: string,
     description: string,
     icon: IconName,
-    settingKey: keyof typeof settings
+    settingKey: keyof typeof settings,
+    color: string
   ) => (
-    <View style={[styles.settingItem, { backgroundColor: theme.colors.neutral.surface }]}>
+    <View 
+      style={[
+        styles.settingItem, 
+        { 
+          backgroundColor: theme.colors.background,
+          borderRightWidth: 4,
+          borderRightColor: color
+        }
+      ]}
+    >
       <View style={styles.settingInfo}>
-        <MaterialCommunityIcons name={icon} size={24} color={theme.colors.primary.base} />
+        <View style={[styles.iconContainer, { backgroundColor: `${color}20` }]}>
+          <MaterialCommunityIcons name={icon} size={24} color={color} />
+        </View>
         <View style={styles.settingText}>
-          <Text style={[styles.settingTitle, { color: theme.colors.neutral.textPrimary }]}>
+          <Text style={[styles.settingTitle, { color: theme.colors.text }]}>
             {title}
           </Text>
-          <Text style={[styles.settingDescription, { color: theme.colors.neutral.textSecondary }]}>
+          <Text style={[styles.settingDescription, { color: theme.colors.secondary }]}>
             {description}
           </Text>
         </View>
@@ -97,90 +120,132 @@ const NotificationSettingsScreen: React.FC = () => {
       <Switch
         value={settings[settingKey]}
         onValueChange={() => handleToggle(settingKey)}
-        trackColor={{ false: theme.colors.neutral.border, true: theme.colors.primary.base }}
-        thumbColor={theme.colors.neutral.surface}
+        trackColor={{ false: theme.colors.border, true: color }}
+        thumbColor={settings[settingKey] ? '#fff' : theme.colors.background}
         disabled={loading}
+        style={styles.switchStyle}
       />
     </View>
   );
 
   if (initialLoading) {
     return (
-      <View style={[styles.loadingContainer, { backgroundColor: theme.colors.neutral.background }]}>
-        <ActivityIndicator size="large" color={theme.colors.primary.base} />
+      <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={[styles.loadingText, { color: theme.colors.text }]}>
+          جاري تحميل الإعدادات...
+        </Text>
       </View>
     );
   }
 
   return (
     <ScrollView
-      style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
       contentContainerStyle={styles.content}
     >
       <View style={styles.header}>
-        <Text style={[styles.title, { color: theme.colors.neutral.textPrimary }]}>
+        <MaterialCommunityIcons 
+          name="bell-badge-outline" 
+          size={40} 
+          color={theme.colors.primary} 
+          style={styles.headerIcon} 
+        />
+        <Text style={[styles.title, { color: theme.colors.text }]}>
           إعدادات الإشعارات
         </Text>
-        <Text style={[styles.subtitle, { color: theme.colors.neutral.textSecondary }]}>
-          اختر نوع الإشعارات التي تريد تلقيها
+        <Text style={[styles.subtitle, { color: theme.colors.secondary }]}>
+          خصص الإشعارات التي تريد استلامها لإدارة مزرعتك بشكل أفضل
         </Text>
       </View>
 
       {loading && (
         <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color={theme.colors.primary.base} />
+          <ActivityIndicator size="large" color={theme.colors.primary} />
         </View>
       )}
 
       <View style={styles.settingsContainer}>
+        <Text style={[styles.categoryTitle, { color: theme.colors.text }]}>
+          الإعدادات العامة
+        </Text>
+
         {renderSettingItem(
-          'التنبيهات التلقائية للمخزون',
-          'فحص المخزون تلقائيًا وإرسال إشعارات بالحالات الهامة',
+          'التنبيهات التلقائية',
+          'فحص تلقائي للمخزون وإرسال إشعارات عند الضرورة',
           'bell-ring',
-          'automaticStockAlerts'
+          'automaticStockAlerts',
+          categoryColors.automatic
+        )}
+
+        <Text style={[styles.categoryTitle, { color: theme.colors.text, marginTop: 24 }]}>
+          تنبيهات المخزون
+        </Text>
+
+        {renderSettingItem(
+          'المخزون المنخفض',
+          'إعلامك عندما ينخفض المخزون عن الحد الأدنى',
+          'package-variant-alert',
+          'lowStockAlerts',
+          categoryColors.stock
         )}
 
         {renderSettingItem(
-          'تنبيهات المخزون المنخفض',
-          'تلقي إشعارات عندما ينخفض المخزون عن الحد الأدنى',
-          'package-variant',
-          'lowStockAlerts'
+          'إنتهاء الصلاحية',
+          'تنبيهات قبل انتهاء صلاحية المنتجات بوقت كافٍ',
+          'timer-alert-outline',
+          'expiryAlerts',
+          categoryColors.expiry
         )}
 
-        {renderSettingItem(
-          'تنبيهات انتهاء الصلاحية',
-          'تلقي إشعارات قبل انتهاء صلاحية المنتجات',
-          'clock-alert',
-          'expiryAlerts'
-        )}
+        <Text style={[styles.categoryTitle, { color: theme.colors.text, marginTop: 24 }]}>
+          تنبيهات المعدات
+        </Text>
 
         {renderSettingItem(
-          'تنبيهات الصيانة',
-          'تلقي إشعارات حول مواعيد صيانة المعدات',
+          'الصيانة الدورية',
+          'تذكيرك بمواعيد صيانة المعدات والأدوات',
           'tools',
-          'maintenanceAlerts'
+          'maintenanceAlerts',
+          categoryColors.maintenance
         )}
 
+        <Text style={[styles.categoryTitle, { color: theme.colors.text, marginTop: 24 }]}>
+          تنبيهات الحيوانات
+        </Text>
+
         {renderSettingItem(
-          'تنبيهات التطعيم',
-          'تلقي إشعارات حول مواعيد تطعيم الحيوانات',
+          'التطعيمات',
+          'تذكيرك بمواعيد تطعيم الحيوانات',
           'needle',
-          'vaccinationAlerts'
+          'vaccinationAlerts',
+          categoryColors.vaccination
         )}
 
         {renderSettingItem(
-          'تنبيهات التكاثر',
-          'تلقي إشعارات حول مواعيد تكاثر الحيوانات',
+          'التكاثر والحمل',
+          'تنبيهات حول مواعيد تكاثر الحيوانات وفترات الحمل',
           'heart-pulse',
-          'breedingAlerts'
+          'breedingAlerts',
+          categoryColors.breeding
         )}
       </View>
       
       <View style={styles.testSection}>
-        <Text style={[styles.sectionTitle, { color: theme.colors.neutral.textPrimary }]}>
-          اختبار الإشعارات
+        <View style={styles.testHeaderContainer}>
+          <MaterialCommunityIcons 
+            name="test-tube" 
+            size={24} 
+            color={theme.colors.primary} 
+          />
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+            إختبار النظام
+          </Text>
+        </View>
+        <Text style={[styles.testDescription, { color: theme.colors.secondary }]}>
+          يمكنك اختبار نظام الإشعارات للتأكد من عمله بشكل صحيح
         </Text>
-        <View style={[styles.testContainer, { backgroundColor: theme.colors.neutral.surface }]}>
+        <View style={[styles.testContainer, { backgroundColor: theme.colors.background }]}>
           <TestNotification />
         </View>
       </View>
@@ -194,32 +259,54 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
+    paddingBottom: 32,
   },
   header: {
-    marginBottom: 24,
+    marginBottom: 32,
+    alignItems: 'center',
+  },
+  headerIcon: {
+    marginBottom: 16,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 8,
-    textAlign: 'right',
+    marginBottom: 12,
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
+    textAlign: 'center',
+    paddingHorizontal: 24,
+  },
+  categoryTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 12,
     textAlign: 'right',
   },
   settingsContainer: {
-    gap: 16,
     marginBottom: 24,
   },
   testSection: {
-    marginTop: 24,
+    marginTop: 32,
     marginBottom: 24,
+  },
+  testHeaderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    marginBottom: 8,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 12,
+    marginRight: 8,
+    textAlign: 'right',
+  },
+  testDescription: {
+    fontSize: 14,
+    marginBottom: 16,
     textAlign: 'right',
   },
   testContainer: {
@@ -240,6 +327,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 16,
     borderRadius: 12,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -247,20 +335,27 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 2,
   },
   settingInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
     flex: 1,
+  },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
   },
   settingText: {
     flex: 1,
   },
   settingTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: 'bold',
     marginBottom: 4,
     textAlign: 'right',
   },
@@ -268,21 +363,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'right',
   },
+  switchStyle: {
+    transform: [{ scaleX: 1.1 }, { scaleY: 1.1 }],
+  },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
   },
   loadingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    justifyContent: 'center',
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
     alignItems: 'center',
-    zIndex: 1,
+    justifyContent: 'center',
+    zIndex: 999,
   },
 });
 

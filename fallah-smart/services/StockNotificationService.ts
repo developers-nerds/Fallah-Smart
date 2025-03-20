@@ -37,6 +37,12 @@ class StockNotificationService {
     automaticStockAlerts: true,
   };
 
+  // Tracking variables to limit notification bursts
+  private notificationCounts: Record<string, number> = {};
+  private lastCategoryTimestamp: Record<string, number> = {};
+  private MAX_NOTIFICATIONS_PER_CATEGORY = 2; // Maximum notifications per category in a single check
+  private CATEGORY_COOLDOWN_MS = 10000; // 10 seconds cooldown between notifications of same category
+
   private constructor() {
     this.notificationService = NotificationService.getInstance();
   }
@@ -130,37 +136,48 @@ class StockNotificationService {
     }
   }
 
-  private async verifyEndpointsAndCheckItems() {
-    // First check which endpoints are working by trying to fetch data
-    const endpoints = [
-      { name: 'animals', path: '/animals', check: this.checkAnimals.bind(this) },
-      { name: 'equipment', path: '/stock/equipment', check: this.checkEquipment.bind(this) },
-      { name: 'tools', path: '/stock/tools', check: this.checkTools.bind(this) },
-      { name: 'seeds', path: '/stock/seeds', check: this.checkSeeds.bind(this) },
-      { name: 'pesticides', path: '/pesticides', check: this.checkPesticides.bind(this) },
-      { name: 'feed', path: '/stock/feed', check: this.checkFeed.bind(this) },
-      { name: 'fertilizers', path: '/stock/fertilizer', check: this.checkFertilizers.bind(this) },
-      { name: 'harvests', path: '/stock/harvest', check: this.checkHarvests.bind(this) }
-    ];
-    
-    if (this.debugMode) {
-      console.log('[DEBUG] Endpoints to be tested:');
-      endpoints.forEach(endpoint => {
-        console.log(`[DEBUG] - ${endpoint.name}: ${process.env.EXPO_PUBLIC_API_URL}${endpoint.path}`);
-      });
-    }
-    
-    // Run each check with a delay to prevent throttling
-    for (const endpoint of endpoints) {
-      try {
-        console.log(`Checking ${endpoint.name}...`);
-        await endpoint.check();
-        
-        // Add a delay between requests to avoid throttling
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      } catch (error) {
-        console.error(`Error checking ${endpoint.name}:`, error);
+  private async verifyEndpointsAndCheckItems(isManualCheck = false) {
+    try {
+      // Skip if notifications aren't enabled
+      if (!this.settings.automaticStockAlerts) {
+        console.log('Automatic stock alerts are disabled. Skipping checks.');
+        return;
       }
+      
+      const endpoints = [
+        { name: 'Animals', path: '/animals', check: this.checkAnimals.bind(this) },
+        { name: 'Equipment', path: '/stock/equipment', check: this.checkEquipment.bind(this) },
+        { name: 'Tools', path: '/stock/tools', check: this.checkTools.bind(this) },
+        { name: 'Seeds', path: '/stock/seeds', check: this.checkSeeds.bind(this) },
+        { name: 'Pesticides', path: '/pesticides', check: this.checkPesticides.bind(this) },
+        { name: 'Feed', path: '/stock/feed', check: this.checkFeed.bind(this) },
+        { name: 'Fertilizers', path: '/stock/fertilizer', check: this.checkFertilizers.bind(this) },
+        { name: 'Harvests', path: '/stock/harvest', check: this.checkHarvests.bind(this) },
+      ];
+      
+      if (this.debugMode) {
+        console.log('Verifying endpoints and checking items with increased delays:');
+        for (const endpoint of endpoints) {
+          console.log(`  - ${endpoint.name}: ${process.env.EXPO_PUBLIC_API_URL}${endpoint.path}`);
+        }
+      }
+      
+      // Check each endpoint with MUCH LARGER delays between them to avoid notification overload
+      for (const endpoint of endpoints) {
+        try {
+          await endpoint.check();
+          
+          // Add a MUCH LARGER delay between category checks to prevent simultaneous notifications
+          // 5-10 seconds in manual mode, 3-6 seconds in auto mode
+          const delayMs = isManualCheck ? 5000 + Math.random() * 5000 : 3000 + Math.random() * 3000;
+          console.log(`Waiting ${Math.round(delayMs/1000)} seconds before checking next category...`);
+          await this.delay(delayMs);
+        } catch (error) {
+          console.error(`Error checking ${endpoint.name}:`, error);
+        }
+      }
+    } catch (error) {
+      console.error('Error in verifyEndpointsAndCheckItems:', error);
     }
   }
 
@@ -681,6 +698,14 @@ class StockNotificationService {
 
   private async handleLowStock(item: StockItem) {
     try {
+      // Check notification limits for this category
+      if (!this.shouldSendNotification(item.type)) {
+        if (this.debugMode) {
+          console.log(`[DEBUG] Skipping notification for ${item.name} due to category limits`);
+        }
+        return;
+      }
+      
       // Validate stock quantities
       if (typeof item.currentQuantity !== 'number' || typeof item.minimumQuantity !== 'number') {
         if (this.debugMode) {
@@ -702,6 +727,9 @@ class StockNotificationService {
       if (this.debugMode) {
         console.log(`[DEBUG] Sending low stock alert for ${item.name} (${item.currentQuantity}/${item.minimumQuantity})`);
       }
+      
+      // Track this notification
+      this.trackNotification(item.type);
       
       switch (item.type) {
         case 'pesticide':
@@ -739,6 +767,14 @@ class StockNotificationService {
   }
 
   private async handleExpiry(item: StockItem, daysUntilExpiry: number) {
+    // Check notification limits for this category
+    if (!this.shouldSendNotification(item.type)) {
+      if (this.debugMode) {
+        console.log(`[DEBUG] Skipping expiry notification for ${item.name} due to category limits`);
+      }
+      return;
+    }
+    
     if (!item.expiryDate) {
       if (this.debugMode) {
         console.log(`[DEBUG] No expiry date for ${item.name}`);
@@ -776,6 +812,9 @@ class StockNotificationService {
         console.log(`[DEBUG] Sending expiry alert for ${item.name} (${recalculatedDays} days until expiry)`);
       }
       
+      // Track this notification
+      this.trackNotification(item.type);
+      
       // Send type-specific notification
       switch (item.type) {
         case 'pesticide':
@@ -803,6 +842,47 @@ class StockNotificationService {
       await this.updateLastNotificationSent(item.id);
     } catch (error) {
       console.error(`Error handling expiry for ${item.name}:`, error);
+    }
+  }
+
+  // Helper functions to manage notification limits
+  private shouldSendNotification(category: string): boolean {
+    const now = Date.now();
+    const lastTimestamp = this.lastCategoryTimestamp[category] || 0;
+    const count = this.notificationCounts[category] || 0;
+    
+    // If we're within the cooldown period and already sent notifications, skip
+    if (now - lastTimestamp < this.CATEGORY_COOLDOWN_MS && count > 0) {
+      return false;
+    }
+    
+    // If we've reached the maximum for this category, skip
+    if (count >= this.MAX_NOTIFICATIONS_PER_CATEGORY) {
+      return false;
+    }
+    
+    // If this is a new period, reset the count
+    if (now - lastTimestamp >= this.CATEGORY_COOLDOWN_MS) {
+      this.notificationCounts[category] = 0;
+      this.lastCategoryTimestamp[category] = now;
+    }
+    
+    return true;
+  }
+  
+  private trackNotification(category: string): void {
+    const now = Date.now();
+    // If this is a new period, reset the count
+    if (now - (this.lastCategoryTimestamp[category] || 0) >= this.CATEGORY_COOLDOWN_MS) {
+      this.notificationCounts[category] = 1;
+      this.lastCategoryTimestamp[category] = now;
+    } else {
+      // Increment the count
+      this.notificationCounts[category] = (this.notificationCounts[category] || 0) + 1;
+    }
+    
+    if (this.debugMode) {
+      console.log(`[DEBUG] Notification count for ${category}: ${this.notificationCounts[category]}`);
     }
   }
 
@@ -881,11 +961,40 @@ class StockNotificationService {
   }
 
   public async runManualStockCheck() {
-    console.log('Running manual stock check...');
-    // Enable debug mode for this manual check
-    this.debugMode = true;
-    await this.checkStocks();
-    this.debugMode = false;
+    try {
+      console.log('Running manual stock check...');
+      
+      // If not initialized, initialize first
+      if (!this.isInitialized) {
+        await this.initialize();
+      }
+      
+      // Reset notification tracking for this manual check
+      this.notificationCounts = {};
+      this.lastCategoryTimestamp = {};
+      
+      // Set debug mode for this manual check to see more detailed logs
+      const originalDebugMode = this.debugMode;
+      this.debugMode = true;
+      
+      // Wait for a bit before running checks to ensure services are ready
+      await this.delay(500);
+      
+      // Verify endpoints if needed and check items with longer delays between categories
+      await this.verifyEndpointsAndCheckItems(true);
+      
+      // Reset debug mode
+      this.debugMode = originalDebugMode;
+      
+      console.log('Manual stock check completed');
+    } catch (error) {
+      console.error('Error in manual stock check:', error);
+    }
+  }
+
+  // Helper function to introduce delay
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 }
 
