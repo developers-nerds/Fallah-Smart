@@ -7,6 +7,25 @@ export const StorageKeys = {
 };
 
 export const storage = {
+  // Generic get and set methods
+  get: async (key: string) => {
+    try {
+      return await AsyncStorage.getItem(key);
+    } catch (error) {
+      console.error(`Error getting item with key ${key}:`, error);
+      return null;
+    }
+  },
+
+  set: async (key: string, value: string) => {
+    try {
+      await AsyncStorage.setItem(key, value);
+    } catch (error) {
+      console.error(`Error setting item with key ${key}:`, error);
+      throw error;
+    }
+  },
+
   // Store user data
   setUser: async (user: any) => {
     try {

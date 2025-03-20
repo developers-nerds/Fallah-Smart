@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import NotificationService from '../services/NotificationService';
+import StockNotificationService from '../services/StockNotificationService';
 import { useAuth } from './AuthContext';
 
 interface NotificationContextType {
@@ -11,7 +12,14 @@ interface NotificationContextType {
   markAllAsRead: () => Promise<void>;
   refreshNotifications: () => Promise<void>;
   scheduleTestNotification: () => Promise<string | null>;
-  scheduleStockAlert: (item: string, quantity: number, unitName: string) => Promise<string | null>;
+  schedulePesticideAlert: (itemName: string, message: string, alertType?: 'low_stock' | 'expiry' | 'other', additionalData?: any) => Promise<string | null>;
+  scheduleAnimalAlert: (itemName: string, message: string, alertType: 'vaccination' | 'breeding' | 'other', additionalData?: any) => Promise<string | null>;
+  scheduleEquipmentAlert: (itemName: string, message: string, alertType?: 'maintenance' | 'other', additionalData?: any) => Promise<string | null>;
+  scheduleFeedAlert: (itemName: string, message: string, alertType?: 'low_stock' | 'expiry' | 'other', additionalData?: any) => Promise<string | null>;
+  scheduleFertilizerAlert: (itemName: string, message: string, alertType?: 'low_stock' | 'expiry' | 'other', additionalData?: any) => Promise<string | null>;
+  scheduleHarvestAlert: (itemName: string, message: string, alertType?: 'expiry' | 'other', additionalData?: any) => Promise<string | null>;
+  scheduleSeedAlert: (itemName: string, message: string, alertType?: 'low_stock' | 'expiry' | 'other', additionalData?: any) => Promise<string | null>;
+  scheduleToolAlert: (itemName: string, message: string, alertType?: 'maintenance' | 'other', additionalData?: any) => Promise<string | null>;
   updateSettings: (settings: NotificationSettings) => Promise<void>;
   notificationSettings: NotificationSettings;
 }
@@ -22,6 +30,7 @@ export interface NotificationSettings {
   maintenanceAlerts?: boolean;
   vaccinationAlerts?: boolean;
   breedingAlerts?: boolean;
+  automaticStockAlerts?: boolean;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -36,20 +45,26 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     maintenanceAlerts: true,
     vaccinationAlerts: true,
     breedingAlerts: true,
+    automaticStockAlerts: true,
   });
   
   const { isAuthenticated } = useAuth();
   const notificationService = NotificationService.getInstance();
+  const stockNotificationService = StockNotificationService.getInstance();
 
   useEffect(() => {
     if (isAuthenticated) {
       initializeNotifications();
     }
+    return () => {
+      cleanup();
+    };
   }, [isAuthenticated]);
 
   const initializeNotifications = async () => {
     try {
       await notificationService.initialize();
+      await stockNotificationService.initialize();
       await updateUnreadCount();
       await refreshNotifications();
       await loadNotificationSettings();
@@ -60,6 +75,11 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     } catch (error) {
       console.error('Error initializing notifications:', error);
     }
+  };
+
+  const cleanup = () => {
+    notificationService.cleanup();
+    stockNotificationService.cleanup();
   };
 
   const loadNotificationSettings = async () => {
@@ -118,11 +138,74 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   };
 
-  const scheduleStockAlert = async (item: string, quantity: number, unitName: string) => {
+  const schedulePesticideAlert = async (itemName: string, message: string, alertType: 'low_stock' | 'expiry' | 'other' = 'low_stock', additionalData?: any) => {
     try {
-      return await notificationService.scheduleStockAlert(item, quantity, unitName);
+      return await notificationService.schedulePesticideAlert(itemName, message, alertType, additionalData);
     } catch (error) {
-      console.error('Error scheduling stock alert:', error);
+      console.error('Error scheduling pesticide alert:', error);
+      return null;
+    }
+  };
+
+  const scheduleAnimalAlert = async (itemName: string, message: string, alertType: 'vaccination' | 'breeding' | 'other', additionalData?: any) => {
+    try {
+      return await notificationService.scheduleAnimalAlert(itemName, message, alertType, additionalData);
+    } catch (error) {
+      console.error('Error scheduling animal alert:', error);
+      return null;
+    }
+  };
+
+  const scheduleEquipmentAlert = async (itemName: string, message: string, alertType: 'maintenance' | 'other' = 'maintenance', additionalData?: any) => {
+    try {
+      return await notificationService.scheduleEquipmentAlert(itemName, message, alertType, additionalData);
+    } catch (error) {
+      console.error('Error scheduling equipment alert:', error);
+      return null;
+    }
+  };
+
+  const scheduleFeedAlert = async (itemName: string, message: string, alertType: 'low_stock' | 'expiry' | 'other' = 'low_stock', additionalData?: any) => {
+    try {
+      return await notificationService.scheduleFeedAlert(itemName, message, alertType, additionalData);
+    } catch (error) {
+      console.error('Error scheduling feed alert:', error);
+      return null;
+    }
+  };
+
+  const scheduleFertilizerAlert = async (itemName: string, message: string, alertType: 'low_stock' | 'expiry' | 'other' = 'low_stock', additionalData?: any) => {
+    try {
+      return await notificationService.scheduleFertilizerAlert(itemName, message, alertType, additionalData);
+    } catch (error) {
+      console.error('Error scheduling fertilizer alert:', error);
+      return null;
+    }
+  };
+
+  const scheduleHarvestAlert = async (itemName: string, message: string, alertType: 'expiry' | 'other' = 'expiry', additionalData?: any) => {
+    try {
+      return await notificationService.scheduleHarvestAlert(itemName, message, alertType, additionalData);
+    } catch (error) {
+      console.error('Error scheduling harvest alert:', error);
+      return null;
+    }
+  };
+
+  const scheduleSeedAlert = async (itemName: string, message: string, alertType: 'low_stock' | 'expiry' | 'other' = 'low_stock', additionalData?: any) => {
+    try {
+      return await notificationService.scheduleSeedAlert(itemName, message, alertType, additionalData);
+    } catch (error) {
+      console.error('Error scheduling seed alert:', error);
+      return null;
+    }
+  };
+
+  const scheduleToolAlert = async (itemName: string, message: string, alertType: 'maintenance' | 'other' = 'maintenance', additionalData?: any) => {
+    try {
+      return await notificationService.scheduleToolAlert(itemName, message, alertType, additionalData);
+    } catch (error) {
+      console.error('Error scheduling tool alert:', error);
       return null;
     }
   };
@@ -130,6 +213,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const updateSettings = async (settings: NotificationSettings) => {
     try {
       await notificationService.updateNotificationSettings(settings);
+      await stockNotificationService.updateSettings(settings);
       setNotificationSettings({ ...notificationSettings, ...settings });
     } catch (error) {
       console.error('Error updating notification settings:', error);
@@ -147,9 +231,16 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         markAllAsRead,
         refreshNotifications,
         scheduleTestNotification,
-        scheduleStockAlert,
+        schedulePesticideAlert,
         updateSettings,
         notificationSettings,
+        scheduleAnimalAlert,
+        scheduleEquipmentAlert,
+        scheduleFeedAlert,
+        scheduleFertilizerAlert,
+        scheduleHarvestAlert,
+        scheduleSeedAlert,
+        scheduleToolAlert,
       }}
     >
       {children}
