@@ -454,223 +454,277 @@ const TestNotification = () => {
     }
   };
 
-  const notificationTypes = [
+  // Test button data - organized by category with icons and colors
+  const testButtons = [
     { 
-      label: 'إشعار عام', 
-      sendFunction: () => contextScheduleTestNotification(), 
-      icon: 'bell' 
+      id: 'test', 
+      label: 'إشعار إختبار',
+      description: 'إرسال إشعار عام للتأكد من عمل التنبيهات',
+      icon: 'bell-ring', 
+      color: '#4CAF50',
+      action: () => sendTestNotification(false),
+      primary: true
     },
-    { label: 'إشعار مبيدات', sendFunction: schedulePesticideAlert, icon: 'spray' },
-    { label: 'إشعار حيوانات', sendFunction: scheduleAnimalAlert, icon: 'cow' },
-    { label: 'إشعار معدات', sendFunction: scheduleEquipmentAlert, icon: 'tractor' },
-    { label: 'إشعار أعلاف', sendFunction: scheduleFeedAlert, icon: 'food-variant' },
-    { label: 'إشعار أسمدة', sendFunction: scheduleFertilizerAlert, icon: 'barrel' },
-    { label: 'إشعار محاصيل', sendFunction: scheduleHarvestAlert, icon: 'corn' },
-    { label: 'إشعار بذور', sendFunction: scheduleSeedAlert, icon: 'seed' },
-    { label: 'إشعار أدوات', sendFunction: scheduleToolAlert, icon: 'tools' }
+    { 
+      id: 'device-test', 
+      label: 'إختبار الجهاز',
+      description: 'إرسال إشعار مباشر إلى جهازك',
+      icon: 'cellphone-check', 
+      color: '#2196F3',
+      action: () => sendTestNotification(true),
+      primary: true
+    },
+    { 
+      id: 'stock-check', 
+      label: 'فحص المخزون الآن',
+      description: 'فحص جميع العناصر ذات المخزون المنخفض والتواريخ المنتهية',
+      icon: 'package-variant-closed-check', 
+      color: '#FF9800',
+      action: runStockCheck,
+      primary: true
+    },
   ];
 
+  // Additional test options
   const additionalTests = [
-    { 
-      label: 'اختبار مبيد API', 
-      action: testApiPesticides,
-      icon: 'flask' 
-    },
-    { 
-      label: 'اختبار أدوات API', 
-      action: testApiTools,
-      icon: 'tools' 
-    },
-    { 
-      label: 'اختبار حيوانات API', 
-      action: testApiAnimals,
-      icon: 'cow' 
-    },
-    { 
-      label: 'اختبار معدات API', 
-      action: testApiEquipment,
-      icon: 'tractor' 
-    },
-    { 
-      label: 'اختبار علف API', 
-      action: testApiFeed,
-      icon: 'food-variant' 
-    },
-    { 
-      label: 'اختبار سماد API', 
-      action: testApiFertilizer,
-      icon: 'bottle-tonic' 
-    },
+    { id: 'pesticides', label: 'المبيدات', icon: 'spray', color: '#F44336', action: testApiPesticides },
+    { id: 'tools', label: 'الأدوات', icon: 'tools', color: '#9C27B0', action: testApiTools },
+    { id: 'animals', label: 'الحيوانات', icon: 'sheep', color: '#CDDC39', action: testApiAnimals },
+    { id: 'equipment', label: 'المعدات', icon: 'tractor', color: '#2196F3', action: testApiEquipment },
+    { id: 'feed', label: 'الأعلاف', icon: 'barley', color: '#795548', action: testApiFeed },
+    { id: 'fertilizer', label: 'الأسمدة', icon: 'leaf', color: '#4CAF50', action: testApiFertilizer },
   ];
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.neutral.surface }]}>
-      <Text style={[styles.title, { color: theme.colors.neutral.textPrimary }]}>
-        اختبار الإشعارات
+    <ScrollView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      contentContainerStyle={styles.contentContainer}
+    >
+      <Text style={[styles.header, { color: theme.colors.text }]}>
+        إختبار نظام الإشعارات
       </Text>
       
-      <TouchableOpacity
-        style={[styles.directButton, { backgroundColor: theme.colors.secondary.base }]}
-        onPress={() => sendTestNotification(true)}
-        disabled={loading}
-      >
-        <View style={styles.buttonContent}>
-          <MaterialCommunityIcons name="cellphone" size={20} color="#fff" />
-          <Text style={styles.buttonText}>اختبار مباشر للجهاز</Text>
-        </View>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[styles.directButton, { backgroundColor: theme.colors.error.base }]}
-        onPress={() => runStockCheck()}
-        disabled={loading}
-      >
-        <View style={styles.buttonContent}>
-          <MaterialCommunityIcons name="package-variant-closed-check" size={20} color="#fff" />
-          <Text style={styles.buttonText}>فحص المخزون الآن</Text>
-        </View>
-      </TouchableOpacity>
+      <Text style={[styles.subHeader, { color: theme.colors.text }]}>
+        الإشعارات الأساسية
+      </Text>
       
-      {deviceToken && (
-        <View style={styles.tokenContainer}>
-          <Text style={[styles.tokenTitle, { color: theme.colors.neutral.textSecondary }]}>
-            رمز الجهاز:
-          </Text>
-          <Text style={[styles.tokenText, { color: theme.colors.neutral.textPrimary }]}>
-            {deviceToken || 'لم يتم العثور على رمز'}
-          </Text>
-        </View>
-      )}
-
-      <ScrollView style={styles.testButtonsContainer}>
-        {notificationTypes.map((type, index) => (
+      <View style={styles.primaryButtonsContainer}>
+        {testButtons.map((button) => (
           <TouchableOpacity
-            key={index}
-            style={[styles.button, { 
-              backgroundColor: theme.colors.primary.base,
-              marginTop: index > 0 ? 8 : 0 
-            }]}
-            onPress={() => {
-              if (index === 0) {
-                sendTestNotification(false);
-              } else {
-                testModelNotification(type.label, type.sendFunction);
-              }
-            }}
+            key={button.id}
+            style={[
+              styles.primaryButton,
+              { backgroundColor: loading ? theme.colors.cardDisabled : button.color }
+            ]}
+            onPress={button.action}
             disabled={loading}
           >
-            <View style={styles.buttonContent}>
-              <MaterialCommunityIcons name={type.icon} size={20} color="#fff" />
-              <Text style={styles.buttonText}>{type.label}</Text>
-            </View>
+            <MaterialCommunityIcons 
+              name={button.icon} 
+              size={28} 
+              color="#fff" 
+            />
+            <Text style={styles.primaryButtonText}>{button.label}</Text>
+            <Text style={styles.buttonDescription}>{button.description}</Text>
           </TouchableOpacity>
         ))}
-      </ScrollView>
-      
-      {/* Additional test section */}
-      <Text style={[styles.sectionTitle, { color: theme.colors.neutral.textPrimary }]}>
-        اختبارات API مباشرة
+      </View>
+
+      <Text style={[styles.subHeader, { color: theme.colors.text }]}>
+        إشعارات حسب النوع
       </Text>
-      <ScrollView style={styles.testButtonsContainer}>
-        {additionalTests.map((test, index) => (
+
+      <View style={styles.buttonGrid}>
+        {additionalTests.map((test) => (
           <TouchableOpacity
-            key={`direct-${index}`}
-            style={[styles.button, { 
-              backgroundColor: theme.colors.secondary.dark,
-              marginTop: index > 0 ? 8 : 0 
-            }]}
+            key={test.id}
+            style={[
+              styles.button,
+              { backgroundColor: loading ? theme.colors.cardDisabled : test.color }
+            ]}
             onPress={test.action}
             disabled={loading}
           >
-            <View style={styles.buttonContent}>
-              <MaterialCommunityIcons name={test.icon} size={20} color="#fff" />
-              <Text style={styles.buttonText}>{test.label}</Text>
-            </View>
+            <MaterialCommunityIcons 
+              name={test.icon} 
+              size={28} 
+              color="#fff" 
+            />
+            <Text style={styles.buttonText}>{test.label}</Text>
           </TouchableOpacity>
         ))}
-      </ScrollView>
-      
-      {loading && <ActivityIndicator size="large" color={theme.colors.primary.base} style={styles.loader} />}
-      
-      {result && (
-        <View style={styles.resultContainer}>
-          <Text style={[styles.resultText, { color: theme.colors.neutral.textPrimary }]}>{result}</Text>
+      </View>
+
+      {loading && (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={[styles.loadingText, { color: theme.colors.text }]}>
+            جاري إرسال الإشعار...
+          </Text>
         </View>
       )}
-    </View>
+
+      {result && (
+        <View 
+          style={[
+            styles.resultContainer, 
+            { backgroundColor: result.includes('خطأ') ? '#FFEBEE' : '#E8F5E9' }
+          ]}
+        >
+          <MaterialCommunityIcons 
+            name={result.includes('خطأ') ? 'alert-circle' : 'check-circle'} 
+            size={24} 
+            color={result.includes('خطأ') ? '#D32F2F' : '#388E3C'} 
+          />
+          <Text 
+            style={[
+              styles.resultText, 
+              { color: result.includes('خطأ') ? '#D32F2F' : '#388E3C' }
+            ]}
+          >
+            {result}
+          </Text>
+        </View>
+      )}
+
+      <View style={styles.infoContainer}>
+        <MaterialCommunityIcons 
+          name="information-outline" 
+          size={18} 
+          color={theme.colors.secondary} 
+        />
+        <Text style={[styles.infoText, { color: theme.colors.text }]}>
+          معلومات حول رمز الجهاز:
+        </Text>
+        <View style={styles.tokenContainer}>
+          <Text style={[styles.tokenText, { color: theme.colors.secondary }]}>
+            {deviceToken ? deviceToken.substring(0, 16) + '...' : 'لم يتم العثور على رمز'}
+          </Text>
+        </View>
+      </View>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
   },
-  title: {
-    fontSize: 24,
+  contentContainer: {
+    padding: 16,
+    paddingBottom: 32,
+  },
+  header: {
+    fontSize: 22,
     fontWeight: 'bold',
     marginBottom: 16,
+    textAlign: 'center',
+  },
+  subHeader: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginVertical: 16,
+    textAlign: 'right',
+    paddingHorizontal: 8,
+  },
+  primaryButtonsContainer: {
+    flexDirection: 'column',
+    marginBottom: 16,
+    gap: 12,
+  },
+  primaryButton: {
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'flex-end',
+    flexDirection: 'row',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+  },
+  primaryButtonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+    flexGrow: 1,
+    textAlign: 'right',
+    marginHorizontal: 12,
+  },
+  buttonDescription: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 12,
+    position: 'absolute',
+    bottom: 10,
+    right: 56,
+  },
+  buttonGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  button: {
+    width: '48%',
+    padding: 16,
+    borderRadius: 10,
+    marginBottom: 12,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginRight: 8,
+  },
+  loadingContainer: {
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 8,
+    fontSize: 16,
+  },
+  resultContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 10,
+    marginTop: 16,
+  },
+  resultText: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 16,
     textAlign: 'right',
   },
-  directButton: {
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
+  infoContainer: {
+    marginTop: 24,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    padding: 16,
+    borderRadius: 10,
+    alignItems: 'flex-end',
+  },
+  infoText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
   },
   tokenContainer: {
-    marginBottom: 16,
+    width: '100%',
     padding: 8,
-    borderRadius: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
-  },
-  tokenTitle: {
-    fontWeight: 'bold',
-    marginBottom: 4,
+    borderRadius: 6,
+    backgroundColor: 'rgba(0,0,0,0.03)',
   },
   tokenText: {
     fontSize: 12,
-  },
-  testButtonsContainer: {
-    flex: 1,
-    maxHeight: 300,
-  },
-  button: {
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  buttonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    marginLeft: 8,
-  },
-  loader: {
-    marginTop: 16,
-  },
-  resultContainer: {
-    marginTop: 16,
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
-  },
-  resultText: {
     textAlign: 'center',
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginTop: 20,
-    marginBottom: 8,
-    textAlign: 'right',
   },
 });
 

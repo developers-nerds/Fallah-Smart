@@ -3,6 +3,7 @@ import { storage } from '../utils/storage';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
+import { Alert } from 'react-native';
 
 // Make sure notifications appear even when the app is in foreground
 Notifications.setNotificationHandler({
@@ -77,10 +78,10 @@ class NotificationService {
   private async setupAndroidNotificationChannels() {
     // Main notification channel
     await Notifications.setNotificationChannelAsync('default', {
-      name: 'Default Notifications',
+      name: 'تنبيهات فلاح الافتراضية',
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#FF231F7C',
+      lightColor: '#4CAF50', // Green color for brand
       enableVibrate: true,
       enableLights: true,
       showBadge: true,
@@ -88,11 +89,11 @@ class NotificationService {
 
     // Stock alerts channel
     await Notifications.setNotificationChannelAsync('stock-alerts', {
-      name: 'Stock Alerts',
-      description: 'Notifications for low stock and expiring items',
+      name: 'تنبيهات المخزون',
+      description: 'إشعارات للمخزون المنخفض والعناصر منتهية الصلاحية',
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#FF9800',
+      lightColor: '#FF9800', // Orange color for alerts
       enableVibrate: true,
       enableLights: true,
       showBadge: true,
@@ -100,11 +101,11 @@ class NotificationService {
 
     // Maintenance alerts channel
     await Notifications.setNotificationChannelAsync('maintenance-alerts', {
-      name: 'Maintenance Alerts',
-      description: 'Notifications for equipment maintenance',
+      name: 'تنبيهات الصيانة',
+      description: 'إشعارات لصيانة المعدات والأدوات',
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#2196F3',
+      lightColor: '#2196F3', // Blue color for maintenance
       enableVibrate: true,
       enableLights: true,
       showBadge: true,
@@ -112,11 +113,11 @@ class NotificationService {
 
     // Animal alerts channel
     await Notifications.setNotificationChannelAsync('animal-alerts', {
-      name: 'Animal Alerts',
-      description: 'Notifications for vaccinations and breeding',
+      name: 'تنبيهات الحيوانات',
+      description: 'إشعارات للتطعيمات والتربية',
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#4CAF50',
+      lightColor: '#9C27B0', // Purple color for animal care
       enableVibrate: true,
       enableLights: true,
       showBadge: true,
@@ -175,45 +176,98 @@ class NotificationService {
   }
 
   private setupNotificationListeners() {
-    // Remove any existing listeners to prevent memory leaks
-    this.removeNotificationListeners();
-    
-    // Handle notification received while app is foregrounded
-    this.notificationListener = Notifications.addNotificationReceivedListener(notification => {
-      console.log('Notification received in foreground:', notification);
-      
-      // Force display notification even when app is in foreground
-      if (Platform.OS === 'android') {
-        // For Android, we need extra steps to show foreground notifications
-        Notifications.presentNotificationAsync({
-          title: notification.request.content.title,
-          body: notification.request.content.body,
-          data: notification.request.content.data,
-          sound: true,
-          vibrate: true,
-        });
+    try {
+      // Remove any existing listeners to avoid memory leaks
+      if (this.notificationListener) {
+        this.notificationListener.remove();
       }
-      
-      // You can dispatch events or update UI state here
-    });
+      if (this.responseListener) {
+        this.responseListener.remove();
+      }
 
-    // Handle notification response (when user taps notification)
-    this.responseListener = Notifications.addNotificationResponseReceivedListener(response => {
-      console.log('Notification response:', response);
-      const data = response.notification.request.content.data;
-      
-      // Handle navigation based on notification type
-      this.handleNotificationNavigation(data);
-    });
+      // Add listener for notifications received while app is in foreground
+      this.notificationListener = Notifications.addNotificationReceivedListener(notification => {
+        // Android doesn't show notifications in foreground by default, so we schedule it
+        if (Platform.OS === 'android') {
+          // Check if this is already a processed foreground notification to prevent infinite loop
+          if (notification.request.content.data && notification.request.content.data.isProcessedForeground) {
+            console.log('Skipping already processed foreground notification');
+            return;
+          }
+
+          // Add a significantly LARGER random delay (1-3 seconds) to spread out notifications
+          const delayMs = 1000 + Math.random() * 2000;
+          setTimeout(() => {
+            console.log('Showing foreground notification with delay:', Math.round(delayMs), 'ms');
+            
+            // Schedule the notification immediately 
+            Notifications.scheduleNotificationAsync({
+              content: {
+                title: notification.request.content.title,
+                body: notification.request.content.body,
+                data: {
+                  ...notification.request.content.data,
+                  isProcessedForeground: true, // Mark as processed to prevent infinite loop
+                },
+                sound: true,
+                vibrate: [0, 250, 250, 250],
+              },
+              trigger: null, // null trigger means show immediately
+            }).then(id => {
+              console.log('Foreground notification scheduled with ID:', id);
+            }).catch(error => {
+              console.error('Error scheduling foreground notification:', error);
+            });
+          }, delayMs);
+        }
+      });
+
+      // Add listener for notification responses (when user taps notification)
+      this.responseListener = Notifications.addNotificationResponseReceivedListener(response => {
+        const data = response.notification.request.content.data as NotificationData;
+        
+        console.log('Notification tapped:', data);
+        
+        // Check if we have a route to navigate to
+        if (data.screen) {
+          // Wait a bit for navigation to be ready
+          setTimeout(() => {
+            console.log('Navigating to:', data.screen);
+            
+            if (this.navigation) {
+              if (data.params) {
+                this.navigation.navigate(data.screen, data.params);
+              } else {
+                this.navigation.navigate(data.screen);
+              }
+            } else {
+              console.log('Navigation not available');
+            }
+          }, 300);
+        }
+      });
+    } catch (error) {
+      console.error('Error setting up notification listeners:', error);
+    }
   }
   
   private handleNotificationNavigation(data: any) {
-    // This would ideally use a navigation service or context to navigate
-    // Example implementation:
     try {
-      // Check notification type and navigate accordingly
+      console.log('Handling notification navigation with data:', data);
+      
+      // If the notification contains a fullMessage with enlarged text
+      if (data.fullMessage) {
+        // Show an alert with the enlarged message for farmers
+        Alert.alert(
+          data.itemName || 'تنبيه',
+          data.fullMessage,
+          [{ text: 'حسنًا', style: 'default' }],
+          { cancelable: true }
+        );
+      }
+      
+      // Handle type-specific navigation
       if (data.type === 'low_stock') {
-        // If you have navigation reference: navigation.navigate('StockDetails', { id: data.stockId });
         console.log('Should navigate to stock details:', data.stockId);
       } else if (data.type === 'maintenance') {
         console.log('Should navigate to equipment details:', data.equipmentId);
@@ -275,20 +329,46 @@ class NotificationService {
   }
 
   // Schedule a local notification for quick testing
-  public async scheduleTestNotification() {
+  public async scheduleTestNotification(fullMessage?: string) {
     try {
+      if (!this.isInitialized) {
+        await this.initialize();
+      }
+
+      // Add a random delay (1-3 seconds)
+      const delaySeconds = 1 + Math.random() * 2;
+      await new Promise(resolve => setTimeout(resolve, delaySeconds * 1000));
+
+      const title = "👋 اختبار الإشعارات";
+      const body = "هذا إشعار تجريبي. يمكنك الآن تلقي الإشعارات!";
+      
+      // Create full message for detailed view
+      const detailedMessage = fullMessage || 
+        `<div style="font-size: 110%; text-align: right; direction: rtl;">
+          <h3 style="color: #4CAF50; margin-bottom: 10px;">👋 اختبار الإشعارات الناجح</h3>
+          <p style="margin-bottom: 8px;">تم إعداد نظام الإشعارات بنجاح!</p>
+          <p style="margin-bottom: 8px;">ستتلقى الآن إشعارات مهمة حول مزرعتك عندما تحتاج إلى اهتمامك.</p>
+          <p style="color: #555;">يمكنك ضبط إعدادات الإشعارات من صفحة الإعدادات.</p>
+        </div>`;
+      
+      console.log(`Scheduling test notification with ${delaySeconds.toFixed(1)}s delay...`);
+      
       const notificationId = await Notifications.scheduleNotificationAsync({
         content: {
-          title: 'Test Notification',
-          body: 'This is a test notification from Fallah Smart',
-          data: { type: 'test' },
-          sound: 'default',
-          priority: 'high',  // Add priority for Android
+          title,
+          body,
+          data: {
+            type: 'test',
+            fullMessage: detailedMessage,
+            timestamp: new Date().toISOString(),
+          },
+          sound: true,
+          vibrate: [0, 250, 250, 250],
         },
-        trigger: null, // Send immediately
+        trigger: null // null trigger means send immediately
       });
       
-      console.log('Scheduled test notification with ID:', notificationId);
+      console.log('Test notification scheduled:', notificationId);
       return notificationId;
     } catch (error) {
       console.error('Error scheduling test notification:', error);
@@ -305,61 +385,164 @@ class NotificationService {
     additionalData?: any;
   }) {
     try {
-      const { modelType, alertType, itemName, message, additionalData } = params;
-      
-      // Define channel ID based on alert type
+      // Determine which channel to use
       let channelId = 'default';
-      if (alertType === 'low_stock' || alertType === 'expiry') {
-        channelId = 'stock-alerts';
-      } else if (alertType === 'maintenance') {
-        channelId = 'maintenance-alerts';
-      } else if (alertType === 'vaccination' || alertType === 'breeding') {
-        channelId = 'animal-alerts';
-      }
+      let icon = '📋'; // Default icon
+      let color = '#4CAF50'; // Default color (green)
       
-      // Get title based on alert type
-      let title = 'Fallah Smart Alert';
-      switch (alertType) {
+      // Set channel, icon and color based on alert type
+      switch (params.alertType) {
         case 'low_stock':
-          title = `Low Stock Alert: ${itemName}`;
+          channelId = 'stock-alerts';
+          color = '#FF9800'; // Orange
+          icon = '⚠️';
           break;
         case 'expiry':
-          title = `Expiry Alert: ${itemName}`;
+          channelId = 'stock-alerts';
+          color = '#F44336'; // Red
+          icon = '⏱️';
           break;
         case 'maintenance':
-          title = `Maintenance Required: ${itemName}`;
+          channelId = 'maintenance-alerts';
+          color = '#2196F3'; // Blue
+          icon = '🔧';
           break;
         case 'vaccination':
-          title = `Vaccination Due: ${itemName}`;
+          channelId = 'animal-alerts';
+          color = '#9C27B0'; // Purple
+          icon = '💉';
           break;
         case 'breeding':
-          title = `Breeding Alert: ${itemName}`;
+          channelId = 'animal-alerts';
+          color = '#E91E63'; // Pink
+          icon = '🐄';
           break;
         default:
-          title = `Alert: ${itemName}`;
+          icon = '📱';
       }
       
-      const notificationId = await Notifications.scheduleNotificationAsync({
+      // Set model-specific icons
+      switch (params.modelType) {
+        case 'pesticide':
+          icon = params.alertType === 'low_stock' ? '🧪' : '⚠️';
+          break;
+        case 'animal':
+          icon = params.alertType === 'vaccination' ? '💉' : '🐑';
+          break;
+        case 'equipment':
+          icon = '🚜';
+          break;
+        case 'feed':
+          icon = '🌾';
+          break;
+        case 'fertilizer':
+          icon = '♻️';
+          break;
+        case 'harvest':
+          icon = '🌽';
+          break;
+        case 'seed':
+          icon = '🌱';
+          break;
+        case 'tool':
+          icon = '🔨';
+          break;
+      }
+      
+      // Convert model type to Arabic
+      let modelTypeArabic = '';
+      switch (params.modelType) {
+        case 'pesticide':
+          modelTypeArabic = 'مبيد';
+          break;
+        case 'animal':
+          modelTypeArabic = 'حيوان';
+          break;
+        case 'equipment':
+          modelTypeArabic = 'معدات';
+          break;
+        case 'feed':
+          modelTypeArabic = 'علف';
+          break;
+        case 'fertilizer':
+          modelTypeArabic = 'سماد';
+          break;
+        case 'harvest':
+          modelTypeArabic = 'محصول';
+          break;
+        case 'seed':
+          modelTypeArabic = 'بذور';
+          break;
+        case 'tool':
+          modelTypeArabic = 'أداة';
+          break;
+      }
+      
+      // Convert alert type to Arabic
+      let alertTypeArabic = '';
+      switch (params.alertType) {
+        case 'low_stock':
+          alertTypeArabic = 'مخزون منخفض';
+          break;
+        case 'expiry':
+          alertTypeArabic = 'قرب انتهاء الصلاحية';
+          break;
+        case 'maintenance':
+          alertTypeArabic = 'صيانة';
+          break;
+        case 'vaccination':
+          alertTypeArabic = 'تطعيم';
+          break;
+        case 'breeding':
+          alertTypeArabic = 'تربية';
+          break;
+        case 'other':
+          alertTypeArabic = 'تنبيه';
+          break;
+      }
+      
+      // Create title and body using plain text (no HTML tags)
+      const title = `${icon} تنبيه ${modelTypeArabic}: ${params.itemName}`;
+      const body = params.message;
+      
+      // Add a significant random delay between 2 and 7 seconds
+      const delaySeconds = 2 + Math.random() * 5;
+      console.log(`Scheduling ${params.modelType} ${params.alertType} alert with ${delaySeconds.toFixed(1)}s delay...`);
+      await new Promise(resolve => setTimeout(resolve, delaySeconds * 1000));
+      
+      // Schedule the notification
+      const id = await Notifications.scheduleNotificationAsync({
         content: {
           title,
-          body: message,
-          data: { 
-            type: alertType, 
-            modelType,
-            itemName,
-            ...additionalData
+          body,
+          data: {
+            type: params.alertType,
+            modelType: params.modelType,
+            itemName: params.itemName,
+            fullMessage: `<div style="font-size: 120%; line-height: 1.5;">
+              <h2 style="font-size: 130%; color: ${color}; text-align: right; margin-bottom: 10px;">
+                ${icon} تنبيه ${modelTypeArabic}: ${params.itemName}
+              </h2>
+              <p style="font-size: 120%; text-align: right; margin-bottom: 15px;">
+                ${params.message}
+              </p>
+              <p style="color: #666; text-align: right; font-size: 110%;">
+                نوع التنبيه: ${alertTypeArabic}
+              </p>
+            </div>`,
+            ...params.additionalData,
           },
           sound: true,
-          badge: 1,
+          vibrate: [0, 250, 250, 250],
         },
-        trigger: { seconds: 1 },
+        trigger: null // Send immediately (after our manual delay)
       });
       
-      console.log(`Scheduled ${modelType} ${alertType} alert with ID:`, notificationId);
-      return notificationId;
+      console.log(`Scheduled ${params.modelType} ${params.alertType} alert:`, id);
+      return id;
     } catch (error) {
       console.error('Error scheduling model alert:', error);
-      return null;
+      throw error;
     }
   }
 
@@ -369,7 +552,7 @@ class NotificationService {
       modelType: 'pesticide',
       alertType,
       itemName,
-      message,
+      message: alertType === 'low_stock' ? `مخزون منخفض: ${message}` : alertType === 'expiry' ? `ينتهي قريباً: ${message}` : message,
       additionalData
     });
   }
@@ -379,7 +562,7 @@ class NotificationService {
       modelType: 'animal',
       alertType,
       itemName,
-      message,
+      message: alertType === 'vaccination' ? `موعد تطعيم: ${message}` : alertType === 'breeding' ? `موعد تربية: ${message}` : message,
       additionalData
     });
   }
@@ -389,7 +572,7 @@ class NotificationService {
       modelType: 'equipment',
       alertType,
       itemName,
-      message,
+      message: alertType === 'maintenance' ? `صيانة مطلوبة: ${message}` : message,
       additionalData
     });
   }
@@ -399,7 +582,7 @@ class NotificationService {
       modelType: 'feed',
       alertType,
       itemName,
-      message,
+      message: alertType === 'low_stock' ? `مخزون منخفض: ${message}` : alertType === 'expiry' ? `ينتهي قريباً: ${message}` : message,
       additionalData
     });
   }
@@ -409,7 +592,7 @@ class NotificationService {
       modelType: 'fertilizer',
       alertType,
       itemName,
-      message,
+      message: alertType === 'low_stock' ? `مخزون منخفض: ${message}` : alertType === 'expiry' ? `ينتهي قريباً: ${message}` : message,
       additionalData
     });
   }
@@ -419,7 +602,7 @@ class NotificationService {
       modelType: 'harvest',
       alertType,
       itemName,
-      message,
+      message: alertType === 'expiry' ? `قرب انتهاء الصلاحية: ${message}` : message,
       additionalData
     });
   }
@@ -429,7 +612,7 @@ class NotificationService {
       modelType: 'seed',
       alertType,
       itemName,
-      message,
+      message: alertType === 'low_stock' ? `مخزون منخفض: ${message}` : alertType === 'expiry' ? `ينتهي قريباً: ${message}` : message,
       additionalData
     });
   }
@@ -439,7 +622,7 @@ class NotificationService {
       modelType: 'tool',
       alertType,
       itemName,
-      message,
+      message: alertType === 'maintenance' ? `صيانة مطلوبة: ${message}` : message,
       additionalData
     });
   }
@@ -654,25 +837,242 @@ class NotificationService {
 
   public async scheduleDeviceTestNotification() {
     try {
-      // This notification will be sent directly to the device
+      if (!this.isInitialized) {
+        await this.initialize();
+      }
+
+      // Add a random delay (1-3 seconds)
+      const delaySeconds = 1 + Math.random() * 2;
+      await new Promise(resolve => setTimeout(resolve, delaySeconds * 1000));
+
+      const title = "📱 اختبار الجهاز";
+      const body = "تم تكوين الإشعارات بنجاح على هذا الجهاز!";
+      
+      // Create full message for detailed view
+      const detailedMessage = 
+        `<div style="font-size: 110%; text-align: right; direction: rtl;">
+          <h3 style="color: #2196F3; margin-bottom: 10px;">📱 تم تكوين الجهاز بنجاح</h3>
+          <p style="margin-bottom: 8px;">تم إعداد الإشعارات بنجاح على هذا الجهاز.</p>
+          <p style="margin-bottom: 8px;">سيتم إرسال التنبيهات المهمة إلى هذا الجهاز عندما تكون هناك حاجة إلى اهتمامك.</p>
+          <p style="color: #555;">يمكنك تعديل إعدادات الإشعارات من صفحة الإعدادات.</p>
+        </div>`;
+      
+      console.log(`Scheduling device test notification with ${delaySeconds.toFixed(1)}s delay...`);
+      
       const notificationId = await Notifications.scheduleNotificationAsync({
         content: {
-          title: "Direct Device Test",
-          body: "This is a direct device test notification - if you see this, your device notifications are working",
-          data: { type: 'direct_test' },
+          title,
+          body,
+          data: {
+            type: 'device-test',
+            fullMessage: detailedMessage,
+            timestamp: new Date().toISOString(),
+          },
           sound: true,
-          priority: 'high', // For Android
           vibrate: [0, 250, 250, 250],
         },
-        trigger: null, // Send immediately
+        trigger: null // null trigger means send immediately
       });
       
-      console.log('Direct device test notification scheduled:', notificationId);
+      console.log('Device test notification scheduled:', notificationId);
       return notificationId;
     } catch (error) {
-      console.error('Error scheduling direct device test notification:', error);
+      console.error('Error scheduling device test notification:', error);
       return null;
     }
+  }
+
+  public async scheduleStockNotification(
+    stockItem: StockItem, 
+    messageType: 'low' | 'maintenance' | 'expiration' | 'feed' | 'fertilizer' | 'test',
+    options?: {
+      screen?: string;
+      params?: any;
+    }
+  ) {
+    try {
+      if (!this.isInitialized) {
+        await this.initialize();
+      }
+
+      // Add a random delay (1-4 seconds)
+      const delaySeconds = 1 + Math.random() * 3;
+      await new Promise(resolve => setTimeout(resolve, delaySeconds * 1000));
+
+      // Get the notification content based on the message type
+      const { title, body, fullMessage, color, iconType } = this.getStockNotificationContent(stockItem, messageType);
+      
+      console.log(`Scheduling ${messageType} stock notification for ${stockItem.name} with ${delaySeconds.toFixed(1)}s delay...`);
+      
+      const notificationId = await Notifications.scheduleNotificationAsync({
+        content: {
+          title,
+          body,
+          data: {
+            type: messageType,
+            itemId: stockItem.id,
+            itemType: stockItem.type,
+            fullMessage,
+            screen: options?.screen || 'StockDetails',
+            params: options?.params || {
+              itemId: stockItem.id,
+              itemType: stockItem.type,
+            },
+            timestamp: new Date().toISOString(),
+          },
+          sound: true,
+          vibrate: [0, 250, 250, 250],
+        },
+        trigger: null // null trigger means send immediately
+      });
+      
+      console.log(`${messageType} stock notification scheduled for ${stockItem.name}:`, notificationId);
+      return notificationId;
+    } catch (error) {
+      console.error(`Error scheduling ${messageType} stock notification:`, error);
+      return null;
+    }
+  }
+
+  private getStockNotificationContent(
+    stockItem: StockItem,
+    messageType: 'low' | 'maintenance' | 'expiration' | 'feed' | 'fertilizer' | 'test'
+  ) {
+    const arabicName = stockItem.nameAr || stockItem.name;
+    let title = '';
+    let body = '';
+    let color = '#4CAF50'; // Default green
+    let iconType = 'md-information-circle';
+    
+    // Create HTML for the full message view
+    let fullMessage = '';
+    
+    switch (messageType) {
+      case 'low':
+        title = `⚠️ مخزون منخفض: ${arabicName}`;
+        body = `لديك مخزون منخفض من ${arabicName}. يرجى التحقق والتزود بالمزيد.`;
+        color = '#FFC107'; // Warning yellow
+        iconType = 'warning';
+        
+        fullMessage = `<div style="font-size: 110%; text-align: right; direction: rtl;">
+          <h3 style="color: #FFC107; margin-bottom: 10px;">⚠️ تنبيه: مخزون منخفض</h3>
+          <p style="margin-bottom: 8px;">
+            <b>${arabicName}</b> وصل إلى مستوى منخفض في المخزون.
+          </p>
+          <p style="margin-bottom: 8px;">
+            الكمية المتبقية: ${stockItem.quantity} ${stockItem.unit || ''}
+          </p>
+          <p style="color: #555;">
+            يرجى التحقق من المخزون وإعادة التزود في أقرب وقت ممكن.
+          </p>
+        </div>`;
+        break;
+        
+      case 'maintenance':
+        title = `🔧 صيانة مطلوبة: ${arabicName}`;
+        body = `حان وقت صيانة ${arabicName}. يرجى التحقق من الحالة.`;
+        color = '#FF9800'; // Orange for maintenance
+        iconType = 'tools';
+        
+        fullMessage = `<div style="font-size: 110%; text-align: right; direction: rtl;">
+          <h3 style="color: #FF9800; margin-bottom: 10px;">🔧 تنبيه: صيانة مطلوبة</h3>
+          <p style="margin-bottom: 8px;">
+            <b>${arabicName}</b> بحاجة إلى صيانة.
+          </p>
+          <p style="margin-bottom: 8px;">
+            تاريخ الصيانة الأخيرة: ${new Date(stockItem.lastMaintenance || new Date()).toLocaleDateString('ar-SA')}
+          </p>
+          <p style="color: #555;">
+            يرجى إجراء الصيانة المطلوبة لضمان أداء أفضل وعمر أطول.
+          </p>
+        </div>`;
+        break;
+        
+      case 'expiration':
+        title = `⏱️ تنبيه انتهاء الصلاحية: ${arabicName}`;
+        body = `${arabicName} على وشك انتهاء الصلاحية. يرجى التحقق من المخزون.`;
+        color = '#F44336'; // Red for expiration
+        iconType = 'alarm';
+        
+        fullMessage = `<div style="font-size: 110%; text-align: right; direction: rtl;">
+          <h3 style="color: #F44336; margin-bottom: 10px;">⏱️ تنبيه: انتهاء الصلاحية</h3>
+          <p style="margin-bottom: 8px;">
+            <b>${arabicName}</b> على وشك انتهاء الصلاحية.
+          </p>
+          <p style="margin-bottom: 8px;">
+            تاريخ انتهاء الصلاحية: ${new Date(stockItem.expiryDate || new Date()).toLocaleDateString('ar-SA')}
+          </p>
+          <p style="color: #555;">
+            يرجى التحقق من المخزون واستخدامه قبل انتهاء الصلاحية أو التخلص منه بشكل مناسب.
+          </p>
+        </div>`;
+        break;
+        
+      case 'feed':
+        title = `🌾 تذكير بالتغذية: ${arabicName}`;
+        body = `حان وقت تغذية الحيوانات باستخدام ${arabicName}.`;
+        color = '#2196F3'; // Blue for feed
+        iconType = 'nutrition';
+        
+        fullMessage = `<div style="font-size: 110%; text-align: right; direction: rtl;">
+          <h3 style="color: #2196F3; margin-bottom: 10px;">🌾 تذكير بالتغذية</h3>
+          <p style="margin-bottom: 8px;">
+            حان وقت تغذية الحيوانات باستخدام <b>${arabicName}</b>.
+          </p>
+          <p style="margin-bottom: 8px;">
+            الكمية المتاحة: ${stockItem.quantity} ${stockItem.unit || ''}
+          </p>
+          <p style="color: #555;">
+            تأكد من توفير كمية كافية من العلف للحيوانات.
+          </p>
+        </div>`;
+        break;
+        
+      case 'fertilizer':
+        title = `🌱 تذكير بالتسميد: ${arabicName}`;
+        body = `حان وقت تسميد المحاصيل باستخدام ${arabicName}.`;
+        color = '#4CAF50'; // Green for fertilizer
+        iconType = 'leaf';
+        
+        fullMessage = `<div style="font-size: 110%; text-align: right; direction: rtl;">
+          <h3 style="color: #4CAF50; margin-bottom: 10px;">🌱 تذكير بالتسميد</h3>
+          <p style="margin-bottom: 8px;">
+            حان وقت تسميد المحاصيل باستخدام <b>${arabicName}</b>.
+          </p>
+          <p style="margin-bottom: 8px;">
+            الكمية المتاحة: ${stockItem.quantity} ${stockItem.unit || ''}
+          </p>
+          <p style="color: #555;">
+            تأكد من توفير كمية كافية من السماد للمحاصيل.
+          </p>
+        </div>`;
+        break;
+        
+      case 'test':
+        title = `🔔 اختبار الإشعارات`;
+        body = `هذا اختبار لإشعارات المخزون: ${arabicName}.`;
+        color = '#9C27B0'; // Purple for test
+        iconType = 'notifications';
+        
+        fullMessage = `<div style="font-size: 110%; text-align: right; direction: rtl;">
+          <h3 style="color: #9C27B0; margin-bottom: 10px;">🔔 اختبار إشعارات المخزون</h3>
+          <p style="margin-bottom: 8px;">
+            هذا اختبار لنظام إشعارات المخزون.
+          </p>
+          <p style="margin-bottom: 8px;">
+            عنصر: <b>${arabicName}</b>
+          </p>
+          <p style="margin-bottom: 8px;">
+            الكمية: ${stockItem.quantity} ${stockItem.unit || ''}
+          </p>
+          <p style="color: #555;">
+            تم إرسال هذا الإشعار للتأكد من أن نظام إشعارات المخزون يعمل بشكل صحيح.
+          </p>
+        </div>`;
+        break;
+    }
+    
+    return { title, body, fullMessage, color, iconType };
   }
 }
 

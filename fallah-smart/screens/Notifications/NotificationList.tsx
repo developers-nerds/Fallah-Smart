@@ -8,12 +8,16 @@ import {
   RefreshControl,
   ActivityIndicator,
   Alert,
+  Modal,
+  ScrollView,
+  Dimensions,
 } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
+import WebView from 'react-native-webview';
 
 interface Notification {
   id: number;
@@ -29,6 +33,7 @@ interface Notification {
     modelType?: string;
     itemName?: string;
     type?: string;
+    fullMessage?: string;
     [key: string]: any;
   };
 }
@@ -46,6 +51,8 @@ const NotificationListScreen: React.FC = () => {
   
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
 
   useEffect(() => {
     loadNotifications();
@@ -75,17 +82,26 @@ const NotificationListScreen: React.FC = () => {
   };
 
   const handleNotificationPress = async (notification: Notification) => {
+    // Mark as read
     if (notification.status === 'pending') {
       await markAsRead(notification.id);
       await updateUnreadCount();
     }
 
-    // Navigate to related item if available
+    // Show the notification details modal
+    setSelectedNotification(notification);
+    setModalVisible(true);
+
+    // Navigate to related item if available (after closing modal)
     if (notification.relatedModelType && notification.relatedModelId) {
       // Add navigation logic here based on relatedModelType
-      // For example:
-      // navigation.navigate(notification.relatedModelType, { id: notification.relatedModelId });
+      // Will be executed when modal is closed if needed
     }
+  };
+
+  const handleCloseModal = () => {
+    setModalVisible(false);
+    setSelectedNotification(null);
   };
 
   const handleMarkAllAsRead = async () => {
@@ -152,40 +168,39 @@ const NotificationListScreen: React.FC = () => {
   };
 
   const getIconColor = (type: string, modelType?: string) => {
-    // Color based on alert type
     switch (type) {
       case 'low_stock':
-        return '#F57C00'; // Orange
+        return '#FF9800'; // Orange
       case 'expiry':
-        return '#D32F2F'; // Red
+        return '#F44336'; // Red
       case 'maintenance':
-        return '#1976D2'; // Blue
+        return '#2196F3'; // Blue
       case 'vaccination':
-        return '#7B1FA2'; // Purple
+        return '#9C27B0'; // Purple
       case 'breeding':
-        return '#C2185B'; // Pink
-    }
-
-    // Color based on model type
-    switch (modelType) {
-      case 'pesticide':
-        return '#00897B'; // Teal
-      case 'animal':
-        return '#689F38'; // Light Green
-      case 'equipment':
-        return '#5D4037'; // Brown
-      case 'feed':
-        return '#FFA000'; // Amber
-      case 'fertilizer':
-        return '#388E3C'; // Green
-      case 'harvest':
-        return '#FB8C00'; // Orange
-      case 'seed':
-        return '#AFB42B'; // Lime
-      case 'tool':
-        return '#616161'; // Grey
+        return '#E91E63'; // Pink
       default:
-        return theme.colors.primary; // Default
+        // If no specific type, use model-based colors
+        switch (modelType) {
+          case 'pesticide':
+            return '#F44336'; // Red
+          case 'animal':
+            return '#CDDC39'; // Lime
+          case 'equipment':
+            return '#2196F3'; // Blue
+          case 'feed':
+            return '#795548'; // Brown
+          case 'fertilizer':
+            return '#4CAF50'; // Green
+          case 'harvest':
+            return '#FF9800'; // Orange
+          case 'seed':
+            return '#8BC34A'; // Light Green
+          case 'tool':
+            return '#9C27B0'; // Purple
+          default:
+            return '#757575'; // Grey
+        }
     }
   };
 
@@ -218,11 +233,11 @@ const NotificationListScreen: React.FC = () => {
           />
         </View>
         <View style={styles.contentContainer}>
-          <Text style={[styles.title, { color: theme.colors.text }]}>
+          <Text style={[styles.title, { color: theme.colors.text, fontSize: 17 }]}>
             {item.title}
             {item.data?.itemName && ` - ${item.data.itemName}`}
           </Text>
-          <Text style={[styles.message, { color: theme.colors.textSecondary }]}>
+          <Text style={[styles.message, { color: theme.colors.textSecondary, fontSize: 15 }]}>
             {item.message}
           </Text>
           <Text style={[styles.time, { color: theme.colors.textTertiary }]}>
@@ -248,6 +263,125 @@ const NotificationListScreen: React.FC = () => {
       </Text>
     </View>
   );
+
+  // Render notification detail modal
+  const renderNotificationDetailModal = () => {
+    if (!selectedNotification) return null;
+    
+    const modelType = selectedNotification.data?.modelType || selectedNotification.relatedModelType;
+    const alertType = selectedNotification.data?.type || selectedNotification.type;
+    const color = getIconColor(alertType, modelType);
+    const iconName = getNotificationIcon(alertType, modelType);
+    
+    // If the notification has HTML fullMessage content, render it with WebView
+    if (selectedNotification.data?.fullMessage) {
+      const htmlContent = `
+        <html>
+          <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+              body {
+                font-family: 'Arial', sans-serif;
+                direction: rtl;
+                padding: 0;
+                margin: 0;
+                color: #333;
+                background-color: ${theme.colors.background};
+              }
+            </style>
+          </head>
+          <body>
+            ${selectedNotification.data.fullMessage}
+          </body>
+        </html>
+      `;
+      
+      return (
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={modalVisible}
+          onRequestClose={handleCloseModal}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: theme.colors.background }]}>
+              <View style={styles.modalHeader}>
+                <TouchableOpacity onPress={handleCloseModal} style={styles.closeButton}>
+                  <MaterialCommunityIcons name="close" size={24} color={theme.colors.text} />
+                </TouchableOpacity>
+                <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
+                  تفاصيل الإشعار
+                </Text>
+              </View>
+              
+              <WebView
+                originWhitelist={['*']}
+                source={{ html: htmlContent }}
+                style={styles.webView}
+              />
+              
+              <TouchableOpacity
+                style={[styles.actionButton, { backgroundColor: color }]}
+                onPress={handleCloseModal}
+              >
+                <Text style={styles.actionButtonText}>حسنًا</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      );
+    }
+    
+    // Otherwise, render standard detail view
+    return (
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={handleCloseModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.colors.background }]}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={handleCloseModal} style={styles.closeButton}>
+                <MaterialCommunityIcons name="close" size={24} color={theme.colors.text} />
+              </TouchableOpacity>
+              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>
+                تفاصيل الإشعار
+              </Text>
+            </View>
+            
+            <ScrollView contentContainerStyle={styles.modalBody}>
+              <View style={[styles.modalIconContainer, { backgroundColor: `${color}20` }]}>
+                <MaterialCommunityIcons name={iconName} size={48} color={color} />
+              </View>
+              
+              <Text style={[styles.modalItemTitle, { color: theme.colors.text }]}>
+                {selectedNotification.title}
+                {selectedNotification.data?.itemName && 
+                  ` - ${selectedNotification.data.itemName}`}
+              </Text>
+              
+              <Text style={[styles.modalItemMessage, { color: theme.colors.textSecondary }]}>
+                {selectedNotification.message}
+              </Text>
+              
+              <Text style={[styles.modalItemTime, { color: theme.colors.textTertiary }]}>
+                {format(new Date(selectedNotification.createdAt), 'PPpp', { locale: ar })}
+              </Text>
+            </ScrollView>
+            
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: color }]}
+              onPress={handleCloseModal}
+            >
+              <Text style={styles.actionButtonText}>حسنًا</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -292,6 +426,8 @@ const NotificationListScreen: React.FC = () => {
           ListEmptyComponent={renderEmptyList}
         />
       )}
+      
+      {renderNotificationDetailModal()}
     </View>
   );
 };
@@ -378,6 +514,87 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: Dimensions.get('window').width * 0.9,
+    maxHeight: Dimensions.get('window').height * 0.8,
+    borderRadius: 12,
+    overflow: 'hidden',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    position: 'relative',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  closeButton: {
+    position: 'absolute',
+    left: 12,
+    top: 12,
+    padding: 4,
+  },
+  modalBody: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  modalIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalItemTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  modalItemMessage: {
+    fontSize: 18,
+    marginBottom: 16,
+    textAlign: 'center',
+    paddingHorizontal: 10,
+  },
+  modalItemTime: {
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  actionButton: {
+    margin: 16,
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  actionButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  webView: {
+    flex: 1,
+    height: 300,
+    margin: 8,
   },
 });
 
