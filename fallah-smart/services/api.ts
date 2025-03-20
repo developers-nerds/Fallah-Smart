@@ -3,12 +3,11 @@ import { storage } from '../utils/storage';
 import Constants from 'expo-constants';
 import { StockItem, StockHarvest } from '../screens/Stock/types';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
+// Get API URL from environment variables
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.3:5000/api';
 
-// Add this check
-if (!API_URL) {
-  throw new Error('EXPO_PUBLIC_API_URL environment variable is not set');
-}
+// Log API URL for debugging
+console.log('Using API URL:', API_URL);
 
 // Create axios instance
 const api = axios.create({
@@ -19,12 +18,38 @@ const api = axios.create({
   timeout: 10000, // 10 second timeout
 });
 
-// Additional configuration to track request and response
+// Add a request interceptor for logging and throttling
+const pendingRequests = new Map();
+const REQUEST_THROTTLE_MS = 1000; // 1 second throttle
+
 api.interceptors.request.use(
   (config) => {
+    // Create a key for this request
+    const requestKey = `${config.method}:${config.url}`;
+    
+    // Check if we have a pending/recent request for this endpoint
+    const lastRequestTime = pendingRequests.get(requestKey);
+    const now = Date.now();
+    
+    if (lastRequestTime && (now - lastRequestTime) < REQUEST_THROTTLE_MS) {
+      console.log(`[API] Throttling duplicate request to ${requestKey}`);
+      return Promise.reject({
+        throttled: true,
+        message: 'Request throttled to prevent excessive calls'
+      });
+    }
+    
+    // Track this request
+    pendingRequests.set(requestKey, now);
+    
+    // Log request for debugging
+    if (__DEV__) {
+      console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url}`, config.data || '');
+    }
     return config;
   },
   (error) => {
+    console.error('API Request Error:', error);
     return Promise.reject(error);
   }
 );
@@ -38,11 +63,12 @@ api.interceptors.request.use(async (config) => {
     }
     return config;
   } catch (error) {
+    console.error('Error adding auth token:', error);
     return config;
   }
 });
 
-// Add response interceptor for error handling
+// Additional configuration to track request and response
 api.interceptors.response.use(
   (response) => {
     return response;
@@ -203,6 +229,10 @@ const pesticideApi = {
       const response = await api.get('/pesticides');
       return response.data;
     } catch (error) {
+      console.error('Error fetching pesticides:', error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(`Failed to fetch pesticides: ${error.response.status} ${error.response.statusText}`);
+      }
       throw error;
     }
   },
@@ -213,6 +243,10 @@ const pesticideApi = {
       const response = await api.post('/pesticides', pesticideData);
       return response.data;
     } catch (error) {
+      console.error('Error creating pesticide:', error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(`Failed to create pesticide: ${error.response.status} ${error.response.statusText}`);
+      }
       throw error;
     }
   },
@@ -223,6 +257,10 @@ const pesticideApi = {
       const response = await api.put(`/pesticides/${id}`, data);
       return response.data;
     } catch (error) {
+      console.error('Error updating pesticide:', error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(`Failed to update pesticide: ${error.response.status} ${error.response.statusText}`);
+      }
       throw error;
     }
   },
@@ -233,6 +271,10 @@ const pesticideApi = {
       const response = await api.delete(`/pesticides/${id}`);
       return response.data;
     } catch (error) {
+      console.error('Error deleting pesticide:', error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(`Failed to delete pesticide: ${error.response.status} ${error.response.statusText}`);
+      }
       throw error;
     }
   },

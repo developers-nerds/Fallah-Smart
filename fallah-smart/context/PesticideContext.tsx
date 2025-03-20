@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { pesticideApi } from '../services/api';
 import { Pesticide } from '../screens/Stock/types';
 
@@ -7,6 +7,7 @@ interface PesticideContextType {
   loading: boolean;
   error: string | null;
   fetchPesticides: () => Promise<void>;
+  refreshPesticides: () => Promise<void>;
   addPesticide: (pesticide: Omit<Pesticide, 'id'>) => Promise<void>;
   updatePesticide: (id: string, pesticide: Partial<Pesticide>) => Promise<void>;
   deletePesticide: (id: string) => Promise<void>;
@@ -20,20 +21,46 @@ export const PesticideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [pesticides, setPesticides] = useState<Pesticide[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isInitialLoad = useRef(true);
+  const isLoadingRef = useRef(false);
 
-  const fetchPesticides = async () => {
+  const fetchPesticides = useCallback(async () => {
+    // Prevent concurrent fetches
+    if (isLoadingRef.current) return;
+    
     try {
+      isLoadingRef.current = true;
       setLoading(true);
       setError(null);
       const data = await pesticideApi.getAllPesticides();
       setPesticides(data);
+      return data;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch pesticides');
+      // Handle throttled requests gracefully
+      if (err && typeof err === 'object' && 'throttled' in err) {
+        console.log('Request throttled, using existing data');
+        return pesticides; // Return existing data
+      }
+      
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch pesticides';
+      setError(errorMessage);
       console.error('Error fetching pesticides:', err);
+      throw err;
     } finally {
       setLoading(false);
+      isLoadingRef.current = false;
     }
-  };
+  }, [pesticides]);
+
+  // Initial fetch only on first mount
+  useEffect(() => {
+    if (isInitialLoad.current) {
+      fetchPesticides().catch(err => {
+        console.error('Failed initial pesticides fetch:', err);
+      });
+      isInitialLoad.current = false;
+    }
+  }, []);
 
   const addPesticide = async (pesticide: Omit<Pesticide, 'id'>) => {
     try {
@@ -113,10 +140,6 @@ export const PesticideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
-  useEffect(() => {
-    fetchPesticides();
-  }, []);
-
   return (
     <PesticideContext.Provider
       value={{
@@ -124,6 +147,7 @@ export const PesticideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         loading,
         error,
         fetchPesticides,
+        refreshPesticides: fetchPesticides,
         addPesticide,
         updatePesticide,
         deletePesticide,

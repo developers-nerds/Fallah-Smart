@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -39,18 +39,44 @@ export const PesticideListScreen = ({ navigation }: PesticideListScreenProps) =>
   const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(1);
   const [selectedType, setSelectedType] = useState<string | null>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
+  const initialLoadCompleted = useRef(false);
+
+  useEffect(() => {
+    const loadPesticides = async () => {
+      if (initialLoadCompleted.current) return;
+      
+      try {
+        await fetchPesticides();
+        setLocalError(null);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to load pesticides';
+        setLocalError(errorMessage);
+        console.error('Error loading pesticides:', error);
+      } finally {
+        initialLoadCompleted.current = true;
+      }
+    };
+    
+    loadPesticides();
+  }, []);
 
   const handleRefresh = useCallback(async () => {
+    if (refreshing) return; // Prevent multiple refresh calls
+    
     setRefreshing(true);
     try {
       await fetchPesticides();
       setPage(1);
+      setLocalError(null);
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to refresh pesticides';
+      setLocalError(errorMessage);
       console.error('Error refreshing pesticides:', error);
     } finally {
       setRefreshing(false);
     }
-  }, [fetchPesticides]);
+  }, [fetchPesticides, refreshing]);
 
   const types = useMemo(() => {
     const uniqueTypes = new Set(pesticides.map(pesticide => pesticide.type));
@@ -522,7 +548,7 @@ export const PesticideListScreen = ({ navigation }: PesticideListScreenProps) =>
     );
   }
 
-  if (error) {
+  if (localError) {
     return (
       <View style={[styles.container, styles.centerContent]}>
         <MaterialCommunityIcons 
@@ -531,7 +557,7 @@ export const PesticideListScreen = ({ navigation }: PesticideListScreenProps) =>
           color={theme.colors.error} 
         />
         <Text style={[styles.emptyText, { color: theme.colors.error }]}>
-          حدث خطأ
+          {localError}
         </Text>
       </View>
     );
