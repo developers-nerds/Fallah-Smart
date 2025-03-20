@@ -237,6 +237,17 @@ const pesticideApi = {
     }
   },
 
+  // Get pesticides for notification service
+  getPesticides: async () => {
+    try {
+      const response = await api.get('/pesticides');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching pesticides:', error);
+      return [];
+    }
+  },
+
   // Create pesticide
   createPesticide: async (pesticideData: any) => {
     try {
@@ -351,7 +362,8 @@ const stockEquipmentApi = {
       const response = await api.get('/stock/equipment');
       return response.data;
     } catch (error) {
-      throw error;
+      console.error('Error fetching equipment:', error);
+      return [];
     }
   },
 
@@ -419,12 +431,23 @@ const stockEquipmentApi = {
 // Stock Feed API methods
 const stockFeedApi = {
   // Get all feeds
-  getAllFeed: async () => {
+  getAllFeeds: async () => {
     try {
       const response = await api.get('/stock/feed');
       return response.data;
     } catch (error) {
       throw error;
+    }
+  },
+
+  // Get feeds for notification service
+  getFeeds: async () => {
+    try {
+      const response = await api.get('/stock/feed');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching feeds:', error);
+      return [];
     }
   },
 
@@ -491,6 +514,17 @@ const stockFertilizerApi = {
     }
   },
 
+  // Get fertilizers for notification service
+  getFertilizers: async () => {
+    try {
+      const response = await api.get('/stock/fertilizer');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching fertilizers:', error);
+      return [];
+    }
+  },
+
   // Get single fertilizer
   getFertilizer: async (id: string) => {
     try {
@@ -543,7 +577,7 @@ const stockFertilizerApi = {
 };
 
 // Stock Harvest API methods
-const harvestApi = {
+const stockHarvestApi = {
   // Get all harvests
   getAllHarvests: async () => {
     try {
@@ -551,6 +585,17 @@ const harvestApi = {
       return response.data;
     } catch (error) {
       throw error;
+    }
+  },
+
+  // Get harvests for notification service
+  getHarvests: async () => {
+    try {
+      const response = await api.get('/stock/harvest');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching harvests:', error);
+      return [];
     }
   },
 
@@ -605,6 +650,34 @@ const harvestApi = {
   }
 };
 
+// Seed API methods
+const stockSeedApi = {
+  getSeeds: async () => {
+    try {
+      const response = await api.get('/stock/seeds');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching seeds:', error);
+      return [];
+    }
+  },
+  // other seed methods...
+};
+
+// Tool API methods
+const stockToolApi = {
+  getTools: async () => {
+    try {
+      const response = await api.get('/stock/tools');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching tools:', error);
+      return [];
+    }
+  },
+  // other tool methods...
+};
+
 // Export both the base API and specific methods
 export { 
   api, 
@@ -616,5 +689,8 @@ export {
   stockEquipmentApi,
   stockFeedApi,
   stockFertilizerApi,
-  harvestApi
+  stockHarvestApi,
+  pesticideApi as stockPesticideApi, // Alias pesticideApi as stockPesticideApi
+  stockSeedApi,
+  stockToolApi
 }; 

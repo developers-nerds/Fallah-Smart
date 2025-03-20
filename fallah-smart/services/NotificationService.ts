@@ -4,10 +4,10 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 
-// Configure notification behavior
+// Make sure notifications appear even when the app is in foreground
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
+    shouldShowAlert: true,     // IMPORTANT: This makes notifications appear when the app is foregrounded
     shouldPlaySound: true,
     shouldSetBadge: true,
   }),
@@ -81,6 +81,9 @@ class NotificationService {
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#FF231F7C',
+      enableVibrate: true,
+      enableLights: true,
+      showBadge: true,
     });
 
     // Stock alerts channel
@@ -90,6 +93,9 @@ class NotificationService {
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#FF9800',
+      enableVibrate: true,
+      enableLights: true,
+      showBadge: true,
     });
 
     // Maintenance alerts channel
@@ -99,6 +105,9 @@ class NotificationService {
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#2196F3',
+      enableVibrate: true,
+      enableLights: true,
+      showBadge: true,
     });
 
     // Animal alerts channel
@@ -108,6 +117,9 @@ class NotificationService {
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#4CAF50',
+      enableVibrate: true,
+      enableLights: true,
+      showBadge: true,
     });
   }
 
@@ -117,14 +129,21 @@ class NotificationService {
     try {
       // First try to get an Expo push token
       try {
-        const expoPushToken = await Notifications.getExpoPushTokenAsync({
-          projectId: process.env.EXPO_PUBLIC_PROJECT_ID 
-        });
+        // Only use projectId if available (will fail in Expo Go without valid projectId)
+        const projectId = process.env.EXPO_PUBLIC_PROJECT_ID;
         
-        if (expoPushToken?.data) {
-          token = expoPushToken.data;
-          console.log('Successfully obtained Expo push token:', token);
-          return token;
+        if (projectId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(projectId)) {
+          const expoPushToken = await Notifications.getExpoPushTokenAsync({
+            projectId
+          });
+          
+          if (expoPushToken?.data) {
+            token = expoPushToken.data;
+            console.log('Successfully obtained Expo push token:', token);
+            return token;
+          }
+        } else {
+          console.log('No valid projectId found, skipping Expo token registration');
         }
       } catch (expoPushError) {
         console.warn('Error getting Expo push token:', expoPushError);
@@ -162,6 +181,19 @@ class NotificationService {
     // Handle notification received while app is foregrounded
     this.notificationListener = Notifications.addNotificationReceivedListener(notification => {
       console.log('Notification received in foreground:', notification);
+      
+      // Force display notification even when app is in foreground
+      if (Platform.OS === 'android') {
+        // For Android, we need extra steps to show foreground notifications
+        Notifications.presentNotificationAsync({
+          title: notification.request.content.title,
+          body: notification.request.content.body,
+          data: notification.request.content.data,
+          sound: true,
+          vibrate: true,
+        });
+      }
+      
       // You can dispatch events or update UI state here
     });
 
@@ -207,40 +239,35 @@ class NotificationService {
 
   private async registerDeviceToken(deviceToken: string) {
     try {
+      // Save token locally first
+      await storage.set('devicePushToken', deviceToken);
+      console.log('Device token saved locally:', deviceToken);
+      
       const tokens = await storage.getTokens();
       if (!tokens?.access) {
-        console.warn('Authentication token not available, cannot register device');
+        console.warn('Authentication token not available, using local token only');
         return;
       }
 
-      // Determine device type with more details for better analytics
-      const deviceInfo = {
-        deviceToken,
-        deviceType: Platform.OS,
-        deviceName: Device.deviceName || 'Unknown Device',
-        deviceModel: Device.modelName || 'Unknown Model',
-        osVersion: Platform.OS === 'ios' ? Device.osVersion : Device.osVersion || 'Unknown Version'
-      };
+      // Simple device data
+      const deviceData = { deviceToken };
 
       try {
         await axios.post(
           `${process.env.EXPO_PUBLIC_API_URL}/stock/notifications/devices`,
-          deviceInfo,
+          deviceData,
           {
             headers: {
               Authorization: `Bearer ${tokens.access}`,
               'Content-Type': 'application/json'
             },
+            timeout: 5000 // 5 second timeout
           }
         );
-        console.log('Device successfully registered for push notifications');
+        console.log('Device successfully registered on server');
       } catch (error: any) {
-        console.error('Error registering device token:', error?.response?.data || error.message);
-        if (error.response?.status === 404) {
-          console.warn('Notification endpoint not found, check server configuration');
-        } else if (error.response?.status === 401) {
-          console.warn('Authentication failed when registering device token');
-        }
+        console.warn('Server registration failed, using local token only:', 
+          error?.response?.status || error.message);
       }
     } catch (error) {
       console.error('Error in registerDeviceToken:', error);
@@ -252,12 +279,13 @@ class NotificationService {
     try {
       const notificationId = await Notifications.scheduleNotificationAsync({
         content: {
-          title: "Test Notification",
-          body: "This is a test notification from Fallah Smart",
+          title: 'Test Notification',
+          body: 'This is a test notification from Fallah Smart',
           data: { type: 'test' },
-          sound: true,
+          sound: 'default',
+          priority: 'high',  // Add priority for Android
         },
-        trigger: { seconds: 2 }, // Fires after 2 seconds
+        trigger: null, // Send immediately
       });
       
       console.log('Scheduled test notification with ID:', notificationId);
@@ -268,26 +296,152 @@ class NotificationService {
     }
   }
 
-  // Schedule a stock alert notification
-  public async scheduleStockAlert(item: string, quantity: number, unitName: string) {
+  // Schedule a model-specific alert notification
+  public async scheduleModelAlert(params: {
+    modelType: 'pesticide' | 'animal' | 'equipment' | 'feed' | 'fertilizer' | 'harvest' | 'seed' | 'tool';
+    alertType: 'low_stock' | 'expiry' | 'maintenance' | 'vaccination' | 'breeding' | 'other';
+    itemName: string;
+    message: string;
+    additionalData?: any;
+  }) {
     try {
+      const { modelType, alertType, itemName, message, additionalData } = params;
+      
+      // Define channel ID based on alert type
+      let channelId = 'default';
+      if (alertType === 'low_stock' || alertType === 'expiry') {
+        channelId = 'stock-alerts';
+      } else if (alertType === 'maintenance') {
+        channelId = 'maintenance-alerts';
+      } else if (alertType === 'vaccination' || alertType === 'breeding') {
+        channelId = 'animal-alerts';
+      }
+      
+      // Get title based on alert type
+      let title = 'Fallah Smart Alert';
+      switch (alertType) {
+        case 'low_stock':
+          title = `Low Stock Alert: ${itemName}`;
+          break;
+        case 'expiry':
+          title = `Expiry Alert: ${itemName}`;
+          break;
+        case 'maintenance':
+          title = `Maintenance Required: ${itemName}`;
+          break;
+        case 'vaccination':
+          title = `Vaccination Due: ${itemName}`;
+          break;
+        case 'breeding':
+          title = `Breeding Alert: ${itemName}`;
+          break;
+        default:
+          title = `Alert: ${itemName}`;
+      }
+      
       const notificationId = await Notifications.scheduleNotificationAsync({
         content: {
-          title: "Low Stock Alert",
-          body: `${item}: Only ${quantity} ${unitName} left in stock!`,
-          data: { type: 'low_stock', itemName: item },
+          title,
+          body: message,
+          data: { 
+            type: alertType, 
+            modelType,
+            itemName,
+            ...additionalData
+          },
           sound: true,
           badge: 1,
         },
         trigger: { seconds: 1 },
       });
       
-      console.log('Scheduled stock alert with ID:', notificationId);
+      console.log(`Scheduled ${modelType} ${alertType} alert with ID:`, notificationId);
       return notificationId;
     } catch (error) {
-      console.error('Error scheduling stock alert:', error);
+      console.error('Error scheduling model alert:', error);
       return null;
     }
+  }
+
+  // Convenience methods for different model types
+  public async schedulePesticideAlert(itemName: string, message: string, alertType: 'low_stock' | 'expiry' | 'other' = 'low_stock', additionalData?: any) {
+    return this.scheduleModelAlert({
+      modelType: 'pesticide',
+      alertType,
+      itemName,
+      message,
+      additionalData
+    });
+  }
+
+  public async scheduleAnimalAlert(itemName: string, message: string, alertType: 'vaccination' | 'breeding' | 'other', additionalData?: any) {
+    return this.scheduleModelAlert({
+      modelType: 'animal',
+      alertType,
+      itemName,
+      message,
+      additionalData
+    });
+  }
+
+  public async scheduleEquipmentAlert(itemName: string, message: string, alertType: 'maintenance' | 'other' = 'maintenance', additionalData?: any) {
+    return this.scheduleModelAlert({
+      modelType: 'equipment',
+      alertType,
+      itemName,
+      message,
+      additionalData
+    });
+  }
+
+  public async scheduleFeedAlert(itemName: string, message: string, alertType: 'low_stock' | 'expiry' | 'other' = 'low_stock', additionalData?: any) {
+    return this.scheduleModelAlert({
+      modelType: 'feed',
+      alertType,
+      itemName,
+      message,
+      additionalData
+    });
+  }
+
+  public async scheduleFertilizerAlert(itemName: string, message: string, alertType: 'low_stock' | 'expiry' | 'other' = 'low_stock', additionalData?: any) {
+    return this.scheduleModelAlert({
+      modelType: 'fertilizer',
+      alertType,
+      itemName,
+      message,
+      additionalData
+    });
+  }
+
+  public async scheduleHarvestAlert(itemName: string, message: string, alertType: 'expiry' | 'other' = 'expiry', additionalData?: any) {
+    return this.scheduleModelAlert({
+      modelType: 'harvest',
+      alertType,
+      itemName,
+      message,
+      additionalData
+    });
+  }
+
+  public async scheduleSeedAlert(itemName: string, message: string, alertType: 'low_stock' | 'expiry' | 'other' = 'low_stock', additionalData?: any) {
+    return this.scheduleModelAlert({
+      modelType: 'seed',
+      alertType,
+      itemName,
+      message,
+      additionalData
+    });
+  }
+
+  public async scheduleToolAlert(itemName: string, message: string, alertType: 'maintenance' | 'other' = 'maintenance', additionalData?: any) {
+    return this.scheduleModelAlert({
+      modelType: 'tool',
+      alertType,
+      itemName,
+      message,
+      additionalData
+    });
   }
 
   // Clean up resources when application is being unmounted
@@ -355,10 +509,35 @@ class NotificationService {
     }
   }
 
+  private async saveSettingsToLocalStorage(settings: any) {
+    try {
+      await storage.set('notificationSettings', JSON.stringify(settings));
+      console.log('Notification settings saved to local storage');
+    } catch (error) {
+      console.error('Error saving notification settings to local storage:', error);
+    }
+  }
+
+  private async getSettingsFromLocalStorage() {
+    try {
+      const settingsStr = await storage.get('notificationSettings');
+      if (settingsStr) {
+        return JSON.parse(settingsStr);
+      }
+      return null;
+    } catch (error) {
+      console.error('Error getting notification settings from local storage:', error);
+      return null;
+    }
+  }
+
   public async getNotificationSettings() {
     try {
       const tokens = await storage.getTokens();
-      if (!tokens?.access) return {};
+      if (!tokens?.access) {
+        const localSettings = await this.getSettingsFromLocalStorage();
+        return localSettings || this.getDefaultSettings();
+      }
 
       try {
         const response = await axios.get(
@@ -369,22 +548,38 @@ class NotificationService {
             },
           }
         );
-        return response.data;
+
+        // If response is successful and has data
+        if (response.data) {
+          // Save to local storage as backup
+          await this.saveSettingsToLocalStorage(response.data);
+          return response.data;
+        }
+        
+        // Try to get from local storage
+        const localSettings = await this.getSettingsFromLocalStorage();
+        return localSettings || this.getDefaultSettings();
       } catch (error) {
         console.error('Error fetching notification settings:', error);
-        // Return default settings if endpoint not available
-        return {
-          lowStockAlerts: true,
-          expiryAlerts: true,
-          maintenanceAlerts: true,
-          vaccinationAlerts: true,
-          breedingAlerts: true
-        };
+        // Try to get from local storage
+        const localSettings = await this.getSettingsFromLocalStorage();
+        return localSettings || this.getDefaultSettings();
       }
     } catch (error) {
       console.error('Error in getNotificationSettings:', error);
-      return {};
+      return this.getDefaultSettings();
     }
+  }
+
+  private getDefaultSettings() {
+    return {
+      lowStockAlerts: true,
+      expiryAlerts: true,
+      maintenanceAlerts: true,
+      vaccinationAlerts: true,
+      breedingAlerts: true,
+      automaticStockAlerts: true,
+    };
   }
 
   public async updateNotificationSettings(settings: {
@@ -393,22 +588,42 @@ class NotificationService {
     maintenanceAlerts?: boolean;
     vaccinationAlerts?: boolean;
     breedingAlerts?: boolean;
+    automaticStockAlerts?: boolean;
   }) {
     try {
+      // Always save to local storage first
+      await this.saveSettingsToLocalStorage(settings);
+      
       const tokens = await storage.getTokens();
-      if (!tokens?.access) return;
+      if (!tokens?.access) {
+        console.warn('No access token available');
+        return true; // Return success since we saved to local storage
+      }
 
-      await axios.put(
-        `${process.env.EXPO_PUBLIC_API_URL}/stock/notifications/settings`,
-        settings,
-        {
-          headers: {
-            Authorization: `Bearer ${tokens.access}`,
-          },
+      try {
+        await axios.put(
+          `${process.env.EXPO_PUBLIC_API_URL}/stock/notifications/settings`,
+          settings,
+          {
+            headers: {
+              Authorization: `Bearer ${tokens.access}`,
+            },
+          }
+        );
+        console.log('Notification settings updated successfully on server');
+        return true;
+      } catch (error: any) {
+        // If endpoint doesn't exist (404), log it but don't fail
+        if (error.response && error.response.status === 404) {
+          console.warn('Notification settings endpoint not found, settings saved locally only');
+          return true; // Return success so the app continues to function
         }
-      );
+        console.error('Error updating notification settings on server:', error);
+        return true; // Return success since we saved to local storage
+      }
     } catch (error) {
-      console.error('Error updating notification settings:', error);
+      console.error('Error in updateNotificationSettings:', error);
+      return false;
     }
   }
 
@@ -435,6 +650,29 @@ class NotificationService {
   // Get the current push token
   public getPushToken(): string | null {
     return this.expoPushToken;
+  }
+
+  public async scheduleDeviceTestNotification() {
+    try {
+      // This notification will be sent directly to the device
+      const notificationId = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Direct Device Test",
+          body: "This is a direct device test notification - if you see this, your device notifications are working",
+          data: { type: 'direct_test' },
+          sound: true,
+          priority: 'high', // For Android
+          vibrate: [0, 250, 250, 250],
+        },
+        trigger: null, // Send immediately
+      });
+      
+      console.log('Direct device test notification scheduled:', notificationId);
+      return notificationId;
+    } catch (error) {
+      console.error('Error scheduling direct device test notification:', error);
+      return null;
+    }
   }
 }
 

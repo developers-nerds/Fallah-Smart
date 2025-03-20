@@ -21,7 +21,8 @@ type IconName =
   | 'clock-alert' 
   | 'tools' 
   | 'needle' 
-  | 'heart-pulse';
+  | 'heart-pulse'
+  | 'bell-ring';
 
 const NotificationSettingsScreen: React.FC = () => {
   const theme = useTheme();
@@ -34,6 +35,7 @@ const NotificationSettingsScreen: React.FC = () => {
     maintenanceAlerts: true,
     vaccinationAlerts: true,
     breedingAlerts: true,
+    automaticStockAlerts: true,
   });
 
   useEffect(() => {
@@ -132,6 +134,13 @@ const NotificationSettingsScreen: React.FC = () => {
 
       <View style={styles.settingsContainer}>
         {renderSettingItem(
+          'التنبيهات التلقائية للمخزون',
+          'فحص المخزون تلقائيًا وإرسال إشعارات بالحالات الهامة',
+          'bell-ring',
+          'automaticStockAlerts'
+        )}
+
+        {renderSettingItem(
           'تنبيهات المخزون المنخفض',
           'تلقي إشعارات عندما ينخفض المخزون عن الحد الأدنى',
           'package-variant',
@@ -168,7 +177,12 @@ const NotificationSettingsScreen: React.FC = () => {
       </View>
       
       <View style={styles.testSection}>
-        <TestNotification />
+        <Text style={[styles.sectionTitle, { color: theme.colors.neutral.textPrimary }]}>
+          اختبار الإشعارات
+        </Text>
+        <View style={[styles.testContainer, { backgroundColor: theme.colors.neutral.surface }]}>
+          <TestNotification />
+        </View>
       </View>
     </ScrollView>
   );
@@ -199,8 +213,26 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   testSection: {
-    marginTop: 16,
+    marginTop: 24,
     marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    textAlign: 'right',
+  },
+  testContainer: {
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    overflow: 'hidden',
   },
   settingItem: {
     flexDirection: 'row',

@@ -25,6 +25,12 @@ interface Notification {
   readAt: string | null;
   relatedModelType: string | null;
   relatedModelId: number | null;
+  data?: {
+    modelType?: string;
+    itemName?: string;
+    type?: string;
+    [key: string]: any;
+  };
 }
 
 const NotificationListScreen: React.FC = () => {
@@ -103,7 +109,8 @@ const NotificationListScreen: React.FC = () => {
     }
   };
 
-  const getNotificationIcon = (type: string) => {
+  const getNotificationIcon = (type: string, modelType?: string) => {
+    // First check type-specific icons
     switch (type) {
       case 'low_stock':
         return 'package-variant';
@@ -119,44 +126,115 @@ const NotificationListScreen: React.FC = () => {
         return 'sprout';
       case 'feed':
         return 'food';
+    }
+
+    // Then check model-specific icons if type doesn't have a specific icon
+    switch (modelType) {
+      case 'pesticide':
+        return 'flask';
+      case 'animal':
+        return 'cow';
+      case 'equipment':
+        return 'tractor';
+      case 'feed':
+        return 'food-variant';
+      case 'fertilizer':
+        return 'bottle-tonic';
+      case 'harvest':
+        return 'basket';
+      case 'seed':
+        return 'seed';
+      case 'tool':
+        return 'hammer';
       default:
         return 'bell';
     }
   };
 
-  const renderNotification = ({ item }: { item: Notification }) => (
-    <TouchableOpacity
-      style={[
-        styles.notificationItem,
-        {
-          backgroundColor: item.status === 'pending' 
-            ? theme.colors.primaryLight 
-            : theme.colors.background,
-        },
-      ]}
-      onPress={() => handleNotificationPress(item)}
-    >
-      <View style={styles.iconContainer}>
-        <MaterialCommunityIcons
-          name={getNotificationIcon(item.type)}
-          size={24}
-          color={theme.colors.primary}
-        />
-      </View>
-      <View style={styles.contentContainer}>
-        <Text style={[styles.title, { color: theme.colors.text }]}>{item.title}</Text>
-        <Text style={[styles.message, { color: theme.colors.textSecondary }]}>
-          {item.message}
-        </Text>
-        <Text style={[styles.time, { color: theme.colors.textTertiary }]}>
-          {format(new Date(item.createdAt), 'PPpp', { locale: ar })}
-        </Text>
-      </View>
-      {item.status === 'pending' && (
-        <View style={[styles.unreadIndicator, { backgroundColor: theme.colors.primary }]} />
-      )}
-    </TouchableOpacity>
-  );
+  const getIconColor = (type: string, modelType?: string) => {
+    // Color based on alert type
+    switch (type) {
+      case 'low_stock':
+        return '#F57C00'; // Orange
+      case 'expiry':
+        return '#D32F2F'; // Red
+      case 'maintenance':
+        return '#1976D2'; // Blue
+      case 'vaccination':
+        return '#7B1FA2'; // Purple
+      case 'breeding':
+        return '#C2185B'; // Pink
+    }
+
+    // Color based on model type
+    switch (modelType) {
+      case 'pesticide':
+        return '#00897B'; // Teal
+      case 'animal':
+        return '#689F38'; // Light Green
+      case 'equipment':
+        return '#5D4037'; // Brown
+      case 'feed':
+        return '#FFA000'; // Amber
+      case 'fertilizer':
+        return '#388E3C'; // Green
+      case 'harvest':
+        return '#FB8C00'; // Orange
+      case 'seed':
+        return '#AFB42B'; // Lime
+      case 'tool':
+        return '#616161'; // Grey
+      default:
+        return theme.colors.primary; // Default
+    }
+  };
+
+  const renderNotification = ({ item }: { item: Notification }) => {
+    // Get model type from either the data object or the relatedModelType
+    const modelType = item.data?.modelType || item.relatedModelType;
+    // Get alert type from either the data object type or the main notification type
+    const alertType = item.data?.type || item.type;
+    
+    return (
+      <TouchableOpacity
+        style={[
+          styles.notificationItem,
+          {
+            backgroundColor: item.status === 'pending' 
+              ? theme.colors.primaryLight 
+              : theme.colors.background,
+          },
+        ]}
+        onPress={() => handleNotificationPress(item)}
+      >
+        <View style={[
+          styles.iconContainer, 
+          { backgroundColor: `${getIconColor(alertType, modelType)}20` }
+        ]}>
+          <MaterialCommunityIcons
+            name={getNotificationIcon(alertType, modelType)}
+            size={24}
+            color={getIconColor(alertType, modelType)}
+          />
+        </View>
+        <View style={styles.contentContainer}>
+          <Text style={[styles.title, { color: theme.colors.text }]}>
+            {item.title}
+            {item.data?.itemName && ` - ${item.data.itemName}`}
+          </Text>
+          <Text style={[styles.message, { color: theme.colors.textSecondary }]}>
+            {item.message}
+          </Text>
+          <Text style={[styles.time, { color: theme.colors.textTertiary }]}>
+            {format(new Date(item.createdAt), 'PPpp', { locale: ar })}
+          </Text>
+        </View>
+        {item.status === 'pending' && (
+          <View style={[styles.unreadIndicator, { backgroundColor: theme.colors.primary }]} />
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   const renderEmptyList = () => (
     <View style={styles.emptyContainer}>

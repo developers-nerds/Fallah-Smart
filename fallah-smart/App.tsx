@@ -23,7 +23,9 @@ import AdvisorApplication from './screens/AdvisorApplication/AdvisorApplication'
 import { I18nManager } from 'react-native';
 import { NotificationProvider } from './context/NotificationContext';
 import NotificationService from './services/NotificationService';
+import StockNotificationService from './services/StockNotificationService';
 import * as Notifications from 'expo-notifications';
+import { storage } from './utils/storage';
 
 // Configure notification behavior for the entire app
 Notifications.setNotificationHandler({
@@ -107,20 +109,43 @@ export const RootNavigator: React.FC = () => {
 export default function App() {
   // Initialize notification service
   React.useEffect(() => {
+    let notificationInitialized = false;
+    
     const initializeNotifications = async () => {
       try {
+        console.log('Initializing notification services...');
+        
+        // Initialize main notification service first
         const notificationService = NotificationService.getInstance();
         await notificationService.initialize();
+        console.log('Main notification service initialized');
+        
+        // Initialize stock notification service
+        const stockNotificationService = StockNotificationService.getInstance();
+        await stockNotificationService.initialize();
+        
+        notificationInitialized = true;
         
         // You can use this for testing notifications during development
         if (__DEV__) {
           // Wait a bit to allow initialization to complete
           setTimeout(async () => {
-            await notificationService.scheduleTestNotification();
-          }, 3000);
+            try {
+              // Check if user is authenticated before sending test notifications
+              const tokens = await storage.getTokens();
+              if (tokens?.access) {
+                const notificationId = await notificationService.scheduleTestNotification();
+                console.log('Test notification scheduled:', notificationId);
+              } else {
+                console.log('Skipping test notification - user not authenticated');
+              }
+            } catch (testError) {
+              console.error('Failed to send test notification:', testError);
+            }
+          }, 5000);
         }
       } catch (error) {
-        console.error('Failed to initialize notifications:', error);
+        console.error('Failed to initialize notification services:', error);
       }
     };
 
@@ -128,8 +153,17 @@ export default function App() {
     
     // Clean up notification listeners when component unmounts
     return () => {
-      const notificationService = NotificationService.getInstance();
-      notificationService.cleanup();
+      try {
+        console.log('Cleaning up notification services...');
+        const notificationService = NotificationService.getInstance();
+        notificationService.cleanup();
+        
+        const stockNotificationService = StockNotificationService.getInstance();
+        stockNotificationService.cleanup();
+        console.log('Notification services cleaned up');
+      } catch (cleanupError) {
+        console.error('Error during cleanup:', cleanupError);
+      }
     };
   }, []);
 
