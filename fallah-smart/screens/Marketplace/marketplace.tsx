@@ -4,6 +4,7 @@ import { MarketplaceFeed, Product } from '../../components/marketplace/Marketpla
 import { AuctionHouse } from '../../components/marketplace/AuctionHouse';
 import { CompanyProfile } from '../../components/marketplace/CompanyProfile';
 import { theme } from '../../theme/theme';
+import { normalize, scaleSize, isSmallDevice, responsivePadding } from '../../utils/responsive';
 
 // Mock data
 const marketplaceFeedData: Product[] = [
@@ -278,11 +279,11 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.neutral.background,
   },
   header: {
-    fontSize: theme.fontSizes.h1,
+    fontSize: normalize(isSmallDevice ? 20 : 24),
     fontFamily: theme.fonts.bold,
     color: theme.colors.primary.base,
     textAlign: 'center',
-    padding: theme.spacing.md,
+    padding: responsivePadding(theme.spacing.md),
     backgroundColor: theme.colors.neutral.surface,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.05)',
@@ -291,15 +292,15 @@ const styles = StyleSheet.create({
   tabContainer: {
     flexDirection: 'row',
     backgroundColor: theme.colors.neutral.surface,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.xs,
+    paddingHorizontal: responsivePadding(theme.spacing.sm),
+    paddingVertical: responsivePadding(theme.spacing.xs),
     ...theme.shadows.small,
   },
   tab: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: theme.spacing.sm,
-    borderBottomWidth: 3,
+    paddingVertical: responsivePadding(theme.spacing.sm),
+    borderBottomWidth: isSmallDevice ? 2 : 3,
     borderBottomColor: 'transparent',
   },
   activeTab: {
@@ -307,7 +308,7 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontFamily: theme.fonts.medium,
-    fontSize: theme.fontSizes.body,
+    fontSize: normalize(isSmallDevice ? 13 : 14),
     color: theme.colors.neutral.textSecondary,
   },
   activeTabText: {

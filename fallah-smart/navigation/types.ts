@@ -41,6 +41,7 @@ export type StockStackParamList = {
   Marketplace: undefined;
   AdvisorApplication: undefined;
   NotificationSettings: undefined;
+  SupplierRegistrationForm: undefined;
 };
 
 export type DrawerParamList = {
