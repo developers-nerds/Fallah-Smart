@@ -18,18 +18,30 @@ import {
   StatusBar,
   Button,
   Dimensions,
-  Share,
-  Animated
+  Share as RNShare,
+  Animated,
+  GestureResponderEvent
 } from 'react-native';
 import { FontAwesome, MaterialCommunityIcons, Feather, MaterialIcons, Ionicons, FontAwesome5, AntDesign } from '@expo/vector-icons';
 import { launchImageLibraryAsync, MediaTypeOptions } from 'expo-image-picker';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp, ParamListBase } from '@react-navigation/native';
 import axios from 'axios';
 import { theme } from '../../theme/theme';
 import { storage } from '../../utils/storage';
 
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
+import { 
+  RouteParams, 
+  Author, 
+  Post, 
+  PostMedia,
+  ImageAsset, 
+  PostItemProps,
+  SearchBarProps,
+  CategoryType,
+  ParsedTextPart
+} from '../../types/blog';
 
 // Update API URL constants
 const BASE_URL = process.env.EXPO_PUBLIC_API;
@@ -40,44 +52,44 @@ const API_URL = `${BASE_URL}/api/blog`;
 const CATEGORIES = [
   { 
     value: 'CROPS',
-    label: 'Crops',
+    label: 'المحاصيل',
     icon: 'sprout',
     iconType: 'material' 
   },
   { 
     value: 'LIVESTOCK',
-    label: 'Livestock',
+    label: 'الماشية',
     icon: 'cow',
     iconType: 'material'
   },
   { 
     value: 'EQUIPMENT',
-    label: 'Equipment',
+    label: 'المعدات',
     icon: 'tractor',
     iconType: 'fontawesome'
   },
   { 
     value: 'WEATHER',
-    label: 'Weather',
+    label: 'الطقس',
     icon: 'weather-sunny',
     iconType: 'material'
   },
   { 
     value: 'MARKET',
-    label: 'Market',
+    label: 'السوق',
     icon: 'store',
     iconType: 'material'
   },
   { 
     value: 'TIPS',
-    label: 'Tips & Tricks',
+    label: 'نصائح وحيل',
     icon: 'lightbulb-outline',
     iconType: 'material'
   }
 ];
 
-// Update the image URL handling in the PostItem component
-const getImageUrl = (imageUrl) => {
+// Update the helper functions with proper types
+const getImageUrl = (imageUrl: string | undefined): string | null => {
   if (!imageUrl) return null;
   if (imageUrl.startsWith('http')) {
     return imageUrl.replace(/http:\/\/\d+\.\d+\.\d+\.\d+:\d+/, BASE_URL);
@@ -85,11 +97,62 @@ const getImageUrl = (imageUrl) => {
   return `${BASE_URL}${imageUrl}`;
 };
 
-// First, create a new PostItem component at the top of your file (after imports)
-const PostItem = ({ item, navigation, handlePostLike, handleCommentAdded, timeAgo, renderCategoryIcon, BASE_URL, openReportModal, handleSharePost, isCurrentUserPost, currentUserRole, currentUser }) => {
+// Move parseTextForHashtags function to file level (outside any component)
+const parseTextForHashtags = (text: string | undefined): ParsedTextPart[] => {
+  if (!text) return [{ type: 'text' as const, content: '' }];
+  
+  // Improved regex that better matches hashtags
+  const hashtagRegex = /#[a-zA-Z0-9_]+\b/g;
+  
+  // Find all hashtags in the text
+  const hashtags = text.match(hashtagRegex) || [];
+  
+  // If no hashtags, return just the original text
+  if (hashtags.length === 0) {
+    return [{ type: 'text' as const, content: text }];
+  }
+  
+  // Split text into parts with hashtags preserved
+  let result: ParsedTextPart[] = [];
+  let lastIndex = 0;
+  
+  // Find each hashtag position and split accordingly
+  for (const hashtag of hashtags) {
+    const hashtagIndex = text.indexOf(hashtag, lastIndex);
+    
+    // Add any text before the hashtag
+    if (hashtagIndex > lastIndex) {
+      result.push({ 
+        type: 'text' as const, 
+        content: text.substring(lastIndex, hashtagIndex)
+      });
+    }
+    
+    // Add the hashtag
+    result.push({ 
+      type: 'hashtag' as const, 
+      content: hashtag,
+      tag: hashtag.substring(1) // Store the tag without the # symbol
+    });
+    
+    lastIndex = hashtagIndex + hashtag.length;
+  }
+  
+  // Add any remaining text after the last hashtag
+  if (lastIndex < text.length) {
+    result.push({
+      type: 'text' as const,
+      content: text.substring(lastIndex)
+    });
+  }
+  
+  return result;
+};
+
+const PostItem = ({ item, navigation, handlePostLike, handleCommentAdded, timeAgo, renderCategoryIcon, BASE_URL, openReportModal, handleSharePost, isCurrentUserPost, currentUserRole, currentUser, handleHashtagPress }: PostItemProps) => {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   
-  const handleImagePress = (e) => {
+  const handleImagePress = (e: GestureResponderEvent) => {
     e.stopPropagation();
   };
   
@@ -99,6 +162,12 @@ const PostItem = ({ item, navigation, handlePostLike, handleCommentAdded, timeAg
   // Check if this post is from an advisor
   const isAdvisor = userData.role?.toUpperCase() === 'ADVISOR';
   
+  // Add the category display
+  const getCategoryLabel = (categoryValue: string) => {
+    const category = CATEGORIES.find(cat => cat.value === categoryValue);
+    return category ? category.label : 'أخرى';
+  };
+
   return (
     <TouchableOpacity
       style={[
@@ -109,21 +178,6 @@ const PostItem = ({ item, navigation, handlePostLike, handleCommentAdded, timeAg
       activeOpacity={0.8}
       onPress={() => navigation.navigate('PostDetail', { postId: item.id })}
     >
-      {/* Elegant advisor badge with refined styling */}
-      {isAdvisor && (
-        <View style={styles.advisorBadge}>
-          <LinearGradient
-            colors={['#3172FF', '#1F6AFF']}
-            start={[0, 0]}
-            end={[1, 0]}
-            style={styles.advisorBadgeGradient}
-          >
-            <MaterialIcons name="verified" size={14} color="#FFFFFF" />
-            <Text style={styles.advisorBadgeText}>ADVISOR</Text>
-          </LinearGradient>
-        </View>
-      )}
-      
       {/* Post Header with enhanced styling */}
       <View style={[
         styles.postHeader,
@@ -137,7 +191,7 @@ const PostItem = ({ item, navigation, handlePostLike, handleCommentAdded, timeAg
           ]}>
             {userData.profilePicture ? (
               <Image 
-                source={{ uri: getImageUrl(userData.profilePicture) }} 
+                source={{ uri: getImageUrl(userData.profilePicture) || '' }} 
                 style={styles.authorImage}
               />
             ) : (
@@ -164,17 +218,22 @@ const PostItem = ({ item, navigation, handlePostLike, handleCommentAdded, timeAg
                 {userData.username || 
                   (userData.firstName && userData.lastName 
                     ? `${userData.firstName} ${userData.lastName}`
-                    : 'Anonymous')}
+                    : 'مجهول')}
               </Text>
               
-              {/* Refined verification icon with subtle animation */}
+              {/* Replace the verified icon with the full advisor badge */}
               {isAdvisor && (
-                <MaterialIcons 
-                  name="verified" 
-                  size={16} 
-                  color="#1F6AFF" 
-                  style={styles.verifiedIcon}
-                />
+                <View style={styles.inlineAdvisorBadge}>
+                  <LinearGradient
+                    colors={['#3172FF', '#1F6AFF']}
+                    start={[0, 0]}
+                    end={[1, 0]}
+                    style={styles.inlineAdvisorBadgeGradient}
+                  >
+                    <MaterialIcons name="verified" size={12} color="#FFFFFF" />
+                    <Text style={styles.inlineAdvisorText}>مستشار</Text>
+                  </LinearGradient>
+                </View>
               )}
             </View>
             <Text style={[
@@ -186,13 +245,13 @@ const PostItem = ({ item, navigation, handlePostLike, handleCommentAdded, timeAg
           </View>
         </View>
         
-        {/* Category chip */}
-        {item.category && (
-          <View style={styles.categoryChipContainer}>
-            {renderCategoryIcon(item.category)}
-            <Text style={styles.categoryText}>{item.category}</Text>
-          </View>
-        )}
+        {/* Post category tag */}
+        <View style={styles.categoryTag}>
+          {renderCategoryIcon(item.category)}
+          <Text style={styles.categoryTagText}>
+            {getCategoryLabel(item.category)}
+          </Text>
+        </View>
       </View>
       
       {/* Content with refined typography for advisor posts */}
@@ -214,7 +273,22 @@ const PostItem = ({ item, navigation, handlePostLike, handleCommentAdded, timeAg
           ]} 
           numberOfLines={3}
         >
-          {item.description || ''}
+          {parseTextForHashtags(item.description).map((part, index) => (
+            part.type === 'hashtag' ? (
+              <Text 
+                key={index} 
+                style={styles.hashtag}
+                onPress={(e) => {
+                  e.stopPropagation(); // Prevent post navigation
+                  handleHashtagPress(part.tag || '');
+                }}
+              >
+                {part.content}
+              </Text>
+            ) : (
+              <Text key={index}>{part.content}</Text>
+            )
+          ))}
         </Text>
       </View>
       
@@ -239,7 +313,7 @@ const PostItem = ({ item, navigation, handlePostLike, handleCommentAdded, timeAg
               <Image 
                 key={index} 
                 source={{ 
-                  uri: getImageUrl(media.url)
+                  uri: getImageUrl(media.url) || ''
                 }} 
                 style={styles.postImage} 
                 resizeMode="cover"
@@ -344,29 +418,8 @@ const PostItem = ({ item, navigation, handlePostLike, handleCommentAdded, timeAg
 
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
 
-// Add proper types at the top of the file
-interface Author {
-  firstName?: string;
-  lastName?: string;
-  username: string;
-  profilePicture?: string;
-}
-
-interface Post {
-  id: string;
-  title: string;
-  description?: string;
-  category: string;
-  author: Author;
-  media?: Array<{ url: string }>;
-  createdAt: string;
-  likesCount: number;
-  commentsCount: number;
-  userLiked: boolean;
-}
-
-// Update the SearchBar component to a simpler version
-const SearchBar = ({ searchTerm, setSearchTerm }) => {
+// Update the SearchBar component with proper types
+const SearchBar = ({ searchTerm, setSearchTerm }: SearchBarProps) => {
   return (
     <View style={styles.searchContainer}>
       <MaterialIcons 
@@ -376,7 +429,7 @@ const SearchBar = ({ searchTerm, setSearchTerm }) => {
       />
       <TextInput
         style={styles.searchInput}
-        placeholder="Search posts..."
+        placeholder="ابحث عن منشورات..."
         placeholderTextColor={theme.colors.neutral.textSecondary}
         value={searchTerm}
         onChangeText={setSearchTerm}
@@ -395,10 +448,11 @@ const SearchBar = ({ searchTerm, setSearchTerm }) => {
 };
 
 const Blogs = () => {
-  const navigation = useNavigation();
+  const route = useRoute<RouteProp<ParamListBase, string>>();
+  const navigation = useNavigation<any>();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [newPost, setNewPost] = useState({
@@ -406,13 +460,13 @@ const Blogs = () => {
     description: '',
     category: 'CROPS'
   });
-  const [selectedImages, setSelectedImages] = useState([]);
+  const [selectedImages, setSelectedImages] = useState<ImageAsset[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [cameraPermission, setCameraPermission] = useState(null);
+  const [cameraPermission, setCameraPermission] = useState<boolean | null>(null);
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [reportReason, setReportReason] = useState('');
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
-  const [postToReport, setPostToReport] = useState(null);
+  const [postToReport, setPostToReport] = useState<Post | null>(null);
   const [customReason, setCustomReason] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -420,8 +474,9 @@ const Blogs = () => {
   const searchDebounceTimeout = useRef<NodeJS.Timeout | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [currentUser, setCurrentUser] = useState(null);
-  const [userRole, setUserRole] = useState(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [showAdvisorPostsOnly, setShowAdvisorPostsOnly] = useState(false);
   
   // Add the report reasons array
   const reportReasons = [
@@ -440,39 +495,41 @@ const Blogs = () => {
   }, []);
 
   // Fetch all posts from API (no filtering)
-  const fetchPosts = async () => {
+  const fetchPosts = async (refresh = false) => {
     try {
       setLoading(true);
-      setError(null);
-      
-      // Get current user for authorization header
-      const userData = await storage.getUser();
-      console.log('Current user data:', userData);
-      
-      // Set user data in state
-      if (userData) {
-        setCurrentUser(userData);
-        setUserRole(userData.role);
+      if (refresh) {
+        setRefreshing(true);
       }
       
-      // Make the API request with auth token if available
-      const token = userData?.token;
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      // Build the API URL with filter parameters
+      let url = `${API_URL}/posts?`;
       
-      const response = await axios.get(`${API_URL}/posts`, { headers });
-      
-      // Log the first post's complete data structure to see what we're receiving
-      if (response.data.length > 0) {
-        console.log('First post data structure:', JSON.stringify(response.data[0], null, 2));
-        console.log('User object in post:', response.data[0].user || response.data[0].author);
+      // Add category filter if not "all"
+      if (selectedCategory !== 'all') {
+        url += `category=${selectedCategory}&`;
       }
       
+      // Add search term if present
+      if (searchTerm) {
+        url += `search=${searchTerm}&`;
+      }
+      
+      // Add advisor filter if enabled
+      if (showAdvisorPostsOnly) {
+        url += 'advisorOnly=true&';
+      }
+      
+      console.log('Fetching posts from:', url);
+      
+      const response = await axios.get(url);
       setPosts(response.data);
-    } catch (err) {
-      console.error('Error fetching posts:', err);
-      setError('Failed to load posts. Please try again later.');
+    } catch (error) {
+      console.error('Error fetching posts:', error);
+      setError('فشل في تحميل المنشورات. الرجاء المحاولة مرة أخرى.');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -610,7 +667,7 @@ const Blogs = () => {
   };
 
   // Handler for removing an image
-  const removeImage = (index) => {
+  const removeImage = (index: number) => {
     const newImages = [...selectedImages];
     newImages.splice(index, 1);
     setSelectedImages(newImages);
@@ -626,37 +683,31 @@ const Blogs = () => {
     try {
       setSubmitting(true);
       
-      // Create form data with strict null checking
       const formData = new FormData();
       formData.append('title', newPost.title.trim());
       formData.append('description', newPost.description.trim());
       formData.append('category', newPost.category || 'Question');
       
-      // Safely append images with null checks
-      if (selectedImages && selectedImages.length > 0) {
+      // Handle image uploads with proper typing
+      if (selectedImages.length > 0) {
         selectedImages.forEach((image, index) => {
-          if (!image || !image.uri) return; // Skip invalid images
-          
           const uriParts = image.uri.split('/');
           const fileName = uriParts[uriParts.length - 1] || `image_${index}.jpg`;
           
-          // Default to jpeg if can't determine type
-          const fileType = image.uri.endsWith('.png') ? 'image/png' : 'image/jpeg';
-          
           formData.append('images', {
             uri: image.uri,
+            type: image.type || 'image/jpeg',
             name: fileName,
-            type: fileType
-          });
+          } as any); // Use type assertion for FormData compatibility
         });
       }
-      
+
       await axios.post(`${API_URL}/posts`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
-      
+
       // Reset form and fetch posts
       setNewPost({
         title: '',
@@ -667,9 +718,9 @@ const Blogs = () => {
       setModalVisible(false);
       fetchPosts();
       
-      Alert.alert('Success', 'Your post has been created!');
-    } catch (err) {
-      console.error('Error creating post:', err);
+      Alert.alert('نجاح', 'تم نشر المنشور بنجاح!');
+    } catch (error: unknown) {
+      console.error('Error creating post:', error);
       Alert.alert('Error', 'Failed to create post. Please try again.');
     } finally {
       setSubmitting(false);
@@ -677,19 +728,19 @@ const Blogs = () => {
   };
 
   // Render time ago from date
-  const timeAgo = (date) => {
+  const timeAgo = (date: string) => {
     const now = new Date();
     const postDate = new Date(date);
     const diffInSeconds = Math.floor((now.getTime() - postDate.getTime()) / 1000);
     
-    if (diffInSeconds < 60) return `${diffInSeconds}s ago`;
-    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
-    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
-    return `${Math.floor(diffInSeconds / 86400)}d ago`;
+    if (diffInSeconds < 60) return `منذ ${diffInSeconds} ثانية`;
+    if (diffInSeconds < 3600) return `منذ ${Math.floor(diffInSeconds / 60)} دقيقة`;
+    if (diffInSeconds < 86400) return `منذ ${Math.floor(diffInSeconds / 3600)} ساعة`;
+    return `منذ ${Math.floor(diffInSeconds / 86400)} يوم`;
   };
 
   // Render category icon
-  const renderCategoryIcon = (category) => {
+  const renderCategoryIcon = (category: string) => {
     const categoryConfig = CATEGORIES.find(c => c.value === category);
     if (!categoryConfig) return null;
 
@@ -697,7 +748,7 @@ const Blogs = () => {
       case 'material':
         return (
           <MaterialCommunityIcons 
-            name={categoryConfig.icon} 
+            name={categoryConfig.icon as any} 
             size={24} 
             color={theme.colors.primary.base}
             style={styles.categoryIcon} 
@@ -718,7 +769,7 @@ const Blogs = () => {
   };
 
   // Add a function to handle post likes within the Blogs component
-  const handlePostLike = async (postId) => {
+  const handlePostLike = async (postId: string) => {
     // Skip API calls for duplicated posts
     if (postId.toString().includes('enhanced-')) {
       // Extract the original post ID
@@ -749,7 +800,7 @@ const Blogs = () => {
   };
 
   // Now use this simplified renderPostItem that returns our PostItem component
-  const renderPostItem = ({ item }) => {
+  const renderPostItem = ({ item }: { item: Post }) => {
     const isCurrentUserPost = currentUser && item.userId === currentUser.id;
     
     return (
@@ -766,12 +817,13 @@ const Blogs = () => {
         isCurrentUserPost={isCurrentUserPost}
         currentUserRole={userRole}
         currentUser={currentUser}
+        handleHashtagPress={handleHashtagPress}
       />
     );
   };
 
   // Function to handle comment additions
-  const handleCommentAdded = (postId) => {
+  const handleCommentAdded = (postId: string) => {
     // Update the post's comment count in state
     setPosts(prevPosts => prevPosts.map(post => {
       if (post.id === postId) {
@@ -786,33 +838,35 @@ const Blogs = () => {
 
   // Add a function to handle reporting
   const handleReportPost = async () => {
-    if (!reportReason || (reportReason === 'Other' && !customReason)) {
-      Alert.alert('Error', 'Please provide a reason for reporting this post');
+    if (!postToReport) {
+      console.error('No post selected to report');
       return;
     }
-    
-    setIsSubmittingReport(true);
-    
+
     try {
+      setIsSubmittingReport(true);
+      
       await axios.post(`${API_URL}/posts/${postToReport.id}/report`, {
         reason: reportReason === 'Other' ? customReason : reportReason
       });
       
+      // Close the modal and show success message
       setReportModalVisible(false);
+      setPostToReport(null);
       setReportReason('');
       setCustomReason('');
-      setPostToReport(null);
-      Alert.alert('Success', 'Thank you for your report. Our team will review it shortly.');
+      setIsSubmittingReport(false);
+      
+      Alert.alert('Thank you', 'Your report has been submitted and will be reviewed.');
     } catch (error) {
-      console.error('Error reporting post:', error);
-      Alert.alert('Error', 'Failed to submit report. Please try again later.');
-    } finally {
+      console.error('Error submitting report:', error);
+      Alert.alert('Error', 'Failed to submit report. Please try again.');
       setIsSubmittingReport(false);
     }
   };
 
   // Add a function to open the report modal
-  const openReportModal = (post) => {
+  const openReportModal = (post: Post) => {
     setPostToReport(post);
     setReportModalVisible(true);
   };
@@ -830,7 +884,7 @@ const Blogs = () => {
   }, [navigation]);
 
   // Update the handleSharePost function
-  const handleSharePost = async (post) => {
+  const handleSharePost = async (post: Post) => {
     try {
       // Include post author if available
       const author = post.author?.firstName 
@@ -848,7 +902,7 @@ const Blogs = () => {
       }
 
       // Configure share options based on platform
-      const shareOptions = Platform.select({
+      const shareOptions: any = Platform.select({
         ios: {
           activityItemSources: [
             {
@@ -860,7 +914,7 @@ const Blogs = () => {
                 title: title,
               },
             },
-            imageUrl && {
+            ...(imageUrl ? [{
               placeholderItem: { type: 'url', content: imageUrl },
               item: {
                 default: { type: 'url', content: imageUrl },
@@ -869,13 +923,13 @@ const Blogs = () => {
                 title: title,
                 icon: imageUrl
               },
-            },
+            }] : []),
           ].filter(Boolean),
         },
         android: {
           title,
           message,
-          ...(imageUrl && { url: imageUrl }),
+          ...(imageUrl ? { url: imageUrl } : {}),
         },
         default: {
           title,
@@ -883,18 +937,13 @@ const Blogs = () => {
         },
       });
 
-      const result = await Share.share(shareOptions, {
-        dialogTitle: 'Share this post',
-        subject: title,
-      });
+      const result = await RNShare.share(shareOptions);
 
-      if (result.action === Share.sharedAction) {
+      if (result.action === RNShare.sharedAction) {
         if (result.activityType) {
-          console.log('Shared with activity type:', result.activityType);
-        } else {
-          console.log('Shared successfully');
+          console.log('Post shared successfully');
         }
-      } else if (result.action === Share.dismissedAction) {
+      } else if (result.action === RNShare.dismissedAction) {
         console.log('Share dialog dismissed');
       }
     } catch (error) {
@@ -908,10 +957,17 @@ const Blogs = () => {
 
   // Add this function to get filtered posts with improved searching
   const getFilteredPosts = useMemo(() => {
-    console.log('Filtering posts with:', { searchTerm, selectedCategory });
+    console.log('Filtering posts with:', { searchTerm, selectedCategory, showAdvisorPostsOnly });
     
     // Start with all posts
     let filtered = [...posts];
+    
+    // Apply advisor filter if enabled
+    if (showAdvisorPostsOnly) {
+      filtered = filtered.filter(post => 
+        post.user?.role === 'ADVISOR' || post.author?.role === 'ADVISOR'
+      );
+    }
     
     // Apply category filter if not "all"
     if (selectedCategory !== 'all') {
@@ -939,7 +995,7 @@ const Blogs = () => {
     }
     
     return filtered;
-  }, [posts, searchTerm, selectedCategory]);
+  }, [posts, searchTerm, selectedCategory, showAdvisorPostsOnly]);
 
   // Prepare data for FlatList with enhanced advisor visibility
   const enhancedPostsData = useMemo(() => {
@@ -980,7 +1036,7 @@ const Blogs = () => {
         style={[
           styles.categoryChip,
           selectedCategory === 'all' && styles.categoryChipSelected,
-          { marginLeft: 16 } // Add left margin to first item
+          { marginLeft: 16 }
         ]}
         onPress={() => handleCategoryChange('all')}
         activeOpacity={0.7}
@@ -998,7 +1054,7 @@ const Blogs = () => {
           styles.categoryChipText,
           selectedCategory === 'all' && styles.categoryChipTextSelected
         ]}>
-          All
+          الكل
         </Text>
       </TouchableOpacity>
       
@@ -1014,7 +1070,7 @@ const Blogs = () => {
         >
           {category.iconType === 'material' ? (
             <MaterialCommunityIcons
-              name={category.icon}
+              name={category.icon as any}
               size={18}
               color={selectedCategory === category.value ? 
                 theme.colors.neutral.surface : 
@@ -1045,7 +1101,7 @@ const Blogs = () => {
   );
 
   // Enhanced search function
-  const handleSearch = (text) => {
+  const handleSearch = (text: string) => {
     // Update search term state
     setSearchTerm(text);
     
@@ -1086,7 +1142,7 @@ const Blogs = () => {
   };
 
   // Category selection function
-  const handleCategoryChange = (category) => {
+  const handleCategoryChange = (category: string) => {
     // If selecting the same category, reset to 'all'
     if (selectedCategory === category && category !== 'all') {
       setSelectedCategory('all');
@@ -1094,20 +1150,47 @@ const Blogs = () => {
     } else {
       setSelectedCategory(category);
       console.log('Filtering by category:', category);
-      
-      // Optional: You could make a specific API call here to filter on the server
-      // For example:
-      // if (category !== 'all') {
-      //   fetchPostsByCategory(category);
-      // } else {
-      //   fetchPosts();
     }
+  };
+
+  // Keep only the handleHashtagPress function inside Blogs
+  const handleHashtagPress = (tag: string) => {
+    // Remove the # symbol if present
+    const cleanTag = tag.startsWith('#') ? tag.substring(1) : tag;
     
-    // Reset search if implementing combined filtering
-    // setSearchTerm('');
-    
-    // Reset to first page if implementing pagination
-    // setCurrentPage(1);
+    // Set search term and trigger search
+    setSearchTerm(cleanTag);
+  };
+
+  // Update the useEffect to safely check for params
+  useEffect(() => {
+    // Check if route and route.params exist and properly typecast
+    const params = route.params as RouteParams | undefined;
+    if (params?.searchTerm && params?.searchByHashtag) {
+      setSearchTerm(params.searchTerm);
+      // Clear the params to avoid repeated searches
+      navigation.setParams({ searchTerm: undefined, searchByHashtag: undefined });
+    }
+  }, [route, route?.params]);
+
+  // First create a dedicated component
+  const EmptyListComponent = () => {
+    if (loading) return null;
+    return (
+      <View style={styles.emptyContainer}>
+        <MaterialCommunityIcons 
+          name="text-box-remove-outline" 
+          size={64} 
+          color={theme.colors.neutral.gray.light} 
+        />
+        <Text style={styles.emptyTitle}>No posts found</Text>
+        <Text style={styles.emptyText}>
+          {searchTerm 
+            ? 'Try a different search term or category'
+            : 'Be the first to share something with the community!'}
+        </Text>
+      </View>
+    );
   };
 
   return (
@@ -1121,20 +1204,65 @@ const Blogs = () => {
       ) : error ? (
         <View style={styles.centerContainer}>
           <Text style={styles.errorText}>{error}</Text>
-          <Button title="Try Again" onPress={fetchPosts} style={{ marginTop: 16 }} />
+          <View style={{ marginTop: 16 }}>
+            <Button title="Try Again" onPress={() => fetchPosts()} />
+          </View>
         </View>
       ) : (
         <AnimatedFlatList
-          data={getFilteredPosts}
-          renderItem={renderPostItem}
-          keyExtractor={item => item.id.toString()}
+          data={getFilteredPosts as Post[]}
+          renderItem={renderPostItem as any}
+          keyExtractor={(item: any) => item.id.toString()}
           contentContainerStyle={styles.postsList}
           showsHorizontalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="none"
           ListHeaderComponent={
             <>
-              <SearchBar searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+              <View style={styles.headerContainer}>
+                <View style={styles.searchFilterRow}>
+                  <View style={styles.searchContainer}>
+                    <MaterialIcons 
+                      name="search" 
+                      size={24} 
+                      color={theme.colors.neutral.textSecondary} 
+                    />
+                    <TextInput
+                      ref={searchInputRef}
+                      style={styles.searchInput}
+                      placeholder="ابحث عن منشورات..."
+                      placeholderTextColor={theme.colors.neutral.textSecondary}
+                      value={searchTerm}
+                      onChangeText={handleSearch}
+                    />
+                    {searchTerm ? (
+                      <TouchableOpacity onPress={() => setSearchTerm('')}>
+                        <MaterialIcons 
+                          name="close" 
+                          size={20} 
+                          color={theme.colors.neutral.textSecondary} 
+                        />
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                  
+                  {/* Advisor filter button - blue circular design */}
+                  <TouchableOpacity 
+                    style={[
+                      styles.advisorFilterToggle,
+                      showAdvisorPostsOnly && styles.advisorFilterToggleActive
+                    ]}
+                    onPress={() => setShowAdvisorPostsOnly(prev => !prev)}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialIcons 
+                      name="verified" 
+                      size={22} 
+                      color={showAdvisorPostsOnly ? "#FFFFFF" : "#1A73E8"} 
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
               {isSearching && (
                 <View style={styles.searchingIndicator}>
                   <ActivityIndicator size="small" color={theme.colors.primary.base} />
@@ -1156,25 +1284,7 @@ const Blogs = () => {
             { useNativeDriver: true }
           )}
           scrollEventThrottle={16}
-          ListEmptyComponent={
-            !loading && (
-              <View style={styles.emptyContainer}>
-                <MaterialCommunityIcons 
-                  name={searchTerm ? "file-search-outline" : "post-outline"}
-                  size={48} 
-                  color={theme.colors.neutral.textSecondary} 
-                />
-                <Text style={styles.emptyTitle}>
-                  {searchTerm ? "No matching posts found" : "No posts yet"}
-                </Text>
-                <Text style={styles.emptyText}>
-                  {searchTerm 
-                    ? "Try adjusting your search or category filter"
-                    : "Be the first to share something with the community!"}
-                </Text>
-              </View>
-            )
-          }
+          ListEmptyComponent={EmptyListComponent}
         />
       )}
       
@@ -1185,7 +1295,7 @@ const Blogs = () => {
         activeOpacity={0.8}
       >
         <MaterialIcons name="verified-user" size={24} color="white" />
-        <Text style={styles.askCommunityText}>Become an Advisor</Text>
+        <Text style={styles.askCommunityText}>كن مستشاراً</Text>
       </TouchableOpacity>
       
       {/* Ask Community button with verified badge overlay */}
@@ -1205,7 +1315,7 @@ const Blogs = () => {
           activeOpacity={0.8}
         >
           <MaterialCommunityIcons name="comment-question-outline" size={24} color="white" />
-          <Text style={styles.askCommunityText}>Ask Community</Text>
+          <Text style={styles.askCommunityText}>اسأل المجتمع</Text>
         </TouchableOpacity>
       </View>
       
@@ -1221,7 +1331,7 @@ const Blogs = () => {
             <TouchableOpacity onPress={() => setModalVisible(false)}>
               <Feather name="x" size={24} color={theme.colors.neutral.textSecondary} />
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>Create Post</Text>
+            <Text style={styles.modalTitle}>إنشاء منشور جديد</Text>
             <TouchableOpacity 
               onPress={createPost}
               disabled={submitting || !newPost.title.trim()}
@@ -1233,7 +1343,7 @@ const Blogs = () => {
               {submitting ? (
                 <ActivityIndicator size="small" color={theme.colors.neutral.surface} />
               ) : (
-                <Text style={styles.modalSubmitButtonText}>Post</Text>
+                <Text style={styles.modalSubmitButtonText}>نشر</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -1245,7 +1355,7 @@ const Blogs = () => {
             <ScrollView style={styles.modalContent}>
               <TextInput
                 style={styles.titleInput}
-                placeholder="Title"
+                placeholder="العنوان"
                 placeholderTextColor={theme.colors.neutral.gray.base}
                 value={newPost.title}
                 onChangeText={title => setNewPost(prev => ({ ...prev, title }))}
@@ -1254,14 +1364,14 @@ const Blogs = () => {
               
               <TextInput
                 style={styles.descriptionInput}
-                placeholder="What would you like to share?"
+                placeholder="ماذا تريد أن تشارك؟"
                 placeholderTextColor={theme.colors.neutral.gray.base}
                 value={newPost.description}
                 onChangeText={description => setNewPost(prev => ({ ...prev, description }))}
                 multiline
               />
               
-              <Text style={styles.sectionLabel}>Category</Text>
+              <Text style={styles.sectionLabel}>الفئة</Text>
               <View style={styles.categoryOptions}>
                 {CATEGORIES.map(category => (
                   <TouchableOpacity
@@ -1274,7 +1384,7 @@ const Blogs = () => {
                   >
                     {category.iconType === 'feather' ? (
                       <Feather 
-                        name={category.icon} 
+                        name={category.icon as any} 
                         size={16} 
                         color={newPost.category === category.value ? 
                           theme.colors.neutral.surface : 
@@ -1283,7 +1393,7 @@ const Blogs = () => {
                       />
                     ) : (
                       <MaterialCommunityIcons 
-                        name={category.icon} 
+                        name={category.icon as any} 
                         size={16} 
                         color={newPost.category === category.value ? 
                           theme.colors.neutral.surface : 
@@ -1303,8 +1413,8 @@ const Blogs = () => {
               
               <Text style={styles.sectionLabel}>Add Photos</Text>
               <TouchableOpacity style={styles.imagePickerButton} onPress={showImageOptions}>
-                <MaterialIcons name="add-photo-alternate" size={24} color={theme.colors.primary.base} />
-                <Text style={styles.imagePickerText}>Add Images</Text>
+                <AntDesign name="camera" size={24} color={theme.colors.primary.base} />
+                <Text style={styles.imagePickerText}>إضافة صور</Text>
               </TouchableOpacity>
               
               <ScrollView 
@@ -1343,7 +1453,7 @@ const Blogs = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.reportModalContainer}>
             <View style={styles.reportModalHeader}>
-              <Text style={styles.reportModalTitle}>Report Post</Text>
+              <Text style={styles.reportModalTitle}>الإبلاغ عن منشور</Text>
               <TouchableOpacity 
                 onPress={() => {
                   setReportModalVisible(false);
@@ -1355,38 +1465,59 @@ const Blogs = () => {
               </TouchableOpacity>
             </View>
             
-            <Text style={styles.reportModalSubtitle}>Why are you reporting this post?</Text>
+            <Text style={styles.reportModalSubtitle}>لماذا تريد الإبلاغ عن هذا المنشور؟</Text>
             
             <ScrollView style={styles.reportReasonsList}>
-              {reportReasons.map((reason) => (
-                <TouchableOpacity
-                  key={reason}
-                  style={[
-                    styles.reportReasonItem,
-                    reportReason === reason && styles.reportReasonItemSelected
-                  ]}
-                  onPress={() => setReportReason(reason)}
-                >
-                  <Text style={styles.reportReasonText}>{reason}</Text>
-                  {reportReason === reason && (
-                    <MaterialCommunityIcons name="check" size={20} color={theme.colors.primary.base} />
-                  )}
-                </TouchableOpacity>
-              ))}
+              <TouchableOpacity
+                style={[
+                  styles.reportOption,
+                  reportReason === 'Inappropriate Content' && styles.reportOptionSelected
+                ]}
+                onPress={() => setReportReason('Inappropriate Content')}
+              >
+                <Text style={styles.reportOptionText}>محتوى غير لائق</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.reportOption,
+                  reportReason === 'Spam' && styles.reportOptionSelected
+                ]}
+                onPress={() => setReportReason('Spam')}
+              >
+                <Text style={styles.reportOptionText}>بريد مزعج</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.reportOption,
+                  reportReason === 'Misleading Information' && styles.reportOptionSelected
+                ]}
+                onPress={() => setReportReason('Misleading Information')}
+              >
+                <Text style={styles.reportOptionText}>معلومات مضللة</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.reportOption,
+                  reportReason === 'Other' && styles.reportOptionSelected
+                ]}
+                onPress={() => setReportReason('Other')}
+              >
+                <Text style={styles.reportOptionText}>أخرى</Text>
+              </TouchableOpacity>
             </ScrollView>
             
-            {/* Add custom reason input when 'Other' is selected */}
             {reportReason === 'Other' && (
-              <View style={styles.customReasonContainer}>
-                <TextInput
-                  style={styles.customReasonInput}
-                  placeholder="Please specify your reason"
-                  value={customReason}
-                  onChangeText={setCustomReason}
-                  multiline
-                  maxLength={200}
-                />
-              </View>
+              <TextInput
+                style={styles.customReasonInput}
+                placeholder="يرجى تقديم سبب..."
+                placeholderTextColor={theme.colors.neutral.gray.base}
+                value={customReason}
+                onChangeText={setCustomReason}
+                multiline
+              />
             )}
             
             <View style={styles.reportModalActions}>
@@ -1403,9 +1534,9 @@ const Blogs = () => {
               
               <TouchableOpacity
                 style={[
-                  styles.reportSubmitButton,
+                  styles.submitReportButton,
                   (!reportReason || (reportReason === 'Other' && !customReason) || isSubmittingReport) && 
-                    styles.reportSubmitButtonDisabled
+                    styles.submitReportButtonDisabled
                 ]}
                 onPress={handleReportPost}
                 disabled={!reportReason || (reportReason === 'Other' && !customReason) || isSubmittingReport}
@@ -1413,7 +1544,7 @@ const Blogs = () => {
                 {isSubmittingReport ? (
                   <ActivityIndicator size="small" color="white" />
                 ) : (
-                  <Text style={styles.reportSubmitButtonText}>Submit</Text>
+                  <Text style={styles.submitReportButtonText}>إرسال</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -1745,7 +1876,9 @@ const styles = StyleSheet.create({
     fontSize: theme.fontSizes.body,
   },
   errorText: {
-    color: theme.colors.error.text,
+    color: typeof theme.colors.error === 'object' && theme.colors.error !== null
+      ? (theme.colors.error as any).text || '#FF0000'
+      : '#FF0000',
     fontSize: theme.fontSizes.body,
     fontFamily: theme.fonts.regular,
     marginBottom: theme.spacing.md,
@@ -1771,7 +1904,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   reportModalTitle: {
-    fontSize: theme.fontSizes.h3,
+    fontSize: theme.fontSizes.body, // Use available size
     fontFamily: theme.fonts.medium,
     color: theme.colors.neutral.textPrimary,
   },
@@ -1784,7 +1917,7 @@ const styles = StyleSheet.create({
   reportReasonsList: {
     maxHeight: 300,
   },
-  reportReasonItem: {
+  reportOption: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -1793,10 +1926,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.neutral.gray.light,
   },
-  reportReasonItemSelected: {
-    backgroundColor: theme.colors.primary.fade,
+  reportOptionSelected: {
+    backgroundColor: theme.colors.primary.light, // Use available color
   },
-  reportReasonText: {
+  reportOptionText: {
     fontSize: theme.fontSizes.body,
     fontFamily: theme.fonts.regular,
     color: theme.colors.neutral.textPrimary,
@@ -1816,26 +1949,19 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.medium,
     color: theme.colors.neutral.textSecondary,
   },
-  reportSubmitButton: {
+  submitReportButton: {
     backgroundColor: theme.colors.primary.base,
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: theme.borderRadius.small,
   },
-  reportSubmitButtonDisabled: {
+  submitReportButtonDisabled: {
     backgroundColor: theme.colors.primary.disabled,
   },
-  reportSubmitButtonText: {
+  submitReportButtonText: {
     fontSize: theme.fontSizes.button,
     fontFamily: theme.fonts.medium,
     color: theme.colors.neutral.surface,
-  },
-  customReasonContainer: {
-    marginTop: 16,
-    marginBottom: 8,
-    padding: 16,
-    backgroundColor: theme.colors.neutral.gray.lighter,
-    borderRadius: theme.borderRadius.medium,
   },
   customReasonInput: {
     minHeight: 80,
@@ -1851,7 +1977,7 @@ const styles = StyleSheet.create({
   },
   actionText: {
     marginLeft: 4,
-    fontSize: theme.fontSizes.small,
+    fontSize: theme.fontSizes.caption, // Use available size
     color: theme.colors.neutral.textSecondary,
   },
   categoryContainer: {
@@ -1907,7 +2033,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   categoryChipText: {
-    color: theme.colors.primary.base,
+    color: theme.colors.neutral.surface,
     fontSize: 14,
     fontFamily: theme.fonts.medium,
   },
@@ -1922,14 +2048,21 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 8,
   },
+  searchFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+  },
   searchContainer: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.neutral.surface,
     borderRadius: theme.borderRadius.medium,
     paddingHorizontal: 12,
-    margin: 16,
-    marginBottom: 8,
+    marginRight: 12,
     borderWidth: 1,
     borderColor: theme.colors.neutral.border,
     shadowColor: '#000',
@@ -2013,68 +2146,37 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#1a73e8',
+    backgroundColor: '#6D7B93',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  advisorImageInitial: {
+  authorImageInitial: {
     color: 'white',
     fontSize: 18,
-    fontFamily: theme.fonts.bold,
-    textShadowColor: 'rgba(0, 0, 0, 0.2)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 1,
+    fontWeight: 'bold',
   },
   advisorName: {
     color: '#1a73e8',
-    fontFamily: theme.fonts.semibold,
+    fontFamily: theme.fonts.bold, // Use available font weight
     fontSize: 16,
   },
-  verifiedIcon: {
-    marginLeft: 4,
-    color: '#1a73e8',
-  },
-  advisorPostTime: {
-    color: '#5D82B3',
-  },
-  advisorPostContent: {
-    padding: 16,
-    backgroundColor: 'rgba(240, 247, 255, 0.3)',
-  },
-  advisorPostTitle: {
-    color: '#0B3D96',
-    fontFamily: theme.fonts.bold,
-    fontSize: 18,
-    letterSpacing: 0.3,
-  },
-  advisorPostDescription: {
-    color: '#2B5C9E',
-    fontFamily: theme.fonts.regular,
-    lineHeight: 22,
-  },
-  advisorBadge: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    borderRadius: 50,
+  inlineAdvisorBadge: {
+    marginLeft: 6,
+    borderRadius: 16,
     overflow: 'hidden',
-    elevation: 2,
-    zIndex: 10,
   },
-  advisorBadgeGradient: {
+  inlineAdvisorBadgeGradient: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 50,
-    backgroundColor: '#1a73e8',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 16,
   },
-  advisorBadgeText: {
+  inlineAdvisorText: {
     color: 'white',
-    fontSize: 14,
+    fontSize: 11,
     fontFamily: theme.fonts.medium,
-    marginLeft: 6,
+    marginLeft: 3,
   },
   searchingIndicator: {
     flexDirection: 'row',
@@ -2095,6 +2197,87 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 20,
     backgroundColor: 'rgba(0,0,0,0.05)',
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    marginBottom: 8,
+  },
+  advisorFilterToggle: {
+    width: 48, 
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(30, 115, 232, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(30, 115, 232, 0.3)',
+  },
+  advisorFilterToggleActive: {
+    backgroundColor: '#1A73E8', // Solid blue when active (like the Become Advisor button)
+    borderColor: '#FFFFFF',
+  },
+  hashtag: {
+    color: theme.colors.primary.base,
+    fontWeight: '600',
+  },
+  toggleLabel: {
+    color: theme.colors.primary.base,
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.medium,
+  },
+  fabText: {
+    color: theme.colors.neutral.surface,
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.medium,
+  },
+  authorImagePlaceholder: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#6D7B93',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  advisorPostTime: {
+    color: '#1a73e8',
+    fontSize: 12,
+  },
+  categoryTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(30, 115, 232, 0.08)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 16,
+  },
+  categoryTagText: {
+    fontSize: 12,
+    color: '#1a73e8',
+    marginLeft: 4,
+  },
+  advisorPostContent: {
+    paddingHorizontal: 14,
+    paddingBottom: 14,
+  },
+  advisorPostTitle: {
+    color: '#1a73e8',
+    fontSize: 17,
+    fontWeight: 'bold',
+  },
+  advisorPostDescription: {
+    color: '#385777',
+  },
+  postAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 16,
+    padding: 4,
+  },
+  categoryChipIcon: {
+    marginRight: 4,
   },
 });
 

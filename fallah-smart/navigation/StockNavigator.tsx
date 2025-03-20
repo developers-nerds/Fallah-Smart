@@ -63,6 +63,7 @@ import AddFertilizerScreen from '../screens/Stock/Fertilizers/AddFertilizer';
 
 import AdvisorApplicationScreen from '../screens/Advisor/AdvisorApplicationScreen';
 import { useTranslation } from 'react-i18next';
+import { SupplierRegistrationForm } from '../screens/form/form';
 
 const Stack = createStackNavigator<StockStackParamList>();
 
@@ -95,183 +96,188 @@ export const StockNavigator = () => {
                 <HarvestProvider>
                   <FertilizerProvider>
                     <Stack.Navigator screenOptions={screenOptions}>
-                      <Stack.Screen 
-                        name="Login" 
+                      <Stack.Screen
+                        name="Login"
                         component={Login}
                         options={{ headerShown: true }}
                       />
-                      <Stack.Screen 
-                        name="Register" 
+                      <Stack.Screen
+                        name="Register"
                         component={Register}
                         options={{ headerShown: true }}
                       />
-                      <Stack.Screen 
-                        name="StockTab" 
+                      <Stack.Screen
+                        name="StockTab"
                         component={TabBar}
                         options={{ title: 'مخزوني', headerShown: false }}
                       />
-                      <Stack.Screen 
-                        name="StockList" 
+                      <Stack.Screen
+                        name="StockList"
                         component={StockScreen}
                         options={{
                           title: t('stock.title'),
                         }}
                       />
-                      <Stack.Screen 
-                        name="StockDetail" 
+                      <Stack.Screen
+                        name="StockDetail"
                         component={StockDetail}
                         options={{ title: 'تفاصيل المخزون', headerShown: true }}
                       />
                       <Stack.Screen name="AddStock">
-                        {(props) => (
-                          <AddStockScreenContainer 
-                            {...props}
-                          />
-                        )}
+                        {(props) => <AddStockScreenContainer {...props} />}
                       </Stack.Screen>
-                      <Stack.Screen 
-                        name="Animals" 
+                      <Stack.Screen
+                        name="Animals"
                         component={AnimalsScreen}
                         options={{
                           title: 'حيواناتي',
                         }}
                       />
-                      <Stack.Screen 
-                        name="AddAnimal" 
+                      <Stack.Screen
+                        name="AddAnimal"
                         component={AddAnimalScreen}
                         options={{
                           title: 'إضافة حيوان',
                         }}
                       />
-                      <Stack.Screen 
-                        name="AnimalDetail" 
+                      <Stack.Screen
+                        name="AnimalDetail"
                         component={AnimalDetailScreen}
                         options={{
                           title: 'تفاصيل الحيوان',
                         }}
                       />
-                      <Stack.Screen 
-                        name="PesticideList" 
+                      <Stack.Screen
+                        name="PesticideList"
                         component={PesticideListScreen}
                         options={{ title: 'قائمة المبيدات', headerShown: true }}
                       />
-                      <Stack.Screen 
-                        name="PesticideDetail" 
+                      <Stack.Screen
+                        name="PesticideDetail"
                         component={PesticideDetail}
                         options={{ title: 'تفاصيل المبيد', headerShown: true }}
                       />
-                      <Stack.Screen 
-                        name="AddPesticide" 
+                      <Stack.Screen
+                        name="AddPesticide"
                         component={AddPesticideScreen}
                         options={{ title: 'إضافة مبيد', headerShown: true }}
                       />
-                      <Stack.Screen 
-                        name="EditPesticide" 
+                      <Stack.Screen
+                        name="EditPesticide"
                         component={EditPesticideScreen}
                         options={{ title: 'تعديل المبيد', headerShown: true }}
                       />
-                      <Stack.Screen 
-                        name="ToolList" 
+                      <Stack.Screen
+                        name="ToolList"
                         component={ToolListScreen}
                         options={{ title: 'قائمة الأدوات', headerShown: true }}
                       />
-                      <Stack.Screen 
-                        name="ToolDetail" 
+                      <Stack.Screen
+                        name="ToolDetail"
                         component={ToolDetailScreen}
                         options={{ title: 'تفاصيل الأداة', headerShown: true }}
                       />
-                      <Stack.Screen 
-                        name="AddTool" 
+                      <Stack.Screen
+                        name="AddTool"
                         component={AddToolScreen}
                         options={{ title: 'إضافة أداة', headerShown: true }}
                       />
-                      <Stack.Screen 
-                        name="EquipmentList" 
+                      <Stack.Screen
+                        name="EquipmentList"
                         component={EquipmentListScreen}
                         options={{ title: 'قائمة المعدات', headerShown: true }}
                       />
-                      <Stack.Screen 
-                        name="EquipmentDetail" 
+                      <Stack.Screen
+                        name="EquipmentDetail"
                         component={EquipmentDetailScreen}
                         options={{ title: 'تفاصيل المعدة', headerShown: true }}
                       />
-                      <Stack.Screen 
-                        name="AddEquipment" 
+                      <Stack.Screen
+                        name="AddEquipment"
                         component={AddEquipmentScreen}
                         options={{ title: 'إضافة معدة', headerShown: true }}
                       />
-                      <Stack.Screen 
-                        name="SeedList" 
+                      <Stack.Screen
+                        name="SeedList"
                         component={SeedListScreen}
                         options={{ title: 'قائمة البذور', headerShown: true }}
                       />
-                      <Stack.Screen 
-                        name="SeedDetail" 
+                      <Stack.Screen
+                        name="SeedDetail"
                         component={SeedDetailScreen}
                         options={{ title: 'تفاصيل البذور', headerShown: true }}
                       />
-                      <Stack.Screen 
-                        name="AddSeed" 
+                      <Stack.Screen
+                        name="AddSeed"
                         component={AddSeedScreen}
                         options={{ title: 'إضافة بذور', headerShown: true }}
                       />
-                      <Stack.Screen 
-                        name="FeedList" 
+                      <Stack.Screen
+                        name="FeedList"
                         component={FeedListScreen}
                         options={{ title: 'قائمة الأعلاف', headerShown: true }}
                       />
-                      <Stack.Screen 
-                        name="FeedDetail" 
+                      <Stack.Screen
+                        name="FeedDetail"
                         component={FeedDetailScreen}
                         options={{ title: 'تفاصيل العلف', headerShown: true }}
                       />
-                      <Stack.Screen 
-                        name="AddFeed" 
+                      <Stack.Screen
+                        name="AddFeed"
                         component={AddFeedScreen}
                         options={{ title: 'إضافة علف', headerShown: true }}
                       />
-                      <Stack.Screen 
-                        name="HarvestList" 
+                      <Stack.Screen
+                        name="HarvestList"
                         component={HarvestListScreen}
                         options={{ title: 'قائمة المحاصيل', headerShown: true }}
                       />
-                      <Stack.Screen 
-                        name="HarvestDetail" 
+                      <Stack.Screen
+                        name="HarvestDetail"
                         component={HarvestDetailScreen}
                         options={{ title: 'تفاصيل المحصول', headerShown: true }}
                       />
-                      <Stack.Screen 
-                        name="AddHarvest" 
+                      <Stack.Screen
+                        name="AddHarvest"
                         component={AddHarvestScreen}
                         options={{ title: 'إضافة محصول', headerShown: true }}
                       />
-                      <Stack.Screen 
-                        name="FertilizerList" 
+                      <Stack.Screen
+                        name="FertilizerList"
                         component={FertilizerListScreen}
                         options={{ title: 'قائمة الأسمدة', headerShown: true }}
                       />
-                      <Stack.Screen 
-                        name="FertilizerDetail" 
+                      <Stack.Screen
+                        name="FertilizerDetail"
                         component={FertilizerDetailScreen}
                         options={{ title: 'تفاصيل السماد', headerShown: true }}
                       />
-                      <Stack.Screen 
-                        name="AddFertilizer" 
+                      <Stack.Screen
+                        name="AddFertilizer"
                         component={AddFertilizerScreen}
                         options={{ title: 'إضافة سماد', headerShown: true }}
                       />
-                      <Stack.Screen 
-                        name="Blogs" 
+                      <Stack.Screen
+                        name="SupplierRegistrationForm"
+                        component={SupplierRegistrationForm}
+                        options={{
+                          title: 'تسجيل مورد جديد',
+                          headerShown: true,
+                          headerTitleAlign: 'center',
+                        }}
+                      />
+                      <Stack.Screen
+                        name="Blogs"
                         component={Blogs}
                         options={{ title: 'المدونة', headerShown: true }}
                       />
-                      <Stack.Screen 
-                        name="PostDetail" 
+                      <Stack.Screen
+                        name="PostDetail"
                         component={PostDetail}
                         options={{ title: 'تفاصيل المنشور', headerShown: false }}
                       />
-                      <Stack.Screen 
-                        name="Statistics" 
+                      <Stack.Screen
+                        name="Statistics"
                         component={StockStatisticsScreen}
                         options={{ title: 'إحصائيات المخزون', headerShown: true }}
                       />
@@ -301,7 +307,7 @@ const AddStockScreenContainer = () => {
         ...values,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        expiryDate: values.expiryDate?.toISOString()
+        expiryDate: values.expiryDate?.toISOString(),
       });
       await refreshStocks();
       navigation.navigate('StockList');
