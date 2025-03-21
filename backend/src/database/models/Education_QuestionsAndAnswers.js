@@ -21,9 +21,11 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.DATE,
         allowNull: false,
       },
-      likes: {
-        type: DataTypes.INTEGER,
-        defaultValue: 0,
+      
+      likesisClicked: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
       },
       videoId: {
         type: DataTypes.INTEGER,

@@ -42,7 +42,10 @@ exports.getQnAsByVideoId = async (req, res) => {
     
     const qnas = await Education_QuestionAndAnswer.findAll({
       where: { videoId },
-      include: [{ model: Education_Reply }],
+      include: [{ 
+        model: Education_Reply,
+        order: [['timestamp', 'ASC']]
+      }],
       order: [['timestamp', 'DESC']]
     });
     return res.status(200).json(qnas);
@@ -70,7 +73,7 @@ exports.getQnAsByUserId = async (req, res) => {
 
 // Create a new QnA
 exports.createQnA = async (req, res) => {
-  const { text, authorName, authorImage, timestamp, likes, videoId, userId } = req.body;
+  const { text, authorName, authorImage, timestamp, likesisClicked, videoId, userId } = req.body;
   
   // Validate required fields
   if (!text || !authorName || !authorImage || !videoId) {
@@ -89,7 +92,7 @@ exports.createQnA = async (req, res) => {
       authorName,
       authorImage,
       timestamp: timestamp || new Date(),
-      likes: likes || 0,
+      likesisClicked: likesisClicked !== undefined ? likesisClicked : false,
       videoId,
       userId
     });
@@ -102,28 +105,33 @@ exports.createQnA = async (req, res) => {
   }
 };
 
-// Update an existing QnA
+// Update an existing question and answer
 exports.updateQnA = async (req, res) => {
   const { id } = req.params;
-  const { text } = req.body;
+  const { text, userId } = req.body;
   
-  // Only text can be updated
-  if (!text) {
-    return res.status(400).json({ message: 'Text is required for update' });
+  // Text and userId are required for update
+  if (!text || !userId) {
+    return res.status(400).json({ message: 'Text and userId are required for update' });
   }
   
   try {
     const qna = await Education_QuestionAndAnswer.findByPk(id);
     
     if (!qna) {
-      return res.status(404).json({ message: 'Q&A not found' });
+      return res.status(404).json({ message: 'Question and answer not found' });
+    }
+    
+    // Check if the requesting user is the owner of the question
+    if (qna.userId !== userId) {
+      return res.status(403).json({ message: 'Unauthorized: Only the owner can update this question' });
     }
     
     await qna.update({ text });
     
     return res.status(200).json(qna);
   } catch (error) {
-    console.error('Error updating Q&A:', error);
+    console.error('Error updating question and answer:', error);
     return res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 };
@@ -131,39 +139,64 @@ exports.updateQnA = async (req, res) => {
 // Like a QnA
 exports.likeQnA = async (req, res) => {
   const { id } = req.params;
+  const { userId } = req.body;
+  
+  if (!userId) {
+    return res.status(400).json({ message: 'User ID is required' });
+  }
   
   try {
     const qna = await Education_QuestionAndAnswer.findByPk(id);
     
     if (!qna) {
-      return res.status(404).json({ message: 'Q&A not found' });
+      return res.status(404).json({ message: 'Question and answer not found' });
     }
     
-    await qna.update({ likes: qna.likes + 1 });
+    // Toggle the likesisClicked value
+    const newLikeStatus = !qna.likesisClicked;
     
-    return res.status(200).json(qna);
+    // Update only the likesisClicked status without changing the owner (userId)
+    await qna.update({ 
+      likesisClicked: newLikeStatus
+    });
+    
+    return res.status(200).json({
+      ...qna.toJSON(),
+      likesisClicked: newLikeStatus
+    });
   } catch (error) {
-    console.error('Error liking Q&A:', error);
+    console.error('Error toggling Q&A like:', error);
     return res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 };
 
-// Delete a QnA
+// Delete a question and answer
 exports.deleteQnA = async (req, res) => {
   const { id } = req.params;
+  const { userId } = req.body;
+  
+  // userId is required for delete operation
+  if (!userId) {
+    return res.status(400).json({ message: 'User ID is required for deletion' });
+  }
   
   try {
     const qna = await Education_QuestionAndAnswer.findByPk(id);
     
     if (!qna) {
-      return res.status(404).json({ message: 'Q&A not found' });
+      return res.status(404).json({ message: 'Question and answer not found' });
+    }
+    
+    // Check if the requesting user is the owner of the question
+    if (qna.userId !== userId) {
+      return res.status(403).json({ message: 'Unauthorized: Only the owner can delete this question' });
     }
     
     await qna.destroy();
     
-    return res.status(200).json({ message: 'Q&A deleted successfully' });
+    return res.status(200).json({ message: 'Question and answer deleted successfully' });
   } catch (error) {
-    console.error('Error deleting Q&A:', error);
+    console.error('Error deleting question and answer:', error);
     return res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 };
