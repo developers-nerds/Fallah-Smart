@@ -91,6 +91,9 @@ export const SupplierRegistrationForm: React.FC = () => {
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0, arrowPosition: 'bottom' });
   const [showOpenTimePicker, setShowOpenTimePicker] = useState(false);
   const [showCloseTimePicker, setShowCloseTimePicker] = useState(false);
+  const [addressSuggestions, setAddressSuggestions] = useState([]);
+  const [addressQuery, setAddressQuery] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -137,6 +140,47 @@ export const SupplierRegistrationForm: React.FC = () => {
       ]).start();
     });
   }, [currentStep]);
+
+  // Debounce function to limit API calls
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (addressQuery.length > 2) {
+        fetchAddressSuggestions(addressQuery);
+      } else {
+        setAddressSuggestions([]);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [addressQuery]);
+
+  const fetchAddressSuggestions = async (query) => {
+    try {
+      // Using OpenStreetMap Nominatim API (free)
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`,
+        {
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        console.error('Address API error:', await response.text());
+        return;
+      }
+
+      const data = await response.json();
+      setAddressSuggestions(data);
+      setShowSuggestions(true);
+    } catch (error) {
+      console.error('Error fetching address suggestions:', error);
+      setAddressSuggestions([]);
+      setShowSuggestions(false);
+    }
+  };
 
   const handleNext = () => {
     if (currentStep < STEPS.length - 1) {
@@ -408,10 +452,52 @@ export const SupplierRegistrationForm: React.FC = () => {
         <Text style={styles.groupTitle}>How can customers reach you?</Text>
       </View>
 
-      {renderInput('Company Address', 'company_address', 'Enter your company address', {
-        required: true,
-        icon: 'map-marker',
-      })}
+      <View style={styles.inputContainer}>
+        <Text style={styles.inputLabel}>
+          Company Address <Text style={styles.required}>*</Text>
+        </Text>
+        <View style={styles.inputWrapper}>
+          <TouchableOpacity
+            onPress={(e) => showTooltip(tooltips.company_address, e)}
+            style={styles.iconContainer}>
+            <MaterialCommunityIcons
+              name="map-marker"
+              size={24}
+              color={theme.colors.primary.base}
+              style={styles.inputIcon}
+            />
+          </TouchableOpacity>
+          <TextInput
+            style={styles.input}
+            value={addressQuery}
+            onChangeText={(text) => {
+              setAddressQuery(text);
+              setFormData({ ...formData, company_address: text });
+            }}
+            placeholder="Enter your company address"
+            placeholderTextColor={theme.colors.neutral.gray.base}
+          />
+        </View>
+
+        {showSuggestions && addressSuggestions.length > 0 && (
+          <View style={styles.suggestionsContainer}>
+            {addressSuggestions.map((item, index) => (
+              <TouchableOpacity
+                key={index}
+                style={styles.suggestionItem}
+                onPress={() => {
+                  setFormData({ ...formData, company_address: item.display_name });
+                  setAddressQuery(item.display_name);
+                  setShowSuggestions(false);
+                }}>
+                <Text style={styles.suggestionText} numberOfLines={2}>
+                  {item.display_name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+      </View>
 
       {renderInput('Phone Number', 'company_phone', 'Enter your phone number', {
         keyboardType: 'phone-pad',
@@ -1112,5 +1198,23 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     marginTop: theme.spacing.sm,
+  },
+  suggestionsContainer: {
+    marginTop: 5,
+    backgroundColor: theme.colors.neutral.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.neutral.border,
+    borderRadius: theme.borderRadius.medium,
+    maxHeight: 200,
+    ...theme.shadows.small,
+  },
+  suggestionItem: {
+    padding: theme.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.neutral.border,
+  },
+  suggestionText: {
+    fontSize: normalize(isSmallDevice ? 14 : 16),
+    color: theme.colors.neutral.textPrimary,
   },
 });
