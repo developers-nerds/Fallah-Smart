@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -21,7 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../../../components/Button';
 import { FERTILIZER_TYPES, FERTILIZER_CATEGORIES, FertilizerType } from './constants';
 import type { Fertilizer } from '../../../types/fertilizer';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import axios from 'axios';
 import { storage } from '../../../utils/storage';
 
@@ -33,23 +33,28 @@ I18nManager.forceRTL(true);
 const DIRECT_API_URL = `${process.env.EXPO_PUBLIC_API_URL}/stock/fertilizer`;
 
 // Add these constants at the top of the file after imports
-const STOCK_ICONS = {
+const FERTILIZER_ICONS = {
+  organic: '🌱',
+  chemical: '🧪',
+  liquid: '💧',
+  solid: '🧱',
+  granular: '🌰',
+  powder: '☁️',
+  npk: '🔬',
+  urea: '⚗️',
+};
+
+// Field icons for different sections
+const FIELD_ICONS = {
   quantity: '📦',
+  minQuantityAlert: '⚠️',
   price: '💰',
-  alert: '⚠️',
-  expired: '⏱️',
-  nearExpiry: '⌛',
-  lowStock: '📉',
-  npk: '🧪',
+  expiryDate: '📅',
+  npkRatio: '🧪',
   applicationRate: '⚖️',
   supplier: '🏭',
-  expiryDate: '📅',
-  safety: '⚡',
-  edit: '✏️',
-  delete: '🗑️',
-  back: '↩️',
-  loading: '⚗️',
-  notFound: '🔍'
+  safetyGuidelines: '🛡️',
+  notes: '📝',
 };
 
 type FertilizerDetailScreenProps = {
@@ -63,6 +68,7 @@ const FertilizerDetailScreen: React.FC<FertilizerDetailScreenProps> = ({ navigat
   const [fertilizer, setFertilizer] = useState<Fertilizer | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Fetch fertilizer details directly from API
   const fetchFertilizerDirectly = async () => {
@@ -147,7 +153,7 @@ const FertilizerDetailScreen: React.FC<FertilizerDetailScreenProps> = ({ navigat
     };
   }, [route.params.fertilizerId, contextFertilizers]);
 
-  const handleDelete = async () => {
+  const handleDelete = useCallback(async () => {
     Alert.alert(
       'تأكيد الحذف',
       'هل أنت متأكد من حذف هذا السماد؟',
@@ -161,6 +167,7 @@ const FertilizerDetailScreen: React.FC<FertilizerDetailScreenProps> = ({ navigat
           style: 'destructive',
           onPress: async () => {
             try {
+              setIsDeleting(true);
               // Try direct API delete first
               try {
                 const tokens = await storage.getTokens();
@@ -178,22 +185,23 @@ const FertilizerDetailScreen: React.FC<FertilizerDetailScreenProps> = ({ navigat
               }
               
               navigation.goBack();
-              Alert.alert('نجاح', 'تم حذف السماد بنجاح');
             } catch (error) {
               console.error('Error deleting fertilizer:', error);
               Alert.alert('خطأ', 'فشل في حذف السماد');
+            } finally {
+              setIsDeleting(false);
             }
           },
         },
       ]
     );
-  };
+  }, [navigation, route.params.fertilizerId, contextDeleteFertilizer]);
 
   const getFertilizerTypeInfo = (type: string) => {
     return (
       FERTILIZER_TYPES[type as keyof typeof FERTILIZER_TYPES] ||
       Object.values(FERTILIZER_TYPES).find(fert => fert.name === type) ||
-      { icon: '⚗️', name: 'سماد', category: 'chemical' }
+      { icon: '🧪', name: 'سماد', category: 'chemical' }
     );
   };
 
@@ -217,22 +225,40 @@ const FertilizerDetailScreen: React.FC<FertilizerDetailScreenProps> = ({ navigat
     return expiry < today;
   };
 
-  if (loading) {
+  const renderField = useCallback((label: string, value: string | number | undefined | null, icon: string) => {
+    if (!value) return null;
+    
+    return (
+      <Animated.View 
+        entering={FadeInDown.delay(100).springify()}
+        style={[styles.infoCard, { backgroundColor: theme.colors.neutral.surface }]}
+      >
+        <View style={styles.infoHeader}>
+          <Text style={styles.fieldIcon}>{icon}</Text>
+          <Text style={[styles.infoTitle, { color: theme.colors.neutral.textPrimary }]}>
+            {label}
+          </Text>
+        </View>
+        <Text style={[styles.infoContent, { color: theme.colors.neutral.textSecondary }]}>
+          {value}
+        </Text>
+      </Animated.View>
+    );
+  }, [theme.colors.neutral]);
+
+  if (loading || isDeleting) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
-        <StatusBar
-          backgroundColor={theme.colors.neutral.surface}
-          barStyle="dark-content"
-        />
+        <StatusBar backgroundColor={theme.colors.neutral.surface} barStyle="dark-content" />
         <View style={[styles.container, styles.centerContent]}>
           <Animated.View 
-            entering={FadeInDown.springify()}
+            entering={FadeIn.duration(800)}
             style={styles.loadingContainer}
           >
-            <Text style={styles.loadingIcon}>{STOCK_ICONS.loading}</Text>
+            <Text style={styles.loadingIcon}>⚙️</Text>
             <ActivityIndicator size="large" color={theme.colors.primary.base} />
             <Text style={[styles.loadingText, { color: theme.colors.neutral.textSecondary }]}>
-              جاري تحميل تفاصيل السماد...
+              {isDeleting ? 'جاري الحذف...' : 'جاري التحميل...'}
             </Text>
           </Animated.View>
         </View>
@@ -243,26 +269,22 @@ const FertilizerDetailScreen: React.FC<FertilizerDetailScreenProps> = ({ navigat
   if (error || !fertilizer) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
-        <StatusBar
-          backgroundColor={theme.colors.neutral.surface}
-          barStyle="dark-content"
-        />
+        <StatusBar backgroundColor={theme.colors.neutral.surface} barStyle="dark-content" />
         <View style={[styles.container, styles.centerContent]}>
-          <Animated.View 
-            entering={FadeInDown.springify()}
-            style={styles.errorContainer}
-          >
-            <Text style={styles.notFoundIcon}>{STOCK_ICONS.notFound}</Text>
-            <Text style={[styles.notFoundText, { color: theme.colors.neutral.textSecondary }]}>
+          <MaterialCommunityIcons
+            name="alert-circle-outline"
+            size={48}
+            color={theme.colors.neutral.textSecondary}
+          />
+          <Text style={[styles.errorText, { color: theme.colors.neutral.textSecondary }]}>
               {error || 'لم يتم العثور على السماد'}
             </Text>
-            <Button
-              title={`${STOCK_ICONS.back} العودة`}
+          <TouchableOpacity
+            style={[styles.retryButton, { backgroundColor: theme.colors.primary.base }]}
               onPress={() => navigation.goBack()}
-              variant="primary"
-              style={styles.backButton}
-            />
-          </Animated.View>
+          >
+            <Text style={{ color: theme.colors.neutral.surface }}>العودة للقائمة</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
@@ -272,18 +294,34 @@ const FertilizerDetailScreen: React.FC<FertilizerDetailScreenProps> = ({ navigat
   const lowStock = isLowStock(fertilizer);
   const nearExpiry = isNearExpiry(fertilizer.expiryDate);
   const expired = isExpired(fertilizer.expiryDate);
+  
+  const fertilizerTypeIcon = FERTILIZER_ICONS[fertilizerType.category as keyof typeof FERTILIZER_ICONS] || '🧪';
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
-      <StatusBar
-        backgroundColor={theme.colors.neutral.surface}
-        barStyle="dark-content"
-      />
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <StatusBar backgroundColor={theme.colors.neutral.surface} barStyle="dark-content" />
+      <ScrollView style={styles.scrollView}>
         <Animated.View 
           entering={FadeInDown.springify()}
-          style={[styles.header, { backgroundColor: theme.colors.neutral.surface }]}
+          style={[
+            styles.header,
+            { 
+              backgroundColor: theme.colors.neutral.surface,
+              ...Platform.select({
+                ios: {
+                  shadowColor: theme.colors.neutral.textPrimary,
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 8,
+                },
+                android: {
+                  elevation: 4,
+                },
+              }),
+            }
+          ]}
         >
+          <View style={styles.headerContent}>
           <View style={[
             styles.iconContainer,
             { 
@@ -293,209 +331,105 @@ const FertilizerDetailScreen: React.FC<FertilizerDetailScreenProps> = ({ navigat
                   ? theme.colors.warning + '20'
                   : nearExpiry
                     ? theme.colors.info + '20'
-                    : '#E8F5E9'
-            }
-          ]}>
-            <Text style={styles.fertilizerIcon}>{fertilizerType.icon}</Text>
-            {lowStock && <Text style={styles.statusIndicator}>{STOCK_ICONS.lowStock}</Text>}
-            {expired && <Text style={styles.statusIndicator}>{STOCK_ICONS.expired}</Text>}
+                      : theme.colors.success + '20'
+              }
+            ]}>
+              <Text style={styles.fertilizerIcon}>{fertilizerTypeIcon}</Text>
+              {lowStock && <Text style={styles.statusIndicator}>⚠️</Text>}
+              {expired && <Text style={styles.statusIndicator}>❗</Text>}
+              {nearExpiry && !expired && !lowStock && <Text style={styles.statusIndicator}>⌛</Text>}
           </View>
-          
           <View style={styles.headerInfo}>
             <Text style={[styles.title, { color: theme.colors.neutral.textPrimary }]}>
               {fertilizer.name}
-            </Text>
-            <View style={styles.categoryContainer}>
-              <Text style={styles.categoryIcon}>
-                {FERTILIZER_CATEGORIES[fertilizerType.category].icon}
               </Text>
-              <Text style={[styles.categoryText, { color: theme.colors.neutral.textSecondary }]}>
-                {FERTILIZER_CATEGORIES[fertilizerType.category].label}
+              <Text style={[styles.subtitle, { color: theme.colors.neutral.textSecondary }]}>
+                {fertilizerType.name}
               </Text>
             </View>
+          </View>
+
+          <View style={styles.statsContainer}>
+            <View style={[styles.statCard, { backgroundColor: theme.colors.neutral.background }]}>
+              <Text style={[styles.statValue, { color: theme.colors.neutral.textPrimary }]}>
+                {fertilizer.quantity}
+                </Text>
+              <Text style={[styles.statLabel, { color: theme.colors.neutral.textSecondary }]}>
+                {fertilizer.unit}
+                </Text>
+              </View>
+
+            <View style={[styles.statCard, { backgroundColor: theme.colors.neutral.background }]}>
+              <Text style={[styles.statValue, { color: theme.colors.neutral.textPrimary }]}>
+                {fertilizer.price}
+                </Text>
+              <Text style={[styles.statLabel, { color: theme.colors.neutral.textSecondary }]}>
+                د.أ
+                </Text>
+            </View>
+
+            <View style={[styles.statCard, { 
+              backgroundColor: theme.colors.neutral.background
+            }]}>
+              <View style={[
+                styles.statusIndicatorContainer,
+                { 
+                  backgroundColor: expired 
+                    ? theme.colors.error 
+                    : lowStock
+                      ? theme.colors.warning
+                    : nearExpiry 
+                        ? theme.colors.info
+                        : theme.colors.success 
+                }
+              ]}>
+                <Text style={styles.statusIcon}>
+                  {expired ? '⏱️' : lowStock ? '📉' : nearExpiry ? '⌛' : '✅'}
+                </Text>
+              </View>
+              <Text style={[styles.statLabel, { color: theme.colors.neutral.textSecondary }]}>
+                {expired ? 'منتهي الصلاحية' : lowStock ? 'مخزون منخفض' : nearExpiry ? 'قريب الانتهاء' : 'حالة جيدة'}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: theme.colors.primary.base }]}
+              onPress={() => navigation.navigate('AddFertilizer', { fertilizerId: fertilizer.id })}
+            >
+              <MaterialCommunityIcons name="pencil" size={24} color="#FFF" />
+              <Text style={styles.actionButtonText}>تعديل</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: theme.colors.error }]}
+              onPress={handleDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <>
+                  <MaterialCommunityIcons name="delete" size={24} color="#FFF" />
+                  <Text style={styles.actionButtonText}>حذف</Text>
+                </>
+              )}
+            </TouchableOpacity>
           </View>
         </Animated.View>
 
         <View style={styles.content}>
-          <Animated.View 
-            entering={FadeInDown.delay(100).springify()}
-            style={[styles.section, { backgroundColor: theme.colors.neutral.surface }]}
-          >
-            <Text style={[styles.sectionTitle, { color: theme.colors.neutral.textPrimary }]}>
-              {STOCK_ICONS.quantity} معلومات المخزون
-            </Text>
-            
-            <View style={styles.stockInfo}>
-              <View style={[styles.stockCard, { backgroundColor: theme.colors.primary.base + '20' }]}>
-                <Text style={styles.stockIcon}>{STOCK_ICONS.quantity}</Text>
-                <Text style={[styles.stockValue, { color: theme.colors.primary.base }]}>
-                  {fertilizer.quantity} {fertilizer.unit}
-                </Text>
-                <Text style={[styles.stockLabel, { color: theme.colors.neutral.textSecondary }]}>
-                  الكمية المتوفرة
-                </Text>
-              </View>
-
-              <View style={[styles.stockCard, { backgroundColor: theme.colors.accent.base + '20' }]}>
-                <Text style={styles.stockIcon}>{STOCK_ICONS.price}</Text>
-                <Text style={[styles.stockValue, { color: theme.colors.accent.base }]}>
-                  {fertilizer.price} د.ج
-                </Text>
-                <Text style={[styles.stockLabel, { color: theme.colors.neutral.textSecondary }]}>
-                  السعر
-                </Text>
-              </View>
-
-              <View style={[styles.stockCard, { 
-                backgroundColor: lowStock 
-                  ? theme.colors.error + '20' 
-                  : theme.colors.success + '20'
-              }]}>
-                <Text style={styles.stockIcon}>{STOCK_ICONS.alert}</Text>
-                <Text style={[styles.stockValue, { 
-                  color: lowStock ? theme.colors.error : theme.colors.success
-                }]}>
-                  {fertilizer.minQuantityAlert} {fertilizer.unit}
-                </Text>
-                <Text style={[styles.stockLabel, { color: theme.colors.neutral.textSecondary }]}>
-                  حد التنبيه
-                </Text>
-              </View>
-            </View>
-
-            {(lowStock || expired || nearExpiry) && (
-              <View style={styles.alerts}>
-                {lowStock && (
-                  <Animated.View 
-                    entering={FadeInDown.delay(150).springify()}
-                    style={[styles.alert, { backgroundColor: theme.colors.error + '20' }]}
-                  >
-                    <Text style={styles.alertIcon}>{STOCK_ICONS.lowStock}</Text>
-                    <Text style={[styles.alertText, { color: theme.colors.error }]}>
-                      المخزون منخفض
-                    </Text>
-                  </Animated.View>
-                )}
-
-                {expired && (
-                  <Animated.View 
-                    entering={FadeInDown.delay(200).springify()}
-                    style={[styles.alert, { backgroundColor: theme.colors.error + '20' }]}
-                  >
-                    <Text style={styles.alertIcon}>{STOCK_ICONS.expired}</Text>
-                    <Text style={[styles.alertText, { color: theme.colors.error }]}>
-                      منتهي الصلاحية
-                    </Text>
-                  </Animated.View>
-                )}
-
-                {nearExpiry && !expired && (
-                  <Animated.View 
-                    entering={FadeInDown.delay(250).springify()}
-                    style={[styles.alert, { backgroundColor: theme.colors.warning + '20' }]}
-                  >
-                    <Text style={styles.alertIcon}>{STOCK_ICONS.nearExpiry}</Text>
-                    <Text style={[styles.alertText, { color: theme.colors.warning }]}>
-                      قريب من انتهاء الصلاحية
-                    </Text>
-                  </Animated.View>
-                )}
-              </View>
-            )}
-          </Animated.View>
-
-          <Animated.View 
-            entering={FadeInDown.delay(200).springify()}
-            style={[styles.section, { backgroundColor: theme.colors.neutral.surface }]}
-          >
-            <Text style={[styles.sectionTitle, { color: theme.colors.neutral.textPrimary }]}>
-              {STOCK_ICONS.npk} معلومات السماد
-            </Text>
-            
-            {fertilizer.npkRatio && (
-              <View style={styles.infoRow}>
-                <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-                  {STOCK_ICONS.npk} نسبة NPK:
-                </Text>
-                <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-                  {fertilizer.npkRatio}
-                </Text>
-              </View>
-            )}
-
-            {fertilizer.applicationRate && (
-              <View style={styles.infoRow}>
-                <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-                  {STOCK_ICONS.applicationRate} معدل الاستخدام:
-                </Text>
-                <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-                  {fertilizer.applicationRate}
-                </Text>
-              </View>
-            )}
-
-            {fertilizer.supplier && (
-              <View style={styles.infoRow}>
-                <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-                  {STOCK_ICONS.supplier} المورد:
-                </Text>
-                <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-                  {fertilizer.supplier}
-                </Text>
-              </View>
-            )}
-
-            <View style={styles.infoRow}>
-              <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-                {STOCK_ICONS.expiryDate} تاريخ الصلاحية:
-              </Text>
-              <Text style={[
-                styles.value, 
-                { 
-                  color: expired 
-                    ? theme.colors.error 
-                    : nearExpiry 
-                      ? theme.colors.warning 
-                      : theme.colors.neutral.textPrimary 
-                }
-              ]}>
-                {new Date(fertilizer.expiryDate).toLocaleDateString('en-US', {
-                  year: 'numeric',
-                  month: '2-digit',
-                  day: '2-digit'
-                })}
-              </Text>
-            </View>
-          </Animated.View>
-
-          {fertilizer.safetyGuidelines && (
-            <Animated.View 
-              entering={FadeInDown.delay(300).springify()}
-              style={[styles.section, { backgroundColor: theme.colors.neutral.surface }]}
-            >
-              <Text style={[styles.sectionTitle, { color: theme.colors.neutral.textPrimary }]}>
-                {STOCK_ICONS.safety} تعليمات السلامة
-              </Text>
-              <Text style={[styles.guidelines, { color: theme.colors.neutral.textPrimary }]}>
-                {fertilizer.safetyGuidelines}
-              </Text>
-            </Animated.View>
-          )}
-
-          <View style={styles.buttonContainer}>
-            <Button
-              title={`${STOCK_ICONS.edit} تعديل`}
-              onPress={() => navigation.navigate('AddFertilizer', { fertilizerId: fertilizer.id })}
-              variant="primary"
-              style={[styles.button, styles.updateButton]}
-            />
-            <TouchableOpacity
-              onPress={handleDelete}
-              style={[styles.button, { backgroundColor: theme.colors.error }]}
-            >
-              <Text style={styles.buttonText}>{`${STOCK_ICONS.delete} حذف`}</Text>
-            </TouchableOpacity>
-          </View>
+          {renderField('الكمية', `${fertilizer.quantity} ${fertilizer.unit}`, FIELD_ICONS.quantity)}
+          {renderField('الحد الأدنى للتنبيه', `${fertilizer.minQuantityAlert} ${fertilizer.unit}`, FIELD_ICONS.minQuantityAlert)}
+          {renderField('السعر', `${fertilizer.price} د.أ`, FIELD_ICONS.price)}
+          {renderField('تاريخ الصلاحية', new Date(fertilizer.expiryDate).toLocaleDateString('ar-EG'), FIELD_ICONS.expiryDate)}
+          
+          {fertilizer.npkRatio && renderField('نسبة NPK', fertilizer.npkRatio, FIELD_ICONS.npkRatio)}
+          {fertilizer.applicationRate && renderField('معدل الاستخدام', fertilizer.applicationRate, FIELD_ICONS.applicationRate)}
+          {fertilizer.supplier && renderField('المورد', fertilizer.supplier, FIELD_ICONS.supplier)}
+          
+          {fertilizer.safetyGuidelines && renderField('تعليمات السلامة', fertilizer.safetyGuidelines, FIELD_ICONS.safetyGuidelines)}
+          {fertilizer.notes && renderField('ملاحظات', fertilizer.notes, FIELD_ICONS.notes)}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -510,18 +444,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  scrollView: {
+    flex: 1,
+  },
   header: {
-    padding: 16,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    padding: 24,
+    gap: 24,
+    ...Platform.select({
+      android: {
+        paddingTop: StatusBar.currentHeight,
+      },
+    }),
+  },
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.1)',
   },
   iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
@@ -531,149 +476,107 @@ const styles = StyleSheet.create({
   },
   statusIndicator: {
     position: 'absolute',
-    top: 0,
-    right: 0,
+    top: -5,
+    right: -5,
     fontSize: 20,
   },
   headerInfo: {
     flex: 1,
+    gap: 8,
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 8,
+    fontWeight: '600',
+    textAlign: 'right',
   },
-  categoryContainer: {
+  subtitle: {
+    fontSize: 16,
+    textAlign: 'right',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  actionButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    alignSelf: 'flex-start',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 12,
     gap: 8,
   },
-  categoryIcon: {
-    fontSize: 20,
+  actionButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '500',
   },
-  categoryText: {
-    fontSize: 14,
+  statsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  statCard: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    gap: 8,
+  },
+  statValue: {
+    fontSize: 24,
     fontWeight: '600',
   },
+  statLabel: {
+    fontSize: 14,
+  },
+  statusIndicatorContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statusIcon: {
+    fontSize: 24,
+    color: '#FFF',
+  },
   content: {
-    padding: 16,
+    padding: 24,
     gap: 16,
   },
-  section: {
-    borderRadius: 16,
+  infoCard: {
     padding: 16,
-    gap: 16,
-    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    gap: 12,
     ...Platform.select({
       ios: {
-        shadowColor: 'rgba(0,0,0,0.1)',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.8,
-        shadowRadius: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
       },
       android: {
         elevation: 4,
       },
     }),
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  stockInfo: {
+  infoHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
-    flexWrap: 'wrap',
   },
-  stockCard: {
-    flex: 1,
-    minWidth: 100,
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    gap: 8,
-    ...Platform.select({
-      ios: {
-        shadowColor: 'rgba(0,0,0,0.1)',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.5,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
-  },
-  stockValue: {
+  infoTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-  },
-  stockLabel: {
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  alerts: {
-    gap: 8,
-  },
-  alert: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
-    ...Platform.select({
-      ios: {
-        shadowColor: 'rgba(0,0,0,0.1)',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.5,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
-  },
-  alertText: {
-    fontSize: 14,
     fontWeight: '600',
+    textAlign: 'right',
   },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
-  },
-  label: {
-    fontSize: 14,
-  },
-  value: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  guidelines: {
-    fontSize: 14,
+  infoContent: {
+    fontSize: 16,
     lineHeight: 24,
+    textAlign: 'right',
   },
-  buttonContainer: {
-    flexDirection: 'row',
-    gap: 16,
-    marginTop: 24,
-    marginBottom: 32,
-  },
-  button: {
-    flex: 1,
-    minHeight: 45,
-  },
-  updateButton: {
-    borderRadius: 12,
+  fieldIcon: {
+    fontSize: 24,
   },
   loadingContainer: {
     alignItems: 'center',
@@ -684,39 +587,19 @@ const styles = StyleSheet.create({
     fontSize: 48,
     marginBottom: 16,
   },
-  errorContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  stockIcon: {
-    fontSize: 32,
-    marginBottom: 8,
-  },
-  alertIcon: {
-    fontSize: 24,
-    marginRight: 8,
-  },
   loadingText: {
     fontSize: 16,
     marginTop: 16,
   },
-  notFoundIcon: {
-    fontSize: 80,
-    marginBottom: 16,
-  },
-  notFoundText: {
-    fontSize: 18,
-    marginBottom: 24,
-  },
-  backButton: {
-    minWidth: 120,
-  },
-  buttonText: {
-    color: '#FFFFFF',
+  errorText: {
     fontSize: 16,
-    fontWeight: '600',
+    marginTop: 16,
     textAlign: 'center',
+  },
+  retryButton: {
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
   },
 });
 

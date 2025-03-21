@@ -786,18 +786,18 @@ Education_Like.belongsTo(Users, { foreignKey: 'userId' });
 
 ////////////////////////////////////////Hedhy Associations Mte3i Rodo belkom chabeb ///////////////
 
-//Sync all models with the database
-async function syncModels() {
-  try {
-    // Use { force: true } for production to safely update schema
-    await sequelize.sync({ force: true });
-    console.log("Database models synchronized successfully");
-  } catch (error) {
-    console.error("Error synchronizing database models:", error);
-  }
-}
+// Sync all models with the database
+// async function syncModels() {
+//   try {
+//     // Use { force: true } for production to safely update schema
+//     await sequelize.sync({ alter: true });
+//     console.log("Database models synchronized successfully");
+//   } catch (error) {
+//     console.error("Error synchronizing database models:", error);
+//   }
+// }
 
-syncModels();
+// syncModels();
 
 // Export models AFTER defining associations
 module.exports = {

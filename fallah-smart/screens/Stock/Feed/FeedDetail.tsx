@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,10 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  SafeAreaView,
+  StatusBar,
+  Platform,
+  I18nManager,
 } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
 import { StockFeed } from '../types';
@@ -17,10 +21,43 @@ import { StockStackParamList } from '../../../navigation/types';
 import { Button } from '../../../components/Button';
 import axios from 'axios';
 import { storage } from '../../../utils/storage';
+import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
+
+// Force RTL layout
+I18nManager.allowRTL(true);
+I18nManager.forceRTL(true);
 
 type FeedDetailScreenProps = {
   navigation: StackNavigationProp<StockStackParamList, 'FeedDetail'>;
   route: RouteProp<StockStackParamList, 'FeedDetail'>;
+};
+
+// Feed type icons mapped to emoji
+const FEED_ICONS = {
+  cattle: '🐄',
+  sheep: '🐑',
+  poultry: '🐔',
+  camel: '🐪',
+  fish: '🐟',
+  general: '🥗',
+};
+
+// Field icons for different sections
+const FIELD_ICONS = {
+  quantity: '📦',
+  minQuantityAlert: '⚠️',
+  dailyConsumptionRate: '📊',
+  price: '💰',
+  expiryDate: '📅',
+  manufacturer: '🏭',
+  batchNumber: '🔢',
+  purchaseDate: '🛒',
+  location: '📍',
+  supplier: '🚚',
+  nutritionalInfo: '🍽️',
+  recommendedUsage: '📋',
+  targetAnimals: '🦓',
+  notes: '📝',
 };
 
 const FeedDetailScreen: React.FC<FeedDetailScreenProps> = ({ navigation, route }) => {
@@ -30,7 +67,7 @@ const FeedDetailScreen: React.FC<FeedDetailScreenProps> = ({ navigation, route }
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchFeedItem = async () => {
+  const fetchFeedItem = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -60,13 +97,13 @@ const FeedDetailScreen: React.FC<FeedDetailScreenProps> = ({ navigation, route }
     } finally {
       setLoading(false);
     }
-  };
+  }, [route.params.feedId]);
 
   useEffect(() => {
     fetchFeedItem();
-  }, [route.params.feedId]);
+  }, [fetchFeedItem]);
 
-  const handleDelete = async () => {
+  const handleDelete = useCallback(async () => {
     Alert.alert(
       'تأكيد الحذف',
       'هل أنت متأكد من حذف هذا العلف؟',
@@ -109,74 +146,22 @@ const FeedDetailScreen: React.FC<FeedDetailScreenProps> = ({ navigation, route }
         },
       ]
     );
-  };
-
-  if (loading || isDeleting) {
-    return (
-      <View style={[styles(theme).container, styles(theme).centerContent]}>
-        <ActivityIndicator size="large" color={theme.colors.primary.base} />
-        {isDeleting && <Text style={{ color: theme.colors.neutral.textSecondary, marginTop: 16 }}>جاري الحذف...</Text>}
-        {loading && !isDeleting && <Text style={{ color: theme.colors.neutral.textSecondary, marginTop: 16 }}>جاري التحميل...</Text>}
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View style={[styles(theme).container, styles(theme).centerContent]}>
-        <MaterialCommunityIcons
-          name="alert-circle-outline"
-          size={48}
-          color={theme.colors.neutral.textSecondary}
-        />
-        <Text style={[styles(theme).errorText, { color: theme.colors.neutral.textSecondary }]}>
-          {error}
-        </Text>
-        <TouchableOpacity
-          style={[styles(theme).retryButton, { backgroundColor: theme.colors.primary.base }]}
-          onPress={fetchFeedItem}
-        >
-          <Text style={{ color: theme.colors.neutral.surface }}>إعادة المحاولة</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  if (!feedItem) {
-    return (
-      <View style={[styles(theme).container, styles(theme).centerContent]}>
-        <MaterialCommunityIcons
-          name="food"
-          size={48}
-          color={theme.colors.neutral.textSecondary}
-        />
-        <Text style={[styles(theme).errorText, { color: theme.colors.neutral.textSecondary }]}>
-          لم يتم العثور على العلف
-        </Text>
-        <TouchableOpacity
-          style={[styles(theme).retryButton, { backgroundColor: theme.colors.primary.base }]}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={{ color: theme.colors.neutral.surface }}>العودة للقائمة</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  }, [navigation, route.params.feedId]);
 
   const getAnimalTypeIcon = (animalType: string) => {
     switch (animalType) {
       case 'cattle':
-        return 'cow';
+        return FEED_ICONS.cattle;
       case 'sheep':
-        return 'sheep';
+        return FEED_ICONS.sheep;
       case 'poultry':
-        return 'duck';
+        return FEED_ICONS.poultry;
       case 'camel':
-        return 'camel';
+        return FEED_ICONS.camel;
       case 'fish':
-        return 'fish';
+        return FEED_ICONS.fish;
       default:
-        return 'food';
+        return FEED_ICONS.general;
     }
   };
 
@@ -197,264 +182,368 @@ const FeedDetailScreen: React.FC<FeedDetailScreenProps> = ({ navigation, route }
     }
   };
 
+  const renderField = useCallback((label: string, value: string | number | undefined | null, icon: string) => {
+    if (!value) return null;
+
   return (
-    <ScrollView style={styles(theme).container}>
-      <View style={[styles(theme).header, { backgroundColor: theme.colors.neutral.surface }]}>
-        <View style={styles(theme).headerContent}>
+      <Animated.View 
+        entering={FadeInDown.delay(100).springify()}
+        style={[styles.infoCard, { backgroundColor: theme.colors.neutral.surface }]}
+      >
+        <View style={styles.infoHeader}>
+          <Text style={styles.fieldIcon}>{icon}</Text>
+          <Text style={[styles.infoTitle, { color: theme.colors.neutral.textPrimary }]}>
+            {label}
+          </Text>
+        </View>
+        <Text style={[styles.infoContent, { color: theme.colors.neutral.textSecondary }]}>
+          {value}
+          </Text>
+      </Animated.View>
+    );
+  }, [theme.colors.neutral]);
+
+  if (loading || isDeleting) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
+        <StatusBar backgroundColor={theme.colors.neutral.surface} barStyle="dark-content" />
+        <View style={[styles.container, styles.centerContent]}>
+          <Animated.View 
+            entering={FadeIn.duration(800)}
+            style={styles.loadingContainer}
+          >
+            <Text style={styles.loadingIcon}>⚙️</Text>
+            <ActivityIndicator size="large" color={theme.colors.primary.base} />
+            <Text style={[styles.loadingText, { color: theme.colors.neutral.textSecondary }]}>
+              {isDeleting ? 'جاري الحذف...' : 'جاري التحميل...'}
+            </Text>
+          </Animated.View>
+          </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
+        <StatusBar backgroundColor={theme.colors.neutral.surface} barStyle="dark-content" />
+        <View style={[styles.container, styles.centerContent]}>
           <MaterialCommunityIcons
-            name={getAnimalTypeIcon(feedItem.animalType)}
-            size={32}
-            color={theme.colors.primary.base}
+            name="alert-circle-outline"
+            size={48}
+            color={theme.colors.neutral.textSecondary}
           />
-          <Text style={[styles(theme).title, { color: theme.colors.neutral.textPrimary }]}>
-            {feedItem.name}
-          </Text>
+          <Text style={[styles.errorText, { color: theme.colors.neutral.textSecondary }]}>
+            {error}
+            </Text>
+          <TouchableOpacity
+            style={[styles.retryButton, { backgroundColor: theme.colors.primary.base }]}
+            onPress={fetchFeedItem}
+          >
+            <Text style={{ color: theme.colors.neutral.surface }}>إعادة المحاولة</Text>
+          </TouchableOpacity>
         </View>
-      </View>
+      </SafeAreaView>
+    );
+  }
 
-      <View style={styles(theme).content}>
-        <View style={[styles(theme).section, { backgroundColor: theme.colors.neutral.surface }]}>
-          <Text style={[styles(theme).sectionTitle, { color: theme.colors.neutral.textPrimary }]}>
-            المعلومات الأساسية
-          </Text>
-          <View style={styles(theme).infoRow}>
-            <Text style={[styles(theme).label, { color: theme.colors.neutral.textSecondary }]}>
-              نوع الحيوان:
-            </Text>
-            <Text style={[styles(theme).value, { color: theme.colors.neutral.textPrimary }]}>
-              {getAnimalTypeInArabic(feedItem.animalType)}
-            </Text>
-          </View>
-          <View style={styles(theme).infoRow}>
-            <Text style={[styles(theme).label, { color: theme.colors.neutral.textSecondary }]}>
-              الكمية:
-            </Text>
-            <Text style={[styles(theme).value, { color: theme.colors.neutral.textPrimary }]}>
-              {feedItem.quantity} {feedItem.unit}
-            </Text>
-          </View>
-          <View style={styles(theme).infoRow}>
-            <Text style={[styles(theme).label, { color: theme.colors.neutral.textSecondary }]}>
-              الحد الأدنى للتنبيه:
-            </Text>
-            <Text style={[styles(theme).value, { color: theme.colors.neutral.textPrimary }]}>
-              {feedItem.minQuantityAlert} {feedItem.unit}
-            </Text>
-          </View>
-          <View style={styles(theme).infoRow}>
-            <Text style={[styles(theme).label, { color: theme.colors.neutral.textSecondary }]}>
-              معدل الإستهلاك اليومي:
-            </Text>
-            <Text style={[styles(theme).value, { color: theme.colors.neutral.textPrimary }]}>
-              {feedItem.dailyConsumptionRate} {feedItem.unit}/يوم
-            </Text>
-          </View>
-          <View style={styles(theme).infoRow}>
-            <Text style={[styles(theme).label, { color: theme.colors.neutral.textSecondary }]}>
-              السعر:
-            </Text>
-            <Text style={[styles(theme).value, { color: theme.colors.neutral.textPrimary }]}>
-              {feedItem.price} د.أ
-            </Text>
-          </View>
-          <View style={styles(theme).infoRow}>
-            <Text style={[styles(theme).label, { color: theme.colors.neutral.textSecondary }]}>
-              تاريخ الصلاحية:
-            </Text>
-            <Text style={[styles(theme).value, { color: theme.colors.neutral.textPrimary }]}>
-              {new Date(feedItem.expiryDate).toLocaleDateString('ar-EG')}
-            </Text>
-          </View>
-        </View>
-
-        <View style={[styles(theme).section, { backgroundColor: theme.colors.neutral.surface }]}>
-          <Text style={[styles(theme).sectionTitle, { color: theme.colors.neutral.textPrimary }]}>
-            معلومات إضافية
-          </Text>
-          {feedItem.manufacturer && (
-            <View style={styles(theme).infoRow}>
-              <Text style={[styles(theme).label, { color: theme.colors.neutral.textSecondary }]}>
-                الشركة المصنعة:
-              </Text>
-              <Text style={[styles(theme).value, { color: theme.colors.neutral.textPrimary }]}>
-                {feedItem.manufacturer}
-              </Text>
-            </View>
-          )}
-          {feedItem.batchNumber && (
-            <View style={styles(theme).infoRow}>
-              <Text style={[styles(theme).label, { color: theme.colors.neutral.textSecondary }]}>
-                رقم الدفعة:
-              </Text>
-              <Text style={[styles(theme).value, { color: theme.colors.neutral.textPrimary }]}>
-                {feedItem.batchNumber}
-              </Text>
-            </View>
-          )}
-          {feedItem.purchaseDate && (
-            <View style={styles(theme).infoRow}>
-              <Text style={[styles(theme).label, { color: theme.colors.neutral.textSecondary }]}>
-                تاريخ الشراء:
-              </Text>
-              <Text style={[styles(theme).value, { color: theme.colors.neutral.textPrimary }]}>
-                {new Date(feedItem.purchaseDate).toLocaleDateString('ar-EG')}
-              </Text>
-            </View>
-          )}
-          {feedItem.location && (
-            <View style={styles(theme).infoRow}>
-              <Text style={[styles(theme).label, { color: theme.colors.neutral.textSecondary }]}>
-                الموقع:
-              </Text>
-              <Text style={[styles(theme).value, { color: theme.colors.neutral.textPrimary }]}>
-                {feedItem.location}
-              </Text>
-            </View>
-          )}
-          {feedItem.supplier && (
-            <View style={styles(theme).infoRow}>
-              <Text style={[styles(theme).label, { color: theme.colors.neutral.textSecondary }]}>
-                المورد:
-              </Text>
-              <Text style={[styles(theme).value, { color: theme.colors.neutral.textPrimary }]}>
-                {feedItem.supplier}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        <View style={[styles(theme).section, { backgroundColor: theme.colors.neutral.surface }]}>
-          <Text style={[styles(theme).sectionTitle, { color: theme.colors.neutral.textPrimary }]}>
-            معلومات التغذية
-          </Text>
-          {feedItem.nutritionalInfo && (
-            <View style={styles(theme).infoRow}>
-              <Text style={[styles(theme).label, { color: theme.colors.neutral.textSecondary }]}>
-                المعلومات الغذائية:
-              </Text>
-              <Text style={[styles(theme).value, { color: theme.colors.neutral.textPrimary }]}>
-                {feedItem.nutritionalInfo}
-              </Text>
-            </View>
-          )}
-          {feedItem.recommendedUsage && (
-            <View style={styles(theme).infoRow}>
-              <Text style={[styles(theme).label, { color: theme.colors.neutral.textSecondary }]}>
-                الاستخدام الموصى به:
-              </Text>
-              <Text style={[styles(theme).value, { color: theme.colors.neutral.textPrimary }]}>
-                {feedItem.recommendedUsage}
-              </Text>
-            </View>
-          )}
-          {feedItem.targetAnimals && (
-            <View style={styles(theme).infoRow}>
-              <Text style={[styles(theme).label, { color: theme.colors.neutral.textSecondary }]}>
-                الحيوانات المستهدفة:
-              </Text>
-              <Text style={[styles(theme).value, { color: theme.colors.neutral.textPrimary }]}>
-                {feedItem.targetAnimals}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {feedItem.notes && (
-          <View style={[styles(theme).section, { backgroundColor: theme.colors.neutral.surface }]}>
-            <Text style={[styles(theme).sectionTitle, { color: theme.colors.neutral.textPrimary }]}>
-              ملاحظات
-            </Text>
-            <Text style={[styles(theme).notes, { color: theme.colors.neutral.textPrimary }]}>
-              {feedItem.notes}
-            </Text>
-          </View>
-        )}
-
-        <View style={styles(theme).buttonContainer}>
-          <Button
-            title="تعديل"
-            onPress={() => navigation.navigate('AddFeed', { feedId: feedItem.id })}
-            variant="primary"
+  if (!feedItem) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
+        <StatusBar backgroundColor={theme.colors.neutral.surface} barStyle="dark-content" />
+        <View style={[styles.container, styles.centerContent]}>
+          <MaterialCommunityIcons
+            name="food"
+            size={48}
+            color={theme.colors.neutral.textSecondary}
           />
-          <Button
-            title="حذف"
-            onPress={handleDelete}
-            variant="danger"
-            disabled={isDeleting}
-          />
+          <Text style={[styles.errorText, { color: theme.colors.neutral.textSecondary }]}>
+            لم يتم العثور على العلف
+          </Text>
+          <TouchableOpacity
+            style={[styles.retryButton, { backgroundColor: theme.colors.primary.base }]}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={{ color: theme.colors.neutral.surface }}>العودة للقائمة</Text>
+          </TouchableOpacity>
+            </View>
+      </SafeAreaView>
+    );
+  }
+
+  const isLowStock = feedItem.minQuantityAlert && feedItem.quantity <= feedItem.minQuantityAlert;
+  const isExpired = feedItem.expiryDate && new Date(feedItem.expiryDate) <= new Date();
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
+      <StatusBar backgroundColor={theme.colors.neutral.surface} barStyle="dark-content" />
+      <ScrollView style={styles.scrollView}>
+        <Animated.View 
+          entering={FadeInDown.springify()}
+          style={[
+            styles.header,
+            { 
+              backgroundColor: theme.colors.neutral.surface,
+              ...Platform.select({
+                ios: {
+                  shadowColor: theme.colors.neutral.textPrimary,
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 8,
+                },
+                android: {
+                  elevation: 4,
+                },
+              }),
+            }
+          ]}
+        >
+          <View style={styles.headerContent}>
+            <View style={[
+              styles.iconContainer,
+              { 
+                backgroundColor: isLowStock 
+                  ? theme.colors.warning + '20'
+                  : isExpired
+                    ? theme.colors.error + '20'
+                    : theme.colors.success + '20'
+              }
+            ]}>
+              <Text style={styles.feedIcon}>{getAnimalTypeIcon(feedItem.animalType)}</Text>
+              {isLowStock && <Text style={styles.statusIndicator}>⚠️</Text>}
+              {isExpired && <Text style={styles.statusIndicator}>❗</Text>}
+            </View>
+            <View style={styles.headerInfo}>
+              <Text style={[styles.title, { color: theme.colors.neutral.textPrimary }]}>
+                {feedItem.name}
+              </Text>
+              <Text style={[styles.subtitle, { color: theme.colors.neutral.textSecondary }]}>
+                {getAnimalTypeInArabic(feedItem.animalType)}
+              </Text>
+            </View>
         </View>
+
+          <View style={styles.statsContainer}>
+            <View style={[styles.statCard, { backgroundColor: theme.colors.neutral.background }]}>
+              <Text style={[styles.statValue, { color: theme.colors.neutral.textPrimary }]}>
+                {feedItem.quantity}
+              </Text>
+              <Text style={[styles.statLabel, { color: theme.colors.neutral.textSecondary }]}>
+                {feedItem.unit}
+              </Text>
+            </View>
+
+            <View style={[styles.statCard, { backgroundColor: theme.colors.neutral.background }]}>
+              <Text style={[styles.statValue, { color: theme.colors.neutral.textPrimary }]}>
+                {feedItem.price}
+              </Text>
+              <Text style={[styles.statLabel, { color: theme.colors.neutral.textSecondary }]}>
+                د.أ
+              </Text>
+            </View>
+
+            <View style={[styles.statCard, { backgroundColor: theme.colors.neutral.background }]}>
+              <Text style={[styles.statValue, { color: theme.colors.neutral.textPrimary }]}>
+                {feedItem.dailyConsumptionRate}
+              </Text>
+              <Text style={[styles.statLabel, { color: theme.colors.neutral.textSecondary }]}>
+                {feedItem.unit}/يوم
+              </Text>
+            </View>
+        </View>
+
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: theme.colors.primary.base }]}
+              onPress={() => navigation.navigate('AddFeed', { feedId: feedItem.id })}
+            >
+              <MaterialCommunityIcons name="pencil" size={24} color="#FFF" />
+              <Text style={styles.actionButtonText}>تعديل</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: theme.colors.error }]}
+              onPress={handleDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <>
+                  <MaterialCommunityIcons name="delete" size={24} color="#FFF" />
+                  <Text style={styles.actionButtonText}>حذف</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+
+        <View style={styles.content}>
+          {renderField('الكمية', `${feedItem.quantity} ${feedItem.unit}`, FIELD_ICONS.quantity)}
+          {renderField('الحد الأدنى للتنبيه', `${feedItem.minQuantityAlert} ${feedItem.unit}`, FIELD_ICONS.minQuantityAlert)}
+          {renderField('معدل الإستهلاك اليومي', `${feedItem.dailyConsumptionRate} ${feedItem.unit}/يوم`, FIELD_ICONS.dailyConsumptionRate)}
+          {renderField('السعر', `${feedItem.price} د.أ`, FIELD_ICONS.price)}
+          {renderField('تاريخ الصلاحية', new Date(feedItem.expiryDate).toLocaleDateString('ar-EG'), FIELD_ICONS.expiryDate)}
+          
+          {feedItem.manufacturer && renderField('الشركة المصنعة', feedItem.manufacturer, FIELD_ICONS.manufacturer)}
+          {feedItem.batchNumber && renderField('رقم الدفعة', feedItem.batchNumber, FIELD_ICONS.batchNumber)}
+          {feedItem.purchaseDate && renderField('تاريخ الشراء', new Date(feedItem.purchaseDate).toLocaleDateString('ar-EG'), FIELD_ICONS.purchaseDate)}
+          {feedItem.location && renderField('الموقع', feedItem.location, FIELD_ICONS.location)}
+          {feedItem.supplier && renderField('المورد', feedItem.supplier, FIELD_ICONS.supplier)}
+          
+          {feedItem.nutritionalInfo && renderField('المعلومات الغذائية', feedItem.nutritionalInfo, FIELD_ICONS.nutritionalInfo)}
+          {feedItem.recommendedUsage && renderField('الاستخدام الموصى به', feedItem.recommendedUsage, FIELD_ICONS.recommendedUsage)}
+          {feedItem.targetAnimals && renderField('الحيوانات المستهدفة', feedItem.targetAnimals, FIELD_ICONS.targetAnimals)}
+          
+          {feedItem.notes && renderField('ملاحظات', feedItem.notes, FIELD_ICONS.notes)}
       </View>
     </ScrollView>
+    </SafeAreaView>
   );
 };
 
-const styles = (theme: any) => StyleSheet.create({
+const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.neutral.background,
   },
   centerContent: {
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+  },
+  scrollView: {
+    flex: 1,
   },
   header: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.neutral.border,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    padding: 24,
+    gap: 24,
+    ...Platform.select({
+      android: {
+        paddingTop: StatusBar.currentHeight,
+      },
+    }),
   },
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 16,
+  },
+  iconContainer: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  feedIcon: {
+    fontSize: 40,
+  },
+  statusIndicator: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    fontSize: 20,
+  },
+  headerInfo: {
+    flex: 1,
+    gap: 8,
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: '600',
     textAlign: 'right',
+  },
+  subtitle: {
+    fontSize: 16,
+    textAlign: 'right',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 12,
+    gap: 8,
+  },
+  actionButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  statCard: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    gap: 8,
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: '600',
+  },
+  statLabel: {
+    fontSize: 14,
   },
   content: {
-    padding: 16,
+    padding: 24,
     gap: 16,
   },
-  section: {
-    borderRadius: 12,
+  infoCard: {
     padding: 16,
+    borderRadius: 16,
     gap: 12,
-    marginBottom: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
-  sectionTitle: {
+  infoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  infoTitle: {
     fontSize: 18,
     fontWeight: '600',
-    marginBottom: 8,
     textAlign: 'right',
   },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  infoContent: {
+    fontSize: 16,
+    lineHeight: 24,
+    textAlign: 'right',
+  },
+  fieldIcon: {
+    fontSize: 24,
+  },
+  loadingContainer: {
     alignItems: 'center',
-    marginBottom: 8,
+    justifyContent: 'center',
+    padding: 20,
   },
-  label: {
-    fontSize: 14,
-    textAlign: 'right',
+  loadingIcon: {
+    fontSize: 48,
+    marginBottom: 16,
   },
-  value: {
-    fontSize: 14,
-    fontWeight: '500',
-    textAlign: 'left',
-  },
-  notes: {
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: 'right',
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 16,
+  loadingText: {
+    fontSize: 16,
     marginTop: 16,
-    marginBottom: 24,
   },
   errorText: {
     fontSize: 16,

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,6 @@ import { useTheme } from '../../../context/ThemeContext';
 import { useHarvest } from '../../../context/HarvestContext';
 import { StockHarvest } from '../types';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { createThemedStyles } from '../../../utils/createThemedStyles';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { StockStackParamList } from '../../../navigation/types';
@@ -30,6 +29,22 @@ import { HARVEST_TYPES, QUALITY_TYPES, UNIT_TYPES, HARVEST_CATEGORIES } from './
 // Force RTL layout
 I18nManager.allowRTL(true);
 I18nManager.forceRTL(true);
+
+// Field icons for different sections
+const FIELD_ICONS = {
+  quantity: '📦',
+  minQuantityAlert: '⚠️',
+  price: '💰',
+  harvestDate: '📅',
+  expiryDate: '⏳',
+  storageLocation: '📍',
+  batchNumber: '🔢',
+  storageConditions: '🌡️',
+  quality: '🔍',
+  moisture: '💧',
+  certifications: '🏅',
+  notes: '📝',
+};
 
 // Create type-safe helper functions to avoid TypeScript errors
 // and ensure consistent behavior with HarvestList.tsx
@@ -131,6 +146,7 @@ const HarvestDetailScreen: React.FC<HarvestDetailScreenProps> = ({ navigation, r
   const { user } = useAuth();
   const [harvestItem, setHarvestItem] = useState<StockHarvest | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -167,7 +183,7 @@ const HarvestDetailScreen: React.FC<HarvestDetailScreenProps> = ({ navigation, r
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = useCallback(async () => {
     Alert.alert(
       'تأكيد الحذف',
       'هل أنت متأكد من حذف هذا المحصول؟',
@@ -181,6 +197,7 @@ const HarvestDetailScreen: React.FC<HarvestDetailScreenProps> = ({ navigation, r
           style: 'destructive',
           onPress: async () => {
             try {
+              setIsDeleting(true);
               const tokens = await storage.getTokens();
               
               if (!tokens?.access) {
@@ -201,12 +218,14 @@ const HarvestDetailScreen: React.FC<HarvestDetailScreenProps> = ({ navigation, r
             } catch (error) {
               console.error('Error deleting harvest:', error);
               Alert.alert('خطأ', 'فشل في حذف المحصول');
+            } finally {
+              setIsDeleting(false);
             }
           },
         },
       ]
     );
-  };
+  }, [navigation, route.params.harvestId]);
 
   // Replace the getTypeEmoji function with our new simpler version
   const getTypeEmoji = (item: StockHarvest | null): string => {
@@ -240,52 +259,26 @@ const HarvestDetailScreen: React.FC<HarvestDetailScreenProps> = ({ navigation, r
     }
   };
 
-  // Render info row with icon and value
-  const renderInfoRow = (label: string, value: any, icon: string, isOptional: boolean = false) => {
-    // If the value is empty/null/undefined and it's optional, don't display anything
-    if ((value === null || value === undefined || value === '') && isOptional) {
-      return null;
-    }
-    
-    // If it's not optional but empty, show as "غير محدد" (not specified)
-    const displayValue = (value === null || value === undefined || value === '') 
-      ? 'غير محدد' 
-      : value;
-    
-    return (
-      <View style={styles.infoRow}>
-        <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-          {icon} {label}:
-        </Text>
-        <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-          {displayValue}
-        </Text>
-      </View>
-    );
-  };
-
-  // Render section with title and children
-  const renderSection = (title: string, icon: string, children: React.ReactNode) => {
-    // Only render section if it has visible children
-    if (!React.Children.toArray(children).some(child => child !== null)) {
-      return null;
-    }
+  const renderField = useCallback((label: string, value: string | number | undefined | null, icon: string) => {
+    if (!value) return null;
 
     return (
       <Animated.View 
-        entering={FadeInDown.springify()}
-        style={[styles.section, { 
-          backgroundColor: theme.colors.neutral.surface,
-          shadowColor: theme.colors.neutral.textPrimary,
-        }]}
+        entering={FadeInDown.delay(100).springify()}
+        style={[styles.infoCard, { backgroundColor: theme.colors.neutral.surface }]}
       >
-        <Text style={[styles.sectionTitle, { color: theme.colors.neutral.textPrimary }]}>
-          {icon} {title}
+        <View style={styles.infoHeader}>
+          <Text style={styles.fieldIcon}>{icon}</Text>
+          <Text style={[styles.infoTitle, { color: theme.colors.neutral.textPrimary }]}>
+            {label}
+          </Text>
+        </View>
+        <Text style={[styles.infoContent, { color: theme.colors.neutral.textSecondary }]}>
+          {value}
         </Text>
-        {children}
       </Animated.View>
     );
-  };
+  }, [theme.colors.neutral]);
 
   // Replace the type name function with our new version
   const getTypeNameFromItem = (item: StockHarvest | null): string => {
@@ -293,7 +286,7 @@ const HarvestDetailScreen: React.FC<HarvestDetailScreenProps> = ({ navigation, r
     return getTypeName(item.type);
   };
 
-  if (loading) {
+  if (loading || isDeleting) {
   return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
         <StatusBar backgroundColor={theme.colors.neutral.surface} barStyle="dark-content" />
@@ -305,7 +298,7 @@ const HarvestDetailScreen: React.FC<HarvestDetailScreenProps> = ({ navigation, r
             <Text style={styles.loadingIcon}>⚙️</Text>
             <ActivityIndicator size="large" color={theme.colors.primary.base} />
             <Text style={[styles.loadingText, { color: theme.colors.neutral.textSecondary }]}>
-              جاري تحميل تفاصيل المحصول...
+              {isDeleting ? 'جاري الحذف...' : 'جاري التحميل...'}
             </Text>
           </Animated.View>
           </View>
@@ -318,21 +311,20 @@ const HarvestDetailScreen: React.FC<HarvestDetailScreenProps> = ({ navigation, r
       <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
         <StatusBar backgroundColor={theme.colors.neutral.surface} barStyle="dark-content" />
         <View style={[styles.container, styles.centerContent]}>
-          <Animated.View 
-            entering={FadeIn.duration(800)}
-            style={styles.errorContainer}
-          >
-            <Text style={styles.notFoundIcon}>🔍</Text>
-            <Text style={[styles.notFoundText, { color: theme.colors.neutral.textSecondary }]}>
+          <MaterialCommunityIcons
+            name="alert-circle-outline"
+            size={48}
+            color={theme.colors.neutral.textSecondary}
+          />
+          <Text style={[styles.errorText, { color: theme.colors.neutral.textSecondary }]}>
               {error || 'لم يتم العثور على المحصول'}
             </Text>
-            <Button
-              title="العودة ↩️"
+          <TouchableOpacity
+            style={[styles.retryButton, { backgroundColor: theme.colors.primary.base }]}
               onPress={() => navigation.goBack()}
-              variant="primary"
-              style={{ minWidth: 120 }}
-            />
-          </Animated.View>
+          >
+            <Text style={{ color: theme.colors.neutral.surface }}>العودة للقائمة</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
@@ -348,14 +340,26 @@ const HarvestDetailScreen: React.FC<HarvestDetailScreenProps> = ({ navigation, r
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
       <StatusBar backgroundColor={theme.colors.neutral.surface} barStyle="dark-content" />
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={{ paddingBottom: 32 }}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView style={styles.scrollView}>
         <Animated.View 
           entering={FadeInDown.springify()}
-          style={[styles.header, { backgroundColor: theme.colors.neutral.surface }]}
+          style={[
+            styles.header,
+            { 
+              backgroundColor: theme.colors.neutral.surface,
+              ...Platform.select({
+                ios: {
+                  shadowColor: theme.colors.neutral.textPrimary,
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 8,
+                },
+                android: {
+                  elevation: 4,
+                },
+              }),
+            }
+          ]}
         >
           <View style={styles.headerContent}>
             <View style={[
@@ -368,9 +372,7 @@ const HarvestDetailScreen: React.FC<HarvestDetailScreenProps> = ({ navigation, r
                     : theme.colors.success + '20'
               }
             ]}>
-              <Text style={styles.harvestIconText}>
-                {getTypeEmoji(harvestItem)}
-              </Text>
+              <Text style={styles.harvestIcon}>{getTypeEmoji(harvestItem)}</Text>
               {isLowStock && <Text style={styles.statusIndicator}>⚠️</Text>}
               {isExpired && <Text style={styles.statusIndicator}>❗</Text>}
             </View>
@@ -379,121 +381,96 @@ const HarvestDetailScreen: React.FC<HarvestDetailScreenProps> = ({ navigation, r
               <Text style={[styles.title, { color: theme.colors.neutral.textPrimary }]}>
                 {harvestItem.cropName}
               </Text>
-              <View style={styles.badgeContainer}>
-                <View 
-                  style={[
-                    styles.badge, 
-                    { 
-                      backgroundColor: harvestItem.type === 'vegetable' ? '#4CAF50' : 
-                        harvestItem.type === 'fruit' ? '#FF9800' : 
-                        harvestItem.type === 'grain' ? '#FFEB3B' : 
-                        harvestItem.type === 'herb' ? '#8BC34A' : '#9E9E9E' 
-                    }
-                  ]}
-                >
-                  <Text style={styles.badgeText}>
+              <Text style={[styles.subtitle, { color: theme.colors.neutral.textSecondary }]}>
                     {getTypeNameFromItem(harvestItem)}
                   </Text>
                 </View>
-                <View 
-                  style={[
-                    styles.badge, 
+          </View>
+
+          <View style={styles.statsContainer}>
+            <View style={[styles.statCard, { backgroundColor: theme.colors.neutral.background }]}>
+              <Text style={[styles.statValue, { color: theme.colors.neutral.textPrimary }]}>
+                {harvestItem.quantity}
+              </Text>
+              <Text style={[styles.statLabel, { color: theme.colors.neutral.textSecondary }]}>
+                {getUnitAbbreviation(harvestItem.unit)}
+              </Text>
+            </View>
+
+            <View style={[styles.statCard, { backgroundColor: theme.colors.neutral.background }]}>
+              <Text style={[styles.statValue, { color: theme.colors.neutral.textPrimary }]}>
+                {harvestItem.price}
+              </Text>
+              <Text style={[styles.statLabel, { color: theme.colors.neutral.textSecondary }]}>
+                د.أ
+              </Text>
+            </View>
+
+            <View style={[styles.statCard, { backgroundColor: theme.colors.neutral.background }]}>
+              <View style={[
+                styles.qualityIndicator,
                     { 
                       backgroundColor: (() => {
-                        // Direct mapping for badge color
                         switch (harvestItem.quality) {
-                          case 'premium': return '#4CAF50';
-                          case 'standard': return '#FFC107';
-                          case 'economy': case 'secondary': return '#FF9800';
-                          default: return '#9E9E9E';
+                      case 'premium': return theme.colors.success;
+                      case 'standard': return theme.colors.info;
+                      case 'economy': case 'secondary': return theme.colors.warning;
+                      default: return theme.colors.neutral.border;
                         }
                       })()
                     }
-                  ]}
-                >
-                  <Text style={styles.badgeText}>
-                    {qualityInfo.name}
+              ]}>
+                <Text style={styles.qualityIcon}>
+                  {qualityInfo.icon}
                   </Text>
-                </View>
               </View>
+              <Text style={[styles.statLabel, { color: theme.colors.neutral.textSecondary }]}>
+                {qualityInfo.name}
+              </Text>
             </View>
           </View>
 
-          <View style={styles.actions}>
+          <View style={styles.headerActions}>
             <TouchableOpacity 
-              style={[styles.actionButton, { backgroundColor: theme.colors.primary.surface }]}
-              onPress={() => {
-                navigation.navigate('AddHarvest', { 
-                  harvestId: harvestItem?.id
-                });
-              }}
+              style={[styles.actionButton, { backgroundColor: theme.colors.primary.base }]}
+              onPress={() => navigation.navigate('AddHarvest', { harvestId: harvestItem?.id })}
             >
-              <MaterialCommunityIcons 
-                name="pencil" 
-                size={22} 
-                color={theme.colors.primary.base} 
-              />
+              <MaterialCommunityIcons name="pencil" size={24} color="#FFF" />
+              <Text style={styles.actionButtonText}>تعديل</Text>
             </TouchableOpacity>
             <TouchableOpacity 
-              style={[styles.actionButton, { backgroundColor: theme.colors.error + '10' }]}
+              style={[styles.actionButton, { backgroundColor: theme.colors.error }]}
               onPress={handleDelete}
+              disabled={isDeleting}
             >
-              <MaterialCommunityIcons 
-                name="delete" 
-                size={22} 
-                color={theme.colors.error} 
-              />
+              {isDeleting ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <>
+                  <MaterialCommunityIcons name="delete" size={24} color="#FFF" />
+                  <Text style={styles.actionButtonText}>حذف</Text>
+                </>
+              )}
             </TouchableOpacity>
           </View>
         </Animated.View>
 
         <View style={styles.content}>
-          {renderSection('المعلومات الأساسية', '📊', <>
-            {renderInfoRow('الكمية', `${harvestItem.quantity} ${getUnitAbbreviation(harvestItem.unit)}`, '📦')}
-            {renderInfoRow('السعر', `${harvestItem.price} د.أ`, '💰')}
-            {renderInfoRow('تاريخ الحصاد', new Date(harvestItem.harvestDate).toLocaleDateString('ar-SA'), '📅')}
-            {renderInfoRow('الحد الأدنى للتنبيه', harvestItem.minQuantityAlert, '⚠️', true)}
-          </>)}
-
-          {renderSection('معلومات التخزين', '📦', <>
-            {renderInfoRow('موقع التخزين', harvestItem.storageLocation, '📍', true)}
-            {renderInfoRow('رقم الدفعة', harvestItem.batchNumber, '🔢', true)}
-            {renderInfoRow('تاريخ انتهاء الصلاحية', harvestItem.expiryDate ? new Date(harvestItem.expiryDate).toLocaleDateString('ar-SA') : null, '⏳', true)}
-            {renderInfoRow('ظروف التخزين', harvestItem.storageConditions, '🌡️', true)}
-          </>)}
-
-          {renderSection('معلومات الجودة', '🔍', <>
-            {renderInfoRow('الجودة', qualityInfo.name, qualityInfo.icon)}
-            {renderInfoRow('نسبة الرطوبة', harvestItem?.moisture && harvestItem.moisture > 0 ? `${harvestItem.moisture}%` : null, '💧', true)}
-            {renderInfoRow('الشهادات', harvestItem.certifications, '🏅', true)}
-          </>)}
-
-          {harvestItem.notes && renderSection('ملاحظات', '📝', <>
-            <Text style={[styles.notes, { color: theme.colors.neutral.textPrimary }]}>
-              {harvestItem.notes}
-            </Text>
-          </>)}
-
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity 
-              style={[styles.button, styles.editButton, { backgroundColor: theme.colors.primary.base }]}
-              onPress={() => {
-                navigation.navigate('AddHarvest', { 
-                  harvestId: harvestItem?.id
-                });
-              }}
-            >
-              <MaterialCommunityIcons name="pencil" size={22} color="white" />
-              <Text style={styles.buttonText}>تعديل</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.button, styles.deleteButton, { backgroundColor: theme.colors.error }]}
-              onPress={handleDelete}
-            >
-              <MaterialCommunityIcons name="delete" size={22} color="white" />
-              <Text style={styles.buttonText}>حذف</Text>
-            </TouchableOpacity>
-          </View>
+          {renderField('الكمية', `${harvestItem.quantity} ${getUnitAbbreviation(harvestItem.unit)}`, FIELD_ICONS.quantity)}
+          {renderField('السعر', `${harvestItem.price} د.أ`, FIELD_ICONS.price)}
+          {renderField('تاريخ الحصاد', new Date(harvestItem.harvestDate).toLocaleDateString('ar-SA'), FIELD_ICONS.harvestDate)}
+          {harvestItem.minQuantityAlert && renderField('الحد الأدنى للتنبيه', `${harvestItem.minQuantityAlert} ${getUnitAbbreviation(harvestItem.unit)}`, FIELD_ICONS.minQuantityAlert)}
+          
+          {harvestItem.storageLocation && renderField('موقع التخزين', harvestItem.storageLocation, FIELD_ICONS.storageLocation)}
+          {harvestItem.batchNumber && renderField('رقم الدفعة', harvestItem.batchNumber, FIELD_ICONS.batchNumber)}
+          {harvestItem.expiryDate && renderField('تاريخ انتهاء الصلاحية', new Date(harvestItem.expiryDate).toLocaleDateString('ar-SA'), FIELD_ICONS.expiryDate)}
+          {harvestItem.storageConditions && renderField('ظروف التخزين', harvestItem.storageConditions, FIELD_ICONS.storageConditions)}
+          
+          {harvestItem.quality && renderField('الجودة', qualityInfo.name, FIELD_ICONS.quality)}
+          {harvestItem.moisture && harvestItem.moisture > 0 && renderField('نسبة الرطوبة', `${harvestItem.moisture}%`, FIELD_ICONS.moisture)}
+          {harvestItem.certifications && renderField('الشهادات', harvestItem.certifications, FIELD_ICONS.certifications)}
+          
+          {harvestItem.notes && renderField('ملاحظات', harvestItem.notes, FIELD_ICONS.notes)}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -508,25 +485,35 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  scrollView: {
+    flex: 1,
+  },
   header: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.1)',
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    padding: 24,
+    gap: 24,
+    ...Platform.select({
+      android: {
+        paddingTop: StatusBar.currentHeight,
+      },
+    }),
   },
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 16,
   },
   iconContainer: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
   },
-  harvestIconText: {
-    fontSize: 36,
+  harvestIcon: {
+    fontSize: 40,
   },
   statusIndicator: {
     position: 'absolute',
@@ -536,113 +523,101 @@ const styles = StyleSheet.create({
   },
   headerInfo: {
     flex: 1,
-    marginLeft: 16,
+    gap: 8,
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 8,
+    fontWeight: '600',
     textAlign: 'right',
   },
-  badgeContainer: {
-    flexDirection: 'row',
-    gap: 8,
+  subtitle: {
+    fontSize: 16,
+    textAlign: 'right',
   },
-  badge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
+  statsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  statCard: {
+    flex: 1,
+    padding: 16,
     borderRadius: 16,
-  },
-  badgeText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  actions: {
-    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
-  actionButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  statValue: {
+    fontSize: 24,
+    fontWeight: '600',
+  },
+  statLabel: {
+    fontSize: 14,
+  },
+  qualityIndicator: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  qualityIcon: {
+    fontSize: 24,
+    color: '#FFF',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 12,
+    gap: 8,
+  },
+  actionButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '500',
+  },
   content: {
-    padding: 16,
+    padding: 24,
     gap: 16,
   },
-  section: {
-    borderRadius: 16,
+  infoCard: {
     padding: 16,
-    marginBottom: 16,
+    borderRadius: 16,
+    gap: 12,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowRadius: 8,
       },
       android: {
         elevation: 4,
       },
     }),
   },
-  sectionTitle: {
+  infoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  infoTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 16,
+    fontWeight: '600',
     textAlign: 'right',
   },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  value: {
-    fontSize: 16,
-    fontWeight: '400',
-    maxWidth: '60%',
-    textAlign: 'left',
-  },
-  notes: {
+  infoContent: {
     fontSize: 16,
     lineHeight: 24,
     textAlign: 'right',
   },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 16,
-    marginTop: 8,
-  },
-  button: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderRadius: 8,
-    gap: 8,
-  },
-  editButton: {
-    backgroundColor: '#2196F3',
-  },
-  deleteButton: {
-    backgroundColor: '#F44336',
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
+  fieldIcon: {
+    fontSize: 24,
   },
   loadingContainer: {
     alignItems: 'center',
@@ -657,19 +632,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginTop: 16,
   },
-  errorContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  notFoundIcon: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
-  notFoundText: {
-    fontSize: 18,
-    marginBottom: 24,
+  errorText: {
+    fontSize: 16,
+    marginTop: 16,
     textAlign: 'center',
+  },
+  retryButton: {
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
   },
 });
 
