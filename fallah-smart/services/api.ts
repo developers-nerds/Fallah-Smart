@@ -2,12 +2,40 @@ import axios from 'axios';
 import { storage } from '../utils/storage';
 import Constants from 'expo-constants';
 import { StockItem, StockHarvest } from '../screens/Stock/types';
+import { API_URL as configApiUrl } from '../config/api';
 
-// Get API URL from environment variables
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.3:5000/api';
+// Set up basic error tracking without using window.addEventListener 
+try {
+  // Simple logging setup that works in React Native
+  console.log('[API Service] Setting up error handling');
+  
+  // Avoid using window.addEventListener which is not available in React Native
+} catch (e) {
+  console.log('Error setting up error handlers', e);
+}
 
-// Log API URL for debugging
-console.log('Using API URL:', API_URL);
+// Get API URL from environment variables or config with more explicit logging
+console.log('[API Service] Environment variables:');
+console.log('- process.env.EXPO_PUBLIC_API_URL:', process.env.EXPO_PUBLIC_API_URL);
+console.log('- Constants.expoConfig?.extra?.expoPublicApiUrl:', Constants.expoConfig?.extra?.expoPublicApiUrl);
+console.log('- configApiUrl:', configApiUrl);
+
+// Get API URL with priority and better fallback logic
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 
+                Constants.expoConfig?.extra?.expoPublicApiUrl || 
+                configApiUrl || 
+                'http://192.168.1.3:5000/api'; // Fallback for development
+
+// Log API URL for debugging with more emphasis
+console.log('[API Service] FINAL SELECTED API URL:', API_URL);
+console.log('[API Service] Making requests to:', API_URL);
+
+// Check for empty or malformed API URL
+if (!API_URL) {
+  console.error('[API Service] CRITICAL ERROR: API_URL is empty! Requests will fail.');
+} else if (!API_URL.includes('://')) {
+  console.error('[API Service] WARNING: API_URL doesn\'t contain protocol (http:// or https://). This may cause failures.');
+}
 
 // Create axios instance
 const api = axios.create({
@@ -19,8 +47,13 @@ const api = axios.create({
 });
 
 // Add a request interceptor for logging and throttling
-const pendingRequests = new Map();
-const REQUEST_THROTTLE_MS = 1000; // 1 second throttle
+// Use a simple object instead of Map for tracking requests
+const pendingRequests: Record<string, number> = {};
+const REQUEST_THROTTLE_MS = 3000; // Increased to 3 seconds
+
+// Cache for storing recent responses
+const responseCache: Record<string, any> = {};
+const CACHE_TTL = 30000; // Increased cache time to 30 seconds for better reliability
 
 api.interceptors.request.use(
   (config) => {
@@ -28,10 +61,26 @@ api.interceptors.request.use(
     const requestKey = `${config.method}:${config.url}`;
     
     // Check if we have a pending/recent request for this endpoint
-    const lastRequestTime = pendingRequests.get(requestKey);
+    const lastRequestTime = pendingRequests[requestKey];
     const now = Date.now();
     
     if (lastRequestTime && (now - lastRequestTime) < REQUEST_THROTTLE_MS) {
+      // Check if we have a cached response
+      const cachedResponse = responseCache[requestKey];
+      
+      if (cachedResponse) {
+        console.log(`[API] Throttling duplicate request to ${requestKey}`);
+        console.log(`Request throttled, using cached data from ${now - lastRequestTime}ms ago`);
+        
+        // Return the cached response data wrapped in a special object
+        return Promise.reject({
+          throttled: true,
+          message: 'Request throttled to prevent excessive calls',
+          cachedData: cachedResponse,
+          throttleTime: now - lastRequestTime
+        });
+      }
+      
       console.log(`[API] Throttling duplicate request to ${requestKey}`);
       return Promise.reject({
         throttled: true,
@@ -40,7 +89,7 @@ api.interceptors.request.use(
     }
     
     // Track this request
-    pendingRequests.set(requestKey, now);
+    pendingRequests[requestKey] = now;
     
     // Log request for debugging
     if (__DEV__) {
@@ -68,92 +117,204 @@ api.interceptors.request.use(async (config) => {
   }
 });
 
-// Additional configuration to track request and response
+// Modified response interceptor to cache successful responses
 api.interceptors.response.use(
   (response) => {
-    return response;
+    try {
+      // Cache the response
+      const requestKey = `${response.config.method}:${response.config.url}`;
+      responseCache[requestKey] = response.data;
+      
+      // Set timeout to clear the cache entry
+      setTimeout(() => {
+        delete responseCache[requestKey];
+      }, CACHE_TTL);
+      
+      return response;
+    } catch (error) {
+      console.error('Error in response interceptor:', error);
+      return response;
+    }
   },
   async (error) => {
-    if (axios.isAxiosError(error)) {
-      if (error.response?.status === 401) {
-        await storage.clearAuth();
-        // TODO: Navigate to login screen
+    try {
+      // Handle throttled requests with cached data
+      if (error.throttled && error.cachedData) {
+        console.log('Returning cached data for throttled request');
+        // Return a simulated successful response with cached data
+        return Promise.resolve({
+          status: 200,
+          data: error.cachedData,
+          headers: {},
+          config: error.config || {},
+          cached: true,
+          throttleTime: error.throttleTime
+        });
       }
+      
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 401) {
+          await storage.clearAuth();
+          // TODO: Navigate to login screen
+        }
+      }
+    } catch (interceptorError) {
+      console.error('Error in error interceptor:', interceptorError);
     }
+    
     return Promise.reject(error);
   }
 );
+
+// Utility function to help with retries
+const withRetry = async <T>(apiCall: () => Promise<T>, maxRetries = 2, delayMs = 1000): Promise<T> => {
+  let lastError: any;
+  let attemptCount = 0;
+  
+  // Improved network error detection
+  const isNetworkError = (err: any): boolean => {
+    // Don't use navigator.onLine which doesn't work reliably in Expo
+    const isNetErr = err && (
+      err.message === 'Network Error' || 
+      err.code === 'ECONNABORTED' || 
+      err.message?.includes('timeout') ||
+      err.message?.includes('network')
+    );
+    
+    if (isNetErr) {
+      console.log('[API] Network error detected:', err.message || 'Unknown network error');
+    }
+    
+    return isNetErr;
+  };
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      attemptCount++;
+      
+      // For debugging - log the URL being called
+      if (attempt > 0) {
+        const backoffTime = delayMs * Math.pow(1.5, attempt - 1);
+        console.log(`[API] Retry attempt ${attempt}/${maxRetries} after ${backoffTime}ms delay...`);
+        // Wait before retry, with exponential backoff
+        await new Promise(resolve => setTimeout(resolve, backoffTime));
+      } else {
+        console.log(`[API] Making request (attempt ${attempt + 1}/${maxRetries + 1})...`);
+      }
+      
+      // Don't check for navigator.onLine - it's unreliable in React Native
+      // Just try to make the request and catch any network errors
+      
+      const result = await apiCall();
+      console.log(`[API] Request successful on attempt ${attempt + 1}`);
+      return result;
+    } catch (error: any) {
+      lastError = error;
+      
+      // Log the error details
+      console.error(`[API] Request failed on attempt ${attempt + 1}/${maxRetries + 1}:`, 
+        error.response?.status || error.message || 'Unknown error');
+      
+      // If we got cached data due to throttling, just return that
+      if (error.throttled && error.cachedData) {
+        console.log(`[API] Using cached data due to throttling (attempt ${attemptCount}/${maxRetries + 1})`);
+        return error.cachedData;
+      }
+      
+      // Handle specific error cases
+      if (axios.isAxiosError(error)) {
+        // Log detailed error information
+        if (error.response) {
+          console.error(`[API] Server responded with status ${error.response.status}:`, 
+            error.response.data || 'No response data');
+        } else if (error.request) {
+          console.error('[API] No response received from server (request was sent)');
+        }
+        
+        // Don't retry on 401/403/404/409/422
+        if (error.response && [401, 403, 404, 409, 422].includes(error.response.status)) {
+          console.log(`[API] Not retrying for status code ${error.response.status}`);
+          throw error;
+        }
+        
+        // Always retry on network errors, even beyond max retries if needed
+        if (isNetworkError(error) && attempt === maxRetries) {
+          console.log('[API] Network error detected, adding extra retry attempt');
+          // Continue with one extra retry
+          continue;
+        }
+      }
+      
+      // Otherwise only retry if we haven't reached max retries yet
+      if (attempt === maxRetries) {
+        console.error(`[API] Max retries (${maxRetries}) reached. Giving up.`);
+        if (isNetworkError(error)) {
+          throw new Error('فشل الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.');
+        }
+        throw error;
+      }
+    }
+  }
+  
+  throw lastError;
+};
 
 // Stock API methods
 const stockApi = {
   // Get all stocks
   getAllStocks: async () => {
-    try {
+    return withRetry(async () => {
       const response = await api.get('/stocks');
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   },
 
   // Get single stock
   getStock: async (id: string) => {
-    try {
+    return withRetry(async () => {
       const response = await api.get(`/stocks/${id}`);
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   },
 
   // Create stock
   createStock: async (stockData: Omit<StockItem, 'id' | 'stockHistory'>) => {
-    try {
+    return withRetry(async () => {
       const response = await api.post('/stocks', stockData);
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   },
 
   // Update stock quantity
   updateStockQuantity: async (id: string, data: { quantity: number; type: 'add' | 'remove'; notes?: string }) => {
-    try {
+    return withRetry(async () => {
       const response = await api.post(`/stocks/${id}/quantity`, data);
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   },
 
   // Update stock details
   updateStock: async (id: string, data: any) => {
-    try {
+    return withRetry(async () => {
       const response = await api.put(`/stocks/${id}`, data);
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   },
 
   // Delete stock
   deleteStock: async (id: string) => {
-    try {
+    return withRetry(async () => {
       const response = await api.delete(`/stocks/${id}`);
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   },
 
   // Get stock history
   getStockHistory: async (stockId: string) => {
-    try {
+    return withRetry(async () => {
       const response = await api.get(`/stocks/${stockId}/history`);
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   }
 };
 
@@ -161,49 +322,41 @@ const stockApi = {
 const animalApi = {
   // Get all animals
   getAllAnimals: async () => {
-    try {
+    return withRetry(async () => {
       const response = await api.get('/animals');
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   },
 
   // Create animal
   createAnimal: async (animalData: any) => {
-    try {
+    return withRetry(async () => {
       const response = await api.post('/animals', animalData);
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   },
 
   // Update animal
   updateAnimal: async (id: string, data: any) => {
-    try {
+    return withRetry(async () => {
       const response = await api.put(`/animals/${id}`, data);
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   },
 
   // Delete animal
   deleteAnimal: async (id: string) => {
-    try {
+    return withRetry(async () => {
       const response = await api.delete(`/animals/${id}`);
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   },
 };
 
 // Stock Statistics API
 const stockStatisticsApi = {
   getStatistics: async (params?: { startDate?: string; endDate?: string; category?: string }) => {
-    try {
+    return withRetry(async () => {
       // Build query string
       const queryParams = new URLSearchParams();
       if (params?.startDate) queryParams.append('startDate', params.startDate);
@@ -215,9 +368,7 @@ const stockStatisticsApi = {
       
       const response = await api.get(url);
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   }
 };
 
@@ -225,16 +376,10 @@ const stockStatisticsApi = {
 const pesticideApi = {
   // Get all pesticides
   getAllPesticides: async () => {
-    try {
+    return withRetry(async () => {
       const response = await api.get('/pesticides');
       return response.data;
-    } catch (error) {
-      console.error('Error fetching pesticides:', error);
-      if (axios.isAxiosError(error) && error.response) {
-        throw new Error(`Failed to fetch pesticides: ${error.response.status} ${error.response.statusText}`);
-      }
-      throw error;
-    }
+    });
   },
 
   // Get pesticides for notification service
@@ -244,50 +389,33 @@ const pesticideApi = {
       return response.data;
     } catch (error) {
       console.error('Error fetching pesticides:', error);
+      // Return empty array instead of throwing to avoid stopping notification checks
       return [];
     }
   },
 
   // Create pesticide
   createPesticide: async (pesticideData: any) => {
-    try {
+    return withRetry(async () => {
       const response = await api.post('/pesticides', pesticideData);
       return response.data;
-    } catch (error) {
-      console.error('Error creating pesticide:', error);
-      if (axios.isAxiosError(error) && error.response) {
-        throw new Error(`Failed to create pesticide: ${error.response.status} ${error.response.statusText}`);
-      }
-      throw error;
-    }
+    });
   },
 
   // Update pesticide
   updatePesticide: async (id: string, data: any) => {
-    try {
+    return withRetry(async () => {
       const response = await api.put(`/pesticides/${id}`, data);
       return response.data;
-    } catch (error) {
-      console.error('Error updating pesticide:', error);
-      if (axios.isAxiosError(error) && error.response) {
-        throw new Error(`Failed to update pesticide: ${error.response.status} ${error.response.statusText}`);
-      }
-      throw error;
-    }
+    });
   },
 
   // Delete pesticide
   deletePesticide: async (id: string) => {
-    try {
+    return withRetry(async () => {
       const response = await api.delete(`/pesticides/${id}`);
       return response.data;
-    } catch (error) {
-      console.error('Error deleting pesticide:', error);
-      if (axios.isAxiosError(error) && error.response) {
-        throw new Error(`Failed to delete pesticide: ${error.response.status} ${error.response.statusText}`);
-      }
-      throw error;
-    }
+    });
   },
 };
 
@@ -295,17 +423,15 @@ const pesticideApi = {
 const seedApi = {
   // Get all seeds
   getAllSeeds: async () => {
-    try {
+    return withRetry(async () => {
       const response = await api.get('/stock/seeds');
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   },
 
   // Create seed
   createSeed: async (seedData: any) => {
-    try {
+    return withRetry(async () => {
       // Add validation for required fields
       if (!seedData.cropType) {
         seedData.cropType = 'عام'; // Set a default value
@@ -318,39 +444,31 @@ const seedApi = {
       
       const response = await api.post('/stock/seeds', seedData);
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   },
 
   // Update seed
   updateSeed: async (id: string, data: any) => {
-    try {
+    return withRetry(async () => {
       const response = await api.put(`/stock/seeds/${id}`, data);
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   },
 
   // Delete seed
   deleteSeed: async (id: string) => {
-    try {
+    return withRetry(async () => {
       const response = await api.delete(`/stock/seeds/${id}`);
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   },
 
   // Update seed quantity
   updateSeedQuantity: async (id: string, data: { quantity: number; type: 'add' | 'remove'; notes?: string }) => {
-    try {
+    return withRetry(async () => {
       const response = await api.patch(`/stock/seeds/${id}/quantity`, data);
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   }
 };
 
@@ -358,73 +476,58 @@ const seedApi = {
 const stockEquipmentApi = {
   // Get all equipment
   getAllEquipment: async () => {
-    try {
+    return withRetry(async () => {
       const response = await api.get('/stock/equipment');
       return response.data;
-    } catch (error) {
-      console.error('Error fetching equipment:', error);
-      return [];
-    }
+    });
   },
 
   // Get single equipment
   getEquipment: async (id: string) => {
-    try {
+    return withRetry(async () => {
       const response = await api.get(`/stock/equipment/${id}`);
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   },
 
   // Create equipment
   createEquipment: async (equipmentData: any) => {
-    try {
+    return withRetry(async () => {
       const response = await api.post('/stock/equipment', equipmentData);
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   },
 
   // Update equipment
   updateEquipment: async (id: string, data: any) => {
-    try {
+    return withRetry(async () => {
       const response = await api.put(`/stock/equipment/${id}`, data);
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   },
 
   // Delete equipment
   deleteEquipment: async (id: string) => {
-    try {
+    return withRetry(async () => {
       const response = await api.delete(`/stock/equipment/${id}`);
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   },
 
   // Record maintenance
   recordMaintenance: async (id: string, data: { maintenanceNotes: string; cost: number; nextMaintenanceDate?: Date }) => {
-    try {
+    return withRetry(async () => {
       const response = await api.post(`/stock/equipment/${id}/maintenance`, data);
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   },
 
   // Update equipment status
   updateStatus: async (id: string, status: string) => {
-    try {
+    return withRetry(async () => {
       const response = await api.patch(`/stock/equipment/${id}/status`, { status });
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   }
 };
 
@@ -432,73 +535,58 @@ const stockEquipmentApi = {
 const stockFeedApi = {
   // Get all feeds
   getAllFeeds: async () => {
-    try {
+    return withRetry(async () => {
       const response = await api.get('/stock/feed');
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   },
 
   // Get feeds for notification service
   getFeeds: async () => {
-    try {
+    return withRetry(async () => {
       const response = await api.get('/stock/feed');
       return response.data;
-    } catch (error) {
-      console.error('Error fetching feeds:', error);
-      return [];
-    }
+    }, 2, 2000);
   },
 
   // Get single feed
   getFeed: async (id: string) => {
-    try {
+    return withRetry(async () => {
       const response = await api.get(`/stock/feed/${id}`);
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   },
 
   // Create feed
   createFeed: async (feedData: any) => {
-    try {
+    return withRetry(async () => {
       const response = await api.post('/stock/feed', feedData);
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   },
 
   // Update feed
   updateFeed: async (id: string, data: any) => {
-    try {
+    return withRetry(async () => {
       const response = await api.put(`/stock/feed/${id}`, data);
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   },
 
   // Delete feed
   deleteFeed: async (id: string) => {
-    try {
+    return withRetry(async () => {
       const response = await api.delete(`/stock/feed/${id}`);
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   },
 
   // Update feed quantity
   updateFeedQuantity: async (id: string, data: { quantity: number; type: 'add' | 'remove'; notes?: string }) => {
-    try {
+    return withRetry(async () => {
       const response = await api.patch(`/stock/feed/${id}/quantity`, data);
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   }
 };
 
@@ -506,73 +594,58 @@ const stockFeedApi = {
 const stockFertilizerApi = {
   // Get all fertilizers
   getAllFertilizers: async () => {
-    try {
+    return withRetry(async () => {
       const response = await api.get('/stock/fertilizer');
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   },
 
   // Get fertilizers for notification service
   getFertilizers: async () => {
-    try {
+    return withRetry(async () => {
       const response = await api.get('/stock/fertilizer');
       return response.data;
-    } catch (error) {
-      console.error('Error fetching fertilizers:', error);
-      return [];
-    }
+    }, 2, 2000);
   },
 
   // Get single fertilizer
   getFertilizer: async (id: string) => {
-    try {
+    return withRetry(async () => {
       const response = await api.get(`/stock/fertilizer/${id}`);
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   },
 
   // Create fertilizer
   createFertilizer: async (fertilizerData: any) => {
-    try {
+    return withRetry(async () => {
       const response = await api.post('/stock/fertilizer', fertilizerData);
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   },
 
   // Update fertilizer
   updateFertilizer: async (id: string, data: any) => {
-    try {
+    return withRetry(async () => {
       const response = await api.put(`/stock/fertilizer/${id}`, data);
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   },
 
   // Delete fertilizer
   deleteFertilizer: async (id: string) => {
-    try {
+    return withRetry(async () => {
       const response = await api.delete(`/stock/fertilizer/${id}`);
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   },
 
   // Update fertilizer quantity
   updateFertilizerQuantity: async (id: string, data: { quantity: number; type: 'add' | 'remove'; notes?: string }) => {
-    try {
+    return withRetry(async () => {
       const response = await api.patch(`/stock/fertilizer/${id}/quantity`, data);
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   }
 };
 
@@ -580,100 +653,79 @@ const stockFertilizerApi = {
 const stockHarvestApi = {
   // Get all harvests
   getAllHarvests: async () => {
-    try {
+    return withRetry(async () => {
       const response = await api.get('/stock/harvest');
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   },
 
   // Get harvests for notification service
   getHarvests: async () => {
-    try {
+    return withRetry(async () => {
       const response = await api.get('/stock/harvest');
       return response.data;
-    } catch (error) {
-      console.error('Error fetching harvests:', error);
-      return [];
-    }
+    }, 2, 2000);
   },
 
   // Get single harvest
   getHarvest: async (id: string) => {
-    try {
+    return withRetry(async () => {
       const response = await api.get(`/stock/harvest/${id}`);
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   },
 
   // Create harvest
   createHarvest: async (harvestData: Partial<StockHarvest>) => {
-    try {
+    return withRetry(async () => {
       const response = await api.post('/stock/harvest', harvestData);
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   },
 
   // Update harvest
   updateHarvest: async (id: string, data: Partial<StockHarvest>) => {
-    try {
+    return withRetry(async () => {
       const response = await api.put(`/stock/harvest/${id}`, data);
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   },
 
   // Delete harvest
   deleteHarvest: async (id: string) => {
-    try {
+    return withRetry(async () => {
       const response = await api.delete(`/stock/harvest/${id}`);
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   },
 
   // Update harvest quantity
   updateHarvestQuantity: async (id: string, data: { quantity: number; type: 'add' | 'remove'; notes?: string }) => {
-    try {
+    return withRetry(async () => {
       const response = await api.patch(`/stock/harvest/${id}/quantity`, data);
       return response.data;
-    } catch (error) {
-      throw error;
-    }
+    });
   }
 };
 
 // Seed API methods
 const stockSeedApi = {
   getSeeds: async () => {
-    try {
+    return withRetry(async () => {
       const response = await api.get('/stock/seeds');
       return response.data;
-    } catch (error) {
-      console.error('Error fetching seeds:', error);
-      return [];
-    }
-  },
+    }, 2, 2000);
+  }
   // other seed methods...
 };
 
 // Tool API methods
 const stockToolApi = {
   getTools: async () => {
-    try {
+    return withRetry(async () => {
       const response = await api.get('/stock/tools');
       return response.data;
-    } catch (error) {
-      console.error('Error fetching tools:', error);
-      return [];
-    }
+    });
   },
   // other tool methods...
 };
@@ -692,5 +744,6 @@ export {
   stockHarvestApi,
   pesticideApi as stockPesticideApi, // Alias pesticideApi as stockPesticideApi
   stockSeedApi,
-  stockToolApi
+  stockToolApi,
+  withRetry // Export withRetry for use in other modules
 }; 

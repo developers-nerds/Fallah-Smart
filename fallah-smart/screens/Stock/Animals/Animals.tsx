@@ -206,11 +206,12 @@ interface AnimalCardProps {
 
 export const AnimalsScreen = ({ navigation }: AnimalsScreenProps) => {
   const theme = useTheme();
-  const { animals, loading, error, refreshAnimals } = useStock();
+  const { animals, loading, error: stockError, refreshAnimals } = useStock();
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(1);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
 
   // Define filteredAnimals based on search query and selected category
   const filteredAnimals = useMemo(() => {
@@ -353,7 +354,11 @@ export const AnimalsScreen = ({ navigation }: AnimalsScreenProps) => {
         await refreshAnimals();
         if (!isMounted) return;
       } catch (err) {
-        // Handle error silently or show an alert if needed
+        console.error('Error loading animals:', err);
+        // Display network error to the user if it's a connection issue
+        if (err.message && err.message.includes('فشل الاتصال بالخادم') && isMounted) {
+          setLocalError(err.message);
+        }
       }
     };
     
@@ -369,8 +374,13 @@ export const AnimalsScreen = ({ navigation }: AnimalsScreenProps) => {
     try {
       await refreshAnimals();
       setPage(1);
+      setLocalError(null); // Clear any previous errors on successful refresh
     } catch (error) {
-      // Handle error silently or show an alert if needed
+      console.error('Error refreshing animals:', error);
+      // Display network error to the user if it's a connection issue
+      if (error.message && error.message.includes('فشل الاتصال بالخادم')) {
+        setLocalError(error.message);
+      }
     } finally {
       setRefreshing(false);
     }
@@ -434,7 +444,7 @@ export const AnimalsScreen = ({ navigation }: AnimalsScreenProps) => {
     );
   }
 
-  if (error) {
+  if (stockError || localError) {
     return (
       <View style={[styles.container, styles.centerContent]}>
         <MaterialCommunityIcons 
@@ -443,7 +453,7 @@ export const AnimalsScreen = ({ navigation }: AnimalsScreenProps) => {
           color={theme.colors.error} 
         />
         <Text style={[styles.errorText, { color: theme.colors.error }]}>
-          حدث خطأ: {error}
+          حدث خطأ: {localError || stockError}
         </Text>
         <TouchableOpacity
           style={[styles.seeMoreButton, { backgroundColor: theme.colors.primary.base, marginTop: 20 }]}

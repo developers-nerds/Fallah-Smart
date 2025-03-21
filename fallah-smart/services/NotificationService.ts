@@ -5,14 +5,68 @@ import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import { Alert } from 'react-native';
 
+// Define interfaces needed by this service
+interface NotificationData {
+  screen?: string;
+  params?: any;
+  type?: string;
+  id?: string | number;
+}
+
+interface StockItem {
+  id: number | string;
+  name: string;
+  nameAr?: string;
+  currentQuantity?: number;
+  quantity?: number;
+  minimumQuantity?: number;
+  minQuantityAlert?: number;
+  expiryDate?: string;
+  type?: string;
+  lastNotificationSent?: string;
+  unit?: string;
+  lastMaintenance?: string;
+}
+
 // Make sure notifications appear even when the app is in foreground
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,     // IMPORTANT: This makes notifications appear when the app is foregrounded
     shouldPlaySound: true,
     shouldSetBadge: true,
+    priority: Notifications.AndroidNotificationPriority.MAX,
   }),
 });
+
+// Add a second fallback handler at global level for absolute safety
+if (Platform.OS === 'android') {
+  // Force Android to always show notifications
+  Notifications.setNotificationHandler({
+    handleNotification: async () => {
+      console.log('[NotificationHandler] Force handling notification to display');
+      return {
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+        shouldLockScreen: true,
+        priority: Notifications.AndroidNotificationPriority.MAX,
+      };
+    },
+  });
+} else {
+  // iOS specific handling
+  Notifications.setNotificationHandler({
+    handleNotification: async () => {
+      console.log('[NotificationHandler] iOS handling notification to display');
+      return {
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+        priority: Notifications.AndroidNotificationPriority.MAX,
+      };
+    },
+  });
+}
 
 class NotificationService {
   private static instance: NotificationService;
@@ -20,6 +74,13 @@ class NotificationService {
   private expoPushToken: string | null = null;
   private notificationListener: any = null;
   private responseListener: any = null;
+  private navigation: any = null;
+
+  // Add pending notifications tracking to avoid duplicates
+  private pendingNotifications = new Set<string>();
+  private readonly MAX_CONCURRENT_NOTIFICATIONS = 3;
+  private readonly NOTIFICATION_COOLDOWN_MS = 3000; // 3 seconds between notifications
+  private lastNotificationTime = 0;
 
   private constructor() {}
 
@@ -62,8 +123,13 @@ class NotificationService {
       const token = await this.registerForPushNotificationsAsync();
       this.expoPushToken = token;
       
-      // Step 5: Register this token with our backend
-      await this.registerDeviceToken(this.expoPushToken);
+      // Step 5: Register this token with our backend - with retry
+      try {
+        await this.registerDeviceToken(this.expoPushToken);
+      } catch (tokenError) {
+        console.error('Error registering device token, but continuing:', tokenError);
+        // Continue even if token registration fails
+      }
       
       // Step 6: Set up notification listeners
       this.setupNotificationListeners();
@@ -76,6 +142,20 @@ class NotificationService {
   }
 
   private async setupAndroidNotificationChannels() {
+    // Direct testing channel (highest priority)
+    await Notifications.setNotificationChannelAsync('direct-test', {
+      name: 'اختبارات مباشرة',
+      description: 'إشعارات مباشرة عالية الأهمية للاختبار',
+      importance: Notifications.AndroidImportance.MAX, 
+      vibrationPattern: [0, 500, 500, 500],
+      lightColor: '#FF0000', // Red for highest priority
+      enableVibrate: true,
+      enableLights: true,
+      showBadge: true,
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+      bypassDnd: true, // Bypass Do Not Disturb
+    });
+
     // Main notification channel
     await Notifications.setNotificationChannelAsync('default', {
       name: 'تنبيهات فلاح الافتراضية',
@@ -187,67 +267,17 @@ class NotificationService {
 
       // Add listener for notifications received while app is in foreground
       this.notificationListener = Notifications.addNotificationReceivedListener(notification => {
-        // Android doesn't show notifications in foreground by default, so we schedule it
-        if (Platform.OS === 'android') {
-          // Check if this is already a processed foreground notification to prevent infinite loop
-          if (notification.request.content.data && notification.request.content.data.isProcessedForeground) {
-            console.log('Skipping already processed foreground notification');
-            return;
-          }
-
-          // Add a significantly LARGER random delay (1-3 seconds) to spread out notifications
-          const delayMs = 1000 + Math.random() * 2000;
-          setTimeout(() => {
-            console.log('Showing foreground notification with delay:', Math.round(delayMs), 'ms');
-            
-            // Schedule the notification immediately 
-            Notifications.scheduleNotificationAsync({
-              content: {
-                title: notification.request.content.title,
-                body: notification.request.content.body,
-                data: {
-                  ...notification.request.content.data,
-                  isProcessedForeground: true, // Mark as processed to prevent infinite loop
-                },
-                sound: true,
-                vibrate: [0, 250, 250, 250],
-              },
-              trigger: null, // null trigger means show immediately
-            }).then(id => {
-              console.log('Foreground notification scheduled with ID:', id);
-            }).catch(error => {
-              console.error('Error scheduling foreground notification:', error);
-            });
-          }, delayMs);
-        }
+        console.log('[NotificationService] Notification received in foreground:', notification.request.identifier);
+        // Let the notification handler handle displaying
       });
 
       // Add listener for notification responses (when user taps notification)
       this.responseListener = Notifications.addNotificationResponseReceivedListener(response => {
         const data = response.notification.request.content.data as NotificationData;
-        
-        console.log('Notification tapped:', data);
-        
-        // Check if we have a route to navigate to
-        if (data.screen) {
-          // Wait a bit for navigation to be ready
-          setTimeout(() => {
-            console.log('Navigating to:', data.screen);
-            
-            if (this.navigation) {
-              if (data.params) {
-                this.navigation.navigate(data.screen, data.params);
-              } else {
-                this.navigation.navigate(data.screen);
-              }
-            } else {
-              console.log('Navigation not available');
-            }
-          }, 300);
-        }
+        console.log('[NotificationService] Notification tapped:', data);
       });
     } catch (error) {
-      console.error('Error setting up notification listeners:', error);
+      console.error('[NotificationService] Error setting up notification listeners:', error);
     }
   }
   
@@ -292,86 +322,84 @@ class NotificationService {
   }
 
   private async registerDeviceToken(deviceToken: string) {
+    if (!deviceToken) {
+      console.log('No device token available to register');
+      return;
+    }
+    
+    // Save token locally regardless of server registration success
+    await storage.set('devicePushToken', deviceToken);
+    console.log('Device token saved locally:', deviceToken);
+    
     try {
-      // Save token locally first
-      await storage.set('devicePushToken', deviceToken);
-      console.log('Device token saved locally:', deviceToken);
-      
+      // Check if we have an auth token before trying to register with server
       const tokens = await storage.getTokens();
       if (!tokens?.access) {
-        console.warn('Authentication token not available, using local token only');
+        console.log('No auth token available, skipping server registration');
         return;
       }
-
-      // Simple device data
-      const deviceData = { deviceToken };
-
-      try {
-        await axios.post(
-          `${process.env.EXPO_PUBLIC_API_URL}/stock/notifications/devices`,
-          deviceData,
-          {
-            headers: {
-              Authorization: `Bearer ${tokens.access}`,
-              'Content-Type': 'application/json'
-            },
-            timeout: 5000 // 5 second timeout
-          }
-        );
-        console.log('Device successfully registered on server');
-      } catch (error: any) {
-        console.warn('Server registration failed, using local token only:', 
-          error?.response?.status || error.message);
+      
+      // Attempt to register with backend
+      const response = await axios.post(`${process.env.EXPO_PUBLIC_API_URL}/notifications/register-device`, {
+        token: deviceToken,
+        platform: Platform.OS
+      }, {
+        headers: {
+          'Authorization': `Bearer ${tokens.access}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 5000 // 5 second timeout
+      });
+      
+      if (response.status === 200 || response.status === 201) {
+        console.log('Device token registered with server');
+      } else {
+        console.warn(`Unexpected response from server: ${response.status}`);
+        // Continue using local token
       }
-    } catch (error) {
-      console.error('Error in registerDeviceToken:', error);
+    } catch (error: any) {
+      // Log error but continue with local functionality
+      console.warn('Server registration failed, using local token only:', error.response?.status || error.message);
     }
   }
 
   // Schedule a local notification for quick testing
   public async scheduleTestNotification(fullMessage?: string) {
     try {
-      if (!this.isInitialized) {
-        await this.initialize();
+      console.log('[NotificationService] Attempting to schedule test notification');
+      
+      // SIMPLIFIED DIRECT APPROACH - Skip all custom logic
+      console.log('[NotificationService] Using DIRECT notification API with no custom logic');
+      
+      // Android-specific setup
+      let androidConfig = {};
+      if (Platform.OS === 'android') {
+        androidConfig = {
+          channelId: 'direct-test',
+        };
       }
-
-      // Add a random delay (1-3 seconds)
-      const delaySeconds = 1 + Math.random() * 2;
-      await new Promise(resolve => setTimeout(resolve, delaySeconds * 1000));
-
-      const title = "👋 اختبار الإشعارات";
-      const body = "هذا إشعار تجريبي. يمكنك الآن تلقي الإشعارات!";
       
-      // Create full message for detailed view
-      const detailedMessage = fullMessage || 
-        `<div style="font-size: 110%; text-align: right; direction: rtl;">
-          <h3 style="color: #4CAF50; margin-bottom: 10px;">👋 اختبار الإشعارات الناجح</h3>
-          <p style="margin-bottom: 8px;">تم إعداد نظام الإشعارات بنجاح!</p>
-          <p style="margin-bottom: 8px;">ستتلقى الآن إشعارات مهمة حول مزرعتك عندما تحتاج إلى اهتمامك.</p>
-          <p style="color: #555;">يمكنك ضبط إعدادات الإشعارات من صفحة الإعدادات.</p>
-        </div>`;
-      
-      console.log(`Scheduling test notification with ${delaySeconds.toFixed(1)}s delay...`);
-      
+      // Direct call to Expo Notifications API with maximum settings
       const notificationId = await Notifications.scheduleNotificationAsync({
         content: {
-          title,
-          body,
-          data: {
-            type: 'test',
-            fullMessage: detailedMessage,
-            timestamp: new Date().toISOString(),
-          },
+          title: '⚠️ إختبار الإشعارات', // Test Notification with warning emoji
+          body: fullMessage || 'هذا اختبار مباشر لنظام الإشعارات', // This is a direct test of the notification system
+          data: { screen: 'Notifications', test: true, priority: 'max' },
           sound: true,
+          badge: 1,
+          priority: Notifications.AndroidNotificationPriority.MAX,
           vibrate: [0, 250, 250, 250],
+          autoDismiss: false,
+          sticky: true,
+          ...androidConfig,
         },
-        trigger: null // null trigger means send immediately
+        trigger: null, // Show immediately with no delay
       });
       
-      console.log('Test notification scheduled:', notificationId);
+      console.log(`[NotificationService] Direct test notification sent with ID: ${notificationId}`);
       return notificationId;
     } catch (error) {
-      console.error('Error scheduling test notification:', error);
+      console.error('[NotificationService] Error scheduling test notification:', error);
       return null;
     }
   }
@@ -557,24 +585,99 @@ class NotificationService {
     });
   }
 
+  // Enhanced method to schedule notifications with throttling
+  private async scheduleWithThrottling(
+    content: Notifications.NotificationContentInput, 
+    trigger: Notifications.NotificationTriggerInput = null
+  ): Promise<string | null> {
+    try {
+      // Always log notification attempts
+      console.log('[NotificationService] Bypassing throttling - FORCING notification:', content.title);
+      
+      // DEVELOPMENT FORCING: Always force immediate notification
+      return await Notifications.scheduleNotificationAsync({
+        content: {
+          ...content,
+          sound: true,
+          vibrate: [0, 250, 250, 250],
+          priority: Notifications.AndroidNotificationPriority.MAX,
+        },
+        trigger: null // Force immediate display
+      });
+    } catch (error) {
+      console.error('[NotificationService] Error in scheduleWithThrottling:', error);
+      return null;
+    }
+  }
+
+  // Update this method to use the new throttled scheduling
   public async scheduleAnimalAlert(itemName: string, message: string, alertType: 'vaccination' | 'breeding' | 'other', additionalData?: any) {
-    return this.scheduleModelAlert({
-      modelType: 'animal',
-      alertType,
-      itemName,
-      message: alertType === 'vaccination' ? `موعد تطعيم: ${message}` : alertType === 'breeding' ? `موعد تربية: ${message}` : message,
-      additionalData
-    });
+    try {
+      if (!this.isInitialized) {
+        await this.initialize();
+      }
+      
+      const alertTypeMap = {
+        vaccination: { title: 'تذكير بتطعيم الحيوان', color: '#FFC107', icon: '💉' },
+        breeding: { title: 'تنبيه تكاثر الحيوان', color: '#E91E63', icon: '🐄' },
+        other: { title: 'تنبيه حيوان', color: '#9C27B0', icon: '🐑' }
+      };
+      
+      const { title, color, icon } = alertTypeMap[alertType];
+      
+      // Format the message for better readability
+      const fullMessage = `${icon} ${itemName}: ${message}`;
+      
+      // Use the throttled scheduling method
+      return await this.scheduleWithThrottling({
+        title,
+        body: fullMessage,
+        data: {
+          screen: 'AnimalDetail',
+          params: { ...additionalData },
+          type: alertType
+        },
+        color,
+        sound: true,
+      });
+    } catch (error) {
+      console.error('Error scheduling animal alert:', error);
+      return null;
+    }
   }
 
   public async scheduleEquipmentAlert(itemName: string, message: string, alertType: 'maintenance' | 'other' = 'maintenance', additionalData?: any) {
-    return this.scheduleModelAlert({
-      modelType: 'equipment',
-      alertType,
-      itemName,
-      message: alertType === 'maintenance' ? `صيانة مطلوبة: ${message}` : message,
-      additionalData
-    });
+    try {
+      if (!this.isInitialized) {
+        await this.initialize();
+      }
+      
+      const alertTypeMap = {
+        maintenance: { title: 'تذكير بصيانة المعدات', color: '#2196F3', icon: '🔧' },
+        other: { title: 'تنبيه معدات', color: '#3F51B5', icon: '🚜' }
+      };
+      
+      const { title, color, icon } = alertTypeMap[alertType];
+      
+      // Format the message for better readability
+      const fullMessage = `${icon} ${itemName}: ${message}`;
+      
+      // Use the throttled scheduling method
+      return await this.scheduleWithThrottling({
+        title,
+        body: fullMessage,
+        data: {
+          screen: 'EquipmentDetail',
+          params: { ...additionalData },
+          type: alertType
+        },
+        color,
+        sound: true,
+      });
+    } catch (error) {
+      console.error('Error scheduling equipment alert:', error);
+      return null;
+    }
   }
 
   public async scheduleFeedAlert(itemName: string, message: string, alertType: 'low_stock' | 'expiry' | 'other' = 'low_stock', additionalData?: any) {
@@ -618,13 +721,37 @@ class NotificationService {
   }
 
   public async scheduleToolAlert(itemName: string, message: string, alertType: 'maintenance' | 'other' = 'maintenance', additionalData?: any) {
-    return this.scheduleModelAlert({
-      modelType: 'tool',
-      alertType,
-      itemName,
-      message: alertType === 'maintenance' ? `صيانة مطلوبة: ${message}` : message,
-      additionalData
-    });
+    try {
+      if (!this.isInitialized) {
+        await this.initialize();
+      }
+      
+      const alertTypeMap = {
+        maintenance: { title: 'تذكير بصيانة الأدوات', color: '#2196F3', icon: '🔨' },
+        other: { title: 'تنبيه أدوات', color: '#3F51B5', icon: '🛠️' }
+      };
+      
+      const { title, color, icon } = alertTypeMap[alertType];
+      
+      // Format the message for better readability
+      const fullMessage = `${icon} ${itemName}: ${message}`;
+      
+      // Use the throttled scheduling method
+      return await this.scheduleWithThrottling({
+        title,
+        body: fullMessage,
+        data: {
+          screen: 'ToolDetail',
+          params: { ...additionalData },
+          type: alertType
+        },
+        color,
+        sound: true,
+      });
+    } catch (error) {
+      console.error('Error scheduling tool alert:', error);
+      return null;
+    }
   }
 
   // Clean up resources when application is being unmounted
@@ -891,19 +1018,17 @@ class NotificationService {
     }
   ) {
     try {
-      if (!this.isInitialized) {
-        await this.initialize();
-      }
-
-      // Add a random delay (1-4 seconds)
-      const delaySeconds = 1 + Math.random() * 3;
-      await new Promise(resolve => setTimeout(resolve, delaySeconds * 1000));
-
+      console.log(`[NotificationService] 🚨 FORCING STOCK NOTIFICATION for ${stockItem.name}`);
+      
       // Get the notification content based on the message type
       const { title, body, fullMessage, color, iconType } = this.getStockNotificationContent(stockItem, messageType);
       
-      console.log(`Scheduling ${messageType} stock notification for ${stockItem.name} with ${delaySeconds.toFixed(1)}s delay...`);
+      // Android-specific setup - USE HIGHEST PRIORITY CHANNEL
+      const androidConfig = Platform.OS === 'android' ? {
+        channelId: 'direct-test', // Use the highest priority test channel
+      } : {};
       
+      // DIRECT call to Expo Notifications API with maximum settings
       const notificationId = await Notifications.scheduleNotificationAsync({
         content: {
           title,
@@ -921,15 +1046,20 @@ class NotificationService {
             timestamp: new Date().toISOString(),
           },
           sound: true,
+          badge: 1,
+          priority: Notifications.AndroidNotificationPriority.MAX,
           vibrate: [0, 250, 250, 250],
+          autoDismiss: false,
+          sticky: true,
+          ...androidConfig,
         },
-        trigger: null // null trigger means send immediately
+        trigger: null, // SHOW IMMEDIATELY
       });
       
-      console.log(`${messageType} stock notification scheduled for ${stockItem.name}:`, notificationId);
+      console.log(`[NotificationService] 🚨 STOCK NOTIFICATION SENT with ID: ${notificationId}`);
       return notificationId;
     } catch (error) {
-      console.error(`Error scheduling ${messageType} stock notification:`, error);
+      console.error(`[NotificationService] Error scheduling ${messageType} stock notification:`, error);
       return null;
     }
   }
@@ -938,29 +1068,64 @@ class NotificationService {
     stockItem: StockItem,
     messageType: 'low' | 'maintenance' | 'expiration' | 'feed' | 'fertilizer' | 'test'
   ) {
-    const arabicName = stockItem.nameAr || stockItem.name;
+    // Choose an appropriate icon based on stock type
+    let icon = '📦'; // Default icon
+    let titlePrefix = '';
+    let color = '#4CAF50'; // Default green color
+    
+    switch (stockItem.type) {
+      case 'pesticide':
+        icon = '🧪';
+        color = '#F44336'; // Red for pesticides
+        break;
+      case 'animal':
+        icon = '🐄';
+        color = '#8D6E63'; // Brown for animals
+        break;
+      case 'equipment':
+        icon = '🚜';
+        color = '#FF9800'; // Orange for equipment
+        break;
+      case 'feed':
+        icon = '🌾';
+        color = '#FFEB3B'; // Yellow for feed
+        break;
+      case 'fertilizer':
+        icon = '🌱';
+        color = '#4CAF50'; // Green for fertilizer
+        break;
+      case 'harvest':
+        icon = '🍎';
+        color = '#8BC34A'; // Light green for harvest
+        break;
+      case 'seed':
+        icon = '🌱';
+        color = '#009688'; // Teal for seeds
+        break;
+      case 'tool':
+        icon = '🔨';
+        color = '#607D8B'; // Blue grey for tools
+        break;
+    }
+    
     let title = '';
     let body = '';
-    let color = '#4CAF50'; // Default green
-    let iconType = 'md-information-circle';
-    
-    // Create HTML for the full message view
     let fullMessage = '';
+    let iconType = icon;
     
     switch (messageType) {
       case 'low':
-        title = `⚠️ مخزون منخفض: ${arabicName}`;
-        body = `لديك مخزون منخفض من ${arabicName}. يرجى التحقق والتزود بالمزيد.`;
-        color = '#FFC107'; // Warning yellow
-        iconType = 'warning';
+        title = `⚠️ مخزون منخفض: ${stockItem.nameAr || stockItem.name}`;
+        body = `لديك مخزون منخفض من ${stockItem.nameAr || stockItem.name}. يرجى التحقق والتزود بالمزيد.`;
+        titlePrefix = '⚠️ تنبيه: مخزون منخفض';
         
         fullMessage = `<div style="font-size: 110%; text-align: right; direction: rtl;">
-          <h3 style="color: #FFC107; margin-bottom: 10px;">⚠️ تنبيه: مخزون منخفض</h3>
+          <h3 style="color: #FFC107; margin-bottom: 10px;">${titlePrefix}</h3>
           <p style="margin-bottom: 8px;">
-            <b>${arabicName}</b> وصل إلى مستوى منخفض في المخزون.
+            <b>${stockItem.nameAr || stockItem.name}</b> وصل إلى مستوى منخفض في المخزون.
           </p>
           <p style="margin-bottom: 8px;">
-            الكمية المتبقية: ${stockItem.quantity} ${stockItem.unit || ''}
+            الكمية المتبقية: ${stockItem.currentQuantity || stockItem.quantity || 0} ${stockItem.unit || ''}
           </p>
           <p style="color: #555;">
             يرجى التحقق من المخزون وإعادة التزود في أقرب وقت ممكن.
@@ -969,18 +1134,14 @@ class NotificationService {
         break;
         
       case 'maintenance':
-        title = `🔧 صيانة مطلوبة: ${arabicName}`;
-        body = `حان وقت صيانة ${arabicName}. يرجى التحقق من الحالة.`;
-        color = '#FF9800'; // Orange for maintenance
-        iconType = 'tools';
+        title = `🔧 صيانة مطلوبة: ${stockItem.nameAr || stockItem.name}`;
+        body = `حان وقت صيانة ${stockItem.nameAr || stockItem.name}. يرجى التحقق من الحالة.`;
+        titlePrefix = '🔧 تنبيه: صيانة مطلوبة';
         
         fullMessage = `<div style="font-size: 110%; text-align: right; direction: rtl;">
-          <h3 style="color: #FF9800; margin-bottom: 10px;">🔧 تنبيه: صيانة مطلوبة</h3>
+          <h3 style="color: #FF9800; margin-bottom: 10px;">${titlePrefix}</h3>
           <p style="margin-bottom: 8px;">
-            <b>${arabicName}</b> بحاجة إلى صيانة.
-          </p>
-          <p style="margin-bottom: 8px;">
-            تاريخ الصيانة الأخيرة: ${new Date(stockItem.lastMaintenance || new Date()).toLocaleDateString('ar-SA')}
+            <b>${stockItem.nameAr || stockItem.name}</b> بحاجة إلى صيانة.
           </p>
           <p style="color: #555;">
             يرجى إجراء الصيانة المطلوبة لضمان أداء أفضل وعمر أطول.
@@ -989,18 +1150,14 @@ class NotificationService {
         break;
         
       case 'expiration':
-        title = `⏱️ تنبيه انتهاء الصلاحية: ${arabicName}`;
-        body = `${arabicName} على وشك انتهاء الصلاحية. يرجى التحقق من المخزون.`;
-        color = '#F44336'; // Red for expiration
-        iconType = 'alarm';
+        title = `⏱️ تنبيه انتهاء الصلاحية: ${stockItem.nameAr || stockItem.name}`;
+        body = `${stockItem.nameAr || stockItem.name} على وشك انتهاء الصلاحية. يرجى التحقق من المخزون.`;
+        titlePrefix = '⏱️ تنبيه: انتهاء الصلاحية';
         
         fullMessage = `<div style="font-size: 110%; text-align: right; direction: rtl;">
-          <h3 style="color: #F44336; margin-bottom: 10px;">⏱️ تنبيه: انتهاء الصلاحية</h3>
+          <h3 style="color: #F44336; margin-bottom: 10px;">${titlePrefix}</h3>
           <p style="margin-bottom: 8px;">
-            <b>${arabicName}</b> على وشك انتهاء الصلاحية.
-          </p>
-          <p style="margin-bottom: 8px;">
-            تاريخ انتهاء الصلاحية: ${new Date(stockItem.expiryDate || new Date()).toLocaleDateString('ar-SA')}
+            <b>${stockItem.nameAr || stockItem.name}</b> على وشك انتهاء الصلاحية.
           </p>
           <p style="color: #555;">
             يرجى التحقق من المخزون واستخدامه قبل انتهاء الصلاحية أو التخلص منه بشكل مناسب.
@@ -1008,62 +1165,19 @@ class NotificationService {
         </div>`;
         break;
         
-      case 'feed':
-        title = `🌾 تذكير بالتغذية: ${arabicName}`;
-        body = `حان وقت تغذية الحيوانات باستخدام ${arabicName}.`;
-        color = '#2196F3'; // Blue for feed
-        iconType = 'nutrition';
-        
-        fullMessage = `<div style="font-size: 110%; text-align: right; direction: rtl;">
-          <h3 style="color: #2196F3; margin-bottom: 10px;">🌾 تذكير بالتغذية</h3>
-          <p style="margin-bottom: 8px;">
-            حان وقت تغذية الحيوانات باستخدام <b>${arabicName}</b>.
-          </p>
-          <p style="margin-bottom: 8px;">
-            الكمية المتاحة: ${stockItem.quantity} ${stockItem.unit || ''}
-          </p>
-          <p style="color: #555;">
-            تأكد من توفير كمية كافية من العلف للحيوانات.
-          </p>
-        </div>`;
-        break;
-        
-      case 'fertilizer':
-        title = `🌱 تذكير بالتسميد: ${arabicName}`;
-        body = `حان وقت تسميد المحاصيل باستخدام ${arabicName}.`;
-        color = '#4CAF50'; // Green for fertilizer
-        iconType = 'leaf';
-        
-        fullMessage = `<div style="font-size: 110%; text-align: right; direction: rtl;">
-          <h3 style="color: #4CAF50; margin-bottom: 10px;">🌱 تذكير بالتسميد</h3>
-          <p style="margin-bottom: 8px;">
-            حان وقت تسميد المحاصيل باستخدام <b>${arabicName}</b>.
-          </p>
-          <p style="margin-bottom: 8px;">
-            الكمية المتاحة: ${stockItem.quantity} ${stockItem.unit || ''}
-          </p>
-          <p style="color: #555;">
-            تأكد من توفير كمية كافية من السماد للمحاصيل.
-          </p>
-        </div>`;
-        break;
-        
       case 'test':
-        title = `🔔 اختبار الإشعارات`;
-        body = `هذا اختبار لإشعارات المخزون: ${arabicName}.`;
-        color = '#9C27B0'; // Purple for test
-        iconType = 'notifications';
+      default:
+        title = `🔔 اختبار الإشعارات - ${stockItem.nameAr || stockItem.name}`;
+        body = `هذا اختبار لإشعارات المخزون: ${stockItem.nameAr || stockItem.name}.`;
+        titlePrefix = '🔔 اختبار إشعارات المخزون';
         
         fullMessage = `<div style="font-size: 110%; text-align: right; direction: rtl;">
-          <h3 style="color: #9C27B0; margin-bottom: 10px;">🔔 اختبار إشعارات المخزون</h3>
+          <h3 style="color: #9C27B0; margin-bottom: 10px;">${titlePrefix}</h3>
           <p style="margin-bottom: 8px;">
             هذا اختبار لنظام إشعارات المخزون.
           </p>
           <p style="margin-bottom: 8px;">
-            عنصر: <b>${arabicName}</b>
-          </p>
-          <p style="margin-bottom: 8px;">
-            الكمية: ${stockItem.quantity} ${stockItem.unit || ''}
+            عنصر: <b>${stockItem.nameAr || stockItem.name}</b>
           </p>
           <p style="color: #555;">
             تم إرسال هذا الإشعار للتأكد من أن نظام إشعارات المخزون يعمل بشكل صحيح.
@@ -1076,4 +1190,10 @@ class NotificationService {
   }
 }
 
-export default NotificationService; 
+// Fix the export at the end of the file
+// Must use getInstance since constructor is private
+const notificationServiceInstance = NotificationService.getInstance();
+// Also export the class for type information
+export { NotificationService };  
+// Default export is the instance
+export default notificationServiceInstance;

@@ -27,6 +27,8 @@ import axios from 'axios';
 import { storage } from '../../../utils/storage';
 import { useAuth } from '../../../context/AuthContext';
 import Animated, { FadeInDown, FadeIn, FadeInRight } from 'react-native-reanimated';
+import { API_URL } from '../../../config/api';
+import { withRetry } from '../../../services/api';
 
 // Force RTL layout
 I18nManager.allowRTL(true);
@@ -115,37 +117,37 @@ const HarvestListScreen: React.FC<HarvestListScreenProps> = ({ navigation }) => 
 
   const fetchHarvests = useCallback(async (refresh = false) => {
     try {
-      if (refresh) {
-        setRefreshing(true);
-      } else {
+      if (!refresh) {
         setLoading(true);
       }
-
-      const tokens = await storage.getTokens();
+      setError(null);
       
+      const tokens = await storage.getTokens();
       if (!tokens?.access) {
-        Alert.alert('خطأ', 'الرجاء تسجيل الدخول أولا');
-        setLoading(false);
-        setRefreshing(false);
+        console.error('No authentication token available');
+        setError('يرجى تسجيل الدخول أولا');
         return;
       }
-
-      const response = await axios.get(
-        `${process.env.EXPO_PUBLIC_API_URL}/stock/harvest`,
-        {
+      
+      const response = await withRetry(async () => {
+        return axios.get(`${API_URL}/stock/harvest`, {
           headers: {
             'Authorization': `Bearer ${tokens.access}`
           }
-        }
-      );
+        });
+      }, 2, 1500);
       
-      const fetchedHarvests = response.data;
-      
-      setHarvests(fetchedHarvests);
-      setFilteredHarvests(fetchedHarvests);
-    } catch (error) {
-      console.error('Error fetching harvests:', error);
-      setError('فشل في تحميل المحاصيل');
+      if (response.data) {
+        setHarvests(response.data);
+        setFilteredHarvests(response.data);
+      }
+    } catch (err) {
+      console.error('Error fetching harvests:', err);
+      if (err.message && err.message.includes('فشل الاتصال بالخادم')) {
+        setError(err.message);
+      } else {
+        setError('فشل في جلب المحاصيل');
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);

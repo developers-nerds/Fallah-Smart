@@ -13,7 +13,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import TestNotification from './TestNotification';
-import NotificationService from '../../services/NotificationService';
+import notificationService from '../../services/NotificationService';
 
 // Define the icon names as a type to avoid TypeScript errors
 type IconName = 
@@ -56,7 +56,6 @@ const NotificationSettingsScreen: React.FC = () => {
   const fetchNotificationSettings = async () => {
     try {
       setInitialLoading(true);
-      const notificationService = NotificationService.getInstance();
       const userSettings = await notificationService.getNotificationSettings();
       
       if (userSettings) {
