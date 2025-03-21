@@ -7,7 +7,10 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+import { getUserIdFromToken, getAllUserProgress, getQuizDetails } from '../utils/userProgress';
+
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
+
 type EducationStackParamList = {
   Education: undefined;
   AnimalsLessons: undefined;
@@ -65,19 +68,72 @@ const CropsLessons = () => {
   // Fetch scores for all crops
   const fetchScores = async () => {
     try {
-      const scores: {[key: number]: number} = {};
-      
-      for (const crop of crops) {
-        if (crop.quizId) {
-          const scoreKey = `crop_score_${crop.quizId}`;
-          const score = await AsyncStorage.getItem(scoreKey);
-          if (score) {
-            scores[crop.id] = parseFloat(score);
+      const scores: { [key: number]: number } = {};
+
+      // Get user ID using the improved function
+      const userId = await getUserIdFromToken();
+      if (!userId) {
+        console.log('User not authenticated, cannot fetch scores');
+        return;
+      }
+
+      console.log(`Fetching scores for user ID: ${userId}`);
+
+      // Get all user progress from API
+      const userProgressData = await getAllUserProgress(userId);
+
+      if (userProgressData && Array.isArray(userProgressData)) {
+        console.log(`Received ${userProgressData.length} progress entries from API`);
+
+        // Filter out only crop quiz entries
+        const cropQuizEntries = userProgressData.filter(
+          progress => progress.quizId && progress.Education_Quiz?.type === 'crop'
+        );
+
+        console.log(`Found ${cropQuizEntries.length} crop quiz entries`);
+
+        // Create a map of quizId to score for faster lookup
+        const quizScores: { [quizId: number]: number } = {};
+
+        cropQuizEntries.forEach(progress => {
+          // If we have multiple entries for the same quiz, keep the highest score
+          if (!quizScores[progress.quizId] || progress.score > quizScores[progress.quizId]) {
+            quizScores[progress.quizId] = progress.score;
+            console.log(`Quiz ID ${progress.quizId} has score: ${progress.score}`);
+          }
+        });
+
+        console.log('Quiz ID to Score mapping:', quizScores);
+
+        // Map scores to crop IDs using the correct quiz ID
+        for (const crop of crops) {
+          if (crop.quizId) {
+            // Check if we have a score for this quiz ID
+            if (quizScores[crop.quizId] !== undefined) {
+              scores[crop.id] = quizScores[crop.quizId];
+              console.log(`✅ Mapped score ${quizScores[crop.quizId]} to crop ${crop.name} (ID: ${crop.id}, Quiz ID: ${crop.quizId})`);
+            } else {
+              // Try to find the correct quiz ID for this crop by matching the quiz title
+              const matchingQuizEntry = cropQuizEntries.find(
+                entry => entry.Education_Quiz?.title?.includes(crop.name)
+              );
+
+              if (matchingQuizEntry) {
+                scores[crop.id] = matchingQuizEntry.score;
+                console.log(`🔄 Mapped score ${matchingQuizEntry.score} to crop ${crop.name} (ID: ${crop.id}) using matching quiz title`);
+              } else {
+                console.log(`❌ No score found for crop ${crop.name} (ID: ${crop.id}, Quiz ID: ${crop.quizId})`);
+              }
+            }
           }
         }
+      } else {
+        console.log('No progress data received from API or invalid format');
       }
-      
+
+      console.log(`Final scores object:`, scores);
       setCropScores(scores);
+      console.log(`Loaded scores for ${Object.keys(scores).length} crops`);
     } catch (error) {
       console.error('Error fetching crop scores:', error);
     }
@@ -98,11 +154,15 @@ const CropsLessons = () => {
   // Refetch scores when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
-      if (crops.length > 0) {
-        fetchScores();
-      }
-      return () => {};
-    }, [crops])
+      console.log('CropsLessons screen focused, refreshing data...');
+      // Always fetch fresh data when screen comes into focus
+      fetchCrops();
+
+      return () => {
+        // Cleanup function when screen loses focus
+        console.log('CropsLessons screen unfocused');
+      };
+    }, [])
   );
 
   const handleCropPress = (crop: Crop) => {
@@ -114,12 +174,12 @@ const CropsLessons = () => {
     if (!selectedCrop) return;
 
     if (type === 'video' && selectedCrop.videoUrl) {
-      navigation.navigate('VideoLesson', { 
+      navigation.navigate('VideoLesson', {
         videoId: selectedCrop.videoUrl.split('_')[1],
         type: 'crop'
       });
     } else if (type === 'quiz' && selectedCrop.quizId) {
-      navigation.navigate('QuizLesson', { 
+      navigation.navigate('QuizLesson', {
         lessonId: selectedCrop.quizId,
         type: 'crop'
       });
@@ -131,7 +191,7 @@ const CropsLessons = () => {
   const getIconCircleStyle = (cropId: number) => {
     const score = cropScores[cropId];
     const isCompleted = score === 100;
-    
+
     return [
       styles.iconCircle,
       isCompleted && {
@@ -145,8 +205,12 @@ const CropsLessons = () => {
   // Helper function to get score container style based on score
   const getScoreContainerStyle = (cropId: number) => {
     const score = cropScores[cropId];
+    if (score === undefined) {
+      return styles.scoreContainerEmpty;
+    }
+
     const isCompleted = score === 100;
-    
+
     return [
       styles.scoreContainer,
       isCompleted && {
@@ -158,8 +222,12 @@ const CropsLessons = () => {
   // Helper function to get score text style based on score
   const getScoreTextStyle = (cropId: number) => {
     const score = cropScores[cropId];
+    if (score === undefined) {
+      return styles.scoreTextEmpty;
+    }
+
     const isCompleted = score === 100;
-    
+
     return [
       styles.scoreText,
       isCompleted && {
@@ -200,19 +268,19 @@ const CropsLessons = () => {
                 <View style={getIconCircleStyle(crop.id)}>
                   <Text style={styles.cropIcon}>{crop.icon}</Text>
                 </View>
-                <Text style={styles.cropName}>{crop.name}</Text>
-                {cropScores[crop.id] !== undefined && (
-                  <View style={getScoreContainerStyle(crop.id)}>
-                    <MaterialCommunityIcons 
-                      name="star" 
-                      size={10} 
-                      color={cropScores[crop.id] === 100 ? COMPLETED_COLOR : theme.colors.primary.base} 
-                    />
-                    <Text style={getScoreTextStyle(crop.id)}>
-                      {cropScores[crop.id].toFixed(0)}%
-                    </Text>
-                  </View>
-                )}
+                <Text style={styles.cropName} numberOfLines={1} ellipsizeMode="tail">
+                  {crop.name}
+                </Text>
+                <View style={getScoreContainerStyle(crop.id)}>
+                  <MaterialCommunityIcons
+                    name="star"
+                    size={10}
+                    color={cropScores[crop.id] === 100 ? COMPLETED_COLOR : theme.colors.neutral.gray.base}
+                  />
+                  <Text style={getScoreTextStyle(crop.id)}>
+                    {cropScores[crop.id] !== undefined ? `${cropScores[crop.id].toFixed(0)}%` : '0%'}
+                  </Text>
+                </View>
               </TouchableOpacity>
             ))}
           </View>
@@ -230,7 +298,7 @@ const CropsLessons = () => {
             <Text style={styles.modalTitle}>
               كيف تريد التعلم عن {selectedCrop?.name}؟
             </Text>
-            
+
             <TouchableOpacity
               style={[styles.optionButton, { backgroundColor: theme.colors.primary.base }]}
               onPress={() => handleLearningOption('video')}
@@ -314,6 +382,9 @@ const styles = StyleSheet.create({
   cropItem: {
     alignItems: 'center',
     width: '30%',
+    height: 130,
+    justifyContent: 'space-between',
+    marginBottom: 10,
   },
   iconCircle: {
     width: 70,
@@ -333,6 +404,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: theme.colors.neutral.textPrimary,
     textAlign: 'center',
+    marginBottom: 4,
   },
   modalOverlay: {
     flex: 1,
@@ -376,7 +448,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 10,
-    marginTop: 4,
+    height: 20,
+    minWidth: 40,
+    justifyContent: 'center',
   },
   scoreText: {
     fontSize: 10,
@@ -384,6 +458,23 @@ const styles = StyleSheet.create({
     color: theme.colors.primary.base,
     marginLeft: 2,
   },
+  scoreContainerEmpty: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: `${theme.colors.neutral.gray.light}30`,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    height: 20,
+    minWidth: 40,
+    justifyContent: 'center',
+  },
+  scoreTextEmpty: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: theme.colors.neutral.gray.base,
+    marginLeft: 2,
+  },
 });
 
-export default CropsLessons; 
+export default CropsLessons;

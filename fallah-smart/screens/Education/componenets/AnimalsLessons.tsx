@@ -7,6 +7,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+import { getUserIdFromToken, getAllUserProgress } from '../utils/userProgress';
+
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
 type EducationStackParamList = {
@@ -68,23 +70,46 @@ const AnimalsLessons = () => {
     try {
       const scores: {[key: number]: number} = {};
       
-      for (const animal of animals) {
-        if (animal.quizId) {
-          const scoreKey = `animal_score_${animal.quizId}`;
-          const score = await AsyncStorage.getItem(scoreKey);
-          if (score) {
-            scores[animal.id] = parseFloat(score);
+      // Get user ID using the improved function
+      const userId = await getUserIdFromToken();
+      if (!userId) {
+        console.log('User not authenticated, cannot fetch scores');
+        return;
+      }
+      
+      // Get all user progress from API
+      const userProgressData = await getAllUserProgress(userId);
+      
+      if (userProgressData && Array.isArray(userProgressData)) {
+        // First, create a map of quizId to score for faster lookup
+        const quizScores: {[quizId: number]: number} = {};
+        
+        userProgressData.forEach(progress => {
+          if (progress.quizId && progress.Education_Quiz?.type === 'animal') {
+            // If we have multiple entries for the same quiz, keep the highest score
+            if (!quizScores[progress.quizId] || progress.score > quizScores[progress.quizId]) {
+              quizScores[progress.quizId] = progress.score;
+            }
+          }
+        });
+        
+        // Then map these scores to animal IDs
+        for (const animal of animals) {
+          if (animal.quizId && quizScores[animal.quizId] !== undefined) {
+            scores[animal.id] = quizScores[animal.quizId];
+            console.log(`Mapped score ${quizScores[animal.quizId]} to animal ${animal.name} (ID: ${animal.id})`);
           }
         }
       }
       
       setAnimalScores(scores);
+      console.log(`Loaded scores for ${Object.keys(scores).length} animals`);
     } catch (error) {
       console.error('Error fetching animal scores:', error);
     }
   };
 
-  // Fetch scores when component mounts
+  // Fetch animals when component mounts
   useEffect(() => {
     fetchAnimals();
   }, []);
@@ -99,11 +124,15 @@ const AnimalsLessons = () => {
   // Refetch scores when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
-      if (animals.length > 0) {
-        fetchScores();
-      }
-      return () => {};
-    }, [animals])
+      console.log('AnimalsLessons screen focused, refreshing data...');
+      // Always fetch fresh data when screen comes into focus
+      fetchAnimals();
+      
+      return () => {
+        // Cleanup function when screen loses focus
+        console.log('AnimalsLessons screen unfocused');
+      };
+    }, [])
   );
 
   const handleAnimalPress = (animal: Animal) => {
@@ -146,6 +175,10 @@ const AnimalsLessons = () => {
   // Helper function to get score container style based on score
   const getScoreContainerStyle = (animalId: number) => {
     const score = animalScores[animalId];
+    if (score === undefined) {
+      return styles.scoreContainerEmpty;
+    }
+    
     const isCompleted = score === 100;
     
     return [
@@ -159,6 +192,10 @@ const AnimalsLessons = () => {
   // Helper function to get score text style based on score
   const getScoreTextStyle = (animalId: number) => {
     const score = animalScores[animalId];
+    if (score === undefined) {
+      return styles.scoreTextEmpty;
+    }
+    
     const isCompleted = score === 100;
     
     return [
@@ -201,19 +238,19 @@ const AnimalsLessons = () => {
                 <View style={getIconCircleStyle(animal.id)}>
                   <Text style={styles.animalIcon}>{animal.icon}</Text>
                 </View>
-                <Text style={styles.animalName}>{animal.name}</Text>
-                {animalScores[animal.id] !== undefined && (
-                  <View style={getScoreContainerStyle(animal.id)}>
-                    <MaterialCommunityIcons 
-                      name="star" 
-                      size={10} 
-                      color={animalScores[animal.id] === 100 ? COMPLETED_COLOR : theme.colors.primary.base} 
-                    />
-                    <Text style={getScoreTextStyle(animal.id)}>
-                      {animalScores[animal.id].toFixed(0)}%
-                    </Text>
-                  </View>
-                )}
+                <Text style={styles.animalName} numberOfLines={1} ellipsizeMode="tail">
+                  {animal.name}
+                </Text>
+                <View style={getScoreContainerStyle(animal.id)}>
+                  <MaterialCommunityIcons 
+                    name="star" 
+                    size={10} 
+                    color={animalScores[animal.id] === 100 ? COMPLETED_COLOR : theme.colors.neutral.gray.base} 
+                  />
+                  <Text style={getScoreTextStyle(animal.id)}>
+                    {animalScores[animal.id] !== undefined ? `${animalScores[animal.id].toFixed(0)}%` : '0%'}
+                  </Text>
+                </View>
               </TouchableOpacity>
             ))}
           </View>
@@ -315,6 +352,9 @@ const styles = StyleSheet.create({
   animalItem: {
     alignItems: 'center',
     width: '30%',
+    height: 130,
+    justifyContent: 'space-between',
+    marginBottom: 10,
   },
   iconCircle: {
     width: 70,
@@ -334,6 +374,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: theme.colors.neutral.textPrimary,
     textAlign: 'center',
+    marginBottom: 4,
   },
   modalOverlay: {
     flex: 1,
@@ -377,12 +418,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 10,
-    marginTop: 4,
+    height: 20,
+    minWidth: 40,
+    justifyContent: 'center',
   },
   scoreText: {
     fontSize: 10,
     fontWeight: '600',
     color: theme.colors.primary.base,
+    marginLeft: 2,
+  },
+  scoreContainerEmpty: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: `${theme.colors.neutral.gray.light}30`,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    height: 20,
+    minWidth: 40,
+    justifyContent: 'center',
+  },
+  scoreTextEmpty: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: theme.colors.neutral.gray.base,
     marginLeft: 2,
   },
 });
