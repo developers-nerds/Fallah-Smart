@@ -38,7 +38,13 @@ export default function AddTransaction() {
   const [note, setNote] = useState("")
   const [currentDate, setCurrentDate] = useState(() => {
     const date = new Date()
-    const options = { weekday: "long", day: "numeric", month: "long", year: "numeric" }
+    const options = { 
+      weekday: "long", 
+      day: "numeric", 
+      month: "long", 
+      year: "numeric",
+      numberingSystem: "latn" // Use Latin (French/Western) numerals for initial state
+    }
     return date.toLocaleDateString("ar", options)
   })
   const [date, setDate] = useState(new Date())
@@ -300,7 +306,17 @@ export default function AddTransaction() {
     const currentDate = selectedDate || date
     setShowDatePicker(false)
     setDate(currentDate)
-    const options = { weekday: "long", day: "numeric", month: "long", year: "numeric" }
+
+    // Define options for formatting the date
+    const options = {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      numberingSystem: "latn" // Use Latin (French/Western) numerals
+    }
+
+    // Format the date in Arabic with Latin numerals
     setCurrentDate(currentDate.toLocaleDateString("ar", options))
     setManualDate(currentDate.toLocaleDateString("ar", options))
   }

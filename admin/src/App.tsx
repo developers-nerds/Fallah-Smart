@@ -1,35 +1,28 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { Routes, Route } from "react-router-dom"
+import RootLayout from "./components/layout/RootLayout"
+import Dashboard from "./pages/Dashboard"
+import Stock from "./pages/Stock"
+import Marketplace from "./pages/Marketplace"
+import AiChat from "./pages/AiChat"
+import Wallet from "./pages/Wallet"
+import Education from "./pages/Education"
+import Blogs from "./pages/Blogs"
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    <Routes>
+      <Route path="/" element={<RootLayout />}>
+        <Route index element={<Dashboard />} />
+        <Route path="/stock" element={<Stock />} />
+        <Route path="/marketplace" element={<Marketplace />} />
+        <Route path="/ai-chat" element={<AiChat />} />
+        <Route path="/wallet" element={<Wallet />} />
+        <Route path="/education" element={<Education />} />
+        <Route path="/blogs" element={<Blogs />} />
+      </Route>
+    </Routes>
   )
 }
 
 export default App
+
