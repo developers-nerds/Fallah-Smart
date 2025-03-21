@@ -1,6 +1,13 @@
+import React from 'react';
+import { useAppSelector } from '../redux/store';
+
 function Dashboard() {
+  const { user } = useAppSelector((state) => state.auth);
+
   return (
     <>
+     
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <div className="rounded-xl bg-white p-4 shadow-md">
           <h2 className="text-xl font-semibold text-[#1A2F2B]">Recent Activity</h2>

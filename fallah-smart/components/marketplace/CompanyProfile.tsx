@@ -32,6 +32,7 @@ import {
   responsiveHeight,
   responsiveWidth,
 } from '../../utils/responsive';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type NavigationProp = NativeStackNavigationProp<StockStackParamList>;
 
@@ -400,7 +401,8 @@ export const CompanyProfile: React.FC = () => {
         return;
       }
 
-      console.log('Fetching supplier data with token:', access);
+      console.log('Using token from storage:', access);
+      
       const response = await fetch(`${BaseUrl}/suppliers/me`, {
         headers: {
           Authorization: `Bearer ${access}`,
@@ -748,7 +750,7 @@ const styles = StyleSheet.create({
   tab: {
     paddingHorizontal: responsivePadding(theme.spacing.sm),
     paddingVertical: responsivePadding(theme.spacing.xs),
-    marginHorizontal: responsivePadding(theme.spacing.xxs),
+    marginHorizontal: responsivePadding(theme.spacing.xs),
   },
   activeTab: {
     borderBottomWidth: 2,
