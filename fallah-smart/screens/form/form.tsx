@@ -248,7 +248,10 @@ export const SupplierRegistrationForm: React.FC = () => {
       Alert.alert('Success', 'Your supplier account has been created successfully!', [
         {
           text: 'OK',
-          onPress: () => navigation.navigate('CompanyProfile'),
+          onPress: () => {
+            console.log('Navigating to marketplace after successful registration');
+            navigation.navigate('Marketplace'); // Navigate to marketplace which will trigger a check
+          },
         },
       ]);
     } catch (err) {
