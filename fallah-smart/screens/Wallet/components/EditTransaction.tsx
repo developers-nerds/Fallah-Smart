@@ -81,7 +81,13 @@ export default function EditTransaction() {
       setSelectedAccountId(transaction.accountId)
       const transDate = new Date(transaction.date)
       setDate(transDate)
-      const options = { weekday: "long", day: "numeric", month: "long", year: "numeric" }
+      const options = { 
+        weekday: "long", 
+        day: "numeric", 
+        month: "long", 
+        year: "numeric",
+        numberingSystem: "latn" // Use Latin (French/Western) numerals for initial state
+      }
       setCurrentDate(transDate.toLocaleDateString("ar", options))
       // Verify transaction type matches component
       if (transaction.type.toLowerCase() !== 'expense' && transaction.type.toLowerCase() !== 'income') {
@@ -318,7 +324,13 @@ export default function EditTransaction() {
     const currentDate = selectedDate || date
     setShowDatePicker(false)
     setDate(currentDate)
-    const options = { weekday: "long", day: "numeric", month: "long", year: "numeric" }
+    const options = { 
+      weekday: "long", 
+      day: "numeric", 
+      month: "long", 
+      year: "numeric",
+      numberingSystem: "latn" // Use Latin (French/Western) numerals
+    }
     setCurrentDate(currentDate.toLocaleDateString("ar", options))
     setManualDate(currentDate.toLocaleDateString("ar", options))
   }
