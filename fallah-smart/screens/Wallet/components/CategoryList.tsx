@@ -48,15 +48,23 @@ export const CategoryList: React.FC<CategoryListProps> = ({ categories, transact
     );
   };
 
+  const months = [
+    "جانفي", "فيفري", "مارس", "أفريل", "ماي", "جوان",
+    "جويلية", "أوت", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"
+  ];
+  
   const formatDate = (dateString: string) => {
     if (!dateString) return "التاريخ غير متاح";
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return "تاريخ غير صالح";
+  
     const day = date.getDate();
-    const month = date.toLocaleDateString("ar", { month: "long" });
+    const monthIndex = date.getMonth(); // Get the index (0-11)
     const year = date.getFullYear().toString().slice(-2);
-    return `${day} ${month} ${year}`;
+  
+    return `${day} ${months[monthIndex]} ${year}`;
   };
+  
 
   const handleTransactionPress = (transaction: Transaction) => {
     navigation.navigate("EditTransaction", { transaction });
