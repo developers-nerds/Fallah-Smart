@@ -13,11 +13,29 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet"
 import { useState } from "react"
-import { Link, useLocation } from "react-router-dom"
+import { Link, useLocation, useNavigate } from "react-router-dom"
+import { useAppDispatch, useAppSelector } from "../redux/store"
+import { logoutSync } from "../redux/auth"
+import axios from "axios"
 
-export function Navbar() {
+interface NavbarProps {
+  userName?: string;
+}
+
+export function Navbar({ userName = 'Admin User' }: NavbarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const location = useLocation()
+  const navigate = useNavigate()
+  const dispatch = useAppDispatch()
+  const { user } = useAppSelector(state => state.auth)
+
+  const handleLogout = () => {
+    // Dispatch synchronous logout action to update Redux state
+    dispatch(logoutSync());
+    
+    // Navigate to home page immediately
+    window.location.href = '/';
+  }
 
   const sidebarItems = [
     { title: "Dashboard", url: "/" },
@@ -28,6 +46,14 @@ export function Navbar() {
     { title: "Education", url: "/education" },
     { title: "Blogs", url: "/blogs" },
   ]
+
+  // Get initials for avatar
+  const getInitials = () => {
+    if (user?.firstName && user?.lastName) {
+      return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
+    }
+    return "AD"
+  }
 
   return (
     <header className="sticky top-0 z-10 flex h-16 items-center border-b border-[#E6EAE8] bg-white px-4 shadow-sm">
@@ -116,33 +142,49 @@ export function Navbar() {
                 className="flex h-8 w-8 items-center justify-center rounded-full p-0 hover:bg-[#E8F5F3]"
               >
                 <Avatar className="h-8 w-8 border border-[#E6EAE8]">
-                  <AvatarImage src="/placeholder.svg?height=32&width=32" alt="Admin" />
-                  <AvatarFallback className="bg-[#093731] text-white">AD</AvatarFallback>
+                  <AvatarImage 
+                    src={user?.profilePicture ? 
+                      (user.profilePicture.startsWith('http') ? 
+                        user.profilePicture : 
+                        `http://localhost:5000${user.profilePicture}`) : 
+                      "/placeholder.svg?height=32&width=32"} 
+                    alt={userName || 'Admin'} 
+                  />
+                  <AvatarFallback className="bg-[#093731] text-white">{getInitials()}</AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <div className="flex items-center gap-4 p-3">
                 <Avatar className="h-12 w-12 border border-[#E6EAE8]">
-                  <AvatarImage src="/placeholder.svg?height=48&width=48" alt="Admin" />
-                  <AvatarFallback className="bg-[#093731] text-white">AD</AvatarFallback>
+                  <AvatarImage 
+                    src={user?.profilePicture ? 
+                      (user.profilePicture.startsWith('http') ? 
+                        user.profilePicture : 
+                        `http://localhost:5000${user.profilePicture}`) : 
+                      "/placeholder.svg?height=48&width=48"} 
+                    alt={userName || 'Admin'} 
+                  />
+                  <AvatarFallback className="bg-[#093731] text-white">{getInitials()}</AvatarFallback>
                 </Avatar>
                 <div>
-                  <p className="text-sm font-medium text-[#1A2F2B]">Admin User</p>
-                  <p className="text-xs text-[#4A5F5B]">admin@fallahsmart.com</p>
+                  <p className="text-sm font-medium text-[#1A2F2B]">{userName}</p>
+                  <p className="text-xs text-[#4A5F5B]">{user?.email || 'admin@fallahsmart.com'}</p>
                 </div>
               </div>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="flex cursor-pointer items-center gap-2 py-2">
-                <User className="h-4 w-4" />
-                <span>Profile</span>
+              <DropdownMenuItem className="flex cursor-pointer items-center gap-2 py-2" asChild>
+                <Link to="/profile">
+                  <User className="h-4 w-4" />
+                  <span>Profile</span>
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuItem className="flex cursor-pointer items-center gap-2 py-2">
                 <Settings className="h-4 w-4" />
                 <span>Settings</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="flex cursor-pointer items-center gap-2 py-2 text-[#DB2763]">
+              <DropdownMenuItem className="flex cursor-pointer items-center gap-2 py-2 text-[#DB2763]" onClick={handleLogout}>
                 <LogOut className="h-4 w-4" />
                 <span>Logout</span>
               </DropdownMenuItem>
