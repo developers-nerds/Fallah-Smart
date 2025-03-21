@@ -1,7 +1,7 @@
 const sequelize = require("./connection");
 const { DataTypes } = require("sequelize");
 //importing models
-const AnimalDetails =require("./models/AnimalDetails")(sequelize, DataTypes);
+const AnimalDetails = require("./models/AnimalDetails")(sequelize, DataTypes);
 const Accounts = require("./models/Accounts")(sequelize, DataTypes);
 const Animal_doc = require("./models/Animal _doc")(sequelize, DataTypes);
 const AnimalGaston = require("./models/AnimalGaston")(sequelize, DataTypes);
@@ -44,29 +44,60 @@ const Stock = require("./models/Stock")(sequelize, DataTypes);
 const StockHistory = require("./models/StockHistory")(sequelize, DataTypes);
 const StockFeed = require("./models/StockFeed")(sequelize, DataTypes);
 const StockSeeds = require("./models/StockSeeds")(sequelize, DataTypes);
-const StockFertilizer = require("./models/StockFertilizer")(sequelize, DataTypes);
+const StockFertilizer = require("./models/StockFertilizer")(
+  sequelize,
+  DataTypes
+);
 const StockEquipment = require("./models/StockEquipment")(sequelize, DataTypes);
 const StockHarvest = require("./models/StockHarvest")(sequelize, DataTypes);
-const StockNotification = require("./models/StockNotification")(sequelize, DataTypes);
+const StockNotification = require("./models/StockNotification")(
+  sequelize,
+  DataTypes
+);
 const StockTools = require("./models/StockTools")(sequelize, DataTypes);
 const Transactions = require("./models/Transactions")(sequelize, DataTypes);
 const Users = require("./models/Users")(sequelize, DataTypes);
-const Reports = require('./models/Reports')(sequelize, DataTypes);
-const AdvisorApplications = require("./models/AdvisorApplications")(sequelize, DataTypes);
+const Reports = require("./models/Reports")(sequelize, DataTypes);
+const AdvisorApplications = require("./models/AdvisorApplications")(
+  sequelize,
+  DataTypes
+);
 
 //////////////////////////////////////////Achref////////////////////////////////////////////
 
-const Education_Quiz = require("./models/Education_Quizzes")(sequelize, DataTypes);
-const Education_Question = require("./models/Education_Questions")(sequelize, DataTypes);
-const Education_Video = require("./models/Education_Videos")(sequelize, DataTypes);
-const Education_AdditionalVideo = require("./models/Education_AdditionalVideos")(sequelize, DataTypes);
-const Education_QuestionAndAnswer = require("./models/Education_QuestionsAndAnswers")(sequelize, DataTypes);
-const Education_Reply = require("./models/Education_Replies")(sequelize, DataTypes);
-const Education_UserProgress = require("./models/Education_UserProgress")(sequelize, DataTypes);
+const Education_Quiz = require("./models/Education_Quizzes")(
+  sequelize,
+  DataTypes
+);
+const Education_Question = require("./models/Education_Questions")(
+  sequelize,
+  DataTypes
+);
+const Education_Video = require("./models/Education_Videos")(
+  sequelize,
+  DataTypes
+);
+const Education_AdditionalVideo =
+  require("./models/Education_AdditionalVideos")(sequelize, DataTypes);
+const Education_QuestionAndAnswer =
+  require("./models/Education_QuestionsAndAnswers")(sequelize, DataTypes);
+const Education_Reply = require("./models/Education_Replies")(
+  sequelize,
+  DataTypes
+);
+const Education_UserProgress = require("./models/Education_UserProgress")(
+  sequelize,
+  DataTypes
+);
 const Education_Chat = require("./models/Education_Chat")(sequelize, DataTypes);
-const Education_Crop = require("./models/Education_Crops")(sequelize, DataTypes);
-const Education_Animal = require("./models/EducationAnimals")(sequelize, DataTypes);
-
+const Education_Crop = require("./models/Education_Crops")(
+  sequelize,
+  DataTypes
+);
+const Education_Animal = require("./models/EducationAnimals")(
+  sequelize,
+  DataTypes
+);
 
 // Define associations
 // For users
@@ -649,12 +680,12 @@ StockTools.belongsTo(Users, {
   as: "user",
 });
 // Reports associations
-Reports.belongsTo(Users, { foreignKey: 'userId', as: 'user' });
-Reports.belongsTo(Posts, { foreignKey: 'postId', as: 'post' });
+Reports.belongsTo(Users, { foreignKey: "userId", as: "user" });
+Reports.belongsTo(Posts, { foreignKey: "postId", as: "post" });
 
 // Create associations
-AdvisorApplications.belongsTo(Users, { foreignKey: 'userId' });
-Users.hasMany(AdvisorApplications, { foreignKey: 'userId' });
+AdvisorApplications.belongsTo(Users, { foreignKey: "userId" });
+Users.hasMany(AdvisorApplications, { foreignKey: "userId" });
 
 // Sync all models with the database
 
@@ -684,58 +715,65 @@ Scans.belongsTo(Users, {
   as: "user",
 });
 
-
 //Education Associations
 
 // Animals and Quizzes
-Education_Animal.belongsTo(Education_Quiz, { foreignKey: 'quizId' });
-Education_Quiz.hasOne(Education_Animal, { foreignKey: 'quizId' });
+Education_Animal.belongsTo(Education_Quiz, { foreignKey: "quizId" });
+Education_Quiz.hasOne(Education_Animal, { foreignKey: "quizId" });
 
 // Crops and Quizzes
-Education_Crop.belongsTo(Education_Quiz, { foreignKey: 'quizId' });
-Education_Quiz.hasOne(Education_Crop, { foreignKey: 'quizId' });
+Education_Crop.belongsTo(Education_Quiz, { foreignKey: "quizId" });
+Education_Quiz.hasOne(Education_Crop, { foreignKey: "quizId" });
 
 // Quizzes and Questions
-Education_Quiz.hasMany(Education_Question, { foreignKey: 'quizId' });
-Education_Question.belongsTo(Education_Quiz, { foreignKey: 'quizId' });
+Education_Quiz.hasMany(Education_Question, { foreignKey: "quizId" });
+Education_Question.belongsTo(Education_Quiz, { foreignKey: "quizId" });
 
 // Videos and Additional Videos
-Education_Video.hasMany(Education_AdditionalVideo, { foreignKey: 'videoId' });
-Education_AdditionalVideo.belongsTo(Education_Video, { foreignKey: 'videoId' });
+Education_Video.hasMany(Education_AdditionalVideo, { foreignKey: "videoId" });
+Education_AdditionalVideo.belongsTo(Education_Video, { foreignKey: "videoId" });
 
 // Videos and QuestionsAndAnswers
-Education_Video.hasMany(Education_QuestionAndAnswer, { foreignKey: 'videoId' });
-Education_QuestionAndAnswer.belongsTo(Education_Video, { foreignKey: 'videoId' });
+Education_Video.hasMany(Education_QuestionAndAnswer, { foreignKey: "videoId" });
+Education_QuestionAndAnswer.belongsTo(Education_Video, {
+  foreignKey: "videoId",
+});
 
 // QuestionsAndAnswers and Replies
-Education_QuestionAndAnswer.hasMany(Education_Reply, { foreignKey: 'questionAndAnswerId' });
-Education_Reply.belongsTo(Education_QuestionAndAnswer, { foreignKey: 'questionAndAnswerId' });
+Education_QuestionAndAnswer.hasMany(Education_Reply, {
+  foreignKey: "questionAndAnswerId",
+});
+Education_Reply.belongsTo(Education_QuestionAndAnswer, {
+  foreignKey: "questionAndAnswerId",
+});
 
 // UserProgress and Quizzes
-Education_UserProgress.belongsTo(Education_Quiz, { foreignKey: 'quizId' });
-Education_Quiz.hasMany(Education_UserProgress, { foreignKey: 'quizId' });
+Education_UserProgress.belongsTo(Education_Quiz, { foreignKey: "quizId" });
+Education_Quiz.hasMany(Education_UserProgress, { foreignKey: "quizId" });
 
 // ChatMessages and Users
 // Education_ChatMessage.belongsTo(User, { foreignKey: 'userId' });
 // Users.hasMany(Education_ChatMessage, { foreignKey: 'userId' });
 
 // Animals and Videos
-Education_Animal.belongsTo(Education_Video, { foreignKey: 'videoId' });
-Education_Video.hasOne(Education_Animal, { foreignKey: 'videoId' });
+Education_Animal.belongsTo(Education_Video, { foreignKey: "videoId" });
+Education_Video.hasOne(Education_Animal, { foreignKey: "videoId" });
 
 // Crops and Videos
-Education_Crop.belongsTo(Education_Video, { foreignKey: 'videoId' });
-Education_Video.hasOne(Education_Crop, { foreignKey: 'videoId' });
+Education_Crop.belongsTo(Education_Video, { foreignKey: "videoId" });
+Education_Video.hasOne(Education_Crop, { foreignKey: "videoId" });
 
 // UserProgress and Users
-Education_UserProgress.belongsTo(Users, { foreignKey: 'userId' });
-Users.hasMany(Education_UserProgress, { foreignKey: 'userId' });
+Education_UserProgress.belongsTo(Users, { foreignKey: "userId" });
+Users.hasMany(Education_UserProgress, { foreignKey: "userId" });
 
 // QuestionsAndAnswers and Users
-Education_QuestionAndAnswer.belongsTo(Users, { foreignKey: 'userId' });
-Users.hasMany(Education_QuestionAndAnswer, { foreignKey: 'userId' });
+Education_QuestionAndAnswer.belongsTo(Users, { foreignKey: "userId" });
+Users.hasMany(Education_QuestionAndAnswer, { foreignKey: "userId" });
 
 // Replies and Users
+Education_Reply.belongsTo(Users, { foreignKey: "userId" });
+Users.hasMany(Education_Reply, { foreignKey: "userId" });
 Education_Reply.belongsTo(Users, { foreignKey: 'userId' });
 Users.hasMany(Education_Reply, { foreignKey: 'userId' });
 
@@ -815,3 +853,18 @@ module.exports = {
   Education_Animal,
   Education_Like,
 };
+
+// Add Supplier and Auctions one-to-many relationship
+Suppliers.hasMany(Auctions, {
+  foreignKey: "supplierId",
+  as: "auctions",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+
+Auctions.belongsTo(Suppliers, {
+  foreignKey: "supplierId",
+  as: "supplier",
+});
+
+
