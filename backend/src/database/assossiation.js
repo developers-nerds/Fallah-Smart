@@ -739,6 +739,13 @@ Users.hasMany(Education_QuestionAndAnswer, { foreignKey: 'userId' });
 Education_Reply.belongsTo(Users, { foreignKey: 'userId' });
 Users.hasMany(Education_Reply, { foreignKey: 'userId' });
 
+// Education Likes - import model
+const Education_Like = require("./models/Education_Likes")(sequelize, DataTypes);
+
+// Users and Likes
+Users.hasMany(Education_Like, { foreignKey: 'userId' });
+Education_Like.belongsTo(Users, { foreignKey: 'userId' });
+
 ////////////////////////////////////////Hedhy Associations Mte3i Rodo belkom chabeb ///////////////
 
 // //Sync all models with the database
@@ -806,6 +813,5 @@ module.exports = {
   Education_Chat,
   Education_Crop,
   Education_Animal,
-
-
+  Education_Like,
 };

@@ -11,6 +11,7 @@ import {
   Animated,
   Alert,
   Keyboard,
+  Pressable
 } from 'react-native';
 import { theme } from '../../../theme/theme';
 import { MaterialIcons, MaterialCommunityIcons, Ionicons, AntDesign } from '@expo/vector-icons';
@@ -28,8 +29,39 @@ import {
   getRepliesByQuestionId,
   likeQuestion as likeQuestionApi,
   likeReply as likeReplyApi,
-  isItemLiked
+  hasUserLiked,
+  getLikesCount,
+  toggleLike
 } from '../utils/userProgress';
+import axios from 'axios';
+
+// Add BASE_URL constant
+const BASE_URL = process.env.EXPO_PUBLIC_API;
+
+// Helper function to process image URLs
+const getImageUrl = (imageUrl: string | undefined): string => {
+  if (!imageUrl) {
+    return 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png';
+  }
+  
+  // Handle already complete URLs
+  if (imageUrl.startsWith('http')) {
+    // If it's a local development URL, replace with BASE_URL
+    if (imageUrl.match(/http:\/\/\d+\.\d+\.\d+\.\d+:\d+/)) {
+      return imageUrl.replace(/http:\/\/\d+\.\d+\.\d+\.\d+:\d+/, BASE_URL);
+    }
+    // Otherwise return as is (it's already a complete URL)
+    return imageUrl;
+  }
+  
+  // Handle relative URLs
+  if (imageUrl.startsWith('/')) {
+    return `${BASE_URL}${imageUrl}`;
+  }
+  
+  // Default case - prepend BASE_URL
+  return `${BASE_URL}/${imageUrl}`;
+};
 
 interface Reply {
   id: string;
@@ -37,8 +69,10 @@ interface Reply {
   authorName: string;
   authorImage: string;
   timestamp: Date;
-  likes: number;
+  likesisClicked: boolean;
   userId?: number;
+  likeCount?: number;
+  isLikedByCurrentUser?: boolean;
 }
 
 interface Question {
@@ -47,10 +81,13 @@ interface Question {
   authorName: string;
   authorImage: string;
   timestamp: Date;
-  likes: number;
+  likesisClicked: boolean;
   userId?: number;
   Education_Replies?: Reply[];
   replies?: Reply[];
+  likeCount?: number;
+  isLikedByCurrentUser?: boolean;
+  showAllReplies?: boolean;
 }
 
 interface Props {
@@ -61,7 +98,10 @@ interface Props {
 const QuestionAndAnswer: React.FC<Props> = ({ videoId, videoType }) => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [newQuestion, setNewQuestion] = useState('');
-  const [replyingTo, setReplyingTo] = useState<{ questionId?: string } | null>(null);
+  const [replyingTo, setReplyingTo] = useState<{ 
+    questionId?: string; 
+    replyToUsername?: string;
+  } | null>(null);
   const [replyText, setReplyText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -74,6 +114,11 @@ const QuestionAndAnswer: React.FC<Props> = ({ videoId, videoType }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scrollViewRef = useRef<ScrollView>(null);
   const initialLoadDone = useRef(false);
+  const [userProfile, setUserProfile] = useState<{ username: string; profilePicture: string } | null>(null);
+  const [likeData, setLikeData] = useState<{ 
+    [key: string]: { count: number, isLiked: boolean } 
+  }>({});
+  const [expandedReplies, setExpandedReplies] = useState<{[key: string]: boolean}>({});
   
   // Maximum character limits
   const MAX_QUESTION_LENGTH = 300;
@@ -84,6 +129,7 @@ const QuestionAndAnswer: React.FC<Props> = ({ videoId, videoType }) => {
     console.log(`Initial load effect - videoId: ${videoId}, videoType: ${videoType}`);
     loadQuestions(true, true);
     loadCurrentUser();
+    loadUserProfile();
     initialLoadDone.current = true;
   }, []);
   
@@ -125,6 +171,17 @@ const QuestionAndAnswer: React.FC<Props> = ({ videoId, videoType }) => {
       console.log(`Current user loaded: ${user?.id || 'Not logged in'}`);
     } catch (error) {
       console.error('Error loading current user:', error);
+    }
+  };
+
+  const loadUserProfile = async () => {
+    try {
+      const userData = await getUserData();
+      if (userData) {
+        setUserProfile(userData);
+      }
+    } catch (error) {
+      console.error('Error loading user profile:', error);
     }
   };
 
@@ -178,6 +235,17 @@ const QuestionAndAnswer: React.FC<Props> = ({ videoId, videoType }) => {
       return;
     }
 
+    // Check if user is logged in and has profile
+    if (!currentUser) {
+      Alert.alert('تنبيه', 'يجب تسجيل الدخول لإضافة سؤال');
+      return;
+    }
+
+    // Reload user profile if not available
+    if (!userProfile) {
+      await loadUserProfile();
+    }
+
     setIsSubmitting(true);
     
     try {
@@ -220,20 +288,46 @@ const QuestionAndAnswer: React.FC<Props> = ({ videoId, videoType }) => {
       return;
     }
     
+    // Check if user is logged in and has profile
+    if (!currentUser) {
+      Alert.alert('تنبيه', 'يجب تسجيل الدخول لإضافة رد');
+      return;
+    }
+
+    // Reload user profile if not available
+    if (!userProfile) {
+      await loadUserProfile();
+    }
+    
     setIsSubmitting(true);
     
     try {
-      const createdReply = await createReply(replyText, questionId);
+      // If replying to a specific user, prepend their username
+      const finalText = replyingTo?.replyToUsername 
+        ? `@${replyingTo.replyToUsername}: ${replyText}` 
+        : replyText;
+      
+      console.log(`Sending reply to question ${questionId}, text: ${finalText.substring(0, 20)}...`);
+      
+      const createdReply = await createReply(finalText, questionId);
       
       if (createdReply) {
+        console.log(`Reply created successfully with ID: ${createdReply.id}`);
+        
+        // Make sure likesisClicked is initialized properly
+        const replyWithLikeStatus = {
+          ...createdReply,
+          likesisClicked: false
+        };
+        
         // Update questions state with the new reply
         setQuestions(prev =>
           prev.map(q =>
             q.id === questionId
               ? { 
-                ...q, 
-                replies: [createdReply, ...(q.replies || [])] 
-              }
+                  ...q, 
+                  replies: [replyWithLikeStatus, ...(q.replies || [])]  // Add new reply at the beginning
+                }
               : q
           )
         );
@@ -241,6 +335,7 @@ const QuestionAndAnswer: React.FC<Props> = ({ videoId, videoType }) => {
         setReplyText('');
         setReplyingTo(null);
       } else {
+        console.error('createReply returned null/undefined response');
         Alert.alert('خطأ', 'حدث خطأ أثناء إرسال الرد، يرجى المحاولة مرة أخرى.');
       }
     } catch (error) {
@@ -252,42 +347,142 @@ const QuestionAndAnswer: React.FC<Props> = ({ videoId, videoType }) => {
     }
   };
 
-  const handleLikeQuestion = async (questionId: string) => {
+  const loadLikesInfo = async () => {
+    if (!currentUser) return;
+    
     try {
-      const success = await likeQuestionApi(questionId);
+      // Create a temporary object to store like data
+      const newLikeData: { [key: string]: { count: number, isLiked: boolean } } = {};
       
-      if (success) {
-        setQuestions(prev =>
-          prev.map(q =>
-            q.id === questionId ? { ...q, likes: q.likes + 1 } : q
-          )
-        );
+      // Process questions
+      for (const question of questions) {
+        const questionKey = `question_${question.id}`;
+        const [count, isLiked] = await Promise.all([
+          getLikesCount('question', question.id),
+          hasUserLiked('question', question.id)
+        ]);
+        newLikeData[questionKey] = { count, isLiked };
+        
+        // Process replies for this question
+        if (question.replies && question.replies.length > 0) {
+          for (const reply of question.replies) {
+            const replyKey = `reply_${reply.id}`;
+            const [replyCount, replyIsLiked] = await Promise.all([
+              getLikesCount('reply', reply.id),
+              hasUserLiked('reply', reply.id)
+            ]);
+            newLikeData[replyKey] = { count: replyCount, isLiked: replyIsLiked };
+          }
+        }
       }
+      
+      setLikeData(newLikeData);
     } catch (error) {
-      console.error(`Error liking question ${questionId}:`, error);
+      console.error('Error loading likes info:', error);
     }
   };
+  
+  // Load likes information when questions load or user changes
+  useEffect(() => {
+    if (questions.length > 0 && currentUser) {
+      loadLikesInfo();
+    }
+  }, [questions.length, currentUser?.id]);
 
-  const handleLikeReply = async (questionId: string, replyId: string) => {
+  const handleLikeQuestion = async (questionId: string) => {
     try {
-      const success = await likeReplyApi(replyId);
+      if (!currentUser) {
+        Alert.alert('تنبيه', 'يجب تسجيل الدخول للإعجاب بالسؤال');
+        return;
+      }
       
-      if (success) {
-        setQuestions(prev =>
-          prev.map(q =>
-            q.id === questionId
-              ? {
-                  ...q,
-                  replies: (q.replies || []).map(r =>
-                    r.id === replyId ? { ...r, likes: r.likes + 1 } : r
-                  ),
-                }
-              : q
-          )
-        );
+      const question = questions.find(q => q.id === questionId);
+      if (!question) return;
+      
+      const questionKey = `question_${questionId}`;
+      const currentLikeData = likeData[questionKey] || { count: 0, isLiked: false };
+      
+      // Optimistically update UI
+      setLikeData({
+        ...likeData,
+        [questionKey]: {
+          count: currentLikeData.isLiked ? Math.max(0, currentLikeData.count - 1) : currentLikeData.count + 1,
+          isLiked: !currentLikeData.isLiked
+        }
+      });
+      
+      // Call API to update server
+      const result = await toggleLike('question', questionId);
+      
+      if (!result.success) {
+        // If API call fails, revert the UI change
+        setLikeData({
+          ...likeData,
+          [questionKey]: currentLikeData
+        });
+        Alert.alert('خطأ', 'فشل في تحديث الإعجاب، يرجى المحاولة مرة أخرى');
+      } else {
+        // If API call succeeds, update with accurate count from server
+        setLikeData({
+          ...likeData,
+          [questionKey]: {
+            count: result.totalLikes,
+            isLiked: result.liked
+          }
+        });
       }
     } catch (error) {
-      console.error(`Error liking reply ${replyId}:`, error);
+      console.error(`Error toggling like for question ${questionId}:`, error);
+    }
+  };
+  
+  const handleLikeReply = async (questionId: string, replyId: string) => {
+    try {
+      if (!currentUser) {
+        Alert.alert('تنبيه', 'يجب تسجيل الدخول للإعجاب بالرد');
+        return;
+      }
+      
+      const question = questions.find(q => q.id === questionId);
+      if (!question) return;
+  
+      const reply = question.replies?.find(r => r.id === replyId);
+      if (!reply) return;
+      
+      const replyKey = `reply_${replyId}`;
+      const currentLikeData = likeData[replyKey] || { count: 0, isLiked: false };
+      
+      // Optimistically update UI
+      setLikeData({
+        ...likeData,
+        [replyKey]: {
+          count: currentLikeData.isLiked ? Math.max(0, currentLikeData.count - 1) : currentLikeData.count + 1,
+          isLiked: !currentLikeData.isLiked
+        }
+      });
+  
+      // Call API to update server
+      const result = await toggleLike('reply', replyId);
+      
+      if (!result.success) {
+        // If API call fails, revert the UI change
+        setLikeData({
+          ...likeData,
+          [replyKey]: currentLikeData
+        });
+        Alert.alert('خطأ', 'فشل في تحديث الإعجاب، يرجى المحاولة مرة أخرى');
+      } else {
+        // If API call succeeds, update with accurate count from server
+        setLikeData({
+          ...likeData,
+          [replyKey]: {
+            count: result.totalLikes,
+            isLiked: result.liked
+          }
+        });
+      }
+    } catch (error) {
+      console.error(`Error toggling like for reply ${replyId}:`, error);
     }
   };
   
@@ -309,9 +504,22 @@ const QuestionAndAnswer: React.FC<Props> = ({ videoId, videoType }) => {
     if (sortOrder === 'newest') {
       return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
     } else {
-      return b.likes - a.likes;
+      // Sort by "likesisClicked" status
+      if (a.likesisClicked === b.likesisClicked) {
+        // If both have the same like status, sort by timestamp
+        return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+      }
+      // Show liked questions first
+      return a.likesisClicked ? -1 : 1;
     }
   });
+  
+  // Sort replies by timestamp (oldest first for a conversation flow)
+  const sortReplies = (replies: Reply[] = []) => {
+    return [...replies].sort((a, b) => 
+      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+  };
   
   const getRemainingChars = () => {
     return MAX_QUESTION_LENGTH - newQuestion.length;
@@ -355,31 +563,56 @@ const QuestionAndAnswer: React.FC<Props> = ({ videoId, videoType }) => {
   };
 
   const handleDeleteQuestion = async (questionId: string) => {
-    Alert.alert(
-      'تأكيد الحذف',
-      'هل أنت متأكد من حذف هذا السؤال؟',
-      [
-        { text: 'إلغاء', style: 'cancel' },
-        {
-          text: 'حذف',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const success = await deleteQuestion(questionId);
-              
-              if (success) {
-                setQuestions(prev => prev.filter(q => q.id !== questionId));
-              } else {
-                Alert.alert('خطأ', 'حدث خطأ أثناء حذف السؤال، يرجى المحاولة مرة أخرى.');
+    try {
+      const question = questions.find(q => q.id === questionId);
+      if (!question) return;
+      
+      // Check if the current user is the owner of the question
+      if (currentUser?.id !== question.userId) {
+        Alert.alert('عذراً', 'لا يمكنك حذف أسئلة المستخدمين الآخرين');
+        return;
+      }
+      
+      Alert.alert(
+        'تأكيد الحذف',
+        'هل أنت متأكد أنك تريد حذف هذا السؤال؟',
+        [
+          {
+            text: 'إلغاء',
+            style: 'cancel',
+          },
+          {
+            text: 'حذف',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                setIsSubmitting(true);
+                const success = await deleteQuestion(questionId);
+                if (success) {
+                  setQuestions(prev => prev.filter(q => q.id !== questionId));
+                  Alert.alert('نجاح', 'تم حذف السؤال بنجاح');
+                } else {
+                  Alert.alert('خطأ', 'فشل في حذف السؤال، يرجى المحاولة مرة أخرى');
+                }
+              } catch (error) {
+                console.error('Error deleting question:', error);
+                if (axios.isAxiosError(error) && error.response?.status === 403) {
+                  Alert.alert('غير مصرح', 'لا يمكنك حذف أسئلة المستخدمين الآخرين');
+                } else {
+                  Alert.alert('خطأ', 'حدث خطأ أثناء حذف السؤال');
+                }
+              } finally {
+                setIsSubmitting(false);
               }
-            } catch (error) {
-              console.error('Error deleting question:', error);
-              Alert.alert('خطأ', 'حدث خطأ أثناء حذف السؤال، يرجى المحاولة مرة أخرى.');
-            }
-          }
-        }
-      ]
-    );
+            },
+          },
+        ],
+        { cancelable: true }
+      );
+    } catch (error) {
+      console.error('Error handling delete question:', error);
+      Alert.alert('خطأ', 'حدث خطأ أثناء محاولة حذف السؤال');
+    }
   };
 
   const handleUpdateReply = async (questionId: string, replyId: string) => {
@@ -421,89 +654,174 @@ const QuestionAndAnswer: React.FC<Props> = ({ videoId, videoType }) => {
   };
 
   const handleDeleteReply = async (questionId: string, replyId: string) => {
-    Alert.alert(
-      'تأكيد الحذف',
-      'هل أنت متأكد من حذف هذا الرد؟',
-      [
-        { text: 'إلغاء', style: 'cancel' },
-        {
-          text: 'حذف',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const success = await deleteReply(replyId);
-              
-              if (success) {
-                setQuestions(prev =>
-                  prev.map(q =>
-                    q.id === questionId
-                      ? {
-                          ...q,
-                          replies: (q.replies || []).filter(r => r.id !== replyId)
-                        }
-                      : q
-                  )
-                );
-              } else {
-                Alert.alert('خطأ', 'حدث خطأ أثناء حذف الرد، يرجى المحاولة مرة أخرى.');
+    try {
+      const question = questions.find(q => q.id === questionId);
+      if (!question) return;
+      
+      const reply = question.replies?.find(r => r.id === replyId);
+      if (!reply) return;
+      
+      // Check if the current user is the owner of the reply
+      if (currentUser?.id !== reply.userId) {
+        Alert.alert('عذراً', 'لا يمكنك حذف ردود المستخدمين الآخرين');
+        return;
+      }
+      
+      Alert.alert(
+        'تأكيد الحذف',
+        'هل أنت متأكد أنك تريد حذف هذا الرد؟',
+        [
+          {
+            text: 'إلغاء',
+            style: 'cancel',
+          },
+          {
+            text: 'حذف',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                setIsSubmitting(true);
+                const success = await deleteReply(replyId);
+                if (success) {
+                  setQuestions(prev =>
+                    prev.map(q =>
+                      q.id === questionId
+                        ? {
+                            ...q,
+                            replies: (q.replies || []).filter(r => r.id !== replyId),
+                          }
+                        : q
+                    )
+                  );
+                  Alert.alert('نجاح', 'تم حذف الرد بنجاح');
+                } else {
+                  Alert.alert('خطأ', 'فشل في حذف الرد، يرجى المحاولة مرة أخرى');
+                }
+              } catch (error) {
+                console.error('Error deleting reply:', error);
+                if (axios.isAxiosError(error) && error.response?.status === 403) {
+                  Alert.alert('غير مصرح', 'لا يمكنك حذف ردود المستخدمين الآخرين');
+                } else {
+                  Alert.alert('خطأ', 'حدث خطأ أثناء حذف الرد');
+                }
+              } finally {
+                setIsSubmitting(false);
               }
-            } catch (error) {
-              console.error('Error deleting reply:', error);
-              Alert.alert('خطأ', 'حدث خطأ أثناء حذف الرد، يرجى المحاولة مرة أخرى.');
-            }
-          }
-        }
-      ]
+            },
+          },
+        ],
+        { cancelable: true }
+      );
+    } catch (error) {
+      console.error('Error handling delete reply:', error);
+      Alert.alert('خطأ', 'حدث خطأ أثناء محاولة حذف الرد');
+    }
+  };
+
+  const toggleReplies = (questionId: string) => {
+    setQuestions(prev => 
+      prev.map(q => 
+        q.id === questionId 
+          ? { ...q, showAllReplies: !q.showAllReplies } 
+          : q
+      )
     );
   };
 
   const renderQuestionActions = (question: Question) => {
     const isOwner = currentUser?.id === question.userId;
+    const questionKey = `question_${question.id}`;
+    const likeInfo = likeData[questionKey] || { count: 0, isLiked: false };
+    const replyCount = question.replies?.length || 0;
     
     return (
       <View style={styles.actionButtons}>
         <TouchableOpacity
-          style={styles.actionButton}
+          style={[styles.actionButton, likeInfo.isLiked && styles.likedActionButton]}
           onPress={() => handleLikeQuestion(question.id)}
+          disabled={false}
         >
-          <MaterialCommunityIcons name="thumb-up" size={20} color={theme.colors.primary.base} />
-          <Text style={styles.actionText}>{question.likes}</Text>
+          <View style={styles.likeContainer}>
+            <MaterialCommunityIcons 
+              name={likeInfo.isLiked ? "thumb-up" : "thumb-up-outline"} 
+              size={22} 
+              color={likeInfo.isLiked ? theme.colors.primary.dark : theme.colors.primary.base} 
+            />
+            {likeInfo.count > 0 && (
+              <Text style={[styles.likeCount, likeInfo.isLiked && styles.likedCount]}>
+                {likeInfo.count}
+              </Text>
+            )}
+          </View>
+          <Text style={[
+            styles.actionText,
+            likeInfo.isLiked && styles.likedActionText
+          ]}>
+            {likeInfo.isLiked ? "معجب" : "إعجاب"}
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.actionButton}
           onPress={() => {
-            setReplyingTo({ questionId: question.id });
-            setTimeout(() => {
-              scrollViewRef.current?.scrollToEnd({ animated: true });
-            }, 100);
+            if (replyCount > 0) {
+              toggleReplies(question.id);
+            } else {
+              setReplyingTo({ questionId: question.id });
+              setTimeout(() => {
+                scrollViewRef.current?.scrollToEnd({ animated: true });
+              }, 100);
+            }
           }}
         >
-          <MaterialCommunityIcons name="reply" size={20} color={theme.colors.primary.base} />
-          <Text style={styles.actionText}>إجابة</Text>
+          <View style={styles.likeContainer}>
+            <MaterialCommunityIcons 
+              name="comment-outline" 
+              size={22} 
+              color={theme.colors.primary.base} 
+            />
+            {replyCount > 0 && (
+              <Text style={styles.likeCount}>
+                {replyCount}
+              </Text>
+            )}
+          </View>
+          <Text style={styles.actionText}>
+            {replyCount > 0 ? (question.showAllReplies ? "إخفاء" : "عرض") : "تعليق"}
+          </Text>
         </TouchableOpacity>
 
         {isOwner && (
-          <>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => {
-                setEditingQuestion(question.id);
-                setEditText(question.text);
-              }}
-            >
-              <MaterialIcons name="edit" size={20} color={theme.colors.primary.base} />
-              <Text style={styles.actionText}>تعديل</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => handleDeleteQuestion(question.id)}
-            >
-              <MaterialIcons name="delete" size={20} color={theme.colors.error} />
-              <Text style={[styles.actionText, { color: theme.colors.error }]}>حذف</Text>
-            </TouchableOpacity>
-          </>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => {
+              Alert.alert(
+                'خيارات',
+                'اختر أحد الخيارات',
+                [
+                  {
+                    text: 'تعديل',
+                    onPress: () => {
+                      setEditingQuestion(question.id);
+                      setEditText(question.text);
+                    }
+                  },
+                  {
+                    text: 'حذف',
+                    style: 'destructive',
+                    onPress: () => handleDeleteQuestion(question.id)
+                  },
+                  {
+                    text: 'إلغاء',
+                    style: 'cancel'
+                  }
+                ]
+              );
+            }}
+          >
+            <MaterialIcons name="more-horiz" size={22} color={theme.colors.primary.base} />
+            <Text style={styles.actionText}>خيارات</Text>
+          </TouchableOpacity>
         )}
       </View>
     );
@@ -511,39 +829,192 @@ const QuestionAndAnswer: React.FC<Props> = ({ videoId, videoType }) => {
 
   const renderReplyActions = (questionId: string, reply: Reply) => {
     const isOwner = currentUser?.id === reply.userId;
+    const replyKey = `reply_${reply.id}`;
+    const likeInfo = likeData[replyKey] || { count: 0, isLiked: false };
     
     return (
       <View style={styles.actionButtons}>
         <TouchableOpacity
-          style={styles.actionButton}
+          style={[styles.actionButton, likeInfo.isLiked && styles.likedActionButton]}
           onPress={() => handleLikeReply(questionId, reply.id)}
+          disabled={false}
         >
-          <MaterialCommunityIcons name="thumb-up" size={18} color={theme.colors.primary.base} />
-          <Text style={styles.actionTextSmall}>{reply.likes}</Text>
+          <View style={styles.likeContainer}>
+            <MaterialCommunityIcons 
+              name={likeInfo.isLiked ? "thumb-up" : "thumb-up-outline"} 
+              size={18} 
+              color={likeInfo.isLiked ? theme.colors.primary.dark : theme.colors.primary.base} 
+            />
+            {likeInfo.count > 0 && (
+              <Text style={[styles.likeCount, likeInfo.isLiked && styles.likedCount]}>
+                {likeInfo.count}
+              </Text>
+            )}
+          </View>
+          <Text style={[
+            styles.actionText,
+            likeInfo.isLiked && styles.likedActionText
+          ]}>
+            {likeInfo.isLiked ? "معجب" : "إعجاب"}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => {
+            setReplyingTo({ 
+              questionId: questionId,
+              replyToUsername: reply.authorName 
+            });
+            setTimeout(() => {
+              scrollViewRef.current?.scrollToEnd({ animated: true });
+            }, 100);
+          }}
+        >
+          <MaterialCommunityIcons name="reply" size={18} color={theme.colors.primary.base} />
+          <Text style={styles.actionText}>رد</Text>
         </TouchableOpacity>
 
         {isOwner && (
-          <>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => {
-                setEditingReply(reply.id);
-                setEditText(reply.text);
-              }}
-            >
-              <MaterialIcons name="edit" size={18} color={theme.colors.primary.base} />
-              <Text style={styles.actionTextSmall}>تعديل</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => handleDeleteReply(questionId, reply.id)}
-            >
-              <MaterialIcons name="delete" size={18} color={theme.colors.error} />
-              <Text style={[styles.actionTextSmall, { color: theme.colors.error }]}>حذف</Text>
-            </TouchableOpacity>
-          </>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => {
+              Alert.alert(
+                'خيارات',
+                'اختر أحد الخيارات',
+                [
+                  {
+                    text: 'تعديل',
+                    onPress: () => {
+                      setEditingReply(reply.id);
+                      setEditText(reply.text);
+                    }
+                  },
+                  {
+                    text: 'حذف',
+                    style: 'destructive',
+                    onPress: () => handleDeleteReply(questionId, reply.id)
+                  },
+                  {
+                    text: 'إلغاء',
+                    style: 'cancel'
+                  }
+                ]
+              );
+            }}
+          >
+            <MaterialIcons name="more-horiz" size={18} color={theme.colors.primary.base} />
+            <Text style={styles.actionText}>خيارات</Text>
+          </TouchableOpacity>
         )}
+      </View>
+    );
+  };
+
+  const renderReplySection = (question: Question) => {
+    if (!question.replies || question.replies.length === 0) {
+      return null;
+    }
+    
+    // Determine if we should show all replies or just a summary
+    const sortedReplies = sortReplies(question.replies);
+    const visibleReplies = question.showAllReplies 
+      ? sortedReplies 
+      : sortedReplies.slice(0, 1);
+    const hiddenRepliesCount = sortedReplies.length - visibleReplies.length;
+    
+    return (
+      <View style={styles.repliesContainer}>
+        {/* Display replies based on collapsed or expanded state */}
+        {visibleReplies.map(reply => (
+          <View key={reply.id} style={styles.replyItem}>
+            <View style={styles.authorInfo}>
+              <Image source={{ uri: getImageUrl(reply.authorImage) }} style={styles.authorImageSmall} />
+              <View style={styles.authorTextContainer}>
+                <Text style={styles.authorNameSmall}>{reply.authorName}</Text>
+                <Text style={styles.timestampSmall}>
+                  {new Date(reply.timestamp).toLocaleString('fr-FR')}
+                </Text>
+              </View>
+            </View>
+
+            {editingReply === reply.id ? (
+              <View style={styles.editContainer}>
+                <TextInput
+                  style={styles.editInput}
+                  value={editText}
+                  onChangeText={setEditText}
+                  multiline
+                  textAlign="right"
+                  autoFocus
+                  maxLength={MAX_ANSWER_LENGTH + 1}
+                />
+                <View style={styles.editButtons}>
+                  <TouchableOpacity
+                    style={styles.editButton}
+                    onPress={() => {
+                      setEditingReply(null);
+                      setEditText('');
+                    }}
+                  >
+                    <Text style={styles.editButtonText}>إلغاء</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.editButton, styles.saveButton]}
+                    onPress={() => handleUpdateReply(question.id, reply.id)}
+                  >
+                    <Text style={styles.saveButtonText}>حفظ</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.replyContent}>
+                {/* Check if this is a reply to another user, and format it nicely */}
+                {reply.text.startsWith('@') && reply.text.includes(':') ? (
+                  <View>
+                    <Text style={styles.replyToMention}>
+                      {reply.text.substring(0, reply.text.indexOf(':') + 1)}
+                    </Text>
+                    <Text style={styles.replyText}>
+                      {reply.text.substring(reply.text.indexOf(':') + 1)}
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={styles.replyText}>{reply.text}</Text>
+                )}
+              </View>
+            )}
+
+            {renderReplyActions(question.id, reply)}
+          </View>
+        ))}
+        
+        {/* Show the "View more comments" button if needed */}
+        {hiddenRepliesCount > 0 && (
+          <Pressable 
+            style={styles.viewMoreReplies}
+            onPress={() => toggleReplies(question.id)}
+          >
+            <AntDesign name="down" size={16} color={theme.colors.primary.base} />
+            <Text style={styles.viewMoreRepliesText}>
+              عرض {hiddenRepliesCount} {hiddenRepliesCount === 1 ? 'تعليق' : 'تعليقات'} أخرى
+            </Text>
+          </Pressable>
+        )}
+        
+        {/* Quick reply button at bottom of reply section */}
+        <Pressable 
+          style={styles.quickReplyButton}
+          onPress={() => {
+            setReplyingTo({ questionId: question.id });
+            setTimeout(() => {
+              scrollViewRef.current?.scrollToEnd({ animated: true });
+            }, 100);
+          }}
+        >
+          <MaterialCommunityIcons name="reply" size={18} color={theme.colors.primary.base} />
+          <Text style={styles.quickReplyText}>أضف تعليقًا...</Text>
+        </Pressable>
       </View>
     );
   };
@@ -610,6 +1081,19 @@ const QuestionAndAnswer: React.FC<Props> = ({ videoId, videoType }) => {
           ref={scrollViewRef}
           showsVerticalScrollIndicator={false}
         >
+          <TouchableOpacity 
+            style={styles.sortButton}
+            onPress={sortQuestions}
+          >
+            <Text style={styles.sortButtonText}>
+              ترتيب حسب: {sortOrder === 'newest' ? 'الأحدث' : 'الأكثر إعجاباً'}
+            </Text>
+            <MaterialIcons 
+              name={sortOrder === 'newest' ? 'sort' : 'thumb-up'} 
+              size={18} 
+              color={theme.colors.primary.base} 
+            />
+          </TouchableOpacity>
           {sortedQuestions.length === 0 ? (
             <View style={styles.emptyState}>
               <MaterialCommunityIcons 
@@ -630,7 +1114,7 @@ const QuestionAndAnswer: React.FC<Props> = ({ videoId, videoType }) => {
                 ]}
               >
                 <View style={styles.authorInfo}>
-                  <Image source={{ uri: question.authorImage }} style={styles.authorImage} />
+                  <Image source={{ uri: getImageUrl(question.authorImage) }} style={styles.authorImage} />
                   <View style={styles.authorTextContainer}>
                     <Text style={styles.authorName}>{question.authorName}</Text>
                     <Text style={styles.timestamp}>
@@ -673,109 +1157,63 @@ const QuestionAndAnswer: React.FC<Props> = ({ videoId, videoType }) => {
                 )}
 
                 {renderQuestionActions(question)}
+                
+                {/* Render the reply section with the new helper function */}
+                {renderReplySection(question)}
 
                 {replyingTo?.questionId === question.id && (
                   <View style={styles.replyContainer}>
                     <View style={styles.replyInputContainer}>
-                      <TextInput
-                        style={styles.replyInput}
-                        placeholder="اكتب إجابتك..."
-                        value={replyText}
-                        onChangeText={setReplyText}
-                        multiline
-                        textAlign="right"
-                        autoFocus
-                        maxLength={MAX_ANSWER_LENGTH + 1}
-                      />
-                      {replyText.length > 0 && (
-                        <Text style={[
-                          styles.charCounter, 
-                          getReplyRemainingChars() < 20 ? styles.charCounterWarning : null
-                        ]}>
-                          {getReplyRemainingChars()}
-                        </Text>
+                      {userProfile && (
+                        <Image 
+                          source={{ uri: getImageUrl(userProfile.profilePicture) }} 
+                          style={styles.replyUserImage} 
+                        />
                       )}
+                      <View style={{flex: 1}}>
+                        {replyingTo.replyToUsername && (
+                          <Text style={styles.replyToLabel}>
+                            الرد على <Text style={styles.replyToUsername}>{replyingTo.replyToUsername}</Text>
+                          </Text>
+                        )}
+                        <TextInput
+                          style={styles.replyInput}
+                          placeholder="اكتب تعليقك..."
+                          value={replyText}
+                          onChangeText={setReplyText}
+                          multiline
+                          textAlign="right"
+                          autoFocus
+                          maxLength={MAX_ANSWER_LENGTH + 1}
+                        />
+                      </View>
                     </View>
                     <View style={styles.replyButtonsContainer}>
                       <TouchableOpacity
                         style={styles.cancelReplyButton}
                         onPress={cancelReply}
                       >
-                        <Ionicons name="close" size={24} color={theme.colors.neutral.textSecondary} />
+                        <Ionicons name="close" size={24} color={theme.colors.neutral.surface} />
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={[
                           styles.sendReplyButton,
                           !replyText.trim() && styles.disabledSendButton
                         ]}
-                        onPress={() => addReply(question.id)}
+                        onPress={() => addReply(replyingTo.questionId!)}
                         disabled={!replyText.trim() || isSubmitting}
                       >
                         {isSubmitting ? (
-                          <ActivityIndicator size="small" color={theme.colors.primary.base} />
+                          <ActivityIndicator size="small" color={theme.colors.neutral.surface} />
                         ) : (
                           <MaterialIcons 
                             name="send" 
-                            size={24} 
-                            color={!replyText.trim() ? theme.colors.neutral.gray.base : theme.colors.primary.base} 
+                            size={20} 
+                            color={theme.colors.neutral.surface} 
                           />
                         )}
                       </TouchableOpacity>
                     </View>
-                  </View>
-                )}
-
-                {/* Display replies */}
-                {question.replies && question.replies.length > 0 && (
-                  <View style={styles.repliesContainer}>
-                    {question.replies.map(reply => (
-                      <View key={reply.id} style={styles.replyItem}>
-                        <View style={styles.authorInfo}>
-                          <Image source={{ uri: reply.authorImage }} style={styles.authorImageSmall} />
-                          <View style={styles.authorTextContainer}>
-                            <Text style={styles.authorNameSmall}>{reply.authorName}</Text>
-                            <Text style={styles.timestampSmall}>
-                              {new Date(reply.timestamp).toLocaleString('fr-FR')}
-                            </Text>
-                          </View>
-                        </View>
-
-                        {editingReply === reply.id ? (
-                          <View style={styles.editContainer}>
-                            <TextInput
-                              style={styles.editInput}
-                              value={editText}
-                              onChangeText={setEditText}
-                              multiline
-                              textAlign="right"
-                              autoFocus
-                              maxLength={MAX_ANSWER_LENGTH + 1}
-                            />
-                            <View style={styles.editButtons}>
-                              <TouchableOpacity
-                                style={styles.editButton}
-                                onPress={() => {
-                                  setEditingReply(null);
-                                  setEditText('');
-                                }}
-                              >
-                                <Text style={styles.editButtonText}>إلغاء</Text>
-                              </TouchableOpacity>
-                              <TouchableOpacity
-                                style={[styles.editButton, styles.saveButton]}
-                                onPress={() => handleUpdateReply(question.id, reply.id)}
-                              >
-                                <Text style={styles.saveButtonText}>حفظ</Text>
-                              </TouchableOpacity>
-                            </View>
-                          </View>
-                        ) : (
-                          <Text style={styles.replyText}>{reply.text}</Text>
-                        )}
-
-                        {renderReplyActions(question.id, reply)}
-                      </View>
-                    ))}
                   </View>
                 )}
               </Animated.View>
@@ -797,9 +1235,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: theme.spacing.md,
     backgroundColor: theme.colors.neutral.surface,
-    borderRadius: 8,
+    borderRadius: 12,
     margin: theme.spacing.md,
-    ...theme.shadows.small,
+    ...theme.shadows.medium,
+    elevation: 4,
   },
   inputWrapper: {
     flex: 1,
@@ -812,6 +1251,7 @@ const styles = StyleSheet.create({
     marginRight: theme.spacing.md,
     textAlignVertical: 'top',
     minHeight: 40,
+    fontFamily: 'System',
   },
   charCounter: {
     position: 'absolute',
@@ -828,10 +1268,15 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primary.base,
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.sm,
-    borderRadius: 8,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     minWidth: 70,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.5,
   },
   disabledButton: {
     backgroundColor: theme.colors.primary.light,
@@ -841,6 +1286,7 @@ const styles = StyleSheet.create({
     color: theme.colors.neutral.surface,
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: 'System',
   },
   questionsContainer: {
     flex: 1,
@@ -855,6 +1301,7 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.md,
     fontSize: 16,
     color: theme.colors.neutral.textSecondary,
+    fontFamily: 'System',
   },
   emptyState: {
     alignItems: 'center',
@@ -867,99 +1314,131 @@ const styles = StyleSheet.create({
     color: theme.colors.neutral.textPrimary,
     marginTop: theme.spacing.md,
     textAlign: 'center',
+    fontFamily: 'System',
   },
   emptyStateSubtext: {
     fontSize: 14,
     color: theme.colors.neutral.textSecondary,
     marginTop: theme.spacing.sm,
     textAlign: 'center',
+    fontFamily: 'System',
   },
   questionCard: {
     backgroundColor: theme.colors.neutral.surface,
-    padding: theme.spacing.md,
+    padding: theme.spacing.lg,
     marginHorizontal: theme.spacing.md,
     marginBottom: theme.spacing.md,
-    borderRadius: 8,
-    ...theme.shadows.small,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
   },
   authorInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
   },
   authorImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     marginLeft: theme.spacing.sm,
+    borderWidth: 2,
+    borderColor: theme.colors.primary.light,
   },
   authorImageSmall: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     marginLeft: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.primary.light,
   },
   authorTextContainer: {
     flex: 1,
   },
   authorName: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     color: theme.colors.neutral.textPrimary,
     textAlign: 'right',
+    fontFamily: 'System',
   },
   authorNameSmall: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
     color: theme.colors.neutral.textPrimary,
     textAlign: 'right',
+    fontFamily: 'System',
   },
   timestamp: {
     fontSize: 12,
     color: theme.colors.neutral.textSecondary,
     textAlign: 'right',
+    fontFamily: 'System',
   },
   timestampSmall: {
     fontSize: 10,
     color: theme.colors.neutral.textSecondary,
     textAlign: 'right',
+    fontFamily: 'System',
   },
   questionText: {
     fontSize: 16,
     color: theme.colors.neutral.textPrimary,
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.lg,
     textAlign: 'right',
+    lineHeight: 24,
+    fontFamily: 'System',
   },
   actionButtons: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: theme.spacing.sm,
+    justifyContent: 'space-around',
+    marginTop: theme.spacing.md,
+    paddingTop: theme.spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.neutral.gray.base,
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: theme.spacing.md,
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    flex: 1,
+  },
+  likedActionButton: {
+    backgroundColor: `${theme.colors.primary.base}15`,
   },
   actionText: {
     marginLeft: theme.spacing.xs,
     color: theme.colors.neutral.textSecondary,
     fontSize: 14,
+    fontFamily: 'System',
   },
-  actionTextSmall: {
-    marginLeft: theme.spacing.xs,
-    color: theme.colors.neutral.textSecondary,
-    fontSize: 12,
+  likedActionText: {
+    color: theme.colors.primary.base,
+    fontWeight: '600',
   },
   replyContainer: {
     flexDirection: 'column',
     marginTop: theme.spacing.md,
     backgroundColor: theme.colors.neutral.background,
-    borderRadius: 8,
-    padding: theme.spacing.sm,
+    borderRadius: 12,
+    padding: theme.spacing.md,
+    ...theme.shadows.small,
   },
   replyInputContainer: {
     position: 'relative',
     width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   replyInput: {
     flex: 1,
@@ -968,38 +1447,66 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
     minHeight: 40,
     width: '100%',
+    borderWidth: 1,
+    borderColor: theme.colors.neutral.gray.light,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    fontFamily: 'System',
+    backgroundColor: theme.colors.neutral.surface,
   },
   replyButtonsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: theme.spacing.xs,
+    justifyContent: 'flex-end',
+    marginTop: theme.spacing.sm,
   },
   sendReplyButton: {
     padding: theme.spacing.sm,
+    backgroundColor: theme.colors.primary.base,
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: theme.spacing.xs,
   },
   disabledSendButton: {
-    opacity: 0.5,
+    backgroundColor: theme.colors.neutral.gray.light,
   },
   cancelReplyButton: {
     padding: theme.spacing.sm,
+    backgroundColor: theme.colors.neutral.gray.light,
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   repliesContainer: {
     marginTop: theme.spacing.md,
     paddingTop: theme.spacing.md,
     borderTopWidth: 1,
-    borderTopColor: theme.colors.neutral.gray.light,
+    borderTopColor: theme.colors.neutral.gray.base,
+    backgroundColor: `${theme.colors.neutral.background}80`,
+    borderRadius: 12,
+    padding: theme.spacing.xs,
   },
   replyItem: {
     marginBottom: theme.spacing.md,
     paddingBottom: theme.spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.neutral.gray.light,
+    borderBottomColor: theme.colors.neutral.gray.base,
+    backgroundColor: theme.colors.neutral.background,
+    borderRadius: 12,
+    padding: theme.spacing.sm,
   },
   replyText: {
     fontSize: 14,
     color: theme.colors.neutral.textPrimary,
     marginBottom: theme.spacing.sm,
     textAlign: 'right',
+    lineHeight: 20,
+    fontFamily: 'System',
   },
   bottomPadding: {
     height: 100,
@@ -1009,12 +1516,15 @@ const styles = StyleSheet.create({
   },
   editInput: {
     backgroundColor: theme.colors.neutral.background,
-    borderRadius: 8,
+    borderRadius: 12,
     padding: theme.spacing.sm,
     fontSize: 16,
     color: theme.colors.neutral.textPrimary,
     textAlignVertical: 'top',
     minHeight: 80,
+    borderWidth: 1,
+    borderColor: theme.colors.primary.light,
+    fontFamily: 'System',
   },
   editButtons: {
     flexDirection: 'row',
@@ -1024,13 +1534,14 @@ const styles = StyleSheet.create({
   editButton: {
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
-    borderRadius: 8,
+    borderRadius: 12,
     marginLeft: theme.spacing.sm,
   },
   editButtonText: {
     color: theme.colors.neutral.textSecondary,
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: 'System',
   },
   saveButton: {
     backgroundColor: theme.colors.primary.base,
@@ -1039,6 +1550,7 @@ const styles = StyleSheet.create({
     color: theme.colors.neutral.surface,
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: 'System',
   },
   refreshContainer: {
     flexDirection: 'row',
@@ -1047,7 +1559,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
     backgroundColor: theme.colors.neutral.surface,
-    borderRadius: 8,
+    borderRadius: 12,
     marginHorizontal: theme.spacing.md,
     marginTop: 0,
     marginBottom: theme.spacing.md,
@@ -1063,11 +1575,110 @@ const styles = StyleSheet.create({
     color: theme.colors.primary.base,
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: 'System',
   },
   debugInfo: {
     color: theme.colors.neutral.textSecondary,
     fontSize: 10,
     textAlign: 'right',
+    fontFamily: 'System',
+  },
+  replyToLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: theme.colors.neutral.textSecondary,
+    marginBottom: theme.spacing.xs,
+    textAlign: 'right',
+    fontFamily: 'System',
+  },
+  replyToUsername: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.primary.base,
+    fontFamily: 'System',
+  },
+  replyContent: {
+    marginBottom: theme.spacing.sm,
+    backgroundColor: `${theme.colors.neutral.surface}80`,
+    borderRadius: 12,
+    padding: theme.spacing.sm,
+    borderLeftWidth: 4,
+    borderLeftColor: theme.colors.primary.light,
+  },
+  replyToMention: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: theme.colors.primary.base,
+    marginBottom: 2,
+    textAlign: 'right',
+    fontFamily: 'System',
+  },
+  likeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  likeCount: {
+    fontSize: 14,
+    marginLeft: 4,
+    color: theme.colors.neutral.textSecondary,
+    fontFamily: 'System',
+  },
+  likedCount: {
+    color: theme.colors.primary.base,
+    fontWeight: '600',
+  },
+  sortButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.neutral.surface,
+    padding: theme.spacing.sm,
+    borderRadius: 12,
+    marginHorizontal: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+    ...theme.shadows.small,
+    justifyContent: 'center',
+  },
+  sortButtonText: {
+    color: theme.colors.primary.base,
+    fontSize: 14,
+    fontWeight: '600',
+    marginRight: theme.spacing.xs,
+    fontFamily: 'System',
+  },
+  replyUserImage: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginRight: theme.spacing.sm,
+  },
+  viewMoreReplies: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    marginVertical: 5,
+    borderRadius: 12,
+    backgroundColor: `${theme.colors.primary.base}10`,
+  },
+  viewMoreRepliesText: {
+    color: theme.colors.primary.base,
+    fontWeight: '600',
+    marginLeft: 5,
+    fontSize: 14,
+  },
+  quickReplyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    borderRadius: 20,
+    marginTop: 8,
+    marginBottom: 5,
+    backgroundColor: `${theme.colors.neutral.gray.light}40`,
+  },
+  quickReplyText: {
+    color: theme.colors.neutral.textSecondary,
+    marginLeft: 8,
+    fontSize: 14,
   },
 });
 
