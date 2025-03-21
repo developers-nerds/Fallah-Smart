@@ -27,7 +27,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 // TODO: Install this package via: expo install expo-haptics
 // import * as Haptics from 'expo-haptics';
 
-// Define correct API base URLs
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 const GEMINI_API_KEY = "AIzaSyBylRkyhIq5I7Ti0118SpIh6qCOLPk-dt8";
@@ -386,8 +385,7 @@ const Chat = ({ visible = true }) => {
       console.error('Error sending message:', error);
       Alert.alert('خطأ', 'فشل في إرسال الرسالة');
       
-      // Add error haptic feedback (commented until package is installed)
-      // Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+ 
       
       // Remove temporary message on error
       setMessages(prev => prev.filter(msg => msg.id !== tempUserMessage.id));
