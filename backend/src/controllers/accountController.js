@@ -1,14 +1,11 @@
 const { Accounts, Users } = require('../database/assossiation');
 
 const accountController = {
-  // Get all accounts
+  // Get all accounts for authenticated user
   getAllAccounts: async (req, res) => {
     try {
       const accounts = await Accounts.findAll({
-        include: [{
-          model: Users,
-          attributes: ['firstName', 'lastName']
-        }]
+        where: { userId: req.user.id }
       });
       res.json(accounts);
     } catch (error) {

@@ -81,8 +81,32 @@ router.post('/refresh-token', refreshToken);
 router.post('/logout', auth, userController.logout);
 router.get('/profile', auth, getProfile);
 
-// Update route with file upload middleware for profile image
-router.put('/profile', auth, uploadProfile.single('profileImage'), userController.updateProfile);
+// Middleware to handle both image uploads and text-only updates
+const profileUpdateMiddleware = (req, res, next) => {
+  // Check if the request contains multipart form data
+  const contentType = req.headers['content-type'] || '';
+  
+  if (contentType.includes('multipart/form-data')) {
+    // Use multer for file uploads
+    uploadProfile.single('profilePicture')(req, res, (err) => {
+      if (err) {
+        console.error('Multer error:', err);
+        return res.status(400).json({
+          message: err.message || 'Error processing file upload',
+          error: err
+        });
+      }
+      next();
+    });
+  } else {
+    // Skip file processing for regular JSON updates
+    console.log('Processing text-only profile update');
+    next();
+  }
+};
+
+// Update profile route to handle both file uploads and text-only updates
+router.put('/profile', auth, profileUpdateMiddleware, userController.updateProfile);
 
 router.put('/change-password', auth, userController.changePassword);
 router.delete('/account', auth, userController.deleteAccount);

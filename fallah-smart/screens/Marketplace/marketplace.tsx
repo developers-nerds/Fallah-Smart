@@ -1,78 +1,32 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  Image,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { StockStackParamList } from '../../navigation/types';
+import axios from 'axios';
+import { useTranslation } from 'react-i18next';
+import { useAuth } from '../../context/AuthContext';
 import { MarketplaceFeed, Product } from '../../components/marketplace/MarketplaceFeed';
 import { AuctionHouse } from '../../components/marketplace/AuctionHouse';
 import { CompanyProfile } from '../../components/marketplace/CompanyProfile';
 import { theme } from '../../theme/theme';
 import { normalize, scaleSize, isSmallDevice, responsivePadding } from '../../utils/responsive';
+import { storage } from '../../utils/storage';
 
-// Mock data
-const marketplaceFeedData: Product[] = [
-  {
-    id: '1',
-    companyName: 'Green Harvest Co.',
-    avatar: 'https://developers.elementor.com/docs/assets/img/elementor-placeholder-image.png',
-    image: 'https://developers.elementor.com/docs/assets/img/elementor-placeholder-image.png',
-    description:
-      'Premium quality wheat seeds available in bulk. Guaranteed 95% germination rate. Ideal for spring planting.',
-    price: 'SAR 1,200 / ton',
-    quantity: '50 tons available',
-    timePosted: '2 hours ago',
-    minimumOrder: '5 tons',
-    deliveryTime: '7-10 days',
-    certification: 'ISO 9001, Organic Certified',
-    specifications: {
-      variety: 'Hard Red Winter Wheat',
-      purity: '99.5%',
-      germination: '95%',
-      moisture: '12%',
-      origin: 'Saudi Arabia',
-    } as { [key: string]: string },
-  },
-  {
-    id: '2',
-    companyName: 'Desert Oasis Farms',
-    avatar: 'https://developers.elementor.com/docs/assets/img/elementor-placeholder-image.png',
-    image: 'https://developers.elementor.com/docs/assets/img/elementor-placeholder-image.png',
-    description:
-      'Organic fertilizer made from natural composting. Enriched with micronutrients for better yield. Perfect for vegetables.',
-    price: 'SAR 300 / bag',
-    quantity: '1000 bags available',
-    timePosted: '5 hours ago',
-    minimumOrder: '50 bags',
-    deliveryTime: '3-5 days',
-    certification: 'Organic Certified, Safe for Food Crops',
-    specifications: {
-      type: 'Organic Compost',
-      npk: '10-5-10',
-      weight: '25kg per bag',
-      ingredients: 'Plant matter, manure, beneficial microbes',
-      shelfLife: '2 years',
-    } as { [key: string]: string },
-  },
-  {
-    id: '3',
-    companyName: 'Al-Falah Agricultural Supplies',
-    avatar: 'https://developers.elementor.com/docs/assets/img/elementor-placeholder-image.png',
-    image: 'https://developers.elementor.com/docs/assets/img/elementor-placeholder-image.png',
-    description:
-      'High-efficiency irrigation systems. Reduces water usage by 40%. Complete installation available.',
-    price: 'SAR 5,000 / system',
-    quantity: '25 systems available',
-    timePosted: '1 day ago',
-    minimumOrder: '1 system',
-    deliveryTime: '14-21 days',
-    certification: 'Water Efficiency Grade A, 5-Year Warranty',
-    specifications: {
-      coverage: 'Up to 5 hectares',
-      waterSaving: '40% compared to traditional methods',
-      components: 'Pipes, drippers, controllers, sensors',
-      powerSource: 'Solar with battery backup',
-      lifespan: '10+ years with proper maintenance',
-    } as { [key: string]: string },
-  },
-];
+// Define the navigation prop type
+type MarketplaceScreenNavigationProp = NativeStackNavigationProp<StockStackParamList, 'Marketplace'>;
 
+// Mock data for auctions (keeping this until you implement real auction fetching)
 const auctionData = [
   {
     id: '1',
@@ -226,17 +180,235 @@ const auctionData = [
 
 const Marketplace = () => {
   const [activeTab, setActiveTab] = useState('feed');
+  const [isSupplier, setIsSupplier] = useState(false);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const navigation = useNavigation<MarketplaceScreenNavigationProp>();
+  const baseUrl = process.env.EXPO_PUBLIC_API_URL;
+
+  // This will run once on component mount
+  useEffect(() => {
+    checkIfSupplier();
+  }, []);
+
+  // This will run every time the screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('Marketplace screen is focused, refreshing data...');
+      // Check supplier status first, then fetch products
+      checkIfSupplier().then(() => {
+        fetchProducts();
+      });
+      
+      return () => {
+        // Optional cleanup if needed
+      };
+    }, [])
+  );
+
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
+      setError(null); // Clear any previous errors
+      
+      // First check if baseUrl is defined
+      if (!baseUrl) {
+        console.error('API URL is undefined. Check your .env file');
+        setError('API configuration error. Please contact support.');
+        setLoading(false);
+        return;
+      }
+      
+      const url = `${baseUrl}/crops/listings`;
+      console.log(`Fetching marketplace listings from: ${url}`);
+      
+      // Use axios for consistent API handling
+      const response = await axios.get(url);
+      console.log('Response status:', response.status);
+      
+      // Axios automatically throws for non-200 responses and parses JSON
+      const data = response.data;
+      console.log('Fetched products data:', data);
+      
+      // Debug supplier information
+      if (data.cropListings && data.cropListings.length > 0) {
+        console.log('First listing supplier data:', data.cropListings[0].supplier);
+      }
+      
+      // If no listings are found, handle that gracefully
+      if (!data.cropListings || data.cropListings.length === 0) {
+        console.log('No products found');
+        setProducts([]);
+        setLoading(false);
+        return;
+      }
+      
+      // Transform API data to match the Product interface
+      const formattedProducts: Product[] = data.cropListings.map((listing: any) => {
+        // Debug each supplier
+        if (!listing.supplier) {
+          console.log('Missing supplier for listing:', listing.id, listing);
+        } else {
+          console.log('Supplier found for listing:', listing.id, listing.supplier.company_name);
+        }
+        
+        return {
+          id: listing.id.toString(),
+          companyName: listing.supplier?.company_name || 'Unknown Supplier',
+          avatar: listing.supplier?.company_logo || 'https://developers.elementor.com/docs/assets/img/elementor-placeholder-image.png',
+          image: 'https://developers.elementor.com/docs/assets/img/elementor-placeholder-image.png', // Default image for now
+          description: listing.description || listing.crop_name, // Use crop_name if description is missing
+          price: `${listing.currency} ${listing.price} / ${listing.unit}`,
+          quantity: `${listing.quantity} ${listing.unit} available`,
+          timePosted: new Date(listing.createdAt).toLocaleDateString(),
+          minimumOrder: '1 unit', // Default
+          deliveryTime: '2-5 days', // Default value
+          certification: 'Standard Quality', // Default value
+          specifications: {
+            'Category': listing.sub_category || 'General',
+            'Listing Type': listing.listing_type || 'Fixed Price',
+            'Status': listing.status || 'Active'
+          }
+        };
+      });
+      
+      console.log(`Processed ${formattedProducts.length} products for display`);
+      setProducts(formattedProducts);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      if (axios.isAxiosError(error)) {
+        // Get more detailed error info
+        console.error('Response status:', error.response?.status);
+        console.error('Response data:', error.response?.data);
+        setError(`Failed to load products: ${error.response?.data?.message || error.message}`);
+      } else {
+        setError('Failed to load products. Please check your connection and try again.');
+      }
+      setProducts([]); // Set empty array so UI can render properly
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const checkIfSupplier = async () => {
+    try {
+      const { access } = await storage.getTokens();
+      if (!access) {
+        console.log('No access token found');
+        setIsSupplier(false);
+        return;
+      }
+
+      console.log('Checking supplier status with token');
+      
+      const url = `${baseUrl}/suppliers/me`;
+      try {
+        const response = await axios.get(url, {
+          headers: {
+            Authorization: `Bearer ${access}`
+          }
+        });
+
+        console.log('Supplier check response:', response.status);
+        console.log('Supplier data:', response.data);
+        
+        // Only set isSupplier to true if we have both a supplier account AND a valid userId
+        const hasValidSupplier = response.data.hasAccount && 
+                               response.data.supplier && 
+                               response.data.supplier.id;
+        
+        console.log('Has valid supplier profile:', hasValidSupplier);
+        
+        // Update UI state based on the check
+        if (hasValidSupplier !== isSupplier) {
+          console.log('Updating supplier status from', isSupplier, 'to', hasValidSupplier);
+          setIsSupplier(hasValidSupplier);
+        }
+      } catch (error) {
+        console.error('Error in supplier check:', error);
+        if (axios.isAxiosError(error)) {
+          console.error('Supplier check error details:', error.response?.data);
+        }
+        setIsSupplier(false);
+      }
+    } catch (error) {
+      console.error('Error checking supplier status:', error);
+      setIsSupplier(false);
+    }
+  };
+
+  const handleAddProduct = () => {
+    try {
+      console.log('Attempting to navigate to AddProduct screen');
+      
+      // Check if we're a supplier first
+      if (!isSupplier) {
+        Alert.alert('Permission Error', 'You must be registered as a supplier to add products');
+        return;
+      }
+      
+      // Navigate to AddProduct screen
+      navigation.navigate('AddProduct');
+      console.log('Navigation to AddProduct requested');
+    } catch (error) {
+      console.error('Navigation error:', error);
+      Alert.alert('Navigation Error', 'Could not navigate to Add Product screen');
+    }
+  };
+
+  // Function to force refresh supplier status
+  const forceRefreshSupplierStatus = () => {
+    console.log('Forcing refresh of supplier status');
+    checkIfSupplier().then(() => {
+      console.log('Supplier status refresh complete, current status:', isSupplier);
+    });
+  };
 
   const renderTabContent = () => {
     switch (activeTab) {
       case 'feed':
-        return <MarketplaceFeed data={marketplaceFeedData} />;
+        if (loading) {
+          return (
+            <View style={styles.loaderContainer}>
+              <ActivityIndicator size="large" color={theme.colors.primary.base} />
+            </View>
+          );
+        }
+        
+        if (error) {
+          return (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          );
+        }
+        
+        return <MarketplaceFeed data={products} />;
       case 'auction':
         return <AuctionHouse data={auctionData} />;
       case 'company':
-        return <CompanyProfile />;
+        return (
+          <View style={{ flex: 1 }}>
+            <CompanyProfile />
+            {!isSupplier && (
+              <View style={styles.refreshContainer}>
+                <Text style={styles.refreshText}>
+                  Just created a supplier profile? Refresh to update status.
+                </Text>
+                <TouchableOpacity
+                  style={styles.refreshButton}
+                  onPress={forceRefreshSupplierStatus}
+                >
+                  <MaterialCommunityIcons name="refresh" size={18} color="white" />
+                  <Text style={styles.refreshButtonText}>Refresh Status</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        );
       default:
-        return <MarketplaceFeed data={marketplaceFeedData} />;
+        return <MarketplaceFeed data={products} />;
     }
   };
 
@@ -269,6 +441,16 @@ const Marketplace = () => {
       </View>
 
       <View style={styles.contentContainer}>{renderTabContent()}</View>
+
+      {isSupplier && activeTab === 'feed' && (
+        <TouchableOpacity 
+          style={styles.addButton} 
+          onPress={handleAddProduct}
+          testID="add-product-button"
+        >
+          <MaterialCommunityIcons name="plus" size={24} color="white" />
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
@@ -318,6 +500,68 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
   },
+  addButton: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: theme.colors.primary.base,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  loaderContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    color: theme.colors.error,
+    fontFamily: theme.fonts.medium,
+    textAlign: 'center',
+  },
+  refreshContainer: {
+    padding: responsivePadding(theme.spacing.md),
+    backgroundColor: theme.colors.neutral.surface,
+    borderRadius: theme.borderRadius.medium,
+    marginHorizontal: responsivePadding(theme.spacing.md),
+    marginTop: responsivePadding(theme.spacing.md),
+    ...theme.shadows.small,
+  },
+  refreshText: {
+    fontFamily: theme.fonts.medium,
+    fontSize: normalize(isSmallDevice ? 13 : 14),
+    color: theme.colors.neutral.textSecondary,
+    marginBottom: responsivePadding(theme.spacing.sm),
+    textAlign: 'center',
+  },
+  refreshButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: responsivePadding(theme.spacing.sm),
+    borderRadius: theme.borderRadius.medium,
+    backgroundColor: theme.colors.primary.base,
+    alignSelf: 'center',
+  },
+  refreshButtonText: {
+    fontFamily: theme.fonts.medium,
+    fontSize: normalize(isSmallDevice ? 13 : 14),
+    color: 'white',
+    marginLeft: responsivePadding(theme.spacing.xs),
+  }
 });
 
 export default Marketplace;
