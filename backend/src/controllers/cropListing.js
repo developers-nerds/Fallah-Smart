@@ -23,21 +23,15 @@ exports.createCropListing = async (req, res) => {
     // Handle both id and userId from token for consistency with middleware
     const userId = req.user.userId || req.user.id;
     
-    console.log("Creating crop listing for user:", userId);
-    console.log("Request body:", req.body);
-    
     // Find the supplier by userId
     const supplier = await Suppliers.findOne({ where: { userId } });
     
     if (!supplier) {
-      console.log("Supplier not found for userId:", userId);
       return res.status(404).json({ 
         success: false, 
         message: "Supplier account not found" 
       });
     }
-    
-    console.log("Found supplier:", supplier.id);
     
     // Create the crop listing with the supplier's ID
     const newListing = await CropListings.create({
@@ -45,8 +39,6 @@ exports.createCropListing = async (req, res) => {
       supplierId: supplier.id,
       status: "active"
     });
-    
-    console.log("Created new listing:", newListing.id);
     
     return res.status(201).json({ 
       success: true, 
@@ -177,21 +169,15 @@ exports.getCropListingById = async (req, res) => {
 // Get all crop listings (for marketplace)
 exports.getAllCropListings = async (req, res) => {
   try {
-    console.log("Fetching all crop listings");
-    
     const cropListings = await CropListings.findAll({
       where: { status: 'active' },
       order: [['createdAt', 'DESC']],
-      include: [
-        {
-          model: Suppliers,
-          as: 'supplier',
-          attributes: ['id', 'company_name', 'company_logo']
-        }
-      ]
+      include: [{
+        model: Suppliers,
+        as: 'supplier',
+        attributes: ['id', 'company_name', 'company_logo', 'userId']
+      }]
     });
-    
-    console.log(`Found ${cropListings.length} active listings`);
     
     return res.status(200).json({ success: true, cropListings });
   } catch (error) {

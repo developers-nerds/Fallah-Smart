@@ -196,7 +196,11 @@ const Marketplace = () => {
   useFocusEffect(
     React.useCallback(() => {
       console.log('Marketplace screen is focused, refreshing data...');
-      fetchProducts();
+      // Check supplier status first, then fetch products
+      checkIfSupplier().then(() => {
+        fetchProducts();
+      });
+      
       return () => {
         // Optional cleanup if needed
       };
@@ -227,6 +231,11 @@ const Marketplace = () => {
       const data = response.data;
       console.log('Fetched products data:', data);
       
+      // Debug supplier information
+      if (data.cropListings && data.cropListings.length > 0) {
+        console.log('First listing supplier data:', data.cropListings[0].supplier);
+      }
+      
       // If no listings are found, handle that gracefully
       if (!data.cropListings || data.cropListings.length === 0) {
         console.log('No products found');
@@ -236,24 +245,33 @@ const Marketplace = () => {
       }
       
       // Transform API data to match the Product interface
-      const formattedProducts: Product[] = data.cropListings.map((listing: any) => ({
-        id: listing.id.toString(),
-        companyName: listing.supplier?.company_name || 'Unknown Supplier',
-        avatar: listing.supplier?.company_logo || 'https://developers.elementor.com/docs/assets/img/elementor-placeholder-image.png',
-        image: 'https://developers.elementor.com/docs/assets/img/elementor-placeholder-image.png', // Default image for now
-        description: listing.description || listing.crop_name, // Use crop_name if description is missing
-        price: `${listing.currency} ${listing.price} / ${listing.unit}`,
-        quantity: `${listing.quantity} ${listing.unit} available`,
-        timePosted: new Date(listing.createdAt).toLocaleDateString(),
-        minimumOrder: '1 unit', // Default
-        deliveryTime: '2-5 days', // Default value
-        certification: 'Standard Quality', // Default value
-        specifications: {
-          'Category': listing.sub_category || 'General',
-          'Listing Type': listing.listing_type || 'Fixed Price',
-          'Status': listing.status || 'Active'
+      const formattedProducts: Product[] = data.cropListings.map((listing: any) => {
+        // Debug each supplier
+        if (!listing.supplier) {
+          console.log('Missing supplier for listing:', listing.id, listing);
+        } else {
+          console.log('Supplier found for listing:', listing.id, listing.supplier.company_name);
         }
-      }));
+        
+        return {
+          id: listing.id.toString(),
+          companyName: listing.supplier?.company_name || 'Unknown Supplier',
+          avatar: listing.supplier?.company_logo || 'https://developers.elementor.com/docs/assets/img/elementor-placeholder-image.png',
+          image: 'https://developers.elementor.com/docs/assets/img/elementor-placeholder-image.png', // Default image for now
+          description: listing.description || listing.crop_name, // Use crop_name if description is missing
+          price: `${listing.currency} ${listing.price} / ${listing.unit}`,
+          quantity: `${listing.quantity} ${listing.unit} available`,
+          timePosted: new Date(listing.createdAt).toLocaleDateString(),
+          minimumOrder: '1 unit', // Default
+          deliveryTime: '2-5 days', // Default value
+          certification: 'Standard Quality', // Default value
+          specifications: {
+            'Category': listing.sub_category || 'General',
+            'Listing Type': listing.listing_type || 'Fixed Price',
+            'Status': listing.status || 'Active'
+          }
+        };
+      });
       
       console.log(`Processed ${formattedProducts.length} products for display`);
       setProducts(formattedProducts);
@@ -297,13 +315,21 @@ const Marketplace = () => {
         
         // Only set isSupplier to true if we have both a supplier account AND a valid userId
         const hasValidSupplier = response.data.hasAccount && 
-                                response.data.supplier && 
-                                response.data.supplier.id;
+                               response.data.supplier && 
+                               response.data.supplier.id;
         
         console.log('Has valid supplier profile:', hasValidSupplier);
-        setIsSupplier(hasValidSupplier);
+        
+        // Update UI state based on the check
+        if (hasValidSupplier !== isSupplier) {
+          console.log('Updating supplier status from', isSupplier, 'to', hasValidSupplier);
+          setIsSupplier(hasValidSupplier);
+        }
       } catch (error) {
         console.error('Error in supplier check:', error);
+        if (axios.isAxiosError(error)) {
+          console.error('Supplier check error details:', error.response?.data);
+        }
         setIsSupplier(false);
       }
     } catch (error) {
@@ -331,6 +357,14 @@ const Marketplace = () => {
     }
   };
 
+  // Function to force refresh supplier status
+  const forceRefreshSupplierStatus = () => {
+    console.log('Forcing refresh of supplier status');
+    checkIfSupplier().then(() => {
+      console.log('Supplier status refresh complete, current status:', isSupplier);
+    });
+  };
+
   const renderTabContent = () => {
     switch (activeTab) {
       case 'feed':
@@ -354,7 +388,25 @@ const Marketplace = () => {
       case 'auction':
         return <AuctionHouse data={auctionData} />;
       case 'company':
-        return <CompanyProfile />;
+        return (
+          <View style={{ flex: 1 }}>
+            <CompanyProfile />
+            {!isSupplier && (
+              <View style={styles.refreshContainer}>
+                <Text style={styles.refreshText}>
+                  Just created a supplier profile? Refresh to update status.
+                </Text>
+                <TouchableOpacity
+                  style={styles.refreshButton}
+                  onPress={forceRefreshSupplierStatus}
+                >
+                  <MaterialCommunityIcons name="refresh" size={18} color="white" />
+                  <Text style={styles.refreshButtonText}>Refresh Status</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        );
       default:
         return <MarketplaceFeed data={products} />;
     }
@@ -479,6 +531,36 @@ const styles = StyleSheet.create({
     color: theme.colors.error,
     fontFamily: theme.fonts.medium,
     textAlign: 'center',
+  },
+  refreshContainer: {
+    padding: responsivePadding(theme.spacing.md),
+    backgroundColor: theme.colors.neutral.surface,
+    borderRadius: theme.borderRadius.medium,
+    marginHorizontal: responsivePadding(theme.spacing.md),
+    marginTop: responsivePadding(theme.spacing.md),
+    ...theme.shadows.small,
+  },
+  refreshText: {
+    fontFamily: theme.fonts.medium,
+    fontSize: normalize(isSmallDevice ? 13 : 14),
+    color: theme.colors.neutral.textSecondary,
+    marginBottom: responsivePadding(theme.spacing.sm),
+    textAlign: 'center',
+  },
+  refreshButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: responsivePadding(theme.spacing.sm),
+    borderRadius: theme.borderRadius.medium,
+    backgroundColor: theme.colors.primary.base,
+    alignSelf: 'center',
+  },
+  refreshButtonText: {
+    fontFamily: theme.fonts.medium,
+    fontSize: normalize(isSmallDevice ? 13 : 14),
+    color: 'white',
+    marginLeft: responsivePadding(theme.spacing.xs),
   }
 });
 
