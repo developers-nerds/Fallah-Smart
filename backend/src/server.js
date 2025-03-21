@@ -25,6 +25,7 @@ const animalDetailsRoutes = require("./routes/animalsDetails");
 const animal = require("./routes/animal");
 const stockStatisticsRoutes = require("./routes/stockStatisticsRoutes");
 const suppliersRoutes = require("./routes/suppliersRoutes");
+const aiRoutes = require("./routes/aiRoutes");
 
 // New stock management routes
 const stockFeedRoutes = require("./routes/stockFeedRoutes");
@@ -106,6 +107,7 @@ app.use("/api/animal", animal);
 app.use("/api/stock-statistics", stockStatisticsRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/suppliers", suppliersRoutes);
+app.use("/api/ai", aiRoutes);
 
 // New stock management routes
 app.use("/api/stock/feed", stockFeedRoutes);
