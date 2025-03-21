@@ -45,7 +45,7 @@ export const getUserData = async (): Promise<{ username: string; profilePicture:
     }
     return {
       username: user.username || 'مستخدم',
-      profilePicture: user.profilePicture || 'https://www.google.com/url?sa=i&url=https%3A%2F%2Fledart.tn%2Fproducts%2Fveilleuse-football-club-africain&psig=AOvVaw3wmMuyAlKh3OZtF8trTCSA&ust=1742431564884000&source=images&cd=vfe&opi=89978449&ved=0CBEQjRxqFwoTCKDMjrv1lIwDFQAAAAAdAAAAABAE'
+      profilePicture: user.profilePicture || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png'
     };
   } catch (error) {
     console.error("Error getting user data:", error);
@@ -347,6 +347,7 @@ export const createQuestion = async (text: string, videoId: string | number, vid
       authorName: userData.username,
       authorImage: userData.profilePicture,
       timestamp: new Date(),
+      likesisClicked: false, // Initialize as not liked
       videoId: numericVideoId,
       userId
     };
@@ -406,17 +407,22 @@ export const deleteQuestion = async (questionId: string): Promise<boolean> => {
       return false;
     }
     
-    await axios.delete(
+    // Send userId in the request body for owner verification
+    const response = await axios.delete(
       `${API_URL}/education/questionsAndAnswers/${questionId}`,
-      { 
+      {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
-        data: { userId }
+        data: { userId } // Include userId in request body
       }
     );
     
-    return true;
+    return response.status === 200;
   } catch (error) {
     console.error(`Error deleting question ${questionId}:`, error);
+    if (axios.isAxiosError(error) && error.response) {
+      console.error(`Server returned status: ${error.response.status}`);
+      console.error('Error response data:', error.response.data);
+    }
     return false;
   }
 };
@@ -432,22 +438,36 @@ export const createReply = async (text: string, questionAndAnswerId: string): Pr
       return null;
     }
     
+    console.log(`Creating reply for question ${questionAndAnswerId} by user ${userId}`);
+    
+    const payload = {
+      text,
+      authorName: userData.username,
+      authorImage: userData.profilePicture,
+      timestamp: new Date(),
+      likesisClicked: false, // Initialize as not liked
+      questionAndAnswerId: parseInt(questionAndAnswerId),
+      userId
+    };
+    
+    console.log('Request payload:', JSON.stringify(payload, null, 2));
+    
     const response = await axios.post(
       `${API_URL}/education/replies`,
-      {
-        text,
-        authorName: userData.username,
-        authorImage: userData.profilePicture,
-        timestamp: new Date(),
-        questionAndAnswerId: parseInt(questionAndAnswerId),
-        userId
-      },
+      payload,
       token ? { headers: { Authorization: `Bearer ${token}` } } : {}
     );
+    
+    console.log(`Reply creation response status: ${response.status}`);
+    console.log('Response data:', JSON.stringify(response.data, null, 2));
     
     return response.data;
   } catch (error) {
     console.error("Error creating reply:", error);
+    if (axios.isAxiosError(error) && error.response) {
+      console.error(`Server returned status: ${error.response.status}`);
+      console.error('Error response data:', error.response.data);
+    }
     return null;
   }
 };
@@ -485,17 +505,22 @@ export const deleteReply = async (replyId: string): Promise<boolean> => {
       return false;
     }
     
-    await axios.delete(
+    // Send userId in the request body for owner verification
+    const response = await axios.delete(
       `${API_URL}/education/replies/${replyId}`,
-      { 
+      {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
-        data: { userId }
+        data: { userId } // Include userId in request body
       }
     );
     
-    return true;
+    return response.status === 200;
   } catch (error) {
     console.error(`Error deleting reply ${replyId}:`, error);
+    if (axios.isAxiosError(error) && error.response) {
+      console.error(`Server returned status: ${error.response.status}`);
+      console.error('Error response data:', error.response.data);
+    }
     return false;
   }
 };
@@ -503,11 +528,29 @@ export const deleteReply = async (replyId: string): Promise<boolean> => {
 export const getRepliesByQuestionId = async (questionId: string): Promise<any[]> => {
   try {
     const token = await getAuthToken();
+    const userId = await getUserIdFromToken();
+    
+    // Add timestamp to prevent caching issues
+    const timestamp = new Date().getTime();
+    
+    console.log(`Fetching replies for question ID: ${questionId}`);
+    
     const response = await axios.get(
-      `${API_URL}/education/replies/question/${questionId}`,
+      `${API_URL}/education/replies/question/${questionId}?_t=${timestamp}`,
       token ? { headers: { Authorization: `Bearer ${token}` } } : {}
     );
-    return response.data || [];
+    
+    console.log(`Received ${response.data?.length || 0} replies for question ${questionId}`);
+    
+    // Map the response to ensure we have the likesisClicked field for each reply
+    const replies = response.data || [];
+    
+    // If we have a user ID, we can determine which replies the user has liked
+    if (userId) {
+      console.log(`Checking likes status for user ${userId}`);
+    }
+    
+    return replies;
   } catch (error) {
     console.error(`Error fetching replies for question ${questionId}:`, error);
     return [];
@@ -547,88 +590,149 @@ export const isItemLiked = async (itemId: string, itemType: 'question' | 'reply'
   }
 };
 
-export const likeQuestion = async (questionId: string): Promise<boolean> => {
+// Get the count of likes for a content
+export const getLikesCount = async (contentType: 'question' | 'reply', contentId: string): Promise<number> => {
   try {
-    // Check if already liked
-    const alreadyLiked = await isItemLiked(questionId, 'question');
-    if (alreadyLiked) {
-      Alert.alert('تنبيه', 'لقد قمت بالإعجاب بهذا السؤال مسبقاً');
-      return false;
-    }
+    const token = await getAuthToken();
     
+    const response = await axios.get(
+      `${API_URL}/education/likes/count/${contentType}/${contentId}`,
+      token ? { headers: { Authorization: `Bearer ${token}` } } : {}
+    );
+    
+    return response.data.totalLikes || 0;
+  } catch (error) {
+    console.error(`Error getting likes count for ${contentType} ${contentId}:`, error);
+    return 0;
+  }
+};
+
+// Check if a user has liked content
+export const hasUserLiked = async (contentType: 'question' | 'reply', contentId: string): Promise<boolean> => {
+  try {
     const token = await getAuthToken();
     const userId = await getUserIdFromToken();
     
     if (!userId) {
-      console.error("Cannot like question: User data not available");
       return false;
     }
     
-    const response = await axios.put(
-      `${API_URL}/education/questionsAndAnswers/${questionId}/like`,
-      { userId },
+    const response = await axios.get(
+      `${API_URL}/education/likes/check/${userId}/${contentType}/${contentId}`,
       token ? { headers: { Authorization: `Bearer ${token}` } } : {}
     );
     
-    if (response.data) {
-      // Save to liked items
-      const likedItems = await getLikedItems();
-      likedItems.questions.push(questionId);
-      await saveLikedItems(likedItems);
-      return true;
-    }
-    
-    return false;
+    return response.data.hasLiked || false;
   } catch (error) {
-    console.error(`Error liking question ${questionId}:`, error);
-    if (axios.isAxiosError(error) && error.response?.status === 400) {
-      Alert.alert('تنبيه', 'لقد قمت بالإعجاب بهذا السؤال مسبقاً');
-    } else {
-      Alert.alert('خطأ', 'حدث خطأ أثناء الإعجاب بالسؤال، يرجى المحاولة مرة أخرى.');
-    }
+    console.error(`Error checking if user liked ${contentType} ${contentId}:`, error);
     return false;
   }
 };
 
-export const likeReply = async (replyId: string): Promise<boolean> => {
+// Add a like to content
+export const addLike = async (contentType: 'question' | 'reply', contentId: string): Promise<{ success: boolean, totalLikes: number }> => {
   try {
-    // Check if already liked
-    const alreadyLiked = await isItemLiked(replyId, 'reply');
-    if (alreadyLiked) {
-      Alert.alert('تنبيه', 'لقد قمت بالإعجاب بهذا الرد مسبقاً');
-      return false;
-    }
-    
     const token = await getAuthToken();
     const userId = await getUserIdFromToken();
     
     if (!userId) {
-      console.error("Cannot like reply: User data not available");
-      return false;
+      console.error("Cannot add like: User data not available");
+      Alert.alert('تنبيه', 'يجب تسجيل الدخول للإعجاب');
+      return { success: false, totalLikes: 0 };
     }
     
-    const response = await axios.put(
-      `${API_URL}/education/replies/${replyId}/like`,
-      { userId },
+    console.log(`Adding like for ${contentType} ${contentId} by user ${userId}`);
+    
+    const response = await axios.post(
+      `${API_URL}/education/likes/add`,
+      { userId, contentType, contentId },
       token ? { headers: { Authorization: `Bearer ${token}` } } : {}
     );
     
-    if (response.data) {
-      // Save to liked items
-      const likedItems = await getLikedItems();
-      likedItems.replies.push(replyId);
-      await saveLikedItems(likedItems);
-      return true;
+    return { 
+      success: true, 
+      totalLikes: response.data.totalLikes || 0 
+    };
+  } catch (error) {
+    console.error(`Error adding like for ${contentType} ${contentId}:`, error);
+    
+    // If the user already liked this content, don't show an error
+    if (axios.isAxiosError(error) && error.response?.status === 400 && 
+        error.response?.data?.message === 'User already liked this content') {
+      return { success: true, totalLikes: await getLikesCount(contentType, contentId) };
     }
     
-    return false;
-  } catch (error) {
-    console.error(`Error liking reply ${replyId}:`, error);
-    if (axios.isAxiosError(error) && error.response?.status === 400) {
-      Alert.alert('تنبيه', 'لقد قمت بالإعجاب بهذا الرد مسبقاً');
-    } else {
-      Alert.alert('خطأ', 'حدث خطأ أثناء الإعجاب بالرد، يرجى المحاولة مرة أخرى.');
-    }
-    return false;
+    Alert.alert('خطأ', 'حدث خطأ أثناء الإعجاب، يرجى المحاولة مرة أخرى.');
+    return { success: false, totalLikes: 0 };
   }
+};
+
+// Remove a like from content
+export const removeLike = async (contentType: 'question' | 'reply', contentId: string): Promise<{ success: boolean, totalLikes: number }> => {
+  try {
+    const token = await getAuthToken();
+    const userId = await getUserIdFromToken();
+    
+    if (!userId) {
+      console.error("Cannot remove like: User data not available");
+      Alert.alert('تنبيه', 'يجب تسجيل الدخول لإزالة الإعجاب');
+      return { success: false, totalLikes: 0 };
+    }
+    
+    console.log(`Removing like for ${contentType} ${contentId} by user ${userId}`);
+    
+    const response = await axios.post(
+      `${API_URL}/education/likes/remove`,
+      { userId, contentType, contentId },
+      token ? { headers: { Authorization: `Bearer ${token}` } } : {}
+    );
+    
+    return { 
+      success: true, 
+      totalLikes: response.data.totalLikes || 0 
+    };
+  } catch (error) {
+    console.error(`Error removing like for ${contentType} ${contentId}:`, error);
+    Alert.alert('خطأ', 'حدث خطأ أثناء إزالة الإعجاب، يرجى المحاولة مرة أخرى.');
+    return { success: false, totalLikes: 0 };
+  }
+};
+
+// Toggle like (add or remove)
+export const toggleLike = async (contentType: 'question' | 'reply', contentId: string): Promise<{ success: boolean, liked: boolean, totalLikes: number }> => {
+  try {
+    const isLiked = await hasUserLiked(contentType, contentId);
+    
+    if (isLiked) {
+      // If already liked, remove the like
+      const result = await removeLike(contentType, contentId);
+      return {
+        success: result.success,
+        liked: false,
+        totalLikes: result.totalLikes
+      };
+    } else {
+      // If not liked, add a like
+      const result = await addLike(contentType, contentId);
+      return {
+        success: result.success,
+        liked: true,
+        totalLikes: result.totalLikes
+      };
+    }
+  } catch (error) {
+    console.error(`Error toggling like for ${contentType} ${contentId}:`, error);
+    return { success: false, liked: false, totalLikes: 0 };
+  }
+};
+
+// Backward compatibility for existing code
+export const likeQuestion = async (questionId: string): Promise<boolean> => {
+  const result = await toggleLike('question', questionId);
+  return result.success;
+};
+
+export const likeReply = async (replyId: string): Promise<boolean> => {
+  const result = await toggleLike('reply', replyId);
+  return result.success;
 }; 

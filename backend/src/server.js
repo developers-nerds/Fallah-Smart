@@ -121,9 +121,21 @@ app.use("/api/education/videos", Education_VideosRoute);
 app.use("/api/education/additionalVideos", Education_AdditionalVideosRoute);
 app.use("/api/education/questionsAndAnswers", Education_QuestionsAndAnswersRoute);
 
-// 
+// Import the Education Chat routes
+const EducationChatRoute = require('./routes/Educationchat');
 
+// Use the Education Chat routes
+app.use("/api/education/chat", EducationChatRoute);
 
+// Import all routes
+// const Education_QuestionRoute = require('./routes/Education_QuestionAndAnswerRoute');
+// const Education_RepliesRoute = require('./routes/Education_RepliesRoute');
+const Education_LikesRoute = require('./routes/Education_LikesRoute');
+
+// Use all routes
+// app.use('/api/education/qna', Education_QuestionRoute);
+// app.use('/api/education/replies', Education_RepliesRoute);
+app.use('/api/education/likes', Education_LikesRoute); 
 
 
 // Error handling middleware
