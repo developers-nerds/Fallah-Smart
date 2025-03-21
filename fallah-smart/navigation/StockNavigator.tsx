@@ -64,6 +64,8 @@ import AddFertilizerScreen from '../screens/Stock/Fertilizers/AddFertilizer';
 import AdvisorApplicationScreen from '../screens/Advisor/AdvisorApplicationScreen';
 import { useTranslation } from 'react-i18next';
 import { SupplierRegistrationForm } from '../screens/form/form';
+import MarketplaceScreen from '../screens/Marketplace/marketplace';
+import AddProduct from '../screens/Marketplace/AddProduct';
 
 const Stack = createStackNavigator<StockStackParamList>();
 
@@ -280,6 +282,16 @@ export const StockNavigator = () => {
                         name="Statistics"
                         component={StockStatisticsScreen}
                         options={{ title: 'إحصائيات المخزون', headerShown: true }}
+                      />
+                      <Stack.Screen
+                        name="Marketplace"
+                        component={MarketplaceScreen}
+                        options={{ title: 'Marketplace', headerShown: true }}
+                      />
+                      <Stack.Screen
+                        name="AddProduct"
+                        component={AddProduct}
+                        options={{ title: 'Add Product', headerShown: true }}
                       />
                     </Stack.Navigator>
                   </FertilizerProvider>
