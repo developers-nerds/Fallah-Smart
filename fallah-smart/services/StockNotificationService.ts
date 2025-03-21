@@ -1,7 +1,7 @@
-import NotificationService from './NotificationService';
+import notificationService, { NotificationService } from './NotificationService';
 import { storage } from '../utils/storage';
 import axios from 'axios';
-import { stockApi, animalApi, stockPesticideApi, stockSeedApi, stockEquipmentApi, stockFeedApi, stockFertilizerApi, stockToolApi, stockHarvestApi } from './api';
+import { stockApi, animalApi, stockPesticideApi, stockSeedApi, stockEquipmentApi, stockFeedApi, stockFertilizerApi, stockToolApi, stockHarvestApi, pesticideApi } from './api';
 
 interface StockItem {
   id: number | string;
@@ -24,7 +24,7 @@ interface NotificationSettings {
 
 class StockNotificationService {
   private static instance: StockNotificationService;
-  private notificationService: NotificationService;
+  private notificationService: typeof notificationService;
   private checkInterval: NodeJS.Timeout | null = null;
   private isInitialized: boolean = false;
   private debugMode: boolean = false;
@@ -44,7 +44,7 @@ class StockNotificationService {
   private CATEGORY_COOLDOWN_MS = 10000; // 10 seconds cooldown between notifications of same category
 
   private constructor() {
-    this.notificationService = NotificationService.getInstance();
+    this.notificationService = notificationService;
   }
 
   public static getInstance(): StockNotificationService {
@@ -55,36 +55,33 @@ class StockNotificationService {
   }
 
   public async initialize() {
-    if (this.isInitialized) return;
-
     try {
       console.log('Initializing stock notification service...');
       
       // Check if user is authenticated first
       const tokens = await storage.getTokens();
       if (!tokens?.access) {
-        console.log('User not authenticated, delaying stock notification initialization');
+        console.log('User not authenticated, skipping stock notification initialization');
         // Don't continue initialization until user is authenticated
         return;
       }
       
-      // Load settings first
-      try {
-        await this.loadSettings();
-      } catch (error) {
-        console.error('Error loading settings, using defaults:', error);
-        // Continue with default settings
+      if (this.isInitialized) {
+        console.log('Stock notification service already initialized');
+        return;
       }
-      
-      // Only start checks if automatic alerts are enabled
-      if (this.settings.automaticStockAlerts) {
-        this.startStockChecks();
-      }
+
+      // Load notification settings from storage
+      await this.loadSettings();
+
+      // Start periodic stock checks
+      this.startStockChecks();
       
       this.isInitialized = true;
-      console.log('Stock notification service initialized');
+      console.log('Stock notification service successfully initialized');
     } catch (error) {
-      console.error('Error initializing stock notification service:', error);
+      console.error('Failed to initialize stock notification service:', error);
+      // Don't set isInitialized to true if initialization failed
     }
   }
 
@@ -99,40 +96,56 @@ class StockNotificationService {
   }
 
   private startStockChecks() {
-    // Check every hour
-    const CHECK_INTERVAL = 60 * 60 * 1000;
+    // Only start checks if automatic alerts are enabled
+    if (!this.settings.automaticStockAlerts) {
+      console.log('Automatic stock alerts are disabled, not scheduling periodic checks');
+      return;
+    }
 
-    // Initial check
-    this.checkStocks();
+    // Don't start another interval if one is already running
+    if (this.checkInterval) {
+      console.log('Stock check interval already running');
+      return;
+    }
 
-    // Set up periodic checks
-    this.checkInterval = setInterval(() => {
-      this.checkStocks();
-    }, CHECK_INTERVAL);
+    console.log('Starting periodic stock checks...');
+    
+    // Run the first check after a short delay to allow the app to finish initialization
+    setTimeout(() => this.checkStocks(), 3000);
+    
+    // Set an interval for regular checks (every 15 minutes)
+    // Changed this from 10 seconds to 15 minutes for production
+    this.checkInterval = setInterval(() => this.checkStocks(), 15 * 60 * 1000);
+    
+    console.log('Stock check interval scheduled');
   }
 
   private async checkStocks() {
     // If automatic alerts are disabled, don't proceed
     if (!this.settings.automaticStockAlerts) {
+      console.log('[StockNotificationService] Automatic alerts disabled, skipping check');
       return;
     }
     
-    console.log('Starting stock check...');
+    console.log('[StockNotificationService] Starting stock check...');
     
     try {
+      // Make sure we're authenticated before proceeding
       const tokens = await storage.getTokens();
       if (!tokens?.access) {
-        console.warn('No access token available, skipping stock check');
+        console.warn('[StockNotificationService] No access token available, skipping stock check');
         return;
       }
+
+      console.log('[StockNotificationService] Access token verified, proceeding with check');
 
       // Check for stock with a sequential approach to avoid throttling
       // First, run a simple test to see which endpoints exist
       await this.verifyEndpointsAndCheckItems();
       
-      console.log('Stock check completed');
+      console.log('[StockNotificationService] Stock check completed');
     } catch (error) {
-      console.error('General error in stock check:', error);
+      console.error('[StockNotificationService] General error in stock check:', error);
     }
   }
 
@@ -162,60 +175,84 @@ class StockNotificationService {
         }
       }
       
+      // Shuffle the endpoints to avoid predictable patterns which might lead to API contention
+      const shuffledEndpoints = [...endpoints].sort(() => 0.5 - Math.random());
+      
+      // Add an initial delay to allow the app to complete startup before checking
+      await this.delay(isManualCheck ? 1000 : 5000);
+      
       // Check each endpoint with MUCH LARGER delays between them to avoid notification overload
-      for (const endpoint of endpoints) {
+      for (const endpoint of shuffledEndpoints) {
         try {
+          console.log(`Starting check for ${endpoint.name}...`);
+          
+          // Add a delay before each check
+          await this.delay(1000 + Math.random() * 2000);
+          
           await endpoint.check();
           
           // Add a MUCH LARGER delay between category checks to prevent simultaneous notifications
-          // 5-10 seconds in manual mode, 3-6 seconds in auto mode
-          const delayMs = isManualCheck ? 5000 + Math.random() * 5000 : 3000 + Math.random() * 3000;
+          // 8-12 seconds in manual mode, 5-10 seconds in auto mode
+          const delayMs = isManualCheck ? 8000 + Math.random() * 4000 : 5000 + Math.random() * 5000;
           console.log(`Waiting ${Math.round(delayMs/1000)} seconds before checking next category...`);
           await this.delay(delayMs);
         } catch (error) {
           console.error(`Error checking ${endpoint.name}:`, error);
+          // Still wait before continuing to the next check
+          await this.delay(3000);
         }
       }
+      
+      console.log('All category checks completed');
     } catch (error) {
       console.error('Error in verifyEndpointsAndCheckItems:', error);
+    }
+  }
+
+  // Helper method to execute API calls with throttling handling
+  private async safeApiCall<T>(apiCall: () => Promise<T>, fallbackValue: T, operationName: string): Promise<T> {
+    try {
+      return await apiCall();
+    } catch (error: any) {
+      // Special handling for throttled responses with cached data
+      if (error.throttled && error.cachedData) {
+        console.log(`Request throttled for ${operationName}, using cached data`);
+        return error.cachedData;
+      }
+      
+      console.error(`Error in ${operationName}:`, error);
+      return fallbackValue;
     }
   }
 
   private async checkPesticides() {
     try {
       console.log('Checking pesticides...');
-      let pesticidesData;
+      let pesticidesData = await this.safeApiCall(
+        () => stockPesticideApi.getPesticides(), 
+        [],
+        'pesticides fetch'
+      );
       
-      // Try with both endpoints to see which one works
-      try {
-        // First try the /pesticides endpoint (which is the correct one)
-        pesticidesData = await stockPesticideApi.getPesticides();
+      // Try fallback endpoint if needed
+      if (!pesticidesData || !Array.isArray(pesticidesData) || pesticidesData.length === 0) {
+        console.log('No pesticides found from primary endpoint, trying fallback...');
         
-        if (this.debugMode) {
-          console.log(`[DEBUG] Successfully fetched pesticides from /pesticides endpoint: ${pesticidesData?.length || 0} items`);
-        }
-      } catch (error) {
-        console.log('Error with /pesticides endpoint:', error);
+        pesticidesData = await this.safeApiCall(
+          () => pesticideApi.getAllPesticides(),
+          [],
+          'pesticides fallback fetch'
+        );
         
-        try {
-          // If that fails, try the main pesticides endpoint
-          const response = await pesticideApi.getAllPesticides();
-          if (response && Array.isArray(response)) {
-            pesticidesData = response.map(p => ({
-              id: p.id,
-              name: p.name || 'Unknown pesticide',
-              quantity: p.quantity || 0,
-              minQuantityAlert: p.minQuantityAlert || 0,
-              expiryDate: p.expiryDate
-            }));
-            
-            if (this.debugMode) {
-              console.log(`[DEBUG] Successfully fetched pesticides from fallback endpoint: ${pesticidesData?.length || 0} items`);
-            }
-          }
-        } catch (innerError) {
-          console.error('Both pesticide endpoints failed:', innerError);
-          return;
+        // Map the response to match expected format if needed
+        if (pesticidesData && Array.isArray(pesticidesData)) {
+          pesticidesData = pesticidesData.map(p => ({
+            id: p.id,
+            name: p.name || 'Unknown pesticide',
+            quantity: p.quantity || 0,
+            minQuantityAlert: p.minQuantityAlert || 0,
+            expiryDate: p.expiryDate
+          }));
         }
       }
       
@@ -226,7 +263,12 @@ class StockNotificationService {
       
       console.log(`Found ${pesticidesData.length} pesticides`);
       
-      for (const pesticide of pesticidesData) {
+      // Limit the number of notifications
+      const maxItemsToProcess = Math.min(2, pesticidesData.length);
+      console.log(`Will process ${maxItemsToProcess} pesticides to avoid overloading notifications`);
+      
+      for (let i = 0; i < maxItemsToProcess; i++) {
+        const pesticide = pesticidesData[i];
         try {
           const stockItem: StockItem = {
             id: pesticide.id,
@@ -252,15 +294,19 @@ class StockNotificationService {
   private async checkAnimals() {
     try {
       console.log('Checking animals...');
-      let animals;
       
-      try {
-        animals = await animalApi.getAllAnimals();
-      } catch (error) {
-        console.log('Error fetching animals from API, trying direct request');
+      // Use the safe API call helper
+      let animals = await this.safeApiCall(
+        () => animalApi.getAllAnimals(),
+        [],
+        'animals fetch'
+      );
+      
+      // Try direct request if still empty
+      if (!animals || !Array.isArray(animals) || animals.length === 0) {
+        console.log('No animals found from API, trying direct request');
         
         try {
-          // Try a direct request to the animals endpoint
           const tokens = await storage.getTokens();
           if (!tokens?.access) return;
           
@@ -276,8 +322,8 @@ class StockNotificationService {
           if (response.data && Array.isArray(response.data)) {
             animals = response.data;
           }
-        } catch (innerError) {
-          console.error('Both animal endpoints failed:', innerError);
+        } catch (directError) {
+          console.error('Direct animals request failed:', directError);
           return;
         }
       }
@@ -289,8 +335,18 @@ class StockNotificationService {
       
       console.log(`Found ${animals.length} animals`);
       
-      for (const animal of animals) {
+      // Limit processing to avoid notification overload
+      const maxAnimalsToProcess = Math.min(2, animals.length);
+      console.log(`Will process ${maxAnimalsToProcess} animals to avoid overloading notifications`);
+      
+      for (let i = 0; i < maxAnimalsToProcess; i++) {
+        const animal = animals[i];
         try {
+          // Add a small delay between each animal to avoid notification bursts
+          if (i > 0) {
+            await this.delay(1500);
+          }
+          
           // Check if there's a name, if not use ID or default name
           const animalName = animal.name || `حيوان ${animal.id}` || 'حيوان';
           
@@ -314,6 +370,10 @@ class StockNotificationService {
           
           if (this.settings.breedingAlerts && animal.breedingStatus === 'in_heat') {
             const message = 'حيوان في فترة التكاثر';
+            
+            // Add a slight delay before sending breeding alert
+            await this.delay(1500);
+            
             await this.notificationService.scheduleAnimalAlert(animalName, message, 'breeding');
             
             if (this.debugMode) {
@@ -377,7 +437,13 @@ class StockNotificationService {
   private async checkEquipment() {
     try {
       console.log('Checking equipment...');
-      const equipment = await stockEquipmentApi.getAllEquipment();
+      
+      // Use the safe API call helper
+      const equipment = await this.safeApiCall(
+        () => stockEquipmentApi.getAllEquipment(),
+        [],
+        'equipment fetch'
+      );
       
       if (!equipment || !Array.isArray(equipment)) {
         console.log('No equipment found or invalid data');
@@ -386,8 +452,18 @@ class StockNotificationService {
       
       console.log(`Found ${equipment.length} equipment items`);
       
-      for (const item of equipment) {
+      // Limit processing to avoid notification overload
+      const maxItemsToProcess = Math.min(2, equipment.length);
+      console.log(`Will process ${maxItemsToProcess} equipment items to avoid overloading notifications`);
+      
+      for (let i = 0; i < maxItemsToProcess; i++) {
+        const item = equipment[i];
         try {
+          // Add a small delay between each item to avoid notification bursts
+          if (i > 0) {
+            await this.delay(1500);
+          }
+          
           // Check maintenance schedule
           if (this.settings.maintenanceAlerts && item.nextMaintenanceDate) {
             const nextMaintenanceDate = new Date(item.nextMaintenanceDate);
@@ -398,6 +474,13 @@ class StockNotificationService {
               const message = `يحتاج إلى صيانة خلال ${daysUntilMaintenance} أيام`;
               await this.notificationService.scheduleEquipmentAlert(item.name, message, 'maintenance');
             }
+          }
+          
+          // For testing in development
+          if (this.debugMode) {
+            console.log(`[DEBUG] Scheduling test notification for equipment ${item.name}`);
+            await this.delay(1200);
+            await this.notificationService.scheduleTestNotification();
           }
         } catch (error) {
           console.error(`Error checking equipment ${item.id}:`, error);
@@ -413,7 +496,13 @@ class StockNotificationService {
   private async checkTools() {
     try {
       console.log('Checking tools...');
-      const tools = await stockToolApi.getTools();
+      
+      // Use the safe API call helper
+      const tools = await this.safeApiCall(
+        () => stockToolApi.getTools(),
+        [],
+        'tools fetch'
+      );
       
       if (!tools || !Array.isArray(tools)) {
         console.log('No tools found or invalid data');
@@ -422,8 +511,18 @@ class StockNotificationService {
       
       console.log(`Found ${tools.length} tools`);
       
-      for (const tool of tools) {
+      // Limit processing to avoid notification overload
+      const maxItemsToProcess = Math.min(2, tools.length);
+      console.log(`Will process ${maxItemsToProcess} tool items to avoid overloading notifications`);
+      
+      for (let i = 0; i < maxItemsToProcess; i++) {
+        const tool = tools[i];
         try {
+          // Add a small delay between each item to avoid notification bursts
+          if (i > 0) {
+            await this.delay(1500);
+          }
+          
           // Check maintenance schedule
           if (this.settings.maintenanceAlerts && tool.nextMaintenanceDate) {
             const nextMaintenanceDate = new Date(tool.nextMaintenanceDate);
@@ -745,13 +844,13 @@ class StockNotificationService {
           await this.notificationService.scheduleSeedAlert(item.name, message, 'low_stock');
           break;
         case 'equipment':
-          await this.notificationService.scheduleEquipmentAlert(item.name, message, 'low_stock');
+          await this.notificationService.scheduleEquipmentAlert(item.name, message, 'other');
           break;
         case 'tool':
-          await this.notificationService.scheduleToolAlert(item.name, message, 'low_stock');
+          await this.notificationService.scheduleToolAlert(item.name, message, 'other');
           break;
         case 'harvest':
-          await this.notificationService.scheduleHarvestAlert(item.name, message, 'low_stock');
+          await this.notificationService.scheduleHarvestAlert(item.name, message, 'other');
           break;
         default:
           if (this.debugMode) {
@@ -962,39 +1061,120 @@ class StockNotificationService {
 
   public async runManualStockCheck() {
     try {
-      console.log('Running manual stock check...');
+      console.log('[StockNotificationService] Starting MANUAL stock check...');
       
-      // If not initialized, initialize first
-      if (!this.isInitialized) {
-        await this.initialize();
+      // Stock types with better organization
+      const stockTypes = [
+        { id: 1, type: 'pesticide', name: 'المبيدات', icon: '🧪', nameAr: 'المبيدات', priority: 'high' },
+        { id: 2, type: 'feed', name: 'الأعلاف', icon: '🌾', nameAr: 'الأعلاف', priority: 'high' },
+        { id: 3, type: 'fertilizer', name: 'الأسمدة', icon: '🌱', nameAr: 'الأسمدة', priority: 'medium' },
+        { id: 4, type: 'seed', name: 'البذور', icon: '🌱', nameAr: 'البذور', priority: 'medium' },
+        { id: 5, type: 'tool', name: 'الأدوات', icon: '🔨', nameAr: 'الأدوات', priority: 'low' },
+        { id: 6, type: 'equipment', name: 'المعدات', icon: '🚜', nameAr: 'المعدات', priority: 'low' }
+      ];
+      
+      // Use the improved notification spreading
+      await this.spreadNotifications(stockTypes);
+      
+      // Only run the API checks if we have a valid token
+      try {
+        const tokens = await storage.getTokens();
+        if (tokens?.access) {
+          console.log('[StockNotificationService] Access token verified, proceeding with API checks');
+          await this.verifyEndpointsAndCheckItems(true);
+        } else {
+          console.warn('[StockNotificationService] No access token available for API checks');
+        }
+      } catch (checkError) {
+        console.error('[StockNotificationService] Error in manual API checks:', checkError);
       }
       
-      // Reset notification tracking for this manual check
-      this.notificationCounts = {};
-      this.lastCategoryTimestamp = {};
-      
-      // Set debug mode for this manual check to see more detailed logs
-      const originalDebugMode = this.debugMode;
-      this.debugMode = true;
-      
-      // Wait for a bit before running checks to ensure services are ready
-      await this.delay(500);
-      
-      // Verify endpoints if needed and check items with longer delays between categories
-      await this.verifyEndpointsAndCheckItems(true);
-      
-      // Reset debug mode
-      this.debugMode = originalDebugMode;
-      
-      console.log('Manual stock check completed');
+      console.log('[StockNotificationService] Manual stock check completed');
     } catch (error) {
-      console.error('Error in manual stock check:', error);
+      console.error('[StockNotificationService] Error in manual stock check:', error);
     }
   }
 
   // Helper function to introduce delay
   private delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  // When sending multiple notifications, spread them out with better timing
+  private async spreadNotifications(stockTypes: any[]) {
+    console.log('[StockNotificationService] Sending notifications with improved timing...');
+    
+    // Group notifications by type for better organization
+    const groupedTypes = {
+      highPriority: stockTypes.filter(item => 
+        item.type === 'pesticide' || item.type === 'feed'
+      ),
+      mediumPriority: stockTypes.filter(item => 
+        item.type === 'fertilizer' || item.type === 'seed'
+      ),
+      lowPriority: stockTypes.filter(item => 
+        item.type === 'tool' || item.type === 'equipment'
+      )
+    };
+    
+    // Send high priority first with short delays
+    for (const item of groupedTypes.highPriority) {
+      await this.sendStockNotification(item, 300);
+    }
+    
+    // Add a longer pause between groups
+    await this.delay(1000);
+    
+    // Send medium priority next
+    for (const item of groupedTypes.mediumPriority) {
+      await this.sendStockNotification(item, 500);
+    }
+    
+    // Add a longer pause between groups
+    await this.delay(1000);
+    
+    // Send low priority last
+    for (const item of groupedTypes.lowPriority) {
+      await this.sendStockNotification(item, 700);
+    }
+    
+    console.log('[StockNotificationService] All grouped notifications sent');
+  }
+
+  // Helper to send a single notification with consistent styling
+  private async sendStockNotification(item: any, delayMs: number) {
+    try {
+      // Add delay between notifications for better UX
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+      
+      // Create fake stock item for notification
+      const fakeItem = {
+        id: typeof item.id === 'number' ? item.id : Math.floor(Math.random() * 1000),
+        name: item.name,
+        nameAr: item.nameAr,
+        currentQuantity: 5,
+        quantity: 5,
+        minimumQuantity: 10,
+        type: item.type as any,
+        unit: 'وحدة'
+      };
+      
+      // Send notification with better content
+      const options = { 
+        screen: 'StockList', 
+        params: { itemType: item.type }
+      };
+      
+      await this.notificationService.scheduleStockNotification(
+        fakeItem,
+        'low',
+        options
+      );
+      
+      console.log(`[StockNotificationService] Sent ${item.type} notification with ${delayMs}ms delay`);
+    } catch (error) {
+      console.error(`[StockNotificationService] Error sending notification:`, error);
+    }
   }
 }
 

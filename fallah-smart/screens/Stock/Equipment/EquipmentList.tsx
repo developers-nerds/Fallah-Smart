@@ -31,6 +31,8 @@ import { SearchBar } from '../../../components/SearchBar';
 import { SwipeableRow } from '../../../components/SwipeableRow';
 import axios from 'axios';
 import { storage } from '../../../utils/storage';
+import { API_URL } from '../../../config/api';
+import { withRetry } from '../../../services/api';
 
 // Force RTL layout
 I18nManager.allowRTL(true);
@@ -166,51 +168,37 @@ export const EquipmentListScreen = ({ navigation }: EquipmentListScreenProps) =>
   // Direct API fetch function
   const fetchEquipmentDirectly = useCallback(async () => {
     try {
+      setLoading(true);
       const tokens = await storage.getTokens();
-      console.log('Tokens available:', tokens ? 'Yes' : 'No');
       
-      const DIRECT_API_URL = `${process.env.EXPO_PUBLIC_API_URL}/stock/equipment`;
-      console.log('Fetching equipment directly from:', DIRECT_API_URL);
-      
-      const response = await axios.get(DIRECT_API_URL, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': tokens?.access ? `Bearer ${tokens.access}` : ''
-        },
-        timeout: 10000
-      });
-      
-      console.log('API Response Status:', response.status);
-      console.log('Equipment fetched successfully, count:', response.data?.length || 0);
-      
-      return response.data;
-    } catch (error) {
-      console.error('Direct API fetch error:', error);
-      
-      if (axios.isAxiosError(error)) {
-        console.error('Axios error details:');
-        console.error('- Status:', error.response?.status);
-        console.error('- Response data:', error.response?.data);
-        
-        if (error.response?.status === 401) {
-          console.log('Unauthorized, trying without token...');
-          try {
-            const DIRECT_API_URL = `${process.env.EXPO_PUBLIC_API_URL}/stock/equipment`;
-            const fallbackResponse = await axios.get(DIRECT_API_URL, {
-              headers: { 'Content-Type': 'application/json' },
-              timeout: 10000
-            });
-            
-            console.log('Fallback API call successful, equipment count:', fallbackResponse.data?.length || 0);
-            return fallbackResponse.data;
-          } catch (fallbackError) {
-            console.error('Fallback API call also failed:', fallbackError);
-            throw fallbackError;
-          }
-        }
+      if (!tokens?.access) {
+        console.error('No auth token available');
+        return [];
       }
       
-      throw error;
+      const response = await withRetry(async () => {
+        return axios.get(`${API_URL}/stock/equipment`, {
+          headers: {
+            'Authorization': `Bearer ${tokens.access}`
+          }
+        });
+      }, 2, 1500);
+      
+      if (response && response.data) {
+        return response.data;
+      }
+      
+      return [];
+    } catch (error) {
+      console.error('Error fetching equipment:', error);
+      if (error.message && error.message.includes('فشل الاتصال بالخادم')) {
+        setLocalError(error.message);
+      } else {
+        setLocalError('فشل في جلب المعدات');
+      }
+      return [];
+    } finally {
+      setLoading(false);
     }
   }, []);
 

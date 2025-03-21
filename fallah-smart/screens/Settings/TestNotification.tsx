@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, Alert, Button, SafeAreaView, Platform } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -7,6 +7,9 @@ import NotificationService from '../../services/NotificationService';
 import StockNotificationService from '../../services/StockNotificationService';
 import axios from 'axios';
 import { storage } from '../../utils/storage';
+import { useTranslation } from 'react-i18next';
+import * as Notifications from 'expo-notifications';
+import notificationService from '../../services/NotificationService';
 
 const TestNotification = () => {
   const theme = useTheme();
@@ -24,6 +27,32 @@ const TestNotification = () => {
   } = useNotifications();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
+  const { t } = useTranslation();
+
+  const sendDirectNotification = async () => {
+    try {
+      console.log('Sending direct notification via Expo.Notifications API...');
+      
+      // This directly uses the Expo Notifications API without any service abstraction
+      const notificationId = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'إشعار مباشر من التطبيق!',
+          body: 'هذا إشعار مباشر لا يستخدم خدمات الإشعارات المخصصة.',
+          sound: true,
+          vibrate: [0, 250, 250, 250],
+          priority: 'max',
+          badge: 1,
+        },
+        trigger: null, // null trigger means schedule immediately
+      });
+      
+      console.log('Direct notification sent with ID:', notificationId);
+      Alert.alert('تم الإرسال', 'تم إرسال إشعار مباشر بنجاح!');
+    } catch (error) {
+      console.error('Error sending direct notification:', error);
+      Alert.alert('خطأ', 'فشل إرسال الإشعار المباشر');
+    }
+  };
 
   const sendTestNotification = async (isDirectDeviceTest = false) => {
     try {
@@ -33,7 +62,6 @@ const TestNotification = () => {
       let notificationId;
       
       if (isDirectDeviceTest) {
-        const notificationService = NotificationService.getInstance();
         notificationId = await notificationService.scheduleDeviceTestNotification();
         setResult(`تم إرسال إشعار مباشر للجهاز برقم: ${notificationId}`);
       } else {
@@ -496,113 +524,54 @@ const TestNotification = () => {
   ];
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
-      contentContainerStyle={styles.contentContainer}
-    >
-      <Text style={[styles.header, { color: theme.colors.text }]}>
-        إختبار نظام الإشعارات
-      </Text>
+    <SafeAreaView style={styles.container}>
+      <Text style={styles.title}>{t ? t('notifications.testTitle') : 'Test Notifications'}</Text>
       
-      <Text style={[styles.subHeader, { color: theme.colors.text }]}>
-        الإشعارات الأساسية
-      </Text>
-      
-      <View style={styles.primaryButtonsContainer}>
-        {testButtons.map((button) => (
-          <TouchableOpacity
-            key={button.id}
-            style={[
-              styles.primaryButton,
-              { backgroundColor: loading ? theme.colors.cardDisabled : button.color }
-            ]}
-            onPress={button.action}
-            disabled={loading}
-          >
-            <MaterialCommunityIcons 
-              name={button.icon} 
-              size={28} 
-              color="#fff" 
-            />
-            <Text style={styles.primaryButtonText}>{button.label}</Text>
-            <Text style={styles.buttonDescription}>{button.description}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <Text style={[styles.subHeader, { color: theme.colors.text }]}>
-        إشعارات حسب النوع
-      </Text>
-
-      <View style={styles.buttonGrid}>
-        {additionalTests.map((test) => (
-          <TouchableOpacity
-            key={test.id}
-            style={[
-              styles.button,
-              { backgroundColor: loading ? theme.colors.cardDisabled : test.color }
-            ]}
-            onPress={test.action}
-            disabled={loading}
-          >
-            <MaterialCommunityIcons 
-              name={test.icon} 
-              size={28} 
-              color="#fff" 
-            />
-            <Text style={styles.buttonText}>{test.label}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {loading && (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text style={[styles.loadingText, { color: theme.colors.text }]}>
-            جاري إرسال الإشعار...
-          </Text>
-        </View>
-      )}
-
-      {result && (
-        <View 
-          style={[
-            styles.resultContainer, 
-            { backgroundColor: result.includes('خطأ') ? '#FFEBEE' : '#E8F5E9' }
-          ]}
-        >
-          <MaterialCommunityIcons 
-            name={result.includes('خطأ') ? 'alert-circle' : 'check-circle'} 
-            size={24} 
-            color={result.includes('خطأ') ? '#D32F2F' : '#388E3C'} 
-          />
-          <Text 
-            style={[
-              styles.resultText, 
-              { color: result.includes('خطأ') ? '#D32F2F' : '#388E3C' }
-            ]}
-          >
-            {result}
-          </Text>
-        </View>
-      )}
-
-      <View style={styles.infoContainer}>
-        <MaterialCommunityIcons 
-          name="information-outline" 
-          size={18} 
-          color={theme.colors.secondary} 
+      <View style={styles.buttonContainer}>
+        <Button
+          title={t ? t('notifications.directTest') : 'Send Direct Notification'}
+          onPress={sendDirectNotification}
+          color="#9C27B0"
         />
-        <Text style={[styles.infoText, { color: theme.colors.text }]}>
-          معلومات حول رمز الجهاز:
-        </Text>
-        <View style={styles.tokenContainer}>
-          <Text style={[styles.tokenText, { color: theme.colors.secondary }]}>
-            {deviceToken ? deviceToken.substring(0, 16) + '...' : 'لم يتم العثور على رمز'}
-          </Text>
-        </View>
       </View>
-    </ScrollView>
+      
+      <View style={styles.buttonContainer}>
+        <Button
+          title={t ? t('notifications.sendTest') : 'Send Test Notification'}
+          onPress={() => sendTestNotification(false)}
+          color="#2196F3"
+          disabled={loading}
+        />
+      </View>
+      
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity
+          style={[styles.button, { backgroundColor: theme.colors.primary }]}
+          onPress={() => sendTestNotification(true)}
+          disabled={loading}
+        >
+          <Text style={styles.buttonText}>Send Device Test</Text>
+        </TouchableOpacity>
+      </View>
+      
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity
+          style={[styles.button, { backgroundColor: theme.colors.success }]}
+          onPress={runStockCheck}
+          disabled={loading}
+        >
+          <Text style={styles.buttonText}>Run Stock Check</Text>
+        </TouchableOpacity>
+      </View>
+      
+      {loading && <ActivityIndicator size="large" color={theme.colors.primary} style={styles.loader} />}
+      
+      {result && (
+        <View style={[styles.resultContainer, { backgroundColor: theme.colors.card }]}>
+          <Text style={[styles.resultText, { color: theme.colors.text }]}>{result}</Text>
+        </View>
+      )}
+    </SafeAreaView>
   );
 };
 
@@ -725,6 +694,22 @@ const styles = StyleSheet.create({
   tokenText: {
     fontSize: 12,
     textAlign: 'center',
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  buttonContainer: {
+    marginBottom: 16,
+  },
+  note: {
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  loader: {
+    marginTop: 16,
   },
 });
 

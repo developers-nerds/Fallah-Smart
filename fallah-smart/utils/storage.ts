@@ -64,16 +64,27 @@ export const storage = {
   // Get tokens
   getTokens: async () => {
     try {
+      console.log('[Storage] Attempting to get auth tokens...');
       const tokens = await AsyncStorage.multiGet([
         StorageKeys.ACCESS_TOKEN,
         StorageKeys.REFRESH_TOKEN,
       ]);
+      
+      // Debug log
+      const hasAccessToken = tokens[0][1] !== null;
+      const hasRefreshToken = tokens[1][1] !== null;
+      console.log(`[Storage] Token retrieval: Access token ${hasAccessToken ? 'found' : 'missing'}, Refresh token ${hasRefreshToken ? 'found' : 'missing'}`);
+      
+      if (!hasAccessToken) {
+        console.warn('[Storage] Warning: Access token not found in storage');
+      }
+      
       return {
         access: tokens[0][1],
         refresh: tokens[1][1],
       };
     } catch (error) {
-      console.error('Error getting tokens:', error);
+      console.error('[Storage] Error getting tokens:', error);
       return { access: null, refresh: null };
     }
   },

@@ -27,15 +27,14 @@ import axios from 'axios';
 import { storage } from '../../../utils/storage';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { FAB } from '../../../components/FAB';
+import { API_URL } from '../../../config/api';
+import { withRetry } from '../../../services/api';
 
 // Force RTL layout
 I18nManager.allowRTL(true);
 I18nManager.forceRTL(true);
 
 const { width } = Dimensions.get('window');
-
-// Direct API URL for testing
-const DIRECT_API_URL = `${process.env.EXPO_PUBLIC_API_URL}/stock/fertilizer`;
 
 interface AddFertilizerParams {
   fertilizerId?: string;
@@ -72,60 +71,45 @@ const FertilizerListScreen: React.FC<FertilizerListScreenProps> = ({ navigation 
   const [page, setPage] = useState(1);
   
   // Local state for direct API calls
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [localLoading, setLocalLoading] = useState(true);
+  const [localError, setLocalError] = useState<string | null>(null);
   const [fertilizers, setFertilizers] = useState<any[]>([]);
 
   // Direct API fetch function
   const fetchFertilizersDirectly = async () => {
     try {
+      setLocalLoading(true);
+      setLocalError(null);
+      
       const tokens = await storage.getTokens();
-      console.log('Tokens available:', tokens ? 'Yes' : 'No');
-      
-      console.log('Fetching fertilizers directly from:', DIRECT_API_URL);
-      
-      const response = await axios.get(DIRECT_API_URL, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': tokens?.access ? `Bearer ${tokens.access}` : ''
-        },
-        timeout: 10000
-      });
-      
-      console.log('API Response Status:', response.status);
-      console.log('API Response Headers:', response.headers);
-      console.log('Fertilizers fetched successfully, count:', response.data?.length || 0);
-      
-      setFertilizers(response.data || []);
-      return response.data;
-    } catch (error) {
-      console.error('Direct API fetch error:', error);
-      
-      if (axios.isAxiosError(error)) {
-        console.error('Axios error details:');
-        console.error('- Status:', error.response?.status);
-        console.error('- Response data:', error.response?.data);
-        console.error('- Request config:', error.config);
-        
-        if (error.response?.status === 401) {
-          console.log('Unauthorized, trying without token...');
-          try {
-            const fallbackResponse = await axios.get(DIRECT_API_URL, {
-              headers: { 'Content-Type': 'application/json' },
-              timeout: 10000
-            });
-            
-            console.log('Fallback API call successful, fertilizers count:', fallbackResponse.data?.length || 0);
-            setFertilizers(fallbackResponse.data || []);
-            return fallbackResponse.data;
-          } catch (fallbackError) {
-            console.error('Fallback API call also failed:', fallbackError);
-            throw fallbackError;
-          }
-        }
+      if (!tokens?.access) {
+        console.error('No authentication token available');
+        setLocalError('يرجى تسجيل الدخول أولا');
+        return [];
       }
       
-      throw error;
+      const response = await withRetry(async () => {
+        return axios.get(`${API_URL}/stock/fertilizer`, {
+          headers: {
+            'Authorization': `Bearer ${tokens.access}`
+          }
+        });
+      }, 2, 1500);
+      
+      if (response.data) {
+        return response.data;
+      }
+      return [];
+    } catch (error) {
+      console.error('Error fetching fertilizers:', error);
+      if (error.message && error.message.includes('فشل الاتصال بالخادم')) {
+        setLocalError(error.message);
+      } else {
+        setLocalError('فشل في جلب الأسمدة');
+      }
+      return [];
+    } finally {
+      setLocalLoading(false);
     }
   };
 
@@ -137,15 +121,16 @@ const FertilizerListScreen: React.FC<FertilizerListScreenProps> = ({ navigation 
     
     const loadData = async () => {
       try {
-        setLoading(true);
-        setError(null);
+        setLocalLoading(true);
+        setLocalError(null);
         
         // Try direct API call first
         const fertilizersData = await fetchFertilizersDirectly();
         
         if (isMounted) {
           console.log('Fertilizers fetched successfully, updating UI');
-          setLoading(false);
+          setFertilizers(fertilizersData);
+          setLocalLoading(false);
         }
       } catch (err) {
         console.error('Error directly loading fertilizers:', err);
@@ -158,7 +143,7 @@ const FertilizerListScreen: React.FC<FertilizerListScreenProps> = ({ navigation 
           if (isMounted) {
             console.log('Context method succeeded, using context fertilizers');
             setFertilizers(contextFertilizers);
-            setLoading(false);
+            setLocalLoading(false);
           }
         } catch (contextErr) {
           console.error('Context method also failed:', contextErr);
@@ -167,8 +152,8 @@ const FertilizerListScreen: React.FC<FertilizerListScreenProps> = ({ navigation 
             const errorMsg = err instanceof Error 
               ? err.message 
               : 'Failed to load fertilizers';
-            setError(errorMsg);
-            setLoading(false);
+            setLocalError(errorMsg);
+            setLocalLoading(false);
           }
         }
       }
@@ -186,7 +171,7 @@ const FertilizerListScreen: React.FC<FertilizerListScreenProps> = ({ navigation 
   const handleRefresh = useCallback(async () => {
     console.log('Refreshing fertilizers list...');
     setRefreshing(true);
-    setError(null);
+    setLocalError(null);
     
     try {
       // Try direct API first
@@ -203,7 +188,7 @@ const FertilizerListScreen: React.FC<FertilizerListScreenProps> = ({ navigation 
         console.log('Fertilizers refreshed with context method');
       } catch (contextErr) {
         console.error('Context refresh also failed:', contextErr);
-        setError('Failed to refresh fertilizers. Please try again.');
+        setLocalError('Failed to refresh fertilizers. Please try again.');
       }
     } finally {
       setRefreshing(false);
@@ -262,18 +247,17 @@ const FertilizerListScreen: React.FC<FertilizerListScreenProps> = ({ navigation 
               // Try direct API delete first
               try {
                 const tokens = await storage.getTokens();
-                const deleteURL = `${DIRECT_API_URL}/${id}`;
+                const deleteURL = `${API_URL}/stock/fertilizer/${id}`;
                 console.log('Deleting fertilizer at:', deleteURL);
                 
                 await axios.delete(deleteURL, {
                   headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': tokens?.access ? `Bearer ${tokens.access}` : ''
+                    'Authorization': `Bearer ${tokens.access}`
                   }
                 });
                 
                 // Refresh fertilizers list after delete
-                fetchFertilizersDirectly();
+                await fetchFertilizersDirectly();
                 console.log('Fertilizer deleted successfully via direct API');
               } catch (directError) {
                 console.error('Direct delete failed, falling back to context:', directError);
@@ -540,7 +524,7 @@ const FertilizerListScreen: React.FC<FertilizerListScreenProps> = ({ navigation 
     </Animated.View>
   ), [searchQuery, renderCategoryFilters]);
 
-  if (loading && !fertilizers.length) {
+  if (localLoading && !fertilizers.length) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
         <StatusBar
@@ -563,7 +547,7 @@ const FertilizerListScreen: React.FC<FertilizerListScreenProps> = ({ navigation 
     );
   }
 
-  if (error) {
+  if (localError) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
         <StatusBar
@@ -577,7 +561,7 @@ const FertilizerListScreen: React.FC<FertilizerListScreenProps> = ({ navigation 
           >
             <Text style={styles.errorIcon}>⚠️</Text>
             <Text style={[styles.errorText, { color: theme.colors.error }]}>
-              حدث خطأ: {error}
+              حدث خطأ: {localError}
             </Text>
             <Text style={[styles.errorSubText, { color: theme.colors.neutral.textSecondary }]}>
               يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى

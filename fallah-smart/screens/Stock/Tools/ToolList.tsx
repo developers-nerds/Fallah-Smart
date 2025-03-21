@@ -20,6 +20,8 @@ import { TOOL_TYPES, TOOL_STATUS, TOOL_CONDITION, TOOL_ICONS, ToolType, ToolStat
 import { storage } from '../../../utils/storage';
 import axios from 'axios';
 import { Animated } from 'react-native';
+import { API_URL } from '../../../config/api';
+import { withRetry } from '../../../services/api';
 
 // Force RTL layout
 I18nManager.allowRTL(true);
@@ -173,21 +175,27 @@ const ToolListScreen: React.FC<ToolListScreenProps> = ({ navigation }) => {
       setError(null);
       const tokens = await storage.getTokens();
       
-      const response = await axios.get(
-        `${process.env.EXPO_PUBLIC_API_URL}/stock/tools`,
-        {
-          headers: {
-            'Authorization': `Bearer ${tokens?.access}`
+      const response = await withRetry(async () => {
+        return axios.get(
+          `${API_URL}/stock/tools`,
+          {
+            headers: {
+              'Authorization': `Bearer ${tokens?.access}`
+            }
           }
-        }
-      );
+        );
+      }, 3, 1500);
 
       if (response.data) {
         setTools(response.data);
       }
     } catch (error) {
       console.error('Error fetching tools:', error);
-      setError('فشل في تحميل الأدوات');
+      if (error.message && error.message.includes('فشل الاتصال بالخادم')) {
+        setError(error.message);
+      } else {
+        setError('فشل في تحميل الأدوات');
+      }
     } finally {
       setLoading(false);
     }

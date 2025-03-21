@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
-import { pesticideApi } from '../services/api';
+import { pesticideService } from '../services/pesticideService';
 import { Pesticide } from '../screens/Stock/types';
 
 interface PesticideContextType {
@@ -32,7 +32,7 @@ export const PesticideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       isLoadingRef.current = true;
       setLoading(true);
       setError(null);
-      const data = await pesticideApi.getAllPesticides();
+      const data = await pesticideService.getAllPesticides();
       setPesticides(data);
       return data;
     } catch (err) {
@@ -66,10 +66,13 @@ export const PesticideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     try {
       setLoading(true);
       setError(null);
-      const newPesticide = await pesticideApi.createPesticide(pesticide);
+      const newPesticide = await pesticideService.createPesticide(pesticide);
       setPesticides(prev => [...prev, newPesticide]);
+      return newPesticide;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add pesticide');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to add pesticide';
+      setError(errorMessage);
+      console.error('Error adding pesticide:', err);
       throw err;
     } finally {
       setLoading(false);
@@ -80,10 +83,13 @@ export const PesticideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     try {
       setLoading(true);
       setError(null);
-      const updatedPesticide = await pesticideApi.updatePesticide(id, pesticide);
-      setPesticides(prev => prev.map(p => p.id === id ? updatedPesticide : p));
+      const updatedPesticide = await pesticideService.updatePesticide(Number(id), pesticide);
+      setPesticides(prev => prev.map(p => p.id === updatedPesticide.id ? updatedPesticide : p));
+      return updatedPesticide;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update pesticide');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update pesticide';
+      setError(errorMessage);
+      console.error('Error updating pesticide:', err);
       throw err;
     } finally {
       setLoading(false);
@@ -94,10 +100,12 @@ export const PesticideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     try {
       setLoading(true);
       setError(null);
-      await pesticideApi.deletePesticide(id);
-      setPesticides(prev => prev.filter(p => p.id !== id));
+      await pesticideService.deletePesticide(Number(id));
+      setPesticides(prev => prev.filter(p => p.id !== Number(id)));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete pesticide');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete pesticide';
+      setError(errorMessage);
+      console.error('Error deleting pesticide:', err);
       throw err;
     } finally {
       setLoading(false);
@@ -108,12 +116,13 @@ export const PesticideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     try {
       setLoading(true);
       setError(null);
-      const updatedPesticide = await pesticideApi.updatePesticide(id, {
-        quantity: (pesticides.find(p => p.id === id)?.quantity || 0) + quantity
-      });
-      setPesticides(prev => prev.map(p => p.id === id ? updatedPesticide : p));
+      const updatedPesticide = await pesticideService.updatePesticideQuantity(Number(id), quantity, 'add');
+      setPesticides(prev => prev.map(p => p.id === updatedPesticide.id ? updatedPesticide : p));
+      return updatedPesticide;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add pesticide quantity');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to add pesticide quantity';
+      setError(errorMessage);
+      console.error('Error adding pesticide quantity:', err);
       throw err;
     } finally {
       setLoading(false);
@@ -124,16 +133,13 @@ export const PesticideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     try {
       setLoading(true);
       setError(null);
-      const currentPesticide = pesticides.find(p => p.id === id);
-      if (!currentPesticide) throw new Error('Pesticide not found');
-      if (currentPesticide.quantity < quantity) throw new Error('Insufficient quantity');
-      
-      const updatedPesticide = await pesticideApi.updatePesticide(id, {
-        quantity: currentPesticide.quantity - quantity
-      });
-      setPesticides(prev => prev.map(p => p.id === id ? updatedPesticide : p));
+      const updatedPesticide = await pesticideService.updatePesticideQuantity(Number(id), quantity, 'remove');
+      setPesticides(prev => prev.map(p => p.id === updatedPesticide.id ? updatedPesticide : p));
+      return updatedPesticide;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to remove pesticide quantity');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to remove pesticide quantity';
+      setError(errorMessage);
+      console.error('Error removing pesticide quantity:', err);
       throw err;
     } finally {
       setLoading(false);

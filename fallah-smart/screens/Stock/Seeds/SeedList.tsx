@@ -28,15 +28,14 @@ import axios from 'axios';
 import { storage } from '../../../utils/storage';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { FAB } from '../../../components/FAB';
+import { API_URL } from '../../../config/api';
+import { withRetry } from '../../../services/api';
 
 // Force RTL layout
 I18nManager.allowRTL(true);
 I18nManager.forceRTL(true);
 
 const { width } = Dimensions.get('window');
-
-// Direct API URL for testing
-const DIRECT_API_URL = `${process.env.EXPO_PUBLIC_API_URL}/stock/seeds`;
 
 type SeedListScreenProps = {
   navigation: StackNavigationProp<StockStackParamList, 'SeedList'>;
@@ -54,65 +53,45 @@ const SeedListScreen: React.FC<SeedListScreenProps> = ({ navigation }) => {
   const [page, setPage] = useState(1);
   
   // Local state for direct API calls
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [localLoading, setLocalLoading] = useState(true);
+  const [localError, setLocalError] = useState<string | null>(null);
   const [seeds, setSeeds] = useState<StockSeed[]>([]);
 
   // Direct API fetch function
   const fetchSeedsDirectly = async () => {
     try {
+      setLocalLoading(true);
+      setLocalError(null);
+      
       const tokens = await storage.getTokens();
-      console.log('Tokens available:', tokens ? 'Yes' : 'No');
-      
-      console.log('Fetching seeds directly from:', DIRECT_API_URL);
-      
-      const response = await axios.get(DIRECT_API_URL, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': tokens?.access ? `Bearer ${tokens.access}` : ''
-        },
-        timeout: 10000
-      });
-      
-      console.log('API Response Status:', response.status);
-      console.log('API Response Headers:', response.headers);
-      console.log('Seeds fetched successfully, count:', response.data?.length || 0);
-      
-      // For debugging
-      if (response.data?.length > 0) {
-        console.log('First seed example:', JSON.stringify(response.data[0], null, 2));
+      if (!tokens?.access) {
+        console.error('No authentication token available');
+        setLocalError('يرجى تسجيل الدخول أولا');
+        return [];
       }
       
-      setSeeds(response.data || []);
-      return response.data;
-    } catch (error) {
-      console.error('Direct API fetch error:', error);
-      
-      if (axios.isAxiosError(error)) {
-        console.error('Axios error details:');
-        console.error('- Status:', error.response?.status);
-        console.error('- Response data:', error.response?.data);
-        console.error('- Request config:', error.config);
-        
-        if (error.response?.status === 401) {
-          console.log('Unauthorized, trying without token...');
-          try {
-            const fallbackResponse = await axios.get(DIRECT_API_URL, {
-              headers: { 'Content-Type': 'application/json' },
-              timeout: 10000
-            });
-            
-            console.log('Fallback API call successful, seeds count:', fallbackResponse.data?.length || 0);
-            setSeeds(fallbackResponse.data || []);
-            return fallbackResponse.data;
-          } catch (fallbackError) {
-            console.error('Fallback API call also failed:', fallbackError);
-            throw fallbackError;
+      const response = await withRetry(async () => {
+        return axios.get(`${API_URL}/stock/seeds`, {
+          headers: {
+            'Authorization': `Bearer ${tokens.access}`
           }
-        }
-      }
+        });
+      }, 2, 1500);
       
-      throw error;
+      if (response.data) {
+        return response.data;
+      }
+      return [];
+    } catch (error) {
+      console.error('Error fetching seeds:', error);
+      if (error.message && error.message.includes('فشل الاتصال بالخادم')) {
+        setLocalError(error.message);
+      } else {
+        setLocalError('فشل في جلب البذور');
+      }
+      return [];
+    } finally {
+      setLocalLoading(false);
     }
   };
 
@@ -125,8 +104,8 @@ const SeedListScreen: React.FC<SeedListScreenProps> = ({ navigation }) => {
     
     const loadData = async () => {
       try {
-        setLoading(true);
-        setError(null);
+        setLocalLoading(true);
+        setLocalError(null);
         
         // Try direct API call first
         const seedsData = await fetchSeedsDirectly();
@@ -134,7 +113,8 @@ const SeedListScreen: React.FC<SeedListScreenProps> = ({ navigation }) => {
         // If that works, we're done
         if (isMounted) {
           console.log('Seeds fetched successfully, updating UI');
-          setLoading(false);
+          setSeeds(seedsData);
+          setLocalLoading(false);
         }
       } catch (err) {
         console.error('Error directly loading seeds:', err);
@@ -147,7 +127,7 @@ const SeedListScreen: React.FC<SeedListScreenProps> = ({ navigation }) => {
           if (isMounted) {
             console.log('Context method succeeded, using context seeds');
             setSeeds(contextSeeds);
-            setLoading(false);
+            setLocalLoading(false);
           }
         } catch (contextErr) {
           console.error('Context method also failed:', contextErr);
@@ -156,8 +136,8 @@ const SeedListScreen: React.FC<SeedListScreenProps> = ({ navigation }) => {
             const errorMsg = err instanceof Error 
               ? err.message 
               : 'Failed to load seeds';
-            setError(errorMsg);
-            setLoading(false);
+            setLocalError(errorMsg);
+            setLocalLoading(false);
           }
         }
       }
@@ -176,11 +156,12 @@ const SeedListScreen: React.FC<SeedListScreenProps> = ({ navigation }) => {
   const handleRefresh = useCallback(async () => {
     console.log('Refreshing seeds list...');
     setRefreshing(true);
-    setError(null);
+    setLocalError(null);
     
     try {
       // Try direct API first
-      await fetchSeedsDirectly();
+      const seedsData = await fetchSeedsDirectly();
+      setSeeds(seedsData);
       setPage(1);
       console.log('Seeds refreshed successfully with direct API');
     } catch (err) {
@@ -193,7 +174,7 @@ const SeedListScreen: React.FC<SeedListScreenProps> = ({ navigation }) => {
         console.log('Seeds refreshed with context method');
       } catch (contextErr) {
         console.error('Context refresh also failed:', contextErr);
-        setError('Failed to refresh seeds. Please try again.');
+        setLocalError('Failed to refresh seeds. Please try again.');
       }
     } finally {
       setRefreshing(false);
@@ -299,18 +280,17 @@ const SeedListScreen: React.FC<SeedListScreenProps> = ({ navigation }) => {
               // Try direct API delete first
               try {
                 const tokens = await storage.getTokens();
-                const deleteURL = `${DIRECT_API_URL}/${id}`;
+                const deleteURL = `${API_URL}/stock/seeds/${id}`;
                 console.log('Deleting seed at:', deleteURL);
                 
                 await axios.delete(deleteURL, {
                   headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': tokens?.access ? `Bearer ${tokens.access}` : ''
+                    'Authorization': `Bearer ${tokens.access}`
                   }
                 });
                 
                 // Refresh seeds list after delete
-                fetchSeedsDirectly();
+                await fetchSeedsDirectly();
                 console.log('Seed deleted successfully via direct API');
               } catch (directError) {
                 console.error('Direct delete failed, falling back to context:', directError);
@@ -578,7 +558,7 @@ const SeedListScreen: React.FC<SeedListScreenProps> = ({ navigation }) => {
     </Animated.View>
   ), [searchQuery, renderCategoryFilters]);
 
-  if (loading && !seeds.length) {
+  if (localLoading && !seeds.length) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
         <StatusBar
@@ -600,7 +580,7 @@ const SeedListScreen: React.FC<SeedListScreenProps> = ({ navigation }) => {
     );
   }
 
-  if (error) {
+  if (localError) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
         <StatusBar
@@ -613,7 +593,7 @@ const SeedListScreen: React.FC<SeedListScreenProps> = ({ navigation }) => {
             style={styles.errorContainer}>
             <Text style={styles.errorIcon}>⚠️</Text>
             <Text style={[styles.errorText, { color: theme.colors.error }]}>
-              حدث خطأ: {error}
+              حدث خطأ: {localError}
             </Text>
             <Text style={[styles.errorSubText, { color: theme.colors.neutral.textSecondary }]}>
               يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى

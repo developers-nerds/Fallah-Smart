@@ -12,11 +12,12 @@ import Animated, {
   useSharedValue,
   Easing,
 } from 'react-native-reanimated';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable, GestureResponderEvent } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import HomeScreen from '../screens/Home/Home';
 import BlogsScreen from '../screens/blogs/blogs';
 import ProfileScreen from '../screens/Profile/Profile';
+import SettingsNavigator from './SettingsNavigator';
 
 const Tab = createBottomTabNavigator();
 
@@ -26,7 +27,7 @@ type TabIconProps = {
   name: keyof typeof MaterialCommunityIcons.glyphMap;
   color: string;
   focused: boolean;
-  onPress?: () => void;
+  onPress: () => void;
   isHome?: boolean;
 };
 
@@ -52,7 +53,7 @@ const TabIcon: React.FC<TabIconProps> = ({ name, color, focused, onPress, isHome
     if (isHome) {
       navigateToHome();
     }
-    onPress?.();
+    onPress();
 
     // Animation logic
     switch (name) {
@@ -85,6 +86,15 @@ const TabIcon: React.FC<TabIconProps> = ({ name, color, focused, onPress, isHome
           false
         );
         break;
+        
+      case 'cog':
+        scale.value = withSequence(
+          withTiming(1.2, { duration: 200 }),
+          withTiming(0.9, { duration: 200 }),
+          withTiming(1.1, { duration: 200 }),
+          withTiming(1, { duration: 200 })
+        );
+        break;
     }
   };
 
@@ -99,6 +109,15 @@ const TabIcon: React.FC<TabIconProps> = ({ name, color, focused, onPress, isHome
 
 const TabBar = () => {
   const theme = useTheme();
+  
+  // Create wrapper functions for tab press events
+  const createTabPressHandler = (onPress: any): () => void => {
+    return () => {
+      if (onPress) {
+        onPress();
+      }
+    };
+  };
 
   return (
     <Tab.Navigator
@@ -139,7 +158,7 @@ const TabBar = () => {
                   : theme.colors.neutral.textSecondary
               }
               focused={props.accessibilityState?.selected || false}
-              onPress={() => props.onPress?.()}
+              onPress={createTabPressHandler(props.onPress)}
               isHome={true}
             />
           ),
@@ -158,7 +177,7 @@ const TabBar = () => {
                   : theme.colors.neutral.textSecondary
               }
               focused={props.accessibilityState?.selected || false}
-              onPress={() => props.onPress?.()}
+              onPress={createTabPressHandler(props.onPress)}
             />
           ),
         }}
@@ -176,7 +195,25 @@ const TabBar = () => {
                   : theme.colors.neutral.textSecondary
               }
               focused={props.accessibilityState?.selected || false}
-              onPress={() => props.onPress?.()}
+              onPress={createTabPressHandler(props.onPress)}
+            />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Settings"
+        component={SettingsNavigator}
+        options={{
+          tabBarButton: (props) => (
+            <TabIcon
+              name="cog"
+              color={
+                props.accessibilityState?.selected
+                  ? theme.colors.primary.base
+                  : theme.colors.neutral.textSecondary
+              }
+              focused={props.accessibilityState?.selected || false}
+              onPress={createTabPressHandler(props.onPress)}
             />
           ),
         }}

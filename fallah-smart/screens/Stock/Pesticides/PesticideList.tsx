@@ -24,6 +24,11 @@ import { FAB } from '../../../components/FAB';
 import { PESTICIDE_TYPE_ICONS, STATUS_ICONS, UNIT_ICONS } from './constants';
 import { createThemedStyles } from '../../../utils/createThemedStyles';
 import { SafeAreaView as SafeAreaViewContext } from 'react-native-safe-area-context';
+import { API_URL } from '../../../config/api';
+import { withRetry } from '../../../services/api';
+import axios from 'axios';
+import { storage } from '../../../utils/storage';
+import { pesticideService } from '../../../services/pesticideService';
 
 const { width } = Dimensions.get('window');
 const ITEMS_PER_PAGE = 4;
@@ -34,13 +39,52 @@ type PesticideListScreenProps = {
 
 export const PesticideListScreen = ({ navigation }: PesticideListScreenProps) => {
   const theme = useTheme();
-  const { pesticides, loading, error, fetchPesticides } = usePesticide();
+  const { pesticides: contextPesticides, loading: contextLoading, error: contextError, fetchPesticides: refreshPesticides } = usePesticide();
+  
+  // Local state for direct API calls
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [pesticides, setPesticides] = useState<StockPesticide[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [selectedType, setSelectedType] = useState<string | null>(null);
+  const [selectedType, setSelectedType] = useState<string | null>('الكل');
   const [localError, setLocalError] = useState<string | null>(null);
   const initialLoadCompleted = useRef(false);
+
+  const fetchPesticides = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const tokens = await storage.getTokens();
+      if (!tokens?.access) {
+        setError('يرجى تسجيل الدخول أولا');
+        return;
+      }
+      
+      const response = await withRetry(async () => {
+        return axios.get(`${API_URL}/pesticides`, {
+          headers: {
+            'Authorization': `Bearer ${tokens.access}`
+          }
+        });
+      }, 3, 1500);
+      
+      if (response?.data) {
+        setPesticides(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching pesticides:', error);
+      if (error.message && error.message.includes('فشل الاتصال بالخادم')) {
+        setError(error.message);
+      } else {
+        setError('فشل في جلب المبيدات');
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     const loadPesticides = async () => {
@@ -50,7 +94,11 @@ export const PesticideListScreen = ({ navigation }: PesticideListScreenProps) =>
         await fetchPesticides();
         setLocalError(null);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Failed to load pesticides';
+        const errorMessage = error instanceof Error 
+          ? (error.message.includes('فشل الاتصال بالخادم') 
+              ? error.message 
+              : 'Failed to load pesticides')
+          : 'Failed to load pesticides';
         setLocalError(errorMessage);
         console.error('Error loading pesticides:', error);
       } finally {
@@ -70,7 +118,11 @@ export const PesticideListScreen = ({ navigation }: PesticideListScreenProps) =>
       setPage(1);
       setLocalError(null);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to refresh pesticides';
+      const errorMessage = error instanceof Error 
+        ? (error.message.includes('فشل الاتصال بالخادم') 
+            ? error.message 
+            : 'Failed to refresh pesticides')
+        : 'Failed to refresh pesticides';
       setLocalError(errorMessage);
       console.error('Error refreshing pesticides:', error);
     } finally {

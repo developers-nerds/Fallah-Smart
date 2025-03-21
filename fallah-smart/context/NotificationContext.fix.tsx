@@ -49,6 +49,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   });
   
   const { isAuthenticated } = useAuth();
+  // We use the imported notificationService directly, 
+  // no need to call getInstance() anymore
   const stockNotificationService = StockNotificationService.getInstance();
 
   useEffect(() => {

@@ -23,6 +23,8 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { StockStackParamList } from '../../../navigation/types';
 import axios from 'axios';
 import { storage } from '../../../utils/storage';
+import { API_URL } from '../../../config/api';
+import { withRetry } from '../../../services/api';
 
 // Define fallback colors to prevent undefined errors
 const fallbackColors = {
@@ -323,14 +325,16 @@ const FeedListScreen = ({ navigation }: FeedListScreenProps) => {
       }
       
       try {
-        const response = await axios.get(
-          `${process.env.EXPO_PUBLIC_API_URL}/stock/feed`,
-          {
-            headers: {
-              'Authorization': `Bearer ${tokens.access}`
+        const response = await withRetry(async () => {
+          return axios.get(
+            `${API_URL}/stock/feed`,
+            {
+              headers: {
+                'Authorization': `Bearer ${tokens.access}`
+              }
             }
-          }
-        );
+          );
+        }, 3, 1500);
         
         if (response.data) {
           // Assuming direct array response without pagination
@@ -346,7 +350,11 @@ const FeedListScreen = ({ navigation }: FeedListScreenProps) => {
         }
       } catch (err) {
         console.error('Error fetching feed:', err);
-        setError('فشل في جلب قائمة الأعلاف');
+        if (err.message && err.message.includes('فشل الاتصال بالخادم')) {
+          setError(err.message);
+        } else {
+          setError('فشل في جلب قائمة الأعلاف');
+        }
       }
     } catch (error) {
       console.error('General error:', error);

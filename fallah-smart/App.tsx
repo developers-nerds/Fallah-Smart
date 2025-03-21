@@ -1,4 +1,5 @@
-import React from 'react';
+import './config/i18n'; // Import i18n configuration first
+import React, { useEffect } from 'react';
 import 'react-native-gesture-handler';
 import { NavigationContainer } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -22,10 +23,17 @@ import Wallet from './screens/Wallet/Wallet'; // Import the Wallet screen
 import AdvisorApplication from './screens/AdvisorApplication/AdvisorApplication';
 import { I18nManager } from 'react-native';
 import { NotificationProvider } from './context/NotificationContext';
-import NotificationService from './services/NotificationService';
+import notificationService from './services/NotificationService';
 import StockNotificationService from './services/StockNotificationService';
 import * as Notifications from 'expo-notifications';
 import { storage } from './utils/storage';
+import { StatusBar } from "expo-status-bar";
+import { LogBox, View, Text, StyleSheet, Platform, Alert } from "react-native";
+import Constants from 'expo-constants';
+import * as Device from 'expo-device';
+import i18next from './translations/i18n';
+import { I18nextProvider } from 'react-i18next';
+import { LanguageProvider } from './context/LanguageContext';
 
 // Configure notification behavior for the entire app
 Notifications.setNotificationHandler({
@@ -105,42 +113,117 @@ export const RootNavigator: React.FC = () => {
   );
 };
 
+// Check if environment variables are set - but don't cause errors if they're missing
+const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+if (!apiUrl) {
+  console.warn('EXPO_PUBLIC_API_URL environment variable is not set or empty. Using fallback URLs.');
+  
+  // Log all environment variables for debugging
+  console.log('Environment variables available:');
+  Object.keys(process.env).forEach(key => {
+    if (key.startsWith('EXPO_PUBLIC_')) {
+      console.log(`- ${key}: ${process.env[key] || '(empty)'}`);
+    }
+  });
+  
+  // Try to check Constants
+  try {
+    console.log('Checking Expo Constants:');
+    const constantsExtraKeys = Object.keys(Constants.expoConfig?.extra || {});
+    if (constantsExtraKeys.length > 0) {
+      constantsExtraKeys.forEach(key => {
+        if (key.startsWith('expoPublic')) {
+          console.log(`- ${key}: ${Constants.expoConfig?.extra?.[key] || '(empty)'}`);
+        }
+      });
+    } else {
+      console.log('No extra values found in Constants');
+    }
+  } catch (err) {
+    console.log('Error checking Constants:', err);
+  }
+} else {
+  console.log(`App initialized with API URL: ${apiUrl}`);
+}
+
+LogBox.ignoreLogs([
+  'Warning: componentWillReceiveProps has been renamed',
+  'Warning: componentWillMount has been renamed',
+  'Sending `onAnimatedValueUpdate`',
+  'Non-serializable values were found in the navigation state',
+  'Deprecation warning: value provided is not in a recognized RFC2822',
+  'VirtualizedLists should never be nested'
+]);
+
+// Initialize notifications early to ensure permissions are requested
+try {
+  console.log('[App] Pre-initializing notification service...');
+  notificationService.initialize().catch((error: Error) => {
+    console.error('[App] Error pre-initializing notification service:', error);
+  });
+} catch (initError) {
+  console.error('[App] Error setting up notifications:', initError);
+}
+
 // Default export remains the App component
 export default function App() {
   // Initialize notification service
-  React.useEffect(() => {
+  useEffect(() => {
     let notificationInitialized = false;
     
     const initializeNotifications = async () => {
       try {
         console.log('Initializing notification services...');
         
+        // Check notification permissions first
+        const checkPermissions = async () => {
+          try {
+            if (Platform.OS === 'android') {
+              const { status: androidStatus } = await Notifications.getPermissionsAsync();
+              console.log('[App] Current notification permission status:', androidStatus);
+              
+              if (androidStatus !== 'granted') {
+                console.log('[App] Requesting notification permissions on Android...');
+                const { status } = await Notifications.requestPermissionsAsync();
+                console.log('[App] New notification permission status:', status);
+                
+                if (status !== 'granted') {
+                  Alert.alert(
+                    'الإشعارات غير مفعلة',
+                    'الرجاء تفعيل الإشعارات في إعدادات الجهاز لتلقي تنبيهات المخزون',
+                    [{ text: 'حسنًا' }]
+                  );
+                }
+              }
+            }
+          } catch (permError) {
+            console.error('[App] Error checking notification permissions:', permError);
+          }
+        };
+        
+        // Check permissions before proceeding
+        await checkPermissions();
+        
         // Initialize main notification service first
-        const notificationService = NotificationService.getInstance();
         await notificationService.initialize();
         console.log('Main notification service initialized');
         
-        // Initialize stock notification service
-        const stockNotificationService = StockNotificationService.getInstance();
-        await stockNotificationService.initialize();
+        // Don't initialize stock notification service here
+        // It will be initialized after login in AuthContext
         
         notificationInitialized = true;
         
-        // You can use this for testing notifications during development
+        // Force a test notification if in dev mode
         if (__DEV__) {
-          // Wait a bit to allow initialization to complete
           setTimeout(async () => {
             try {
-              // Check if user is authenticated before sending test notifications
-              const tokens = await storage.getTokens();
-              if (tokens?.access) {
-                const notificationId = await notificationService.scheduleTestNotification();
-                console.log('Test notification scheduled:', notificationId);
-              } else {
-                console.log('Skipping test notification - user not authenticated');
-              }
-            } catch (testError) {
-              console.error('Failed to send test notification:', testError);
+              console.log('[App] Scheduling startup test notification');
+              const notificationId = await notificationService.scheduleTestNotification(
+                'تم بدء التطبيق بنجاح! هذا اختبار للإشعارات.'
+              );
+              console.log('[App] Startup test notification sent with ID:', notificationId);
+            } catch (error) {
+              console.error('[App] Failed to send startup test notification:', error);
             }
           }, 5000);
         }
@@ -153,16 +236,11 @@ export default function App() {
     
     // Clean up notification listeners when component unmounts
     return () => {
-      try {
-        console.log('Cleaning up notification services...');
-        const notificationService = NotificationService.getInstance();
+      if (notificationInitialized) {
+        // Only clean up the main notification service
+        // Stock notification service will be cleaned up separately
+        console.log('Cleaning up notification services');
         notificationService.cleanup();
-        
-        const stockNotificationService = StockNotificationService.getInstance();
-        stockNotificationService.cleanup();
-        console.log('Notification services cleaned up');
-      } catch (cleanupError) {
-        console.error('Error during cleanup:', cleanupError);
       }
     };
   }, []);
@@ -181,9 +259,11 @@ export default function App() {
                         <FeedProvider>
                           <HarvestProvider>
                             <FertilizerProvider>
-                              <NavigationContainer>
-                                <RootNavigator />
-                              </NavigationContainer>
+                              <LanguageProvider>
+                                <NavigationContainer>
+                                  <RootNavigator />
+                                </NavigationContainer>
+                              </LanguageProvider>
                             </FertilizerProvider>
                           </HarvestProvider>
                         </FeedProvider>

@@ -50,7 +50,8 @@ const Education_QuestionsAndAnswersRoute = require("./routes/Education_Questions
 const notificationRoutes = require('./routes/notificationRoutes');
 
 const app = express();
-const port = process.env.PORT;
+const port = process.env.PORT || 5000;
+const host = process.env.HOST || 'localhost'; 
 
 // Middleware
 app.use(cors());
@@ -163,5 +164,7 @@ if (!process.env.FCM_SERVER_KEY) {
 }
 
 app.listen(port, () => {
-  // Server started successfully
+  console.log(`Server running on port ${port}`);
+  console.log(`API available at http://${host}:${port}/api`);
+  console.log(`Database connected to ${process.env.DB_NAME} on ${process.env.DB_HOST}:${process.env.DB_PORT}`);
 });
