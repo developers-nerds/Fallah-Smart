@@ -201,7 +201,9 @@ async function seedCrops() {
 ];
 
   try {
-    Crop.bulkCreate(popularCropsEnglish);
+    await Crop.bulkCreate(popularCropsEnglish);
+    console.log("✅ Crops seeded successfully!");
+    return true;
   } catch (error) {
     console.error("❌ Error seeding crops:", error);
     throw error;

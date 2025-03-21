@@ -48,6 +48,12 @@ async function seedAll() {
     console.log("🌱 Seeding users...");
     await seedCategories();
     console.log("🌱 Seeding categories...");
+    // First seed crops
+    await seedCrops(); 
+    console.log("🌱 Seeding crops...");
+    // Then seed crop details that depend on crops
+    await seedCropDetails();
+    console.log("🌱 Seeding crop details...");
     // await seedNotifications();
     console.log("🌱 Seeding notifications...");
     // await seedStockHistory();
@@ -56,9 +62,8 @@ async function seedAll() {
     await seedAnimalDocs();
     console.log("🌱 Seeding animal docs...");
     await seedUserAnimalDetails();
-    await seedCrops(); 
-    console.log("🌱 Seeding crops...");
-    await seedCropDetails();
+    console.log("🌱 Seeding user animal details...");
+    
     // await seedPesticides();
     await seedPosts();
     console.log("🌱 Seeding posts...");

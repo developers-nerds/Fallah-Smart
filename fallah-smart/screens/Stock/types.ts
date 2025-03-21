@@ -279,4 +279,47 @@ export interface StockHarvest {
   notes?: string;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface CategoryData {
+  items: StockItem[];
+  count: number;
+  value: number;
+  trends: number[];
+  types?: Record<string, number>;
+  totalWeight?: number;
+  averageAge?: number;
+  healthStatus?: {
+    healthy: number;
+    sick: number;
+    quarantine: number;
+  };
+  totalVolume?: number;
+  averagePrice?: number;
+  expiryStatus?: {
+    valid: number;
+    expiringSoon: number;
+    expired: number;
+  };
+  categories?: Record<string, number>;
+}
+
+export interface StockData {
+  animals: CategoryData;
+  pesticides: CategoryData;
+  seeds: CategoryData;
+  fertilizer: CategoryData;
+  equipment: CategoryData;
+  other: CategoryData;
+}
+
+export interface Insight {
+  type: 'critical' | 'warning' | 'info';
+  message: string;
+  icon: string;
+  color?: string;
+  explanation: string;
+  confidence: number;
+  recommendations: string[];
+  severity: 'high' | 'medium' | 'low';
 } 
