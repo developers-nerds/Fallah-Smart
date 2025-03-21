@@ -7,6 +7,7 @@ import AiChat from "./pages/AiChat"
 import Wallet from "./pages/Wallet"
 import Education from "./pages/Education"
 import Blogs from "./pages/Blogs"
+import Categories from './pages/Categories'
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
         <Route path="/stock" element={<Stock />} />
         <Route path="/marketplace" element={<Marketplace />} />
         <Route path="/ai-chat" element={<AiChat />} />
+        <Route path="/categories" element={<Categories />} />
         <Route path="/wallet" element={<Wallet />} />
         <Route path="/education" element={<Education />} />
         <Route path="/blogs" element={<Blogs />} />
