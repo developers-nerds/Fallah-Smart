@@ -8,6 +8,7 @@ import Chat from './Chat';
 import QuestionAndAnswer from './QuestionAndAnswer';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getUserIdFromToken, saveVideoProgress } from '../utils/userProgress';
 
 // API base URL
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
@@ -41,6 +42,7 @@ interface AdditionalVideo {
 
 const VideoLesson = () => {
   const [selectedVideoId, setSelectedVideoId] = useState<string | undefined>();
+  const [currentVideoData, setCurrentVideoData] = useState<VideoData | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isChatVisible, setIsChatVisible] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -119,6 +121,7 @@ const VideoLesson = () => {
         
         // Set the video data
         setVideoData(videoResponse.data);
+        setCurrentVideoData(videoResponse.data);
         if (videoResponse.data.youtubeId) {
           setSelectedVideoId(videoResponse.data.youtubeId);
           console.log(`Set YouTube ID: ${videoResponse.data.youtubeId}`);
@@ -157,35 +160,55 @@ const VideoLesson = () => {
     fetchVideoData();
   }, [requestedId, requestedType]);
 
+  // Effect to handle selected video changes
+  useEffect(() => {
+    if (!videoData) return;
+    
+    if (selectedVideoId === videoData.youtubeId) {
+      // Main video selected
+      setCurrentVideoData(videoData);
+      console.log(`Showing main video: ${videoData.title} (ID: ${videoData.id})`);
+    } else {
+      // Additional video selected, find the matching additional video
+      const additionalVideo = additionalVideos.find(v => v.youtubeId === selectedVideoId);
+      if (additionalVideo) {
+        // For additional videos, we still use the main video's ID for questions & progress
+        // but we update the current video data for display purposes
+        setCurrentVideoData({
+          ...videoData,
+          title: additionalVideo.title,
+          youtubeId: additionalVideo.youtubeId
+        });
+        console.log(`Showing additional video: ${additionalVideo.title} (ID: ${videoData.id})`);
+      }
+    }
+  }, [selectedVideoId, videoData, additionalVideos]);
+
   // Mark video as watched when user spends more than 30 seconds on it
   useEffect(() => {
     if (!videoData) return;
     
     const timer = setTimeout(async () => {
       try {
-        const token = await AsyncStorage.getItem('userToken');
-        const userId = await AsyncStorage.getItem('userId');
+        // Get user ID using the improved function
+        const userId = await getUserIdFromToken();
+        if (!userId) {
+          console.log('User not authenticated, video progress will not be saved');
+          return;
+        }
         
-        if (!token || !userId) return;
+        console.log(`Marking video ID ${videoData.id} as watched for user ${userId}`);
         
-        // Update user progress to mark video as watched
-        await axios.post(
-          `${API_URL}/education/userProgress`,
-          {
-            userId: parseInt(userId),
-            videoId: videoData.id,
-            completed: true,
-            timeWatched: 30 // seconds watched
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          }
-        );
-        console.log("Marked video as watched");
+        // Save video progress using the utility function
+        const saveSuccess = await saveVideoProgress(userId, videoData.id, true);
+        
+        if (saveSuccess) {
+          console.log("Video marked as watched successfully");
+        } else {
+          console.error("Failed to mark video as watched");
+        }
       } catch (err) {
-        console.error("Error updating progress:", err);
+        console.error("Error updating video progress:", err);
       }
     }, 30000); // 30 seconds
     
@@ -237,7 +260,7 @@ const VideoLesson = () => {
           <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <View style={styles.headerTextContainer}>
-          <Text style={styles.title}>{videoData.title}</Text>
+          <Text style={styles.title}>{currentVideoData?.title || videoData.title}</Text>
           <Text style={styles.category}>{videoData.category} ({videoData.type === 'animal' ? 'حيواني' : 'زراعي'})</Text>
         </View>
         {additionalVideos.length > 0 && (
@@ -267,7 +290,17 @@ const VideoLesson = () => {
           </View>
 
           <View style={styles.questionSection}>
-            <QuestionAndAnswer videoId={requestedId} />
+            {videoData && videoData.id ? (
+              <QuestionAndAnswer 
+                key={`qa-${videoData.id}-${Date.now()}`} 
+                videoId={videoData.id} 
+                videoType={requestedType} 
+              />
+            ) : (
+              <View style={styles.loadingContainer}>
+                <Text style={styles.loadingText}>جاري تحميل الأسئلة...</Text>
+              </View>
+            )}
           </View>
         </ScrollView>
 
@@ -568,6 +601,11 @@ const styles = StyleSheet.create({
     flex: 1,
     marginTop: theme.spacing.md,
     backgroundColor: theme.colors.neutral.background,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

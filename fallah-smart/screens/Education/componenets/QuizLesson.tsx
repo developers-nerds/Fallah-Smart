@@ -6,6 +6,7 @@ import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+import { getUserIdFromToken, getUserProgressForQuiz, saveUserProgress } from '../utils/userProgress';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
@@ -43,6 +44,9 @@ const QuizLesson = () => {
   const [userScore, setUserScore] = useState(0);
   const [userToken, setUserToken] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [previousBestScore, setPreviousBestScore] = useState<number | null>(null);
+  const [isNewBestScore, setIsNewBestScore] = useState(false);
+  
   
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const scrollViewRef = useRef<ScrollView | null>(null);
@@ -64,10 +68,21 @@ const QuizLesson = () => {
   // Fetch user token and ID
   useEffect(() => {
     const getAuthInfo = async () => {
-      const token = await AsyncStorage.getItem('userToken');
-      const id = await AsyncStorage.getItem('userId');
-      setUserToken(token);
-      setUserId(id);
+      try {
+        const token = await AsyncStorage.getItem('userToken');
+        setUserToken(token);
+        
+        // Get user ID using the improved function
+        const id = await getUserIdFromToken();
+        if (id) {
+          setUserId(id.toString());
+          console.log("User ID successfully retrieved:", id);
+        } else {
+          console.log("User is not authenticated");
+        }
+      } catch (error) {
+        console.error("Error retrieving auth info:", error);
+      }
     };
     getAuthInfo();
   }, []);
@@ -112,6 +127,24 @@ const QuizLesson = () => {
           if (matchingQuiz) {
             console.log(`Found quiz: ${matchingQuiz.id}`);
             setQuiz(matchingQuiz);
+            
+            // Check if user has a previous score for this quiz
+            if (userId) {
+              try {
+                const existingProgress = await getUserProgressForQuiz(parseInt(userId), matchingQuiz.id);
+                
+                if (existingProgress) {
+                  setPreviousBestScore(existingProgress.score);
+                  console.log(`Previous best score for quiz ${matchingQuiz.id}: ${existingProgress.score}%`);
+                } else {
+                  console.log(`No previous score found for quiz ${matchingQuiz.id}`);
+                }
+              } catch (err) {
+                console.error("Error fetching previous user progress:", err);
+              }
+            } else {
+              console.log('User not authenticated, cannot fetch previous scores');
+            }
             
             // Fetch questions for this quiz
             try {
@@ -248,38 +281,68 @@ const QuizLesson = () => {
       const score = Math.round((correctCount / questions.length) * 100);
       setUserScore(score);
       
+      // Check if this is a new best score
+      if (previousBestScore === null || score > previousBestScore) {
+        setIsNewBestScore(true);
+      } else {
+        setIsNewBestScore(false);
+      }
+      
       // Save quiz results to API
       const saveResults = async () => {
         try {
-          if (!userToken || !userId) return;
+          if (!userId) {
+            console.log('User not authenticated, quiz results will not be saved');
+            // Show a temporary message or notification to the user
+            Alert.alert(
+              "تنبيه",
+              "يجب تسجيل الدخول لحفظ نتائجك في الاختبارات",
+              [{ text: "حسناً", style: "default" }]
+            );
+            return;
+          }
           
-          await axios.post(
-            `${API_URL}/education/userProgress`,
-            {
-              userId: parseInt(userId),
-              quizId: lessonId,
-              score: score,
-              completed: true
-            },
-            {
-              headers: {
-                Authorization: `Bearer ${userToken}`
-              }
+          const userIdNumber = parseInt(userId);
+          
+          // Log detailed information about the quiz
+          console.log(`Quiz details - ID: ${quiz.id}, Type: ${type}, Title: ${quiz.title}`);
+          console.log(`User ID: ${userIdNumber}, Previous best score: ${previousBestScore}, New score: ${score}`);
+          
+          // Only update if new score is better than previous best (or no previous score exists)
+          if (previousBestScore === null || score > previousBestScore) {
+            console.log(`Saving score ${score} for quiz ID ${quiz.id} of type ${type}`);
+            
+            // Save to API with detailed logging
+            console.log(`API Request - User ID: ${userIdNumber}, Quiz ID: ${quiz.id}, Score: ${score}, Type: ${type}`);
+            const saveSuccess = await saveUserProgress(userIdNumber, quiz.id, score, true);
+            
+            if (saveSuccess) {
+              console.log(`Quiz results saved with score: ${score}`);
+            } else {
+              console.error("Failed to save quiz results to API");
+              
+              // Try again after a short delay
+              setTimeout(async () => {
+                console.log(`Retrying save for quiz ID ${quiz.id} with score ${score}`);
+                const retrySuccess = await saveUserProgress(userIdNumber, quiz.id, score, true);
+                if (retrySuccess) {
+                  console.log(`Quiz results saved on retry with score: ${score}`);
+                } else {
+                  console.error(`Retry failed for quiz ID ${quiz.id}`);
+                }
+              }, 1000);
             }
-          );
-          
-          // Also save to AsyncStorage for local tracking
-          await AsyncStorage.setItem(`${type}_quiz_${lessonId}`, score.toString());
-          
-          console.log("Quiz results saved");
-        } catch (err) {
-          console.error("Error saving quiz results:", err);
+          } else {
+            console.log(`Existing score (${previousBestScore}%) is higher, keeping previous best`);
+          }
+        } catch (error) {
+          console.error('Error saving quiz results:', error);
         }
       };
       
       saveResults();
     }
-  }, [showResults, quiz, questions, selectedAnswers, type, lessonId, userToken, userId]);
+  }, [showResults, quiz, questions, selectedAnswers, type, userToken, userId, previousBestScore]);
   
   if (loading) {
     return (
@@ -318,9 +381,9 @@ const QuizLesson = () => {
   };
   
   // Go back to lessons
-  const handleBackToLessons = () => {
-    navigation.goBack();
-  };
+  // const handleBackToLessons = () => {
+  //   navigation.navigate(type === 'animal' ? 'AnimalsLessons' : 'CropsLessons');
+  // };
   
   // Show results screen after quiz completion
   if (showResults) {
@@ -365,7 +428,8 @@ const QuizLesson = () => {
           
           <TouchableOpacity 
             style={[styles.resultButton, styles.backToLessonsButton]} 
-            onPress={handleBackToLessons}
+            // onPress={handleBackToLessons}
+            onPress={() => navigation.goBack()}
           >
             <Ionicons name="arrow-back" size={18} color="#FFFFFF" />
             <Text style={styles.resultButtonText}>العودة للدروس</Text>
@@ -1007,6 +1071,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 20,
   },
+
   scoreText: {
     fontSize: 36,
     fontWeight: '700',
