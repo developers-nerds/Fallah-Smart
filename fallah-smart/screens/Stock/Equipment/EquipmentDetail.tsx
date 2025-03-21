@@ -29,6 +29,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import axios from 'axios';
 import { storage } from '../../../utils/storage';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../../../context/AuthContext';
 
 // Force RTL layout
 I18nManager.allowRTL(true);
@@ -38,6 +39,13 @@ const { width } = Dimensions.get('window');
 
 // Equipment-related icons
 const EQUIPMENT_ICONS = {
+  tractor: '🚜',
+  harvester: '🚚',
+  irrigation: '💧',
+  pestControl: '🔫',
+  seeder: '🌱',
+  plow: '⚒️',
+  other: '🔧',
   basic: {
     type: '🔧',
     quantity: '📦',
@@ -92,6 +100,104 @@ const EQUIPMENT_ICONS = {
   notes: '📝',
 };
 
+// Field icons for different sections
+const FIELD_ICONS = {
+  purchaseDate: '📅',
+  lastMaintenanceDate: '🔧',
+  nextMaintenanceDate: '⏰',
+  condition: '🔍',
+  brand: '🏭',
+  model: '📋',
+  serialNumber: '🔢',
+  status: '📊',
+  purchasePrice: '💰',
+  currentValue: '💲',
+  location: '📍',
+  operator: '👨‍🌾',
+  fuelType: '⛽',
+  power: '⚡',
+  capacity: '📦',
+  notes: '📝',
+  quantity: '📦',
+  yearOfManufacture: '📅',
+  manufacturer: '🏭',
+  dimensions: '📏',
+  weight: '⚖️',
+  operatingHours: '⏱️',
+  lastOperationDate: '📆',
+  operatingInstructions: '📋',
+  safetyGuidelines: '⚠️',
+  warrantyExpiryDate: '📜',
+};
+
+// Get equipment icon based on type
+const getEquipmentIcon = (type: string): string => {
+  if (!type) return EQUIPMENT_ICONS.other;
+  const lowerType = type.toLowerCase();
+  
+  if (lowerType.includes('tractor') || lowerType.includes('جرار')) return EQUIPMENT_ICONS.tractor;
+  if (lowerType.includes('harvester') || lowerType.includes('حصادة')) return EQUIPMENT_ICONS.harvester;
+  if (lowerType.includes('irrigation') || lowerType.includes('ري')) return EQUIPMENT_ICONS.irrigation;
+  if (lowerType.includes('pest') || lowerType.includes('spray') || lowerType.includes('مبيد')) return EQUIPMENT_ICONS.pestControl;
+  if (lowerType.includes('seed') || lowerType.includes('زراعة') || lowerType.includes('بذر')) return EQUIPMENT_ICONS.seeder;
+  if (lowerType.includes('plow') || lowerType.includes('محراث')) return EQUIPMENT_ICONS.plow;
+  
+  return EQUIPMENT_ICONS.other;
+};
+
+// Get condition badge color
+const getConditionColor = (condition: string, theme: any): string => {
+  switch (condition?.toLowerCase()) {
+    case 'excellent':
+    case 'ممتاز':
+      return theme.colors.success;
+    case 'good':
+    case 'جيد':
+      return theme.colors.info;
+    case 'fair':
+    case 'مقبول':
+      return theme.colors.warning;
+    case 'poor':
+    case 'سيء':
+      return theme.colors.error;
+    default:
+      return theme.colors.neutral.border;
+  }
+};
+
+// Get condition display name
+const getConditionName = (condition: string): string => {
+  switch (condition?.toLowerCase()) {
+    case 'excellent': return 'ممتاز';
+    case 'good': return 'جيد';
+    case 'fair': return 'مقبول';
+    case 'poor': return 'سيء';
+    default: return condition || 'غير محدد';
+  }
+};
+
+// Get status display name
+const getStatusName = (status: string): string => {
+  switch (status?.toLowerCase()) {
+    case 'active': return 'نشط';
+    case 'inactive': return 'غير نشط';
+    case 'maintenance': return 'قيد الصيانة';
+    case 'broken': return 'معطل';
+    default: return status || 'غير محدد';
+  }
+};
+
+// Get status icon
+const getStatusIcon = (status: string): string => {
+  switch (status?.toLowerCase()) {
+    case 'active': return '✅';
+    case 'inactive': return '⏸️';
+    case 'maintenance': return '🔧';
+    case 'broken': return '❌';
+    default: return '❓';
+  }
+};
+
 interface CustomDatePickerProps {
   label: string;
   value: Date;
@@ -118,513 +224,129 @@ type EquipmentDetailScreenProps = {
 const EquipmentDetailScreen: React.FC<EquipmentDetailScreenProps> = ({ navigation, route }) => {
   const theme = useTheme();
   const { t } = useTranslation();
-  
-  const styles = StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: theme.colors.neutral.surface,
-    },
-    centerContent: {
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      padding: 16,
-      borderBottomWidth: 1,
-      borderBottomColor: 'rgba(0,0,0,0.1)',
-    },
-    iconContainer: {
-      width: 80,
-      height: 80,
-      borderRadius: 40,
-      justifyContent: 'center',
-      alignItems: 'center',
-      position: 'relative',
-    },
-    equipmentIcon: {
-      fontSize: 40,
-    },
-    statusIndicator: {
-      position: 'absolute',
-      top: 0,
-      right: 0,
-      fontSize: 20,
-    },
-    headerInfo: {
-      flex: 1,
-      marginLeft: 16,
-    },
-    title: {
-      fontSize: 24,
-      fontWeight: 'bold',
-      marginBottom: 8,
-    },
-    statusContainer: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 8,
-    },
-    statusBadge: {
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: 16,
-    },
-    statusText: {
-      color: 'white',
-      fontSize: 12,
-      fontWeight: '600',
-    },
-    actions: {
-      flexDirection: 'row',
-      gap: 8,
-    },
-    content: {
-      padding: 16,
-      gap: 16,
-    },
-    section: {
-      borderRadius: 16,
-      padding: 16,
-      marginBottom: 16,
-      ...Platform.select({
-        ios: {
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-        },
-        android: {
-          elevation: 4,
-        },
-      }),
-    },
-    sectionTitle: {
-      fontSize: 18,
-      fontWeight: '600',
-      marginBottom: 16,
-    },
-    infoRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingVertical: 12,
-      borderBottomWidth: 1,
-      borderBottomColor: 'rgba(0,0,0,0.05)',
-    },
-    label: {
-      fontSize: 14,
-      fontWeight: '500',
-    },
-    maintenanceButton: {
-      marginTop: 16,
-    },
-    maintenanceForm: {
-      marginTop: 16,
-      gap: 16,
-    },
-    error: {
-      color: '#F44336',
-      textAlign: 'center',
-    },
-    alertText: {
-      color: '#FF9800',
-      fontWeight: 'bold',
-    },
-    submitButton: {
-      marginTop: 8,
-    },
-    textInput: {
-      borderWidth: 1,
-      borderColor: '#ccc',
-      borderRadius: 8,
-      padding: 10,
-      marginBottom: 8,
-      fontSize: 16,
-    },
-    inputContainer: {
-      marginBottom: 16,
-    },
-    inputLabel: {
-      fontSize: 16,
-      marginBottom: 8,
-      fontWeight: '500',
-    },
-    datePickerButton: {
-      alignItems: 'flex-start',
-      justifyContent: 'flex-start',
-    },
-    buttonContainer: {
-      flexDirection: 'row',
-      gap: 16,
-      marginTop: 16,
-      marginBottom: 32,
-    },
-    editButton: {
-      flex: 1,
-    },
-    deleteButton: {
-      flex: 1,
-      borderColor: '#F44336',
-    },
-    loadingContainer: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 20,
-    },
-    loadingIcon: {
-      fontSize: 48,
-      marginBottom: 16,
-    },
-    loadingText: {
-      fontSize: 16,
-      marginTop: 16,
-      color: 'gray',
-    },
-    errorContainer: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 20,
-    },
-    notFoundIcon: {
-      fontSize: 80,
-      marginBottom: 16,
-    },
-    notFoundText: {
-      fontSize: 18,
-      marginBottom: 24,
-      color: 'gray',
-    },
-    backButton: {
-      minWidth: 120,
-    },
-    dateText: {
-      fontSize: 16,
-    },
-    buttonText: {
-      color: '#FFFFFF',
-      fontSize: 16,
-      fontWeight: '600',
-    },
-  });
-
+  const { user } = useAuth();
   const { equipmentId } = route.params;
+  
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [equipment, setEquipment] = useState<StockEquipment | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { 
-    equipment: equipmentList, 
-    fetchEquipment,
-    deleteEquipment,
-    updateStatus,
-    recordMaintenance 
-  } = useEquipment();
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [maintenanceFormData, setMaintenanceFormData] = useState<MaintenanceFormData>({
-    notes: '',
-    cost: '',
-    nextMaintenanceDate: new Date()
-  });
+  
+  const { deleteEquipment } = useEquipment();
 
-  const handleMaintenanceSubmit = async () => {
-    const maintenanceData: MaintenanceData = {
-      maintenanceNotes: maintenanceFormData.notes,
-      cost: parseFloat(maintenanceFormData.cost),
-      nextMaintenanceDate: maintenanceFormData.nextMaintenanceDate
-    };
-
+  // Direct API fetch function for equipment details
+  const fetchEquipmentDetail = async () => {
     try {
       setIsLoading(true);
+      setError(null);
       
-      // Try direct API update
-      const response = await axios.post(`/api/equipment/${equipmentId}/maintenance`, maintenanceData);
+      const tokens = await storage.getTokens();
       
-      if (response.data) {
-        console.log('Maintenance recorded successfully via direct API');
-        setEquipment(response.data);
-      } else {
-        console.log('Direct API update returned no data, falling back to context');
-        await recordMaintenance(equipmentId, maintenanceData);
-        const updatedEquipment = equipmentList.find(item => item.id.toString() === equipmentId);
-        if (updatedEquipment) {
-          setEquipment(updatedEquipment);
-        }
+      if (!tokens?.access) {
+        Alert.alert('خطأ', 'الرجاء تسجيل الدخول أولا');
+        setIsLoading(false);
+        return;
       }
-
-      // Reset form
-      setMaintenanceFormData({
-        notes: '',
-        cost: '',
-        nextMaintenanceDate: new Date()
-      });
+      
+      const response = await axios.get(
+        `${process.env.EXPO_PUBLIC_API_URL}/stock/equipment/${equipmentId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${tokens.access}`
+          }
+        }
+      );
+      
+      setEquipment(response.data);
     } catch (error) {
-      console.error('Error recording maintenance:', error);
-      Alert.alert('خطأ', 'فشل في تسجيل الصيانة');
+      console.error('Error fetching equipment detail:', error);
+      setError('فشل في تحميل تفاصيل المعدة');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Direct API fetch function for equipment details
-  const fetchEquipmentDirectly = useCallback(async () => {
-    try {
-      const tokens = await storage.getTokens();
-      console.log('Tokens available:', tokens ? 'Yes' : 'No');
-      
-      const DIRECT_API_URL = `${process.env.EXPO_PUBLIC_API_URL}/stock/equipment/${equipmentId}`;
-      console.log('Fetching equipment details directly from:', DIRECT_API_URL);
-      
-      const response = await axios.get(DIRECT_API_URL, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': tokens?.access ? `Bearer ${tokens.access}` : ''
-        },
-        timeout: 10000
-      });
-      
-      console.log('API Response Status:', response.status);
-      console.log('Equipment details fetched successfully');
-      
-      return response.data;
-    } catch (error) {
-      console.error('Direct API fetch error:', error);
-      
-      if (axios.isAxiosError(error)) {
-        console.error('Axios error details:');
-        console.error('- Status:', error.response?.status);
-        console.error('- Response data:', error.response?.data);
-        
-        if (error.response?.status === 401) {
-          console.log('Unauthorized, trying without token...');
-          try {
-            const DIRECT_API_URL = `${process.env.EXPO_PUBLIC_API_URL}/stock/equipment/${equipmentId}`;
-            const fallbackResponse = await axios.get(DIRECT_API_URL, {
-              headers: { 'Content-Type': 'application/json' },
-              timeout: 10000
-            });
-            
-            console.log('Fallback API call successful');
-            return fallbackResponse.data;
-          } catch (fallbackError) {
-            console.error('Fallback API call also failed:', fallbackError);
-            throw fallbackError;
-          }
-        }
-      }
-      
-      throw error;
-    }
+  useEffect(() => {
+    fetchEquipmentDetail();
   }, [equipmentId]);
 
-  useEffect(() => {
-    console.log('EquipmentDetail mounted - fetching equipment details');
-    
-    let isMounted = true;
-    
-    const loadEquipmentDetails = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        
-        // Try direct API call first
-        const equipmentData = await fetchEquipmentDirectly();
-        
-        if (isMounted && equipmentData) {
-          console.log('Equipment details fetched successfully, updating UI');
-          setEquipment(equipmentData);
-        } else {
-          // If direct API fails, try to get from context
-          const contextEquipment = equipmentList.find(item => item.id.toString() === equipmentId);
-          if (contextEquipment) {
-            setEquipment(contextEquipment);
-          } else {
-            // If not found in context, refresh the context
-            await fetchEquipment();
-            const refreshedEquipment = equipmentList.find(item => item.id.toString() === equipmentId);
-            if (refreshedEquipment) {
-              setEquipment(refreshedEquipment);
-            } else {
-              setError('لم يتم العثور على المعدة');
-            }
-          }
-        }
-      } catch (err) {
-        console.error('Error loading equipment details:', err);
-        
-        // Try context as fallback
-        try {
-          console.log('Falling back to context method...');
-          const contextEquipment = equipmentList.find(item => item.id.toString() === equipmentId);
-          if (contextEquipment) {
-            setEquipment(contextEquipment);
-          } else {
-            setError('لم يتم العثور على المعدة');
-          }
-        } catch (contextErr) {
-          console.error('Context method also failed:', contextErr);
-          
-          if (isMounted) {
-            const errorMsg = err instanceof Error 
-              ? err.message 
-              : 'فشل في تحميل تفاصيل المعدة';
-            setError(errorMsg);
-          }
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    };
-    
-    loadEquipmentDetails();
-    
-    return () => {
-      console.log('EquipmentDetail unmounting - cleaning up');
-      isMounted = false;
-    };
-  }, [equipmentId, fetchEquipmentDirectly, fetchEquipment, equipmentList]);
-
-  const handleDelete = async () => {
+  const handleDelete = useCallback(async () => {
     Alert.alert(
       'تأكيد الحذف',
       'هل أنت متأكد من حذف هذه المعدة؟',
       [
-        {
-          text: 'إلغاء',
-          style: 'cancel',
-        },
+        { text: 'إلغاء', style: 'cancel' },
         {
           text: 'حذف',
           style: 'destructive',
           onPress: async () => {
             try {
-              // Try direct API delete
-              try {
+              setIsDeleting(true);
+              
                 const tokens = await storage.getTokens();
-                const DIRECT_API_URL = `${process.env.EXPO_PUBLIC_API_URL}/stock/equipment/${equipmentId}`;
-                
-                await axios.delete(DIRECT_API_URL, {
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': tokens?.access ? `Bearer ${tokens.access}` : ''
-                  }
-                });
-                
-                console.log('Equipment deleted successfully via direct API');
-                navigation.goBack();
-                Alert.alert('نجاح', 'تم حذف المعدة بنجاح');
-              } catch (directError) {
-                console.error('Direct delete failed, falling back to context:', directError);
-                // Fall back to context delete
-      await deleteEquipment(equipmentId);
-      navigation.goBack();
-                Alert.alert('نجاح', 'تم حذف المعدة بنجاح');
+              
+              if (!tokens?.access) {
+                Alert.alert('خطأ', 'الرجاء تسجيل الدخول أولا');
+                return;
               }
-    } catch (err) {
-      console.error('Error deleting equipment:', err);
+
+              await axios.delete(
+                `${process.env.EXPO_PUBLIC_API_URL}/stock/equipment/${equipmentId}`,
+                {
+                  headers: {
+                    'Authorization': `Bearer ${tokens.access}`
+                  }
+                }
+              );
+                
+                navigation.goBack();
+            } catch (error) {
+              console.error('Error deleting equipment:', error);
               Alert.alert('خطأ', 'فشل في حذف المعدة');
+            } finally {
+              setIsDeleting(false);
     }
           },
         },
       ]
     );
-  };
+  }, [equipmentId, navigation]);
 
-  const handleStatusChange = async (newStatus: EquipmentStatus) => {
-    try {
-      setIsLoading(true);
-      
-      // Try direct API update
-      const response = await axios.patch(`/api/equipment/${equipmentId}/status`, {
-        status: newStatus
-      });
-      
-      if (response.data) {
-        console.log('Status updated successfully via direct API');
-        setEquipment(response.data);
-      } else {
-        console.log('Direct API update returned no data, falling back to context');
-      await updateStatus(equipmentId, newStatus);
-        const updatedEquipment = equipmentList.find(item => item.id.toString() === equipmentId);
-        if (updatedEquipment) {
-          setEquipment(updatedEquipment);
-        }
-      }
-    } catch (error) {
-      console.error('Error updating status:', error);
-      Alert.alert('خطأ', 'فشل في تحديث حالة المعدة');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const renderStatusIcon = (equipment: StockEquipment) => {
-    if (isBroken) {
-      return <Text style={styles.statusIndicator}>{EQUIPMENT_ICONS.status.broken}</Text>;
-    }
-    if (needsMaintenance) {
-      return <Text style={styles.statusIndicator}>{EQUIPMENT_ICONS.status.warning}</Text>;
-    }
-    if (isInMaintenance) {
-      return <Text style={styles.statusIndicator}>{EQUIPMENT_ICONS.status.maintenance}</Text>;
-    }
-    return <Text style={styles.statusIndicator}>{EQUIPMENT_ICONS.status.operational}</Text>;
-  };
-
-  const renderInfoRow = (label: string, value: string | number | undefined | null, icon: string) => {
-    if (!value) return null;
-    
-    return (
-      <View style={styles.infoRow}>
-        <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-          {icon} {label}:
-        </Text>
-        <Text style={{ color: theme.colors.neutral.textPrimary }}>
-          {value}
-        </Text>
-      </View>
-    );
-  };
-
-  const renderSection = (title: string, icon: string, children: React.ReactNode) => {
-    // Only render section if it has visible children
-    if (!React.Children.toArray(children).some(child => child !== null)) {
-      return null;
-    }
+  // Function to render fields with icons
+  const renderField = useCallback((label: string, value: any, icon: string) => {
+    if (value === null || value === undefined || value === '') return null;
 
     return (
       <Animated.View 
-        entering={FadeInDown.springify()}
-        style={[styles.section, { 
-          backgroundColor: theme.colors.neutral.surface,
-          shadowColor: theme.colors.neutral.textPrimary,
-        }]}
+        entering={FadeInDown.delay(100).springify()}
+        style={[styles.infoCard, { backgroundColor: theme.colors.neutral.surface }]}
       >
-        <Text style={[styles.sectionTitle, { color: theme.colors.neutral.textPrimary }]}>
-          {icon} {title}
+        <View style={styles.infoHeader}>
+          <Text style={styles.fieldIcon}>{icon}</Text>
+          <Text style={[styles.infoTitle, { color: theme.colors.neutral.textPrimary }]}>
+            {label}
+          </Text>
+        </View>
+        <Text style={[styles.infoContent, { color: theme.colors.neutral.textSecondary }]}>
+          {typeof value === 'number' ? value.toLocaleString() : value.toString()}
         </Text>
-        {children}
       </Animated.View>
     );
-  };
+  }, [theme.colors.neutral]);
 
-  if (isLoading) {
+  if (isLoading || isDeleting) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
-        <StatusBar
-          backgroundColor={theme.colors.neutral.surface}
-          barStyle="dark-content"
-        />
+        <StatusBar backgroundColor={theme.colors.neutral.surface} barStyle="dark-content" />
         <View style={[styles.container, styles.centerContent]}>
           <Animated.View 
             entering={FadeIn.duration(800)}
             style={styles.loadingContainer}
           >
-            <Text style={styles.loadingIcon}>{EQUIPMENT_ICONS.loading}</Text>
+            <Text style={styles.loadingIcon}>⚙️</Text>
             <ActivityIndicator size="large" color={theme.colors.primary.base} />
             <Text style={[styles.loadingText, { color: theme.colors.neutral.textSecondary }]}>
-              جاري تحميل تفاصيل المعدة...
+              {isDeleting ? 'جاري الحذف...' : 'جاري التحميل...'}
             </Text>
           </Animated.View>
         </View>
@@ -635,226 +357,360 @@ const EquipmentDetailScreen: React.FC<EquipmentDetailScreenProps> = ({ navigatio
   if (error || !equipment) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
-        <StatusBar
-          backgroundColor={theme.colors.neutral.surface}
-          barStyle="dark-content"
-        />
+        <StatusBar backgroundColor={theme.colors.neutral.surface} barStyle="dark-content" />
         <View style={[styles.container, styles.centerContent]}>
-          <Animated.View 
-            entering={FadeIn.duration(800)}
-            style={styles.errorContainer}
-          >
-            <Text style={styles.notFoundIcon}>{EQUIPMENT_ICONS.notFound}</Text>
-            <Text style={[styles.notFoundText, { color: theme.colors.neutral.textSecondary }]}>
+          <MaterialCommunityIcons
+            name="alert-circle-outline"
+            size={48}
+            color={theme.colors.neutral.textSecondary}
+          />
+          <Text style={[styles.errorText, { color: theme.colors.neutral.textSecondary }]}>
               {error || 'لم يتم العثور على المعدة'}
             </Text>
-            <Button
-              mode="contained"
+          <TouchableOpacity
+            style={[styles.retryButton, { backgroundColor: theme.colors.primary.base }]}
               onPress={() => navigation.goBack()}
-              style={styles.backButton}
             >
-              <Text style={styles.buttonText}>{`${EQUIPMENT_ICONS.back} العودة`}</Text>
-            </Button>
-          </Animated.View>
+            <Text style={{ color: theme.colors.neutral.surface }}>العودة للقائمة</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
   }
 
-  const equipmentType = EQUIPMENT_TYPES[equipment.type as EquipmentType] || { icon: '🔧', name: 'معدة' };
-  const statusInfo = EQUIPMENT_STATUS[equipment.status as EquipmentStatus] || { icon: '❓', name: equipment.status, color: '#9E9E9E' };
-  const operationalInfo = OPERATIONAL_STATUS[equipment.operationalStatus as OperationalStatus] || { icon: '❓', name: equipment.operationalStatus, color: '#9E9E9E' };
-  const fuelInfo = equipment.fuelType ? (FUEL_TYPES[equipment.fuelType as FuelType] || { icon: '⛽', name: equipment.fuelType }) : null;
-
-  const needsMaintenance = equipment.nextMaintenanceDate && new Date(equipment.nextMaintenanceDate) <= new Date();
-  const isInMaintenance = equipment.status === 'maintenance';
-  const isBroken = equipment.status === 'broken';
+  const needsMaintenance = equipment.nextMaintenanceDate && 
+                          new Date(equipment.nextMaintenanceDate) <= new Date();
+  
+  const statusInfo = EQUIPMENT_STATUS[equipment.status as EquipmentStatus] || { 
+    name: equipment.status || 'غير محدد', 
+    color: theme.colors.neutral.border,
+    icon: '❓' 
+  };
+  
+  const equipmentType = EQUIPMENT_TYPES[equipment.type as EquipmentType] || { 
+    name: equipment.type || 'غير محدد' 
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
-      <StatusBar
-        backgroundColor={theme.colors.neutral.surface}
-        barStyle="dark-content"
-      />
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <StatusBar backgroundColor={theme.colors.neutral.surface} barStyle="dark-content" />
+      <ScrollView style={styles.scrollView}>
         <Animated.View 
           entering={FadeInDown.springify()}
-          style={[styles.header, { 
+          style={[
+            styles.header,
+            { 
             backgroundColor: theme.colors.neutral.surface,
-            borderBottomColor: theme.colors.neutral.border
-          }]}
+              ...Platform.select({
+                ios: {
+                  shadowColor: theme.colors.neutral.textPrimary,
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 8,
+                },
+                android: {
+                  elevation: 4,
+                },
+              }),
+            }
+          ]}
         >
+          <View style={styles.headerContent}>
           <View style={[
             styles.iconContainer,
             { 
-              backgroundColor: isBroken 
-                ? '#F44336' + '20'
-                : isInMaintenance
-                  ? '#FFC107' + '20'
+                backgroundColor: equipment.status === 'broken'
+                  ? theme.colors.error + '20'
+                  : equipment.status === 'maintenance'
+                    ? theme.colors.warning + '20'
                   : needsMaintenance
-                    ? '#FF9800' + '20'
-                    : '#4CAF50' + '20'
-            }
-          ]}>
-            <Text style={styles.equipmentIcon}>{equipmentType.icon}</Text>
-            {renderStatusIcon(equipment)}
+                      ? theme.colors.info + '20'
+                      : theme.colors.success + '20'
+              }
+            ]}>
+              <Text style={styles.equipmentIcon}>{getEquipmentIcon(equipment.type)}</Text>
+              {equipment.status === 'broken' && <Text style={styles.statusIndicator}>❌</Text>}
+              {equipment.status === 'maintenance' && <Text style={styles.statusIndicator}>🔧</Text>}
+              {needsMaintenance && equipment.status !== 'maintenance' && <Text style={styles.statusIndicator}>⚠️</Text>}
           </View>
           
           <View style={styles.headerInfo}>
-            <Text style={styles.title}>{equipment.name}</Text>
-            <View style={styles.statusContainer}>
-              <View style={[styles.statusBadge, { backgroundColor: statusInfo.color }]}>
-                <Text style={styles.statusText}>{statusInfo.name}</Text>
+              <Text style={[styles.title, { color: theme.colors.neutral.textPrimary }]}>
+                {equipment.name}
+              </Text>
+              <Text style={[styles.subtitle, { color: theme.colors.neutral.textSecondary }]}>
+                {equipmentType.name}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.statsContainer}>
+            <View style={[styles.statCard, { backgroundColor: theme.colors.neutral.background }]}>
+              <Text style={[styles.statValue, { color: theme.colors.neutral.textPrimary }]}>
+                {equipment.quantity || 1}
+              </Text>
+              <Text style={[styles.statLabel, { color: theme.colors.neutral.textSecondary }]}>
+                الكمية
+              </Text>
+            </View>
+
+            <View style={[styles.statCard, { backgroundColor: theme.colors.neutral.background }]}>
+              <Text style={[styles.statValue, { color: theme.colors.neutral.textPrimary }]}>
+                {equipment.purchasePrice || '-'}
+              </Text>
+              <Text style={[styles.statLabel, { color: theme.colors.neutral.textSecondary }]}>
+                د.أ
+              </Text>
               </View>
-              <View style={[styles.statusBadge, { backgroundColor: operationalInfo.color }]}>
-                <Text style={styles.statusText}>{operationalInfo.name}</Text>
+
+            <View style={[styles.statCard, { backgroundColor: theme.colors.neutral.background }]}>
+              <View style={[
+                styles.statusIndicatorBadge,
+                { backgroundColor: statusInfo.color }
+              ]}>
+                <Text style={styles.statusIconText}>
+                  {statusInfo.icon || '❓'}
+                </Text>
               </View>
+              <Text style={[styles.statLabel, { color: theme.colors.neutral.textSecondary }]}>
+                {statusInfo.name}
+              </Text>
             </View>
         </View>
           
-        <View style={styles.actions}>
-          <IconButton
-            icon="pencil"
-            size={24}
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: theme.colors.primary.base }]}
               onPress={() => navigation.navigate('AddEquipment', { equipmentId })}
-          />
-          <IconButton
-            icon="delete"
-            size={24}
-              iconColor="#F44336"
+            >
+              <MaterialCommunityIcons name="pencil" size={24} color="#FFF" />
+              <Text style={styles.actionButtonText}>تعديل</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: theme.colors.error }]}
             onPress={handleDelete}
-          />
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <>
+                  <MaterialCommunityIcons name="delete" size={24} color="#FFF" />
+                  <Text style={styles.actionButtonText}>حذف</Text>
+                </>
+              )}
+            </TouchableOpacity>
         </View>
         </Animated.View>
 
         <View style={styles.content}>
-          {renderSection('معلومات أساسية', EQUIPMENT_ICONS.basic.type, <>
-            {renderInfoRow('النوع', equipmentType.name, EQUIPMENT_ICONS.basic.type)}
-            {renderInfoRow('الكمية', equipment.quantity, EQUIPMENT_ICONS.basic.quantity)}
-            {renderInfoRow('الرقم التسلسلي', equipment.serialNumber, EQUIPMENT_ICONS.basic.serial)}
-            {renderInfoRow('الموديل', equipment.model, EQUIPMENT_ICONS.basic.model)}
-            {renderInfoRow('الشركة المصنعة', equipment.manufacturer, EQUIPMENT_ICONS.basic.manufacturer)}
-            {renderInfoRow('سنة التصنيع', equipment.yearOfManufacture, EQUIPMENT_ICONS.basic.year)}
-          </>)}
-
-          {renderSection('معلومات الشراء', EQUIPMENT_ICONS.purchase.date, <>
-            {renderInfoRow('تاريخ الشراء', formatDate(equipment.purchaseDate), EQUIPMENT_ICONS.purchase.date)}
-            {renderInfoRow('تاريخ انتهاء الضمان', equipment.warrantyExpiryDate ? formatDate(equipment.warrantyExpiryDate) : null, EQUIPMENT_ICONS.purchase.warranty)}
-            {renderInfoRow('سعر الشراء', equipment.purchasePrice ? `${equipment.purchasePrice} د.ج` : null, EQUIPMENT_ICONS.purchase.price)}
-          </>)}
-
-          {renderSection('معلومات الوقود', EQUIPMENT_ICONS.technical.fuel, <>
-            {renderInfoRow('نوع الوقود', fuelInfo?.name, EQUIPMENT_ICONS.technical.fuel)}
-            {renderInfoRow('سعة الوقود', equipment.fuelCapacity ? `${equipment.fuelCapacity} لتر` : null, EQUIPMENT_ICONS.technical.capacity)}
-            {renderInfoRow('القدرة', equipment.powerOutput, EQUIPMENT_ICONS.technical.power)}
-          </>)}
-
-          {renderSection('معلومات الأبعاد والوزن', EQUIPMENT_ICONS.technical.dimensions, <>
-            {renderInfoRow('الأبعاد', equipment.dimensions, EQUIPMENT_ICONS.technical.dimensions)}
-            {renderInfoRow('الوزن', equipment.weight ? `${equipment.weight} كغ` : null, EQUIPMENT_ICONS.technical.weight)}
-          </>)}
-
-          {renderSection('معلومات الصيانة', EQUIPMENT_ICONS.maintenance.last, <>
-            {renderInfoRow('آخر صيانة', equipment.lastMaintenanceDate ? formatDate(equipment.lastMaintenanceDate) : null, EQUIPMENT_ICONS.maintenance.last)}
-            {renderInfoRow('الصيانة القادمة', equipment.nextMaintenanceDate ? formatDate(equipment.nextMaintenanceDate) : null, EQUIPMENT_ICONS.maintenance.next)}
-            {renderInfoRow('فترة الصيانة', equipment.maintenanceInterval ? `${equipment.maintenanceInterval} يوم` : null, EQUIPMENT_ICONS.maintenance.interval)}
-
-          <Button
-            mode="contained"
-              onPress={() => setShowDatePicker(true)}
-              style={[styles.maintenanceButton, { backgroundColor: theme.colors.primary.base }]}
-          >
-              <Text style={{ color: '#FFFFFF' }}>
-                {showDatePicker ? EQUIPMENT_ICONS.maintenance.cancel : EQUIPMENT_ICONS.maintenance.record}
-              </Text>
-          </Button>
-
-            {showDatePicker && (
-              <View style={styles.maintenanceForm}>
-              <TextInput
-                style={styles.textInput}
-                  placeholder="ملاحظات الصيانة"
-                  value={maintenanceFormData.notes}
-                  onChangeText={(value) => setMaintenanceFormData(prev => ({ ...prev, notes: value }))}
-                multiline
-              />
-              <TextInput
-                style={styles.textInput}
-                  placeholder="تكلفة الصيانة"
-                  value={maintenanceFormData.cost}
-                  onChangeText={(value) => setMaintenanceFormData(prev => ({ ...prev, cost: value }))}
-                keyboardType="numeric"
-              />
-                <TouchableOpacity
-                  style={styles.datePickerButton}
-                  onPress={() => setShowDatePicker(true)}
-                >
-                  <Text style={styles.dateText}>الصيانة القادمة: {formatDate(maintenanceFormData.nextMaintenanceDate)}</Text>
-                </TouchableOpacity>
-                {showDatePicker && (
-                  <DateTimePicker
-                    value={maintenanceFormData.nextMaintenanceDate}
-                    mode="date"
-                    onChange={(event, date) => {
-                      setShowDatePicker(false);
-                      if (date) {
-                        setMaintenanceFormData(prev => ({ ...prev, nextMaintenanceDate: date }));
-                      }
-                    }}
-                  />
-                )}
-              <Button
-                mode="contained"
-                  onPress={handleMaintenanceSubmit}
-                  loading={isLoading}
-                  disabled={!maintenanceFormData.notes || !maintenanceFormData.cost}
-                style={styles.submitButton}
-              >
-                  {EQUIPMENT_ICONS.maintenance.save} حفظ الصيانة
-              </Button>
-            </View>
-          )}
-          </>)}
-
-          {renderSection('معلومات التشغيل', EQUIPMENT_ICONS.operation.location, <>
-            {renderInfoRow('الموقع', equipment.location, EQUIPMENT_ICONS.operation.location)}
-            {renderInfoRow('المشغل المعين', equipment.assignedOperator, EQUIPMENT_ICONS.operation.operator)}
-            {renderInfoRow('ساعات التشغيل', equipment.operatingHours ? `${equipment.operatingHours} ساعة` : null, EQUIPMENT_ICONS.operation.hours)}
-            {renderInfoRow('آخر تشغيل', equipment.lastOperationDate ? formatDate(equipment.lastOperationDate) : null, EQUIPMENT_ICONS.operation.lastOperation)}
-          </>)}
-
-          {(equipment.notes || equipment.operatingInstructions || equipment.safetyGuidelines) && 
-            renderSection('معلومات إضافية', EQUIPMENT_ICONS.notes, <>
-              {renderInfoRow('ملاحظات', equipment.notes, EQUIPMENT_ICONS.notes)}
-              {renderInfoRow('تعليمات التشغيل', equipment.operatingInstructions, EQUIPMENT_ICONS.notes)}
-              {renderInfoRow('إرشادات السلامة', equipment.safetyGuidelines, EQUIPMENT_ICONS.notes)}
-            </>)
-          }
-
-          <View style={styles.buttonContainer}>
-            <Button
-              mode="contained"
-              onPress={() => navigation.navigate('AddEquipment', { equipmentId })}
-              style={[styles.editButton, { backgroundColor: theme.colors.primary.base }]}
-            >
-              <Text style={{ color: '#FFFFFF' }}>
-                {EQUIPMENT_ICONS.actions.edit} تعديل
-              </Text>
-            </Button>
-            <Button
-              mode="outlined"
-              onPress={handleDelete}
-              style={[styles.deleteButton, { borderColor: theme.colors.error }]}
-            >
-              <Text style={{ color: theme.colors.error }}>
-                {EQUIPMENT_ICONS.actions.delete} حذف
-              </Text>
-            </Button>
-          </View>
+          {/* Basic Information Section */}
+          {renderField('النوع', equipmentType.name, FIELD_ICONS.model)}
+          {renderField('الكمية', equipment.quantity, FIELD_ICONS.quantity)}
+          {renderField('الرقم التسلسلي', equipment.serialNumber, FIELD_ICONS.serialNumber)}
+          {renderField('الموديل', equipment.model, FIELD_ICONS.model)}
+          {renderField('الشركة المصنعة', equipment.manufacturer, FIELD_ICONS.manufacturer)}
+          {renderField('سنة التصنيع', equipment.yearOfManufacture, FIELD_ICONS.yearOfManufacture)}
+          
+          {/* Purchase Information */}
+          {renderField('تاريخ الشراء', formatDate(equipment.purchaseDate), FIELD_ICONS.purchaseDate)}
+          {renderField('تاريخ انتهاء الضمان', formatDate(equipment.warrantyExpiryDate), FIELD_ICONS.warrantyExpiryDate)}
+          {renderField('سعر الشراء', equipment.purchasePrice ? `${equipment.purchasePrice} د.ج` : null, FIELD_ICONS.purchasePrice)}
+          
+          {/* Maintenance Information */}
+          {renderField('آخر صيانة', formatDate(equipment.lastMaintenanceDate), FIELD_ICONS.lastMaintenanceDate)}
+          {renderField('الصيانة القادمة', formatDate(equipment.nextMaintenanceDate), FIELD_ICONS.nextMaintenanceDate)}
+          {renderField('فترة الصيانة', equipment.maintenanceInterval ? `${equipment.maintenanceInterval} يوم` : null, FIELD_ICONS.nextMaintenanceDate)}
+          {renderField('ملاحظات الصيانة', equipment.maintenanceNotes, FIELD_ICONS.notes)}
+          
+          {/* Technical Information */}
+          {renderField('نوع الوقود', FUEL_TYPES[equipment.fuelType as FuelType]?.name, FIELD_ICONS.fuelType)}
+          {renderField('سعة الوقود', equipment.fuelCapacity ? `${equipment.fuelCapacity} لتر` : null, FIELD_ICONS.capacity)}
+          {renderField('القدرة', equipment.powerOutput, FIELD_ICONS.power)}
+          {renderField('الأبعاد', equipment.dimensions, FIELD_ICONS.dimensions)}
+          {renderField('الوزن', equipment.weight ? `${equipment.weight} كغ` : null, FIELD_ICONS.weight)}
+          
+          {/* Operation Information */}
+          {renderField('الموقع', equipment.location, FIELD_ICONS.location)}
+          {renderField('المشغل المعين', equipment.assignedOperator, FIELD_ICONS.operator)}
+          {renderField('ساعات التشغيل', equipment.operatingHours ? `${equipment.operatingHours} ساعة` : null, FIELD_ICONS.operatingHours)}
+          {renderField('آخر تشغيل', formatDate(equipment.lastOperationDate), FIELD_ICONS.lastOperationDate)}
+          
+          {/* Additional Information */}
+          {renderField('ملاحظات', equipment.notes, FIELD_ICONS.notes)}
+          {renderField('تعليمات التشغيل', equipment.operatingInstructions, FIELD_ICONS.operatingInstructions)}
+          {renderField('إرشادات السلامة', equipment.safetyGuidelines, FIELD_ICONS.safetyGuidelines)}
         </View>
     </ScrollView>
     </SafeAreaView>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  header: {
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    padding: 24,
+    gap: 24,
+    ...Platform.select({
+      android: {
+        paddingTop: StatusBar.currentHeight,
+      },
+    }),
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  iconContainer: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  equipmentIcon: {
+    fontSize: 40,
+  },
+  statusIndicator: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    fontSize: 20,
+  },
+  headerInfo: {
+    flex: 1,
+    gap: 8,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '600',
+    textAlign: 'right',
+  },
+  subtitle: {
+    fontSize: 16,
+    textAlign: 'right',
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  statCard: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    gap: 8,
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: '600',
+  },
+  statLabel: {
+    fontSize: 14,
+  },
+  statusIndicatorBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statusIconText: {
+    fontSize: 24,
+    color: '#FFF',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 12,
+    gap: 8,
+  },
+  actionButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  content: {
+    padding: 24,
+    gap: 16,
+  },
+  infoCard: {
+    padding: 16,
+    borderRadius: 16,
+    gap: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  infoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  infoTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'right',
+  },
+  infoContent: {
+    fontSize: 16,
+    lineHeight: 24,
+    textAlign: 'right',
+  },
+  fieldIcon: {
+    fontSize: 24,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  loadingIcon: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  loadingText: {
+    fontSize: 16,
+    marginTop: 16,
+  },
+  errorText: {
+    fontSize: 16,
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  retryButton: {
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+});
 
 export default EquipmentDetailScreen;
