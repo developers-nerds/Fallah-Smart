@@ -32,16 +32,24 @@ exports.getReplyById = async (req, res) => {
 exports.getRepliesByQnAId = async (req, res) => {
   const { questionAndAnswerId } = req.params;
   try {
+    console.log(`Fetching replies for question ID: ${questionAndAnswerId}`);
+    
     // First check if the QnA exists
     const qna = await Education_QuestionAndAnswer.findByPk(questionAndAnswerId);
     if (!qna) {
+      console.log(`Question with ID ${questionAndAnswerId} not found`);
       return res.status(404).json({ message: 'Question and answer not found' });
     }
     
+    console.log(`Found question: ${qna.text.substring(0, 30)}...`);
+    
     const replies = await Education_Reply.findAll({
       where: { questionAndAnswerId },
-      order: [['timestamp', 'ASC']] // Oldest first for conversation flow
+      order: [['timestamp', 'ASC']] // Keep oldest first consistently for conversation flow
     });
+    
+    console.log(`Found ${replies.length} replies for question ID ${questionAndAnswerId}`);
+    
     return res.status(200).json(replies);
   } catch (error) {
     console.error('Error fetching replies by QnA ID:', error);
@@ -66,7 +74,7 @@ exports.getRepliesByUserId = async (req, res) => {
 
 // Create a new reply
 exports.createReply = async (req, res) => {
-  const { text, authorName, authorImage, timestamp, likes, questionAndAnswerId, userId } = req.body;
+  const { text, authorName, authorImage, timestamp, likesisClicked, questionAndAnswerId, userId } = req.body;
   
   // Validate required fields
   if (!text || !authorName || !authorImage || !questionAndAnswerId) {
@@ -85,7 +93,7 @@ exports.createReply = async (req, res) => {
       authorName,
       authorImage,
       timestamp: timestamp || new Date(),
-      likes: likes || 0,
+      likesisClicked: likesisClicked !== undefined ? likesisClicked : false,
       questionAndAnswerId,
       userId
     });
@@ -100,11 +108,11 @@ exports.createReply = async (req, res) => {
 // Update an existing reply
 exports.updateReply = async (req, res) => {
   const { id } = req.params;
-  const { text } = req.body;
+  const { text, userId } = req.body;
   
-  // Text is required for update
-  if (!text) {
-    return res.status(400).json({ message: 'Text is required for update' });
+  // Text and userId are required for update
+  if (!text || !userId) {
+    return res.status(400).json({ message: 'Text and userId are required for update' });
   }
   
   try {
@@ -112,6 +120,11 @@ exports.updateReply = async (req, res) => {
     
     if (!reply) {
       return res.status(404).json({ message: 'Reply not found' });
+    }
+    
+    // Check if the requesting user is the owner of the reply
+    if (reply.userId !== userId) {
+      return res.status(403).json({ message: 'Unauthorized: Only the owner can update this reply' });
     }
     
     await reply.update({ text });
@@ -123,9 +136,48 @@ exports.updateReply = async (req, res) => {
   }
 };
 
-// Like a reply
+// Like or unlike a reply
 exports.likeReply = async (req, res) => {
   const { id } = req.params;
+  const { userId } = req.body;
+  
+  if (!userId) {
+    return res.status(400).json({ message: 'User ID is required' });
+  }
+  
+  try {
+    const reply = await Education_Reply.findByPk(id);
+    if (!reply) {
+      return res.status(404).json({ message: 'Reply not found' });
+    }
+
+    // Toggle the likesisClicked value
+    const newLikeStatus = !reply.likesisClicked;
+    
+    // Update only the likesisClicked status without changing the owner (userId)
+    await reply.update({ 
+      likesisClicked: newLikeStatus
+    });
+    
+    return res.status(200).json({ 
+      ...reply.toJSON(),
+      likesisClicked: newLikeStatus
+    });
+  } catch (error) {
+    console.error('Error toggling reply like:', error);
+    return res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+};
+
+// Delete a reply
+exports.deleteReply = async (req, res) => {
+  const { id } = req.params;
+  const { userId } = req.body;
+  
+  // userId is required for delete operation
+  if (!userId) {
+    return res.status(400).json({ message: 'User ID is required for deletion' });
+  }
   
   try {
     const reply = await Education_Reply.findByPk(id);
@@ -134,24 +186,9 @@ exports.likeReply = async (req, res) => {
       return res.status(404).json({ message: 'Reply not found' });
     }
     
-    await reply.update({ likes: reply.likes + 1 });
-    
-    return res.status(200).json(reply);
-  } catch (error) {
-    console.error('Error liking reply:', error);
-    return res.status(500).json({ message: 'Internal server error', error: error.message });
-  }
-};
-
-// Delete a reply
-exports.deleteReply = async (req, res) => {
-  const { id } = req.params;
-  
-  try {
-    const reply = await Education_Reply.findByPk(id);
-    
-    if (!reply) {
-      return res.status(404).json({ message: 'Reply not found' });
+    // Check if the requesting user is the owner of the reply
+    if (reply.userId !== userId) {
+      return res.status(403).json({ message: 'Unauthorized: Only the owner can delete this reply' });
     }
     
     await reply.destroy();
