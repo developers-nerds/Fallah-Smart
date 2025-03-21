@@ -239,11 +239,7 @@ const HomeScreen: React.FC = () => {
       newEndDate = new Date(today);
       newEndDate.setHours(23, 59, 59, 999);
     
-      const month = newEndDate.toLocaleDateString("ar", { month: "long" });
-      const startDay = newStartDate.toLocaleDateString("fr", { day: "numeric" });
-      const endDay = newEndDate.toLocaleDateString("fr", { day: "numeric" });
-    
-      displayText = `${startDay} - ${endDay}, ${month}`;
+      displayText = `أسبوعي`;
     }
     
     else if (filterType === "Monthly") {
@@ -252,9 +248,9 @@ const HomeScreen: React.FC = () => {
       newEndDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
       newEndDate.setHours(23, 59, 59, 999);
       setSelectedMonthDate(newStartDate);
-      displayText = newStartDate.toLocaleDateString("ar", {
-        month: "long",
-      });
+    
+      // Use months array instead of toLocaleDateString
+      displayText = months[newStartDate.getMonth()];
     } else if (filterType === "Yearly") {
       newStartDate = new Date(today.getFullYear(), 0, 1);
       newStartDate.setHours(0, 0, 0, 0);
@@ -296,10 +292,10 @@ const HomeScreen: React.FC = () => {
     setStartDate(newStartDate);
     setEndDate(newEndDate);
     setSelectedMonthDate(newStartDate);
-    setDateDisplay(newStartDate.toLocaleDateString("ar", {
-      month: "long",
-      year: "numeric",
-    }));
+  
+    // Use months array for display text
+    setDateDisplay(`${months[month]} ${year}`);
+  
     setShowMonthSelector(false);
     if (selectedAccountId) {
       fetchTransactions(
@@ -310,6 +306,7 @@ const HomeScreen: React.FC = () => {
       );
     }
   };
+  
 
   const handleYearSelect = (year: number) => {
     const newStartDate = new Date(year, 0, 1);
@@ -405,14 +402,14 @@ const HomeScreen: React.FC = () => {
   };
 
   const months = [
-    "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
-    "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"
+    "جانفي", "فيفري ", "مارس ", "أفريل ", "ماي", "جوان",
+    "جويلية", "أوت", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"
   ];
 
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 21 }, (_, i) => currentYear - 10 + i);
 
-  const renderMonthItem = ({ item, index }: { item: string, index: number }) => (
+  const renderMonthItem = ({ item, index }: { item: string; index: number }) => (
     <TouchableOpacity
       style={styles.pickerItem}
       onPress={() => handleMonthSelect(index)}
@@ -420,6 +417,7 @@ const HomeScreen: React.FC = () => {
       <Text style={styles.pickerItemText}>{item}</Text>
     </TouchableOpacity>
   );
+  
 
   const renderYearItem = ({ item }: { item: number }) => (
     <TouchableOpacity
