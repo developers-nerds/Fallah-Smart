@@ -1,68 +1,76 @@
-:root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
-
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
-}
-
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
-
-@media (prefers-color-scheme: light) {
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@layer base {
   :root {
-    color: #213547;
-    background-color: #ffffff;
+    --background: 60 10% 98%;
+    --foreground: 164 28% 14%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 164 28% 14%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 164 28% 14%;
+
+    --primary: 164 50% 12%;
+    --primary-foreground: 60 10% 98%;
+
+    --secondary: 164 33% 93%;
+    --secondary-foreground: 164 50% 12%;
+
+    --muted: 60 10% 96%;
+    --muted-foreground: 164 10% 40%;
+
+    --accent: 164 33% 93%;
+    --accent-foreground: 164 50% 12%;
+
+    --destructive: 342 79% 50%;
+    --destructive-foreground: 60 10% 98%;
+
+    --border: 164 10% 90%;
+    --input: 164 10% 90%;
+    --ring: 164 50% 12%;
+
+    --radius: 0.5rem;
   }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
+
+  .dark {
+    --background: 164 30% 10%;
+    --foreground: 60 10% 98%;
+
+    --card: 164 30% 12%;
+    --card-foreground: 60 10% 98%;
+
+    --popover: 164 30% 12%;
+    --popover-foreground: 60 10% 98%;
+
+    --primary: 164 33% 93%;
+    --primary-foreground: 164 50% 12%;
+
+    --secondary: 164 50% 15%;
+    --secondary-foreground: 60 10% 98%;
+
+    --muted: 164 30% 15%;
+    --muted-foreground: 164 10% 70%;
+
+    --accent: 164 50% 15%;
+    --accent-foreground: 60 10% 98%;
+
+    --destructive: 342 79% 50%;
+    --destructive-foreground: 60 10% 98%;
+
+    --border: 164 30% 20%;
+    --input: 164 30% 20%;
+    --ring: 164 33% 93%;
   }
 }
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
