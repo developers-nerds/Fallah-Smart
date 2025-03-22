@@ -31,6 +31,7 @@ import {
   responsiveWidth,
   responsiveHeight,
 } from '../../utils/responsive';
+import countryCodesData from '../../utils/countryCodes';
 
 const BaseUrl = process.env.EXPO_PUBLIC_API_URL;
 const { width } = Dimensions.get('window');
@@ -94,6 +95,11 @@ export const SupplierRegistrationForm: React.FC = () => {
   const [addressSuggestions, setAddressSuggestions] = useState([]);
   const [addressQuery, setAddressQuery] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedCountryCode, setSelectedCountryCode] = useState('+216');
+  const [showCountryCodePicker, setShowCountryCodePicker] = useState(false);
+  const [countrySearchQuery, setCountrySearchQuery] = useState('');
+  const [filteredCountries, setFilteredCountries] = useState(countryCodesData);
+  const [showVerification, setShowVerification] = useState(false);
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -158,11 +164,13 @@ export const SupplierRegistrationForm: React.FC = () => {
     try {
       // Using OpenStreetMap Nominatim API (free)
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`,
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`,
         {
           headers: {
             Accept: 'application/json',
             'Content-Type': 'application/json',
+            // Add a user-agent as per Nominatim usage policy
+            'User-Agent': 'FallahSmartApp/1.0',
           },
         }
       );
@@ -180,6 +188,19 @@ export const SupplierRegistrationForm: React.FC = () => {
       setAddressSuggestions([]);
       setShowSuggestions(false);
     }
+  };
+
+  const handleSelectSuggestion = (item) => {
+    // Update form data with the selected address
+    setFormData({
+      ...formData,
+      company_address: item.display_name,
+      // Store coordinates if needed for future use
+      // latitude: parseFloat(item.lat),
+      // longitude: parseFloat(item.lon),
+    });
+    setAddressQuery(item.display_name);
+    setShowSuggestions(false);
   };
 
   const handleNext = () => {
@@ -288,13 +309,8 @@ export const SupplierRegistrationForm: React.FC = () => {
         throw new Error(data.message || 'Failed to create supplier account');
       }
 
-      // Show success message
-      Alert.alert('Success', 'Your supplier account has been created successfully!', [
-        {
-          text: 'OK',
-          onPress: () => navigation.navigate('CompanyProfile'),
-        },
-      ]);
+      // Show verification screen instead of alert
+      setShowVerification(true);
     } catch (err) {
       console.error('Submission error:', err);
       setError(
@@ -477,33 +493,209 @@ export const SupplierRegistrationForm: React.FC = () => {
             placeholder="Enter your company address"
             placeholderTextColor={theme.colors.neutral.gray.base}
           />
+          {addressQuery.length > 0 && (
+            <TouchableOpacity
+              style={styles.clearButton}
+              onPress={() => {
+                setAddressQuery('');
+                setFormData({ ...formData, company_address: '' });
+                setAddressSuggestions([]);
+                setShowSuggestions(false);
+              }}>
+              <MaterialCommunityIcons
+                name="close-circle"
+                size={20}
+                color={theme.colors.neutral.gray.base}
+              />
+            </TouchableOpacity>
+          )}
         </View>
 
         {showSuggestions && addressSuggestions.length > 0 && (
-          <View style={styles.suggestionsContainer}>
-            {addressSuggestions.map((item, index) => (
-              <TouchableOpacity
-                key={index}
-                style={styles.suggestionItem}
-                onPress={() => {
-                  setFormData({ ...formData, company_address: item.display_name });
-                  setAddressQuery(item.display_name);
-                  setShowSuggestions(false);
-                }}>
-                <Text style={styles.suggestionText} numberOfLines={2}>
-                  {item.display_name}
-                </Text>
-              </TouchableOpacity>
-            ))}
+          <Animated.View
+            style={[
+              styles.suggestionsContainer,
+              {
+                opacity: fadeAnim,
+                transform: [
+                  {
+                    translateY: fadeAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [10, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}>
+            <ScrollView
+              style={styles.suggestionsScrollView}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              nestedScrollEnabled={true}>
+              {addressSuggestions.map((item, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.suggestionItem,
+                    index === addressSuggestions.length - 1 && styles.lastSuggestionItem,
+                  ]}
+                  onPress={() => handleSelectSuggestion(item)}>
+                  <MaterialCommunityIcons
+                    name="map-marker-outline"
+                    size={20}
+                    color={theme.colors.primary.base}
+                    style={styles.suggestionIcon}
+                  />
+                  <Text style={styles.suggestionText} numberOfLines={2}>
+                    {item.display_name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </Animated.View>
+        )}
+
+        {addressQuery.length > 2 && addressSuggestions.length === 0 && (
+          <View style={styles.noSuggestionsContainer}>
+            <Text style={styles.noSuggestionsText}>
+              No locations found. Try a different search.
+            </Text>
           </View>
         )}
       </View>
 
-      {renderInput('Phone Number', 'company_phone', 'Enter your phone number', {
-        keyboardType: 'phone-pad',
-        required: true,
-        icon: 'phone',
-      })}
+      <View style={styles.inputContainer}>
+        <Text style={styles.inputLabel}>
+          Phone Number <Text style={styles.required}>*</Text>
+        </Text>
+        <View style={styles.phoneInputContainer}>
+          <TouchableOpacity
+            style={styles.countryCodeSelector}
+            onPress={() => {
+              setShowCountryCodePicker(true);
+              setCountrySearchQuery('');
+              setFilteredCountries(countryCodesData);
+            }}>
+            <Text style={styles.countryCodeText}>{selectedCountryCode}</Text>
+            <MaterialCommunityIcons
+              name="chevron-down"
+              size={20}
+              color={theme.colors.neutral.textSecondary}
+            />
+          </TouchableOpacity>
+
+          <View style={[styles.inputWrapper, styles.phoneNumberInput]}>
+            <TouchableOpacity
+              onPress={(e) => showTooltip(tooltips.company_phone, e)}
+              style={styles.iconContainer}>
+              <MaterialCommunityIcons
+                name="phone"
+                size={24}
+                color={theme.colors.primary.base}
+                style={styles.inputIcon}
+              />
+            </TouchableOpacity>
+            <TextInput
+              style={styles.input}
+              value={formData.company_phone.replace(selectedCountryCode, '')}
+              onChangeText={(text) => {
+                // Only allow numbers
+                const numbersOnly = text.replace(/[^0-9]/g, '');
+                setFormData({ ...formData, company_phone: selectedCountryCode + numbersOnly });
+              }}
+              placeholder="Enter your phone number"
+              keyboardType="phone-pad"
+              placeholderTextColor={theme.colors.neutral.gray.base}
+            />
+          </View>
+        </View>
+
+        {/* Country Code Modal Picker */}
+        <Modal
+          transparent
+          visible={showCountryCodePicker}
+          animationType="slide"
+          onRequestClose={() => setShowCountryCodePicker(false)}>
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setShowCountryCodePicker(false)}>
+            <View style={styles.countryPickerContainer}>
+              <View style={styles.countryPickerHeader}>
+                <Text style={styles.countryPickerTitle}>Select Country Code</Text>
+                <TouchableOpacity onPress={() => setShowCountryCodePicker(false)}>
+                  <MaterialCommunityIcons
+                    name="close"
+                    size={24}
+                    color={theme.colors.neutral.textPrimary}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.countrySearchContainer}>
+                <TextInput
+                  style={styles.countrySearchInput}
+                  value={countrySearchQuery}
+                  onChangeText={setCountrySearchQuery}
+                  placeholder="Search country or code..."
+                  placeholderTextColor={theme.colors.neutral.gray.base}
+                  autoCapitalize="none"
+                />
+              </View>
+
+              <ScrollView style={styles.countryList}>
+                {filteredCountries.length > 0 ? (
+                  filteredCountries.map((country) => (
+                    <TouchableOpacity
+                      key={country.code}
+                      style={[
+                        styles.countryItem,
+                        selectedCountryCode === country.dial_code && {
+                          backgroundColor: theme.colors.primary.light + '20',
+                          borderLeftWidth: 3,
+                          borderLeftColor: theme.colors.primary.base,
+                        },
+                      ]}
+                      onPress={() => {
+                        setSelectedCountryCode(country.dial_code);
+                        setFormData({
+                          ...formData,
+                          company_phone:
+                            country.dial_code + formData.company_phone.replace(/^\+\d+/, ''),
+                        });
+                        setShowCountryCodePicker(false);
+                      }}>
+                      <Text style={styles.countryFlag}>{country.flag}</Text>
+                      <Text style={styles.countryName} numberOfLines={1}>
+                        {country.name}
+                      </Text>
+                      <Text style={styles.countryDialCode}>{country.dial_code}</Text>
+                    </TouchableOpacity>
+                  ))
+                ) : (
+                  <View
+                    style={{ padding: responsivePadding(theme.spacing.lg), alignItems: 'center' }}>
+                    <MaterialCommunityIcons
+                      name="magnify-close"
+                      size={40}
+                      color={theme.colors.neutral.gray.base}
+                    />
+                    <Text
+                      style={{
+                        textAlign: 'center',
+                        marginTop: theme.spacing.md,
+                        color: theme.colors.neutral.gray.base,
+                        fontSize: normalize(14),
+                      }}>
+                      No countries found matching "{countrySearchQuery}"
+                    </Text>
+                  </View>
+                )}
+              </ScrollView>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+      </View>
 
       {renderInput('Email', 'company_email', 'Enter your email address', {
         keyboardType: 'email-address',
@@ -743,6 +935,49 @@ export const SupplierRegistrationForm: React.FC = () => {
     </View>
   );
 
+  const renderVerificationScreen = () => (
+    <View style={styles.verificationContainer}>
+      <View style={styles.verificationCard}>
+        <MaterialCommunityIcons
+          name="email-check-outline"
+          size={80}
+          color={theme.colors.primary.base}
+          style={styles.verificationIcon}
+        />
+
+        <Text style={styles.verificationTitle}>Almost there!</Text>
+
+        <Text style={styles.verificationDescription}>We've sent a verification email to:</Text>
+
+        <View style={styles.emailContainer}>
+          <MaterialCommunityIcons name="email" size={20} color={theme.colors.primary.base} />
+          <Text style={styles.emailText}>{formData.company_email}</Text>
+        </View>
+
+        <Text style={styles.verificationInstructions}>
+          Please check your inbox and follow the instructions to verify your email address. You
+          won't be able to access all supplier features until your email is verified.
+        </Text>
+
+        <TouchableOpacity
+          style={styles.resendButton}
+          onPress={() => {
+            // Here you would implement the resend verification logic
+            Alert.alert('Verification Email', 'A new verification email has been sent.');
+          }}>
+          <Text style={styles.resendButtonText}>Resend Verification Email</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.continueButton}
+          onPress={() => navigation.navigate('CompanyProfile')}>
+          <Text style={styles.continueButtonText}>Continue to Profile</Text>
+          <MaterialCommunityIcons name="arrow-right" size={20} color="white" />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
   const renderCurrentStep = () => {
     switch (currentStep) {
       case 0:
@@ -765,123 +1000,134 @@ export const SupplierRegistrationForm: React.FC = () => {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}>
-      {/* Tooltip Modal */}
-      <Modal transparent visible={tooltipVisible} animationType="fade" onRequestClose={hideTooltip}>
-        <TouchableOpacity style={styles.tooltipOverlay} activeOpacity={1} onPress={hideTooltip}>
-          <View
-            style={[
-              styles.tooltipContainer,
-              {
-                left: tooltipPosition.x,
-                top: tooltipPosition.y,
-              },
-            ]}>
-            {tooltipPosition.arrowPosition === 'bottom' ? (
-              <View style={styles.tooltipArrowBottom} />
-            ) : (
-              <View style={styles.tooltipArrowTop} />
-            )}
-            <Text style={styles.tooltipText}>{tooltipText}</Text>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      <View style={styles.progressContainer}>
-        <Animated.View
-          style={[
-            styles.progressBar,
-            {
-              width: progressAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: ['0%', '100%'],
-              }),
-            },
-          ]}
-        />
-      </View>
-
-      <View style={styles.stepsContainer}>
-        {STEPS.map((step, index) => (
-          <TouchableOpacity
-            key={step.id}
-            style={[
-              styles.stepIndicator,
-              currentStep === index && styles.currentStepIndicator,
-              currentStep > index && styles.completedStepIndicator,
-            ]}
-            onPress={() => index <= currentStep && setCurrentStep(index)}
-            disabled={index > currentStep}>
-            <MaterialCommunityIcons
-              name={step.icon as any}
-              size={18}
-              color={
-                currentStep === index
-                  ? theme.colors.neutral.surface
-                  : currentStep > index
-                    ? theme.colors.primary.surface
-                    : theme.colors.neutral.gray.base
-              }
-            />
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}>
-        <View style={styles.formHeader}>
-          <Text style={styles.formTitle}>{STEPS[currentStep].title}</Text>
-          <Text style={styles.formSubtitle}>
-            Step {currentStep + 1} of {STEPS.length}
-          </Text>
-        </View>
-
-        <Animated.View
-          style={[
-            styles.formContainer,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateX: slideAnim }],
-            },
-          ]}>
-          {renderCurrentStep()}
-
-          {error && <Text style={styles.errorText}>{error}</Text>}
-
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity style={styles.backButton} onPress={handlePrev}>
-              <MaterialCommunityIcons
-                name="arrow-left"
-                size={24}
-                color={theme.colors.primary.base}
-              />
-              <Text style={styles.backButtonText}>Back</Text>
-            </TouchableOpacity>
-
-            {currentStep < STEPS.length - 1 ? (
-              <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
-                <Text style={styles.nextButtonText}>Next</Text>
-                <MaterialCommunityIcons name="arrow-right" size={24} color="white" />
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={[styles.submitButton, loading && styles.submitButtonDisabled]}
-                onPress={handleSubmit}
-                disabled={loading}>
-                {loading ? (
-                  <ActivityIndicator color={theme.colors.neutral.surface} />
+      {/* Conditionally render either the form or verification screen */}
+      {showVerification ? (
+        renderVerificationScreen()
+      ) : (
+        <>
+          {/* Tooltip Modal */}
+          <Modal
+            transparent
+            visible={tooltipVisible}
+            animationType="fade"
+            onRequestClose={hideTooltip}>
+            <TouchableOpacity style={styles.tooltipOverlay} activeOpacity={1} onPress={hideTooltip}>
+              <View
+                style={[
+                  styles.tooltipContainer,
+                  {
+                    left: tooltipPosition.x,
+                    top: tooltipPosition.y,
+                  },
+                ]}>
+                {tooltipPosition.arrowPosition === 'bottom' ? (
+                  <View style={styles.tooltipArrowBottom} />
                 ) : (
-                  <>
-                    <Text style={styles.submitButtonText}>Create Profile</Text>
-                    <MaterialCommunityIcons name="check-circle" size={24} color="white" />
-                  </>
+                  <View style={styles.tooltipArrowTop} />
                 )}
-              </TouchableOpacity>
-            )}
+                <Text style={styles.tooltipText}>{tooltipText}</Text>
+              </View>
+            </TouchableOpacity>
+          </Modal>
+
+          <View style={styles.progressContainer}>
+            <Animated.View
+              style={[
+                styles.progressBar,
+                {
+                  width: progressAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['0%', '100%'],
+                  }),
+                },
+              ]}
+            />
           </View>
-        </Animated.View>
-      </ScrollView>
+
+          <View style={styles.stepsContainer}>
+            {STEPS.map((step, index) => (
+              <TouchableOpacity
+                key={step.id}
+                style={[
+                  styles.stepIndicator,
+                  currentStep === index && styles.currentStepIndicator,
+                  currentStep > index && styles.completedStepIndicator,
+                ]}
+                onPress={() => index <= currentStep && setCurrentStep(index)}
+                disabled={index > currentStep}>
+                <MaterialCommunityIcons
+                  name={step.icon as any}
+                  size={18}
+                  color={
+                    currentStep === index
+                      ? theme.colors.neutral.surface
+                      : currentStep > index
+                        ? theme.colors.primary.surface
+                        : theme.colors.neutral.gray.base
+                  }
+                />
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <ScrollView
+            style={styles.scrollView}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}>
+            <View style={styles.formHeader}>
+              <Text style={styles.formTitle}>{STEPS[currentStep].title}</Text>
+              <Text style={styles.formSubtitle}>
+                Step {currentStep + 1} of {STEPS.length}
+              </Text>
+            </View>
+
+            <Animated.View
+              style={[
+                styles.formContainer,
+                {
+                  opacity: fadeAnim,
+                  transform: [{ translateX: slideAnim }],
+                },
+              ]}>
+              {renderCurrentStep()}
+
+              {error && <Text style={styles.errorText}>{error}</Text>}
+
+              <View style={styles.buttonContainer}>
+                <TouchableOpacity style={styles.backButton} onPress={handlePrev}>
+                  <MaterialCommunityIcons
+                    name="arrow-left"
+                    size={24}
+                    color={theme.colors.primary.base}
+                  />
+                  <Text style={styles.backButtonText}>Back</Text>
+                </TouchableOpacity>
+
+                {currentStep < STEPS.length - 1 ? (
+                  <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
+                    <Text style={styles.nextButtonText}>Next</Text>
+                    <MaterialCommunityIcons name="arrow-right" size={24} color="white" />
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={[styles.submitButton, loading && styles.submitButtonDisabled]}
+                    onPress={handleSubmit}
+                    disabled={loading}>
+                    {loading ? (
+                      <ActivityIndicator color={theme.colors.neutral.surface} />
+                    ) : (
+                      <>
+                        <Text style={styles.submitButtonText}>Create Profile</Text>
+                        <MaterialCommunityIcons name="check-circle" size={24} color="white" />
+                      </>
+                    )}
+                  </TouchableOpacity>
+                )}
+              </View>
+            </Animated.View>
+          </ScrollView>
+        </>
+      )}
     </KeyboardAvoidingView>
   );
 };
@@ -1205,16 +1451,234 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.neutral.border,
     borderRadius: theme.borderRadius.medium,
-    maxHeight: 200,
-    ...theme.shadows.small,
+    maxHeight: responsiveHeight(isSmallDevice ? 25 : 30),
+    ...theme.shadows.medium,
+    zIndex: 10,
+  },
+  suggestionsScrollView: {
+    width: '100%',
+    maxHeight: responsiveHeight(isSmallDevice ? 25 : 30),
   },
   suggestionItem: {
-    padding: theme.spacing.md,
+    padding: responsivePadding(theme.spacing.md),
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.neutral.border,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  lastSuggestionItem: {
+    borderBottomWidth: 0,
+  },
+  suggestionIcon: {
+    marginRight: theme.spacing.sm,
+    marginTop: 2,
   },
   suggestionText: {
     fontSize: normalize(isSmallDevice ? 14 : 16),
     color: theme.colors.neutral.textPrimary,
+    flex: 1,
+  },
+  clearButton: {
+    padding: theme.spacing.sm,
+  },
+  noSuggestionsContainer: {
+    marginTop: 5,
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.neutral.background,
+    borderRadius: theme.borderRadius.medium,
+    borderWidth: 1,
+    borderColor: theme.colors.neutral.border,
+    borderStyle: 'dashed',
+  },
+  noSuggestionsText: {
+    fontSize: normalize(isSmallDevice ? 12 : 14),
+    color: theme.colors.neutral.textSecondary,
+    textAlign: 'center',
+    fontFamily: theme.fonts.regular,
+  },
+  phoneInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: responsivePadding(theme.spacing.xs),
+    marginBottom: theme.spacing.sm,
+  },
+  countryCodeSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: theme.colors.neutral.background,
+    borderWidth: 1,
+    borderColor: theme.colors.neutral.border,
+    borderRadius: theme.borderRadius.medium,
+    paddingHorizontal: responsivePadding(theme.spacing.sm),
+    paddingVertical: responsivePadding(theme.spacing.sm),
+    minWidth: responsiveWidth(isSmallDevice ? 24 : 20),
+    maxWidth: responsiveWidth(isSmallDevice ? 28 : 24),
+    height: 50,
+    ...theme.shadows.small,
+  },
+  countryCodeText: {
+    fontSize: normalize(isSmallDevice ? 14 : 16),
+    color: theme.colors.neutral.textPrimary,
+    fontFamily: theme.fonts.medium,
+    flex: 1,
+    textAlign: 'center',
+    marginRight: responsivePadding(theme.spacing.xs),
+  },
+  phoneNumberInput: {
+    flex: 1,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  countryPickerContainer: {
+    backgroundColor: theme.colors.neutral.surface,
+    borderTopLeftRadius: theme.borderRadius.large,
+    borderTopRightRadius: theme.borderRadius.large,
+    height: responsiveHeight(isSmallDevice ? 60 : 70),
+    ...theme.shadows.large,
+  },
+  countryPickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: responsivePadding(theme.spacing.md),
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.neutral.border,
+  },
+  countryPickerTitle: {
+    fontSize: normalize(18),
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.neutral.textPrimary,
+  },
+  countryList: {
+    padding: responsivePadding(theme.spacing.md),
+  },
+  countryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: responsivePadding(theme.spacing.md),
+    paddingHorizontal: responsivePadding(theme.spacing.sm),
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.neutral.border,
+    borderRadius: theme.borderRadius.small,
+  },
+  countryFlag: {
+    fontSize: normalize(22),
+    marginRight: responsivePadding(theme.spacing.sm),
+  },
+  countryName: {
+    flex: 1,
+    fontSize: normalize(isSmallDevice ? 14 : 16),
+    color: theme.colors.neutral.textPrimary,
+    fontFamily: theme.fonts.regular,
+  },
+  countryDialCode: {
+    fontSize: normalize(isSmallDevice ? 14 : 16),
+    color: theme.colors.primary.base,
+    fontFamily: theme.fonts.medium,
+    marginLeft: responsivePadding(theme.spacing.sm),
+    minWidth: responsiveWidth(10),
+    textAlign: 'right',
+  },
+  countrySearchContainer: {
+    padding: responsivePadding(theme.spacing.md),
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.neutral.border,
+  },
+  countrySearchInput: {
+    backgroundColor: theme.colors.neutral.background,
+    borderRadius: theme.borderRadius.medium,
+    padding: responsivePadding(theme.spacing.md),
+    fontSize: normalize(16),
+    color: theme.colors.neutral.textPrimary,
+    borderWidth: 1,
+    borderColor: theme.colors.neutral.border,
+  },
+  verificationContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: theme.spacing.lg,
+    backgroundColor: theme.colors.neutral.background,
+  },
+  verificationCard: {
+    backgroundColor: theme.colors.neutral.surface,
+    borderRadius: theme.borderRadius.large,
+    padding: theme.spacing.xl,
+    width: '100%',
+    maxWidth: 500,
+    alignItems: 'center',
+    ...theme.shadows.medium,
+  },
+  verificationIcon: {
+    marginBottom: theme.spacing.lg,
+  },
+  verificationTitle: {
+    fontSize: normalize(24),
+    fontFamily: theme.fonts.bold,
+    color: theme.colors.neutral.textPrimary,
+    marginBottom: theme.spacing.md,
+    textAlign: 'center',
+  },
+  verificationDescription: {
+    fontSize: normalize(16),
+    fontFamily: theme.fonts.regular,
+    color: theme.colors.neutral.textSecondary,
+    marginBottom: theme.spacing.md,
+    textAlign: 'center',
+  },
+  emailContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.neutral.background,
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.medium,
+    marginBottom: theme.spacing.lg,
+    width: '100%',
+    justifyContent: 'center',
+  },
+  emailText: {
+    fontSize: normalize(18),
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.primary.dark,
+    marginLeft: theme.spacing.sm,
+  },
+  verificationInstructions: {
+    fontSize: normalize(14),
+    fontFamily: theme.fonts.regular,
+    color: theme.colors.neutral.textSecondary,
+    textAlign: 'center',
+    marginBottom: theme.spacing.xl,
+    lineHeight: 22,
+  },
+  resendButton: {
+    padding: theme.spacing.sm,
+    marginBottom: theme.spacing.lg,
+  },
+  resendButtonText: {
+    fontSize: normalize(14),
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.primary.base,
+    textDecorationLine: 'underline',
+  },
+  continueButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.primary.base,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.xl,
+    borderRadius: theme.borderRadius.medium,
+    width: '100%',
+    ...theme.shadows.small,
+  },
+  continueButtonText: {
+    fontSize: normalize(16),
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.neutral.surface,
+    marginRight: theme.spacing.sm,
   },
 });
