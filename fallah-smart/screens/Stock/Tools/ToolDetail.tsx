@@ -11,6 +11,8 @@ import {
   StatusBar,
   I18nManager,
   SafeAreaView,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -99,6 +101,123 @@ interface Tool {
   safetyGuidelines: string;
 }
 
+const QuantityModal = ({ 
+  visible, 
+  onClose, 
+  onConfirm, 
+  type,
+  currentQuantity,
+  loading
+}: { 
+  visible: boolean; 
+  onClose: () => void; 
+  onConfirm: (quantity: number, notes?: string) => Promise<void>;
+  type: 'add' | 'remove';
+  currentQuantity: number;
+  loading: boolean;
+}) => {
+  const [quantity, setQuantity] = useState('');
+  const [notes, setNotes] = useState('');
+  const theme = useTheme();
+
+  const handleClose = useCallback(() => {
+    setQuantity('');
+    setNotes('');
+    onClose();
+  }, [onClose]);
+
+  const handleConfirm = async () => {
+    const num = Number(quantity);
+    if (num > 0) {
+      if (type === 'remove' && num > currentQuantity) {
+        Alert.alert('خطأ', 'لا يمكن سحب كمية أكبر من المتوفرة');
+        return;
+      }
+      try {
+        await onConfirm(num, notes);
+        setQuantity('');
+        setNotes('');
+      } catch (error) {
+        console.error('Error updating quantity:', error);
+      }
+    }
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalContent, { backgroundColor: theme.colors.neutral.surface }]}>
+          <Text style={[styles.modalTitle, { color: theme.colors.neutral.textPrimary }]}>
+            {type === 'add' ? 'إضافة للمخزون' : 'سحب من المخزون'}
+          </Text>
+
+          <View style={styles.modalInputContainer}>
+            <TextInput
+              style={[styles.modalInput, { 
+                backgroundColor: theme.colors.neutral.background,
+                color: theme.colors.neutral.textPrimary,
+                textAlign: 'right'
+              }]}
+              value={quantity}
+              onChangeText={setQuantity}
+              keyboardType="numeric"
+              placeholder="الكمية"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+              editable={!loading}
+            />
+
+            <TextInput
+              style={[styles.modalInput, { 
+                backgroundColor: theme.colors.neutral.background,
+                color: theme.colors.neutral.textPrimary,
+                height: 100,
+                textAlignVertical: 'top',
+                textAlign: 'right'
+              }]}
+              value={notes}
+              onChangeText={setNotes}
+              placeholder="ملاحظات (اختياري)"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+              multiline
+              numberOfLines={4}
+              editable={!loading}
+            />
+          </View>
+
+          <View style={styles.modalButtons}>
+            <TouchableOpacity 
+              style={[styles.modalButton, styles.cancelButton]} 
+              onPress={handleClose}
+              disabled={loading}
+            >
+              <Text style={[styles.buttonText, { color: theme.colors.neutral.textPrimary }]}>
+                إلغاء
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[
+                styles.modalButton, 
+                styles.confirmButton,
+                { backgroundColor: type === 'add' ? theme.colors.success : theme.colors.error },
+                loading && { opacity: 0.7 }
+              ]} 
+              onPress={handleConfirm}
+              disabled={loading || !quantity}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={[styles.buttonText, { color: '#fff' }]}>تأكيد</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
 type ToolDetailScreenProps = {
   navigation: StackNavigationProp<StockStackParamList, 'ToolDetail'>;
   route: RouteProp<StockStackParamList, 'ToolDetail'>;
@@ -113,6 +232,9 @@ const ToolDetailScreen: React.FC<ToolDetailScreenProps> = ({ navigation, route }
   const [loading, setLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showRemoveModal, setShowRemoveModal] = useState(false);
+  const [quantityLoading, setQuantityLoading] = useState(false);
 
   const fetchToolDetails = async () => {
     try {
@@ -190,6 +312,58 @@ const ToolDetailScreen: React.FC<ToolDetailScreenProps> = ({ navigation, route }
       ]
     );
   }, [route.params.id, navigation]);
+
+  const handleQuantityChange = async (type: 'add' | 'remove', quantity: number, notes?: string) => {
+    if (!tool) return;
+    
+    try {
+      setQuantityLoading(true);
+      const tokens = await storage.getTokens();
+      
+      if (!tokens?.access) {
+        Alert.alert('خطأ', 'الرجاء تسجيل الدخول أولا');
+        return;
+      }
+      
+      const updatedQuantity = type === 'add' 
+        ? tool.quantity + quantity
+        : Math.max(0, tool.quantity - quantity);
+      
+      const response = await axios.patch(
+        `${process.env.EXPO_PUBLIC_API_URL}/stock/tools/${route.params.id}`,
+        {
+          quantity: updatedQuantity,
+          notes: notes ? `${type === 'add' ? 'إضافة' : 'سحب'} ${quantity} قطعة. ${notes}` : undefined
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${tokens.access}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      if (response.data) {
+        setTool(response.data);
+        
+        if (type === 'add') {
+          setShowAddModal(false);
+        } else {
+          setShowRemoveModal(false);
+        }
+        
+        Alert.alert(
+          'نجاح',
+          `تم ${type === 'add' ? 'إضافة' : 'سحب'} ${quantity} قطعة بنجاح`
+        );
+      }
+    } catch (error) {
+      console.error('Error updating quantity:', error);
+      Alert.alert('خطأ', `فشل في ${type === 'add' ? 'إضافة' : 'سحب'} الكمية`);
+    } finally {
+      setQuantityLoading(false);
+    }
+  };
 
   // Function to render fields with icons
   const renderField = useCallback((label: string, value: any, icon: string) => {
@@ -354,6 +528,25 @@ const ToolDetailScreen: React.FC<ToolDetailScreenProps> = ({ navigation, route }
             </View>
         </View>
 
+        <View style={styles.quantityActions}>
+          <TouchableOpacity 
+            style={[styles.quantityButton, { backgroundColor: theme.colors.success }]}
+            onPress={() => setShowAddModal(true)}
+          >
+            <Text style={styles.quantityButtonIcon}>➕</Text>
+            <Text style={styles.quantityButtonText}>إضافة للمخزون</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.quantityButton, { backgroundColor: theme.colors.error }]}
+            onPress={() => setShowRemoveModal(true)}
+            disabled={tool.quantity <= 0}
+          >
+            <Text style={styles.quantityButtonIcon}>➖</Text>
+            <Text style={styles.quantityButtonText}>سحب من المخزون</Text>
+          </TouchableOpacity>
+        </View>
+
           <View style={styles.headerActions}>
               <TouchableOpacity
               style={[styles.actionButton, { backgroundColor: theme.colors.primary.base }]}
@@ -426,6 +619,24 @@ const ToolDetailScreen: React.FC<ToolDetailScreenProps> = ({ navigation, route }
           {renderField('إرشادات السلامة', tool.safetyGuidelines, FIELD_ICONS.safetyGuidelines)}
         </View>
       </ScrollView>
+
+      <QuantityModal
+        visible={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onConfirm={(quantity, notes) => handleQuantityChange('add', quantity, notes)}
+        type="add"
+        currentQuantity={tool.quantity}
+        loading={quantityLoading}
+      />
+
+      <QuantityModal
+        visible={showRemoveModal}
+        onClose={() => setShowRemoveModal(false)}
+        onConfirm={(quantity, notes) => handleQuantityChange('remove', quantity, notes)}
+        type="remove"
+        currentQuantity={tool.quantity}
+        loading={quantityLoading}
+      />
     </SafeAreaView>
   );
 };
@@ -516,6 +727,29 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: '#FFF',
   },
+  quantityActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  quantityButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 12,
+    gap: 8,
+  },
+  quantityButtonIcon: {
+    fontSize: 16,
+    color: '#FFF',
+  },
+  quantityButtonText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '500',
+  },
   headerActions: {
     flexDirection: 'row',
     gap: 12,
@@ -594,6 +828,60 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     marginTop: 12,
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    width: '85%',
+    borderRadius: 16,
+    padding: 24,
+    gap: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  modalInputContainer: {
+    gap: 16,
+  },
+  modalInput: {
+    height: 48,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 16,
+    marginTop: 16,
+  },
+  modalButton: {
+    flex: 1,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+  },
+  cancelButton: {
+    backgroundColor: '#f5f5f5',
+    borderWidth: 1,
+    borderColor: '#ccc',
+  },
+  confirmButton: {
+    backgroundColor: '#4caf50',
+  },
+  buttonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 
