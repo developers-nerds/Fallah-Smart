@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Text, Platform, StatusBar, Alert, I18nManager, KeyboardAvoidingView } from 'react-native';
+import { View, StyleSheet, ScrollView, Text, Platform, StatusBar, Alert, I18nManager, KeyboardAvoidingView, TouchableOpacity } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -617,21 +617,39 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
           {label} {required && <Text style={{ color: theme.colors.error }}>*</Text>}
         </Text>
       </View>
-      <Button
-        mode="outlined"
-        onPress={() => showDatePickerModal(label === 'تاريخ الشراء' ? 'purchaseDate' : 'warrantyExpiryDate')}
+      <TouchableOpacity
         style={[
-          styles.datePickerButton, 
+          styles.datePickerButton,
           { 
-            borderColor: theme.colors.neutral.border,
-            backgroundColor: theme.colors.neutral.surface
-          },
-          error && [styles.inputError, { borderColor: theme.colors.error }]
+            backgroundColor: theme.colors.neutral.surface, 
+            borderColor: error ? theme.colors.error : theme.colors.neutral.border,
+            shadowColor: theme.colors.neutral.textSecondary,
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+            elevation: 2,
+          }
         ]}
-        labelStyle={[styles.datePickerButtonText, { color: theme.colors.neutral.textPrimary }]}
+        onPress={() => showDatePickerModal(label === 'تاريخ الشراء' ? 'purchaseDate' : 'warrantyExpiryDate')}
       >
-        {value ? formatDate(value) : 'اختر تاريخ'}
-      </Button>
+        <MaterialCommunityIcons 
+          name="calendar" 
+          size={24} 
+          color={theme.colors.primary.base} 
+          style={{ marginLeft: 8 }}
+        />
+        <Text 
+          style={[
+            styles.datePickerButtonText, 
+            { 
+              color: value ? theme.colors.neutral.textPrimary : theme.colors.neutral.textSecondary,
+              marginRight: 8,
+            }
+          ]}
+        >
+          {value ? formatDate(value) : 'اختر تاريخ'}
+        </Text>
+      </TouchableOpacity>
       {error && (
         <Text style={[styles.errorText, { color: theme.colors.error }]}>
           {error}
@@ -1237,10 +1255,18 @@ const styles = StyleSheet.create({
       lineHeight: 20,
   },
   datePickerButton: {
-    borderRadius: 12,
-    justifyContent: 'flex-start',
-    alignItems: 'flex-start',
-    paddingVertical: 10,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#00000040',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
   datePickerButtonText: {
     marginVertical: 2,
@@ -1334,21 +1360,41 @@ const styles = StyleSheet.create({
               <Button
                 mode="outlined"
                 onPress={prevPage}
-                style={[styles.button, { borderColor: theme.colors.primary.base }]}
+                style={[
+                  styles.button, 
+                  { 
+                    borderColor: theme.colors.primary.base,
+                    shadowColor: theme.colors.neutral.textSecondary,
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 4,
+                    elevation: 2,
+                  }
+                ]}
                 labelStyle={[styles.buttonText, { color: theme.colors.primary.base }]}
                 disabled={loading}
               >
-                {currentPage === 0 ? 'إلغاء' : 'السابق'}
+                {currentPage === 0 ? 'إلغاء' : 'السابق ←'}
               </Button>
               <Button
                 mode="contained"
                 onPress={nextPage}
                 loading={loading}
-                style={[styles.button, { backgroundColor: theme.colors.primary.base }]}
+                style={[
+                  styles.button, 
+                  { 
+                    backgroundColor: theme.colors.primary.base,
+                    shadowColor: theme.colors.neutral.textSecondary,
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.2,
+                    shadowRadius: 4,
+                    elevation: 3,
+                  }
+                ]}
                 labelStyle={[styles.buttonText, { color: theme.colors.neutral.surface }]}
                 disabled={formSubmitting}
               >
-                {currentPage === formPages.length - 1 ? (isEditing ? 'تحديث' : 'حفظ') : 'التالي'}
+                {currentPage === formPages.length - 1 ? (isEditing ? 'تحديث ✓' : 'حفظ ✓') : '→ التالي'}
               </Button>
             </View>
           </View>
