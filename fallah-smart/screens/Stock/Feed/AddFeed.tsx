@@ -617,37 +617,52 @@ const AddFeedScreen: React.FC<AddFeedScreenProps> = ({ navigation, route }) => {
                       <Text style={[styles(theme).label, { color: theme.colors.neutral.textSecondary }]}>
                         الوحدة *
                       </Text>
-                      <View
-                        style={[
-                          styles(theme).pickerContainer,
-                          { 
-                            backgroundColor: theme.colors.neutral.surface,
-                            borderColor: theme.colors.neutral.border,
-                            borderWidth: 1,
-                            borderRadius: 8,
-                            marginBottom: 12
-                          }
-                        ]}
-                      >
-                        <Picker
-                          selectedValue={values.unit}
-                          onValueChange={(itemValue) => {
-                            setFieldValue('unit', itemValue);
-                            console.log(`Direct picker selected unit: ${itemValue}`);
-                          }}
-                          style={{ direction: 'rtl' }}
-                        >
-                          <Picker.Item label="اختر الوحدة" value="" />
-                          {Object.entries(UNITS).map(([id, unit]) => (
-                            <Picker.Item key={id} label={`${unit.icon} ${unit.name}`} value={unit.name} />
-                    ))}
-                  </Picker>
-                </View>
-                      {touched.unit && errors.unit && (
-                        <Text style={{ color: theme.colors.error, fontSize: 12, marginTop: 4 }}>
-                          {errors.unit}
-                        </Text>
-                      )}
+                      <View style={styles(theme).unitSelectorContainer}>
+                        {Object.entries(UNITS).map(([id, unit]) => (
+                          <TouchableOpacity
+                            key={id}
+                            style={[
+                              styles(theme).unitOption,
+                              { 
+                                backgroundColor: values.unit === unit.name 
+                                  ? theme.colors.primary.base + '20' 
+                                  : theme.colors.neutral.surface,
+                                borderColor: values.unit === unit.name 
+                                  ? theme.colors.primary.base 
+                                  : theme.colors.neutral.border,
+                                shadowColor: theme.colors.neutral.textSecondary,
+                                shadowOffset: { width: 0, height: 2 },
+                                shadowOpacity: 0.1,
+                                shadowRadius: 4,
+                                elevation: 2,
+                              }
+                            ]}
+                            onPress={() => setFieldValue('unit', unit.name)}
+                          >
+                            <View style={[
+                              styles(theme).unitIconContainer, 
+                              { 
+                                backgroundColor: values.unit === unit.name 
+                                  ? theme.colors.primary.base 
+                                  : theme.colors.neutral.background
+                              }
+                            ]}>
+                              <Text style={styles(theme).unitIcon}>{unit.icon}</Text>
+                            </View>
+                            <Text style={[
+                              styles(theme).unitLabel, 
+                              { 
+                                color: values.unit === unit.name 
+                                  ? theme.colors.primary.base 
+                                  : theme.colors.neutral.textPrimary,
+                                fontWeight: values.unit === unit.name ? '600' : 'normal'
+                              }
+                            ]}>
+                              {unit.name}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
                     </View>
 
                 <TextInput
@@ -673,7 +688,14 @@ const AddFeedScreen: React.FC<AddFeedScreenProps> = ({ navigation, route }) => {
                       <TouchableOpacity
                         style={[
                           styles(theme).dateButton,
-                          { borderColor: theme.colors.neutral.border }
+                          { 
+                            borderColor: theme.colors.neutral.border,
+                            shadowColor: theme.colors.neutral.textSecondary,
+                            shadowOffset: { width: 0, height: 2 },
+                            shadowOpacity: 0.1,
+                            shadowRadius: 4,
+                            elevation: 2,
+                          }
                         ]}
                         onPress={() => setShowDatePicker('expiry')}
                       >
@@ -684,16 +706,23 @@ const AddFeedScreen: React.FC<AddFeedScreenProps> = ({ navigation, route }) => {
                         />
                         <Text style={[
                           styles(theme).dateButtonText,
-                          { color: theme.colors.neutral.textPrimary }
+                          { color: values.expiryDate ? theme.colors.neutral.textPrimary : theme.colors.neutral.textSecondary }
                         ]}>
-                          تاريخ الصلاحية: {new Date(values.expiryDate || new Date()).toLocaleDateString('ar-SA')}
+                          تاريخ الصلاحية: {values.expiryDate ? new Date(values.expiryDate).toLocaleDateString('en-GB') : 'غير محدد'}
                         </Text>
                       </TouchableOpacity>
 
                 <TouchableOpacity
                         style={[
                           styles(theme).dateButton,
-                          { borderColor: theme.colors.neutral.border }
+                          { 
+                            borderColor: theme.colors.neutral.border,
+                            shadowColor: theme.colors.neutral.textSecondary,
+                            shadowOffset: { width: 0, height: 2 },
+                            shadowOpacity: 0.1,
+                            shadowRadius: 4,
+                            elevation: 2,
+                          }
                         ]}
                         onPress={() => setShowDatePicker('purchase')}
                       >
@@ -704,9 +733,9 @@ const AddFeedScreen: React.FC<AddFeedScreenProps> = ({ navigation, route }) => {
                         />
                         <Text style={[
                           styles(theme).dateButtonText,
-                          { color: theme.colors.neutral.textPrimary }
+                          { color: values.purchaseDate ? theme.colors.neutral.textPrimary : theme.colors.neutral.textSecondary }
                         ]}>
-                          تاريخ الشراء: {new Date(values.purchaseDate || new Date()).toLocaleDateString('ar-SA')}
+                          تاريخ الشراء: {values.purchaseDate ? new Date(values.purchaseDate).toLocaleDateString('en-GB') : 'غير محدد'}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -826,7 +855,7 @@ const AddFeedScreen: React.FC<AddFeedScreenProps> = ({ navigation, route }) => {
                   style={[styles(theme).navigationButton, styles(theme).prevButton]}
                   onPress={handlePrevStep}
                 >
-                  <MaterialCommunityIcons name="chevron-right" size={24} color={theme.colors.primary.base} />
+                  <MaterialCommunityIcons name="arrow-left" size={24} color={theme.colors.primary.base} />
                   <Text style={[styles(theme).navigationButtonText, { color: theme.colors.primary.base }]}>السابق</Text>
                 </TouchableOpacity>
               )}
@@ -837,7 +866,7 @@ const AddFeedScreen: React.FC<AddFeedScreenProps> = ({ navigation, route }) => {
                   onPress={handleNextStep}
                 >
                   <Text style={[styles(theme).navigationButtonText, { color: "white" }]}>التالي</Text>
-                  <MaterialCommunityIcons name="chevron-left" size={24} color="white" />
+                  <MaterialCommunityIcons name="arrow-right" size={24} color="white" />
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity
@@ -1199,6 +1228,37 @@ const styles = (theme: Theme) => StyleSheet.create({
   dateSection: {
     marginTop: 16,
     gap: 8,
+  },
+  unitSelectorContainer: {
+    flexDirection: 'row-reverse',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'space-between',
+  },
+  unitOption: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    padding: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    width: '48%',
+    marginBottom: 8,
+  },
+  unitIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  unitIcon: {
+    fontSize: 16,
+  },
+  unitLabel: {
+    flex: 1,
+    fontSize: 14,
+    textAlign: 'right',
   },
 });
 

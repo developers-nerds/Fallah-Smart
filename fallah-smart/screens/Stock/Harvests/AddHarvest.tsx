@@ -571,17 +571,33 @@ const AddHarvestScreen: React.FC<AddHarvestScreenProps> = ({ navigation, route }
               <Text style={[styles.inputLabel, { color: theme.colors.neutral.textSecondary }]}>
                 تاريخ الحصاد *
               </Text>
-              <DatePicker
-                value={values.harvestDate ? new Date(values.harvestDate) : new Date()}
-                onChange={(date) => setFieldValue('harvestDate', date.toISOString())}
-                placeholder="اختر تاريخ الحصاد"
-              />
+              <TouchableOpacity
+                style={[
+                  styles.dateButton, 
+                  { 
+                    borderColor: theme.colors.neutral.border,
+                    shadowColor: theme.colors.neutral.textSecondary,
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 4,
+                    elevation: 2, 
+                  }
+                ]}
+                onPress={() => {
+                  showDatepicker('harvestDate');
+                }}
+              >
+                <MaterialCommunityIcons name="calendar" size={20} color={theme.colors.primary.base} style={{ marginLeft: 10 }} />
+                <Text style={{ color: theme.colors.neutral.textPrimary }}>
+                  {values.harvestDate ? new Date(values.harvestDate).toLocaleDateString('en-GB') : 'اختر تاريخ الحصاد'}
+                </Text>
+              </TouchableOpacity>
               {touched.harvestDate && errors.harvestDate && (
                 <Text style={[styles.errorText, { color: theme.colors.error }]}>
                   {errors.harvestDate}
                 </Text>
               )}
-              </View>
+            </View>
           </Animated.View>
         );
       
@@ -985,11 +1001,18 @@ const AddHarvestScreen: React.FC<AddHarvestScreenProps> = ({ navigation, route }
                       style={[
                         styles.button,
                         styles.secondaryButton,
-                        { backgroundColor: theme.colors.neutral.surface },
+                        { 
+                          backgroundColor: theme.colors.neutral.surface,
+                          shadowColor: theme.colors.neutral.textSecondary,
+                          shadowOffset: { width: 0, height: 2 },
+                          shadowOpacity: 0.1,
+                          shadowRadius: 4,
+                          elevation: 2,
+                        },
                       ]}
                       onPress={prevStep}
                     >
-                      <MaterialCommunityIcons name="arrow-right" size={20} color={theme.colors.primary.base} />
+                      <MaterialCommunityIcons name="arrow-left" size={20} color={theme.colors.primary.base} />
                       <Text style={[styles.buttonText, { color: theme.colors.primary.base }]}>
                         السابق
                       </Text>
@@ -1001,14 +1024,21 @@ const AddHarvestScreen: React.FC<AddHarvestScreenProps> = ({ navigation, route }
                       style={[
                         styles.button,
                         styles.primaryButton,
-                        { backgroundColor: theme.colors.primary.base },
+                        { 
+                          backgroundColor: theme.colors.primary.base,
+                          shadowColor: theme.colors.neutral.textSecondary,
+                          shadowOffset: { width: 0, height: 2 },
+                          shadowOpacity: 0.2,
+                          shadowRadius: 4,
+                          elevation: 3,
+                        },
                       ]}
                       onPress={nextStep}
                     >
                       <Text style={styles.buttonText}>
                         التالي
                       </Text>
-                      <MaterialCommunityIcons name="arrow-left" size={20} color="white" />
+                      <MaterialCommunityIcons name="arrow-right" size={20} color="white" />
                     </TouchableOpacity>
                   ) : (
                     <TouchableOpacity
@@ -1316,6 +1346,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 8,
+  },
+  dateButton: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 });
 

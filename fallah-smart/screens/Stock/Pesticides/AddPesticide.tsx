@@ -476,6 +476,11 @@ const AddPesticideScreen = ({ navigation, mode = 'add', initialData }: AddPestic
     }
   };
 
+  const getUnitLabel = (unitValue: StockUnit): string => {
+    const unit = units.find(u => u.value === unitValue);
+    return unit ? unit.label : '';
+  };
+
   // Update renderField for enhanced UI
   const renderField = (field: keyof FormData) => {
     const unitInfo = UNIT_ICONS[formData.unit.toLowerCase() as keyof typeof UNIT_ICONS];
@@ -589,7 +594,7 @@ const AddPesticideScreen = ({ navigation, mode = 'add', initialData }: AddPestic
               <View style={{flex: 2}}>
                 <Text style={styles.fieldTitle}>
                   الكمية
-            </Text>
+                </Text>
                 <TextInput
                   style={[styles.enhancedInput, { 
                     borderColor: validationErrors.quantity ? theme.colors.error : theme.colors.neutral.border,
@@ -611,30 +616,83 @@ const AddPesticideScreen = ({ navigation, mode = 'add', initialData }: AddPestic
                 <Text style={styles.fieldTitle}>
                   الوحدة
                 </Text>
-                <View style={styles.unitButtons}>
-                  {units.map((unit) => (
                 <TouchableOpacity
-                      key={unit.value}
-                  style={[
-                        styles.unitButton,
-                        formData.unit === unit.value && { 
-                          backgroundColor: theme.colors.primary.base + '20',
-                          borderColor: theme.colors.primary.base,
-                        },
-                      ]}
-                      onPress={() => handleUnitChange(unit.value as StockUnit)}
-                    >
-                  <Text style={[
-                        styles.unitButtonText,
-                        { color: formData.unit === unit.value ? theme.colors.primary.base : theme.colors.neutral.textPrimary }
-                  ]}>
-                        {unit.label}
+                  style={[styles.unitDropdownButton, {
+                    borderColor: theme.colors.primary.base,
+                    backgroundColor: theme.colors.neutral.background,
+                  }]}
+                  onPress={() => setShowUnitPicker(true)}
+                >
+                  <Text style={[styles.unitButtonText, { color: theme.colors.neutral.textPrimary }]}>
+                    {getUnitLabel(formData.unit)}
                   </Text>
+                  <Feather name="chevron-down" size={16} color={theme.colors.primary.base} />
                 </TouchableOpacity>
-              ))}
-            </View>
               </View>
             </View>
+
+            <Modal
+              visible={showUnitPicker}
+              transparent
+              animationType="fade"
+              onRequestClose={() => setShowUnitPicker(false)}
+            >
+              <TouchableOpacity
+                style={styles.modalOverlay}
+                activeOpacity={1}
+                onPress={() => setShowUnitPicker(false)}
+              >
+                <View style={[styles.unitPickerModal, {
+                  backgroundColor: theme.colors.neutral.surface,
+                  borderColor: theme.colors.neutral.border,
+                  shadowColor: theme.colors.neutral.textSecondary,
+                }]}>
+                  <Text style={[styles.modalTitle, { color: theme.colors.neutral.textPrimary }]}>
+                    اختر الوحدة
+                  </Text>
+                  
+                  <View style={styles.unitList}>
+                    {units.map((unit) => (
+                      <TouchableOpacity
+                        key={unit.value}
+                        style={[
+                          styles.unitPickerItem,
+                          formData.unit === unit.value && {
+                            backgroundColor: theme.colors.primary.base + '20',
+                            borderColor: theme.colors.primary.base,
+                          },
+                        ]}
+                        onPress={() => {
+                          handleUnitChange(unit.value as StockUnit);
+                          setShowUnitPicker(false);
+                        }}
+                      >
+                        <MaterialCommunityIcons 
+                          name={unit.icon} 
+                          size={20} 
+                          color={formData.unit === unit.value ? theme.colors.primary.base : theme.colors.neutral.textSecondary} 
+                        />
+                        <Text style={[
+                          styles.unitPickerItemText,
+                          { color: formData.unit === unit.value ? theme.colors.primary.base : theme.colors.neutral.textPrimary }
+                        ]}>
+                          {unit.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <TouchableOpacity
+                    style={[styles.closeButton, { borderTopColor: theme.colors.neutral.border }]}
+                    onPress={() => setShowUnitPicker(false)}
+                  >
+                    <Text style={[styles.closeButtonText, { color: theme.colors.primary.base }]}>
+                      إغلاق
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </TouchableOpacity>
+            </Modal>
           </Animated.View>
         );
 
@@ -1096,12 +1154,12 @@ const AddPesticideScreen = ({ navigation, mode = 'add', initialData }: AddPestic
 
   // Remove text labels from step indicator and fix button positioning
   const renderStepIndicator = () => {
-    return (
+  return (
       <View style={styles.stepIndicatorContainer}>
         {FORM_PAGES.map((page, index) => (
           <View key={index} style={styles.stepItem}>
             {/* Circle for the step */}
-            <TouchableOpacity
+        <TouchableOpacity
               onPress={() => {
                 // Allow jumping to previous steps only
                 if (index <= currentPage) {
@@ -1136,12 +1194,12 @@ const AddPesticideScreen = ({ navigation, mode = 'add', initialData }: AddPestic
                   {index + 1}
                 </Text>
               )}
-            </TouchableOpacity>
+        </TouchableOpacity>
             
             {/* Line between steps - Right to left for Arabic */}
             {index < FORM_PAGES.length - 1 && (
               <View 
-                style={[
+            style={[
                   styles.stepLine, 
                   { 
                     backgroundColor: index < currentPage 
@@ -1150,39 +1208,39 @@ const AddPesticideScreen = ({ navigation, mode = 'add', initialData }: AddPestic
                   }
                 ]} 
               />
-            )}
-          </View>
-        ))}
-      </View>
+              )}
+            </View>
+          ))}
+        </View>
     );
   };
 
   // Fix footer buttons - Next on right, Previous on left for Arabic UI
   const FooterButtons = () => (
-    <View style={styles.footer}>
-      {currentPage > 0 && (
-        <TouchableOpacity
+      <View style={styles.footer}>
+        {currentPage > 0 && (
+          <TouchableOpacity
           style={[styles.button, styles.previousButton]}
-          onPress={handlePrevious}
+            onPress={handlePrevious}
+            disabled={isSubmitting}
+          >
+          <Text style={[styles.buttonText, { color: theme.colors.primary.base }]}>
+              السابق
+            </Text>
+          <Feather name="arrow-left" size={20} color={theme.colors.primary.base} style={{marginRight: 8}} />
+          </TouchableOpacity>
+        )}
+      
+        <TouchableOpacity
+          style={[
+            styles.button, 
+            styles.nextButton, 
+            isSubmitting && { opacity: 0.7 }
+          ]}
+          onPress={currentPage === FORM_PAGES.length - 1 ? handleSubmit : handleNext}
           disabled={isSubmitting}
         >
-          <Text style={[styles.buttonText, { color: theme.colors.primary.base }]}>
-            السابق
-          </Text>
-          <Feather name="arrow-left" size={20} color={theme.colors.primary.base} style={{marginRight: 8}} />
-        </TouchableOpacity>
-      )}
-      
-      <TouchableOpacity
-        style={[
-          styles.button, 
-          styles.nextButton, 
-          isSubmitting && { opacity: 0.7 }
-        ]}
-        onPress={currentPage === FORM_PAGES.length - 1 ? handleSubmit : handleNext}
-        disabled={isSubmitting}
-      >
-        {isSubmitting ? (
+          {isSubmitting ? (
           <ActivityIndicator color="white" size="small" />
         ) : (
           <>
@@ -1193,9 +1251,9 @@ const AddPesticideScreen = ({ navigation, mode = 'add', initialData }: AddPestic
               {currentPage === FORM_PAGES.length - 1 ? 'إضافة' : 'التالي'}
             </Text>
           </>
-        )}
-      </TouchableOpacity>
-    </View>
+          )}
+        </TouchableOpacity>
+      </View>
   );
 
   // Update the main UI layout
@@ -1400,22 +1458,74 @@ const styles = createThemedStyles((theme) => {
       justifyContent: 'space-between',
       alignItems: 'flex-start',
     },
-    unitButtons: {
-      flexDirection: 'column',
-      gap: 8,
-    },
-    unitButton: {
-      paddingVertical: 8,
-      paddingHorizontal: 12,
+    unitDropdownButton: {
+      height: 44,
       borderWidth: 1,
-      borderColor: theme.colors.neutral.border,
-      borderRadius: theme.borderRadius.small,
-      backgroundColor: theme.colors.neutral.background,
+      borderRadius: theme.borderRadius.medium,
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.sm,
+      flexDirection: 'row-reverse',
+      justifyContent: 'space-between',
       alignItems: 'center',
+      backgroundColor: theme.colors.neutral.background,
+      shadowColor: theme.colors.neutral.textSecondary,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+      elevation: 2,
     },
-    unitButtonText: {
-      fontSize: 14,
-      fontWeight: '500',
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: theme.spacing.lg,
+    },
+    unitPickerModal: {
+      width: '90%',
+      maxWidth: 360,
+      borderRadius: theme.borderRadius.large,
+      borderWidth: 1,
+      overflow: 'hidden',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.2,
+      shadowRadius: 8,
+      elevation: 5,
+    },
+    modalTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      paddingVertical: theme.spacing.md,
+      paddingHorizontal: theme.spacing.lg,
+      textAlign: 'center',
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.neutral.border,
+    },
+    unitList: {
+      maxHeight: 300,
+      paddingVertical: theme.spacing.sm,
+    },
+    unitPickerItem: {
+      flexDirection: 'row-reverse',
+      alignItems: 'center',
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.neutral.border,
+    },
+    unitPickerItemText: {
+      fontSize: 16,
+      marginRight: 10,
+      textAlign: 'right',
+    },
+    closeButton: {
+      padding: theme.spacing.md,
+      alignItems: 'center',
+      borderTopWidth: 1,
+    },
+    closeButtonText: {
+      fontSize: 16,
+      fontWeight: '600',
     },
     inputWithIcon: {
       position: 'relative',

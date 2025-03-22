@@ -602,16 +602,18 @@ export const AddSeedScreen = ({ navigation, route }: AddSeedScreenProps) => {
                   backgroundColor: theme.colors.neutral.surface,
                   borderColor: theme.colors.neutral.border,
                   elevation: 2,
-                  shadowOpacity: 0.2,
-                  shadowRadius: 2,
-                  shadowOffset: { width: 0, height: 1 },
+                  shadowColor: theme.colors.neutral.textSecondary,
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 4,
+                  elevation: 2,
                 }
               ]}
               onPress={() => showDatePickerModal(field as DateField)}
             >
               <Text style={{ color: theme.colors.neutral.textPrimary, fontWeight: '500' }}>
-                {new Date(values[field]).toLocaleDateString('en')}
-                </Text>
+                {values[field] ? new Date(values[field]).toLocaleDateString('en-GB') : 'غير محدد'}
+              </Text>
               <Feather name="calendar" size={20} color={theme.colors.primary.base} />
               </TouchableOpacity>
             {touched[field] && errors[field] && (
@@ -940,7 +942,7 @@ export const AddSeedScreen = ({ navigation, route }: AddSeedScreenProps) => {
                 <View style={styles.buttonContainer}>
                   {currentPage > 0 && (
                     <CustomButton
-                      title="السابق"
+                      title="السابق ←"
                       onPress={prevPage}
                       type="secondary"
                       style={{ 
@@ -948,13 +950,18 @@ export const AddSeedScreen = ({ navigation, route }: AddSeedScreenProps) => {
                         borderRadius: 10,
                         borderWidth: 2,
                         borderColor: theme.colors.primary.base,
-              }}
-            />
-          )}
+                        shadowColor: theme.colors.neutral.textSecondary,
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.1,
+                        shadowRadius: 4,
+                        elevation: 2,
+                      }}
+                    />
+                  )}
                   
                   {currentPage < formPages.length - 1 ? (
                     <CustomButton
-                      title="التالي"
+                      title="→ التالي"
                       onPress={nextPage}
                       type="primary"
                       disabled={!validateCurrentPage(values)}
@@ -962,7 +969,7 @@ export const AddSeedScreen = ({ navigation, route }: AddSeedScreenProps) => {
                         flex: 1,
                         borderRadius: 10,
                         elevation: 5,
-                        shadowColor: "#000",
+                        shadowColor: theme.colors.neutral.textSecondary,
                         shadowOffset: { width: 0, height: 3 },
                         shadowOpacity: 0.3,
                         shadowRadius: 4,
@@ -970,7 +977,7 @@ export const AddSeedScreen = ({ navigation, route }: AddSeedScreenProps) => {
                     />
                   ) : (
                     <CustomButton
-                      title="حفظ"
+                      title="✓ حفظ"
                       onPress={() => handleSubmit()}
                       type="primary"
                       disabled={!isValid}
@@ -978,7 +985,7 @@ export const AddSeedScreen = ({ navigation, route }: AddSeedScreenProps) => {
                         flex: 1, 
                         borderRadius: 10,
                         elevation: 5,
-                        shadowColor: "#000",
+                        shadowColor: theme.colors.neutral.textSecondary,
                         shadowOffset: { width: 0, height: 3 },
                         shadowOpacity: 0.3,
                         shadowRadius: 4,

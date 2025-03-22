@@ -46,9 +46,12 @@ interface FormPage {
   fields: Array<keyof FormData>;
 }
 
+type FertilizerType = 'organic' | 'chemical' | 'mixed';
+type FertilizerKey = keyof typeof FERTILIZER_TYPES;
+
 interface FormData {
   name: string;
-  type: FertilizerType;
+  type: FertilizerKey;
   quantity: string;
   unit: string;
   price: string;
@@ -87,8 +90,6 @@ type AddFertilizerScreenProps = {
   route: RouteProp<{ AddFertilizer: { fertilizerId?: number } }, 'AddFertilizer'>;
 };
 
-type FertilizerType = 'organic' | 'chemical' | 'mixed';
-
 const FERTILIZER_CATEGORIES: Record<FertilizerType, { icon: string; label: string }> = {
   'chemical': { icon: '⚗️', label: 'أسمدة كيميائية' },
   'organic': { icon: '🌱', label: 'أسمدة عضوية' },
@@ -120,11 +121,18 @@ const FERTILIZER_TYPES: Record<string, FertilizerTypeInfo> = {
   mycorrhiza: { icon: '🍄', name: 'فطريات جذرية', category: 'mixed', type: 'mixed' },
 };
 
+const UNITS = [
+  { value: 'kg', label: 'كيلوغرام', icon: '⚖️' },
+  { value: 'g', label: 'غرام', icon: '⚖️' },
+  { value: 'l', label: 'لتر', icon: '💧' },
+  { value: 'ml', label: 'مليلتر', icon: '💧' },
+  { value: 'units', label: 'وحدة', icon: '📦' }
+];
+
 const validationSchema = Yup.object().shape({
   name: Yup.string().required('الاسم مطلوب'),
-  type: Yup.mixed<FertilizerType>()
-    .oneOf(Object.keys(FERTILIZER_CATEGORIES) as FertilizerType[], 'نوع السماد غير صالح')
-    .required('النوع مطلوب') as Yup.StringSchema<FertilizerType>,
+  type: Yup.string()
+    .required('النوع مطلوب'),
   quantity: Yup.number().min(0, 'الكمية يجب أن تكون أكبر من 0').required('الكمية مطلوبة'),
   unit: Yup.string().required('الوحدة مطلوبة'),
   price: Yup.number().min(0, 'السعر يجب أن يكون أكبر من 0').required('السعر مطلوب'),
@@ -147,7 +155,7 @@ export const AddFertilizerScreen = ({ navigation, route }: AddFertilizerScreenPr
   const [showTypeModal, setShowTypeModal] = useState(false);
   const [initialFormValues, setInitialFormValues] = useState<FormData>({
     name: '',
-    type: 'chemical',
+    type: 'npk',
     quantity: '0',
     unit: 'kg',
     price: '0',
@@ -188,7 +196,9 @@ export const AddFertilizerScreen = ({ navigation, route }: AddFertilizerScreenPr
       if (existingFertilizer) {
         setInitialFormValues({
           name: existingFertilizer.name || '',
-          type: existingFertilizer.type as keyof typeof FERTILIZER_TYPES,
+          type: (existingFertilizer.type as string in FERTILIZER_TYPES) 
+            ? (existingFertilizer.type as FertilizerKey)
+            : 'npk',
           quantity: existingFertilizer.quantity?.toString() || '0',
           unit: existingFertilizer.unit || 'kg',
           price: existingFertilizer.price?.toString() || '0',
@@ -347,13 +357,19 @@ export const AddFertilizerScreen = ({ navigation, route }: AddFertilizerScreenPr
       case 'type':
         const selectedFertilizer = FERTILIZER_TYPES[values.type];
         return (
-          <View style={styles.inputGroup}>
-            <View style={styles.labelContainer}>
-              <Text style={styles.fieldIcon}>⚗️</Text>
-              <Text style={[styles.label, { color: theme.colors.neutral.textPrimary }]}>
-                نوع السماد *
-              </Text>
-            </View>
+          <Animated.View 
+            style={[styles.fieldContainer, { 
+              backgroundColor: 'rgba(255, 255, 255, 0.7)',
+              shadowColor: theme.colors.neutral.textSecondary,
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 4,
+              elevation: 2,
+            }]}
+          >
+            <Text style={[styles.fieldTitle, { color: theme.colors.neutral.textPrimary }]}>
+              نوع السماد <Text style={{color: 'red'}}>*</Text>
+            </Text>
             <TouchableOpacity
               style={[
                 styles.typeSelector,
@@ -384,7 +400,7 @@ export const AddFertilizerScreen = ({ navigation, route }: AddFertilizerScreenPr
                 </Text>
               )}
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         );
       
       case 'name':
@@ -392,62 +408,90 @@ export const AddFertilizerScreen = ({ navigation, route }: AddFertilizerScreenPr
         return (
           <Animated.View
             key={field}
-            entering={FadeInRight.delay(100).springify()}
             style={[styles.fieldContainer, { 
-              backgroundColor: 'rgba(255, 248, 220, 0.5)',
+              backgroundColor: 'rgba(255, 255, 255, 0.7)',
               borderRadius: 12,
-              padding: 10,
-              borderWidth: 1,
-              borderColor: 'rgba(222, 184, 135, 0.3)',
+              shadowColor: theme.colors.neutral.textSecondary,
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 4,
+              elevation: 2,
             }]}
           >
-            <View style={[styles.fieldHeaderContainer, {
-              backgroundColor: 'rgba(255, 248, 220, 0.7)',
-              borderColor: 'rgba(222, 184, 135, 0.5)',
+            <Text style={[styles.fieldTitle, { 
+              color: theme.colors.neutral.textPrimary,
+              marginBottom: 8
             }]}>
-              <Text style={[styles.fieldIcon, { fontSize: 30 }]}>
-                {fertilizerType?.icon || '⚗️'}
-              </Text>
-              <Text style={[styles.label, { 
-                color: theme.colors.neutral.textPrimary,
-                fontSize: 18,
-                fontWeight: 'bold',
-              }]}>
-                اسم السماد
-              </Text>
-            </View>
+              اسم السماد <Text style={{color: 'red'}}>*</Text>
+            </Text>
             <TextInput
               value={values.name}
               onChangeText={(text: string) => handleChange(field)(text)}
               onBlur={() => handleBlur(field)}
               error={touched.name && errors.name ? errors.name : undefined}
               placeholder={fertilizerType?.name || 'أدخل اسم السماد'}
-              style={{ backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 8 }}
+              style={{ backgroundColor: theme.colors.neutral.surface, borderWidth: 1, borderColor: theme.colors.neutral.border, borderRadius: 8, textAlign: 'right' }}
             />
           </Animated.View>
         );
       
       case 'expiryDate':
         return (
-          <View style={styles.fieldContainer}>
-            <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
+          <Animated.View style={[styles.fieldContainer, { 
+            backgroundColor: 'rgba(255, 255, 255, 0.7)',
+            shadowColor: theme.colors.neutral.textSecondary,
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+            elevation: 2,
+          }]}>
+            <Text style={[styles.fieldTitle, { color: theme.colors.neutral.textPrimary }]}>
               تاريخ الصلاحية
             </Text>
             <TouchableOpacity
-              style={[styles.dateButton, { borderColor: theme.colors.neutral.border }]}
+              style={[
+                styles.dateButton, 
+                { 
+                  borderColor: field === 'expiryDate' && touched[field] && errors[field] ? theme.colors.error : theme.colors.neutral.border,
+                  height: 50,
+                  borderWidth: 1,
+                  borderRadius: 8,
+                  paddingHorizontal: 16,
+                  flexDirection: 'row-reverse',
+                  alignItems: 'center',
+                  backgroundColor: theme.colors.neutral.surface,
+                }
+              ]}
               onPress={() => showDatePickerModal('expiryDate')}
             >
-              <Text style={[styles.dateButtonText, { color: theme.colors.neutral.textPrimary }]}>
-                {new Date(values.expiryDate).toLocaleDateString('en')}
+              <Feather name="calendar" size={20} color={theme.colors.primary.base} style={{ marginLeft: 10 }} />
+              <Text style={[
+                { 
+                  fontSize: 16,
+                  flex: 1,
+                  textAlign: 'right',
+                  color: values[field] ? theme.colors.neutral.textPrimary : theme.colors.neutral.textSecondary 
+                }
+              ]}>
+                {values[field]
+                  ? new Date(values[field]).toLocaleDateString('en-GB')
+                  : field === 'expiryDate' ? 'حدد تاريخ انتهاء الصلاحية' : 'حدد التاريخ'}
               </Text>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         );
       
       case 'safetyGuidelines':
         return (
-          <View style={styles.fieldContainer}>
-            <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
+          <Animated.View style={[styles.fieldContainer, { 
+            backgroundColor: 'rgba(255, 255, 255, 0.7)',
+            shadowColor: theme.colors.neutral.textSecondary,
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+            elevation: 2,
+          }]}>
+            <Text style={[styles.fieldTitle, { color: theme.colors.neutral.textPrimary }]}>
               تعليمات السلامة
             </Text>
             <TextInput
@@ -456,30 +500,113 @@ export const AddFertilizerScreen = ({ navigation, route }: AddFertilizerScreenPr
               onBlur={() => handleBlur(field)}
               multiline
               numberOfLines={4}
-              style={[styles.textArea, { borderColor: theme.colors.neutral.border }]}
+              style={[{ 
+                borderWidth: 1, 
+                borderRadius: 8, 
+                padding: 12, 
+                textAlignVertical: 'top', 
+                borderColor: theme.colors.neutral.border,
+                textAlign: 'right', 
+                backgroundColor: theme.colors.neutral.surface
+              }]}
               placeholder="أضف تعليمات السلامة..."
             />
-          </View>
+          </Animated.View>
+        );
+      
+      case 'unit':
+        return (
+          <Animated.View style={[styles.fieldContainer, { 
+            backgroundColor: 'rgba(255, 255, 255, 0.7)',
+            shadowColor: theme.colors.neutral.textSecondary,
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+            elevation: 2,
+          }]}>
+            <Text style={[styles.fieldTitle, { color: theme.colors.neutral.textPrimary }]}>
+              الوحدة <Text style={{color: 'red'}}>*</Text>
+            </Text>
+            <View style={styles.unitSelectorContainer}>
+              {UNITS.map((unit) => (
+                <TouchableOpacity
+                  key={unit.value}
+                  style={[
+                    styles.unitOption,
+                    { 
+                      backgroundColor: values.unit === unit.value 
+                        ? theme.colors.primary.base + '20' 
+                        : theme.colors.neutral.surface,
+                      borderColor: values.unit === unit.value 
+                        ? theme.colors.primary.base 
+                        : theme.colors.neutral.border,
+                    }
+                  ]}
+                  onPress={() => setFieldValue('unit', unit.value)}
+                >
+                  <View style={[
+                    styles.unitIconContainer, 
+                    { 
+                      backgroundColor: values.unit === unit.value 
+                        ? theme.colors.primary.base 
+                        : theme.colors.neutral.background
+                    }
+                  ]}>
+                    <Text style={styles.unitIcon}>{unit.icon}</Text>
+                  </View>
+                  <Text style={[
+                    styles.unitLabel, 
+                    { 
+                      color: values.unit === unit.value 
+                        ? theme.colors.primary.base 
+                        : theme.colors.neutral.textPrimary,
+                      fontWeight: values.unit === unit.value ? '600' : 'normal'
+                    }
+                  ]}>
+                    {unit.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </Animated.View>
         );
       
       default:
         return (
-          <View style={styles.fieldContainer}>
-            <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
+          <Animated.View style={[styles.fieldContainer, { 
+            backgroundColor: 'rgba(255, 255, 255, 0.7)',
+            shadowColor: theme.colors.neutral.textSecondary,
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+            elevation: 2,
+          }]}>
+            <Text style={[styles.fieldTitle, { color: theme.colors.neutral.textPrimary }]}>
               {getFieldLabel(field)}
+              {['quantity', 'unit'].includes(field) && <Text style={{color: 'red'}}> *</Text>}
             </Text>
             <TextInput
               value={values[field]}
               onChangeText={(text: string) => handleChange(field)(text)}
               onBlur={() => handleBlur(field)}
               keyboardType={getFieldKeyboardType(field)}
-              style={[styles.input, { borderColor: theme.colors.neutral.border }]}
+              style={[{ 
+                borderWidth: 1, 
+                borderRadius: 8, 
+                height: 48, 
+                paddingHorizontal: 16, 
+                borderColor: theme.colors.neutral.border,
+                textAlign: 'right',
+                backgroundColor: theme.colors.neutral.surface
+              }]}
               placeholder={getFieldPlaceholder(field)}
             />
             {touched[field] && errors[field] && (
-              <Text style={[styles.errorText, { color: theme.colors.error }]}>{errors[field]}</Text>
+              <Text style={[{ fontSize: 12, color: theme.colors.error, textAlign: 'right', marginTop: 4 }]}>
+                {errors[field]}
+              </Text>
             )}
-          </View>
+          </Animated.View>
         );
     }
   };
@@ -519,35 +646,131 @@ export const AddFertilizerScreen = ({ navigation, route }: AddFertilizerScreenPr
 
   const renderProgressBar = () => {
     return (
-      <View style={styles.progressContainer}>
-        {formPages.map((_, index) => (
-          <View
-            key={index}
-            style={[
-              styles.progressBar,
-              {
-                backgroundColor: index <= currentPage 
-                  ? theme.colors.primary.base 
-                  : theme.colors.neutral.border,
-              },
-            ]}
-          />
+      <View style={styles.stepIndicatorContainer}>
+        {formPages.map((page, index) => (
+          <View key={index} style={styles.stepItem}>
+            <TouchableOpacity
+              onPress={() => {
+                if (index <= currentPage) {
+                  setCurrentPage(index);
+                }
+              }}
+              style={[
+                styles.stepCircle,
+                {
+                  backgroundColor: index < currentPage 
+                    ? theme.colors.primary.base
+                    : index === currentPage 
+                      ? theme.colors.primary.base + '20'
+                      : theme.colors.neutral.surface,
+                  borderColor: index <= currentPage 
+                    ? theme.colors.primary.base
+                    : theme.colors.neutral.border,
+                }
+              ]}
+            >
+              {index < currentPage ? (
+                <Feather name="check" size={14} color="#FFF" />
+              ) : (
+                <Text style={[
+                  styles.stepNumber, 
+                  { 
+                    color: index === currentPage 
+                      ? theme.colors.primary.base
+                      : theme.colors.neutral.textSecondary
+                  }
+                ]}>
+                  {index + 1}
+                </Text>
+              )}
+            </TouchableOpacity>
+            
+            {index < formPages.length - 1 && (
+              <View 
+                style={[
+                  styles.stepLine, 
+                  { 
+                    backgroundColor: index < currentPage 
+                      ? theme.colors.primary.base
+                      : theme.colors.neutral.border,
+                    marginHorizontal: 4
+                  }
+                ]} 
+              />
+            )}
+          </View>
         ))}
       </View>
     );
   };
 
   const renderPageHeader = () => (
-    <View style={styles.pageHeader}>
-      <Text style={[styles.pageIcon]}>{formPages[currentPage].icon}</Text>
-      <View>
-        <Text style={[styles.pageTitle, { color: theme.colors.neutral.textPrimary }]}>
-          {formPages[currentPage].title}
-        </Text>
-        <Text style={[styles.pageSubtitle, { color: theme.colors.neutral.textSecondary }]}>
-          {formPages[currentPage].subtitle}
-        </Text>
-      </View>
+    <View style={styles.formHeaderContainer}>
+      <Text style={styles.formTitle}>
+        {formPages[currentPage].title}
+      </Text>
+      <Text style={styles.formSubtitle}>
+        {formPages[currentPage].subtitle}
+      </Text>
+    </View>
+  );
+
+  const renderFooterButtons = ({ handleSubmit, isValid, values }: any) => (
+    <View style={styles.footer}>
+      <TouchableOpacity
+        style={[
+          styles.button, 
+          { 
+            backgroundColor: theme.colors.primary.base,
+            flex: 1,
+            height: 48,
+            borderRadius: 24,
+            justifyContent: 'center',
+            alignItems: 'center',
+            flexDirection: 'row',
+            marginHorizontal: 6,
+          }, 
+          !validateCurrentPage(values) && { opacity: 0.7 }
+        ]}
+        onPress={currentPage === formPages.length - 1 ? handleSubmit : nextPage}
+        disabled={!validateCurrentPage(values)}
+      >
+        {loading ? (
+          <ActivityIndicator color="white" size="small" />
+        ) : (
+          <>
+            <Text style={[styles.buttonText, {color: 'white'}]}>
+              {currentPage === formPages.length - 1 ? 'إضافة' : 'التالي →'}
+            </Text>
+          </>
+        )}
+      </TouchableOpacity>
+      
+      {currentPage > 0 && (
+        <TouchableOpacity
+          style={[
+            styles.button, 
+            {
+              backgroundColor: theme.colors.neutral.surface,
+              borderWidth: 1,
+              borderColor: theme.colors.primary.base,
+              flex: 1,
+              height: 48,
+              borderRadius: 24,
+              justifyContent: 'center',
+              alignItems: 'center',
+              flexDirection: 'row',
+              marginHorizontal: 6,
+            }
+          ]}
+          onPress={prevPage}
+          disabled={loading}
+        >
+          <Text style={[styles.buttonText, { color: theme.colors.primary.base }]}>
+            {' ←السابق'}
+          </Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 
@@ -563,7 +786,7 @@ export const AddFertilizerScreen = ({ navigation, route }: AddFertilizerScreenPr
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: '#f5f5f5' }]}>
       <StatusBar
         backgroundColor={theme.colors.neutral.surface}
         barStyle="dark-content"
@@ -578,69 +801,48 @@ export const AddFertilizerScreen = ({ navigation, route }: AddFertilizerScreenPr
           onSubmit={handleSubmit}
           enableReinitialize
         >
-          {({ handleChange, handleBlur, handleSubmit, values, errors, touched, setFieldValue, isValid }) => (
+          {(formikProps) => (
             <>
+              {renderProgressBar()}
+              {renderPageHeader()}
+              
               <ScrollView
-                style={styles.scrollView}
+                style={styles.content}
                 contentContainerStyle={styles.contentContainer}
                 showsVerticalScrollIndicator={false}
               >
-                {renderProgressBar()}
-                {renderPageHeader()}
-                
-                <View style={styles.formContainer}>
+                <View style={styles.form}>
                   {formPages[currentPage].fields.map(field => (
                     <View key={field}>
-                      {renderField(field, values, errors, touched, handleChange, handleBlur, setFieldValue)}
+                      {renderField(
+                        field as keyof FormData, 
+                        formikProps.values,
+                        formikProps.errors,
+                        formikProps.touched,
+                        formikProps.handleChange,
+                        formikProps.handleBlur,
+                        formikProps.setFieldValue
+                      )}
                     </View>
                   ))}
                 </View>
 
                 {showDatePicker && datePickerField && (
                   <DateTimePicker
-                    value={new Date(values[datePickerField])}
+                    value={new Date(formikProps.values[datePickerField])}
                     mode="date"
                     display="default"
                     onChange={(event, selectedDate) => {
                       const dateChanges = handleDateChange(event, selectedDate);
                       Object.entries(dateChanges).forEach(([field, value]) => {
-                        setFieldValue(field, value);
+                        formikProps.setFieldValue(field, value);
                       });
                     }}
                   />
                 )}
               </ScrollView>
 
-              <View style={[styles.footer, { backgroundColor: theme.colors.neutral.surface }]}>
-                <View style={styles.buttonContainer}>
-                  {currentPage > 0 && (
-                    <CustomButton
-                      title="السابق"
-                      onPress={prevPage}
-                      type="secondary"
-                      style={styles.button}
-                    />
-                  )}
-                  
-                  {currentPage < formPages.length - 1 ? (
-                    <CustomButton
-                      title="التالي"
-                      onPress={nextPage}
-                      type="primary"
-                      disabled={!validateCurrentPage(values)}
-                      style={styles.button}
-                    />
-                  ) : (
-                    <CustomButton
-                      title="حفظ"
-                      onPress={() => handleSubmit()}
-                      type="primary"
-                      disabled={!isValid}
-                      style={styles.button}
-                    />
-                  )}
-                </View>
-              </View>
+              {renderFooterButtons(formikProps)}
 
               <Modal
                 visible={showTypeModal}
@@ -692,21 +894,21 @@ export const AddFertilizerScreen = ({ navigation, route }: AddFertilizerScreenPr
                                   style={[
                                     styles.fertilizerOption,
                                     { 
-                                      backgroundColor: values.type === id ? theme.colors.primary.base : theme.colors.neutral.background,
-                                      borderColor: values.type === id ? theme.colors.primary.base : theme.colors.neutral.border,
+                                      backgroundColor: formikProps.values.type === id as keyof typeof FERTILIZER_TYPES ? theme.colors.primary.base : theme.colors.neutral.background,
+                                      borderColor: formikProps.values.type === id as keyof typeof FERTILIZER_TYPES ? theme.colors.primary.base : theme.colors.neutral.border,
                                     }
                                   ]}
                                   onPress={() => {
-                                    const fertInfo = FERTILIZER_TYPES[id];
-                                    setFieldValue('type', fertInfo.type);
-                                    setFieldValue('name', name);
+                                    const fertInfo = FERTILIZER_TYPES[id as keyof typeof FERTILIZER_TYPES];
+                                    formikProps.setFieldValue('type', fertInfo.type);
+                                    formikProps.setFieldValue('name', name);
                                     setShowTypeModal(false);
                                   }}
                                 >
                                   <View style={[
                                     styles.fertilizerIconContainer,
                                     {
-                                      backgroundColor: values.type === id ? 'rgba(255, 255, 255, 0.2)' : theme.colors.neutral.surface,
+                                      backgroundColor: formikProps.values.type === id as keyof typeof FERTILIZER_TYPES ? 'rgba(255, 255, 255, 0.2)' : theme.colors.neutral.surface,
                                     }
                                   ]}>
                                     <Text style={styles.fertilizerIcon}>{icon}</Text>
@@ -715,8 +917,8 @@ export const AddFertilizerScreen = ({ navigation, route }: AddFertilizerScreenPr
                                     <Text style={[
                                       styles.fertilizerName,
                                       { 
-                                        color: values.type === id ? '#FFF' : theme.colors.neutral.textPrimary,
-                                        fontWeight: values.type === id ? '600' : '400'
+                                        color: formikProps.values.type === id as keyof typeof FERTILIZER_TYPES ? '#FFF' : theme.colors.neutral.textPrimary,
+                                        fontWeight: formikProps.values.type === id as keyof typeof FERTILIZER_TYPES ? '600' : '400'
                                       }
                                     ]}>
                                       {name}
@@ -743,191 +945,130 @@ export const AddFertilizerScreen = ({ navigation, route }: AddFertilizerScreenPr
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#f5f5f5',
   },
-  centerContent: {
-    justifyContent: 'center',
-    alignItems: 'center',
+  keyboardAvoidingView: {
+    flex: 1,
   },
-  scrollView: {
+  content: {
     flex: 1,
   },
   contentContainer: {
     padding: 16,
   },
-  keyboardAvoidingView: {
-    flex: 1,
-  },
-  progressContainer: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 24,
-  },
-  progressBar: {
-    flex: 1,
-    height: 4,
-    borderRadius: 2,
-  },
-  pageHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    marginBottom: 24,
-  },
-  pageIcon: {
-    fontSize: 32,
-  },
-  pageTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  pageSubtitle: {
-    fontSize: 14,
-  },
-  formContainer: {
+  form: {
     gap: 16,
   },
-  fieldContainer: {
-    gap: 8,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  input: {
-    height: 48,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-  },
-  textArea: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    textAlignVertical: 'top',
-  },
-  categoryButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 16,
-  },
-  categoryButton: {
-    flexDirection: 'row',
+  stepIndicatorContainer: {
+    flexDirection: 'row-reverse',
+    justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    gap: 8,
+    paddingVertical: 16,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
   },
-  categoryIcon: {
-    fontSize: 20,
-  },
-  categoryLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  picker: {
-    height: 48,
-    borderWidth: 1,
-    borderRadius: 8,
-  },
-  dateButton: {
-    height: 48,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 16,
+  stepItem: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    flex: 1,
     justifyContent: 'center',
   },
-  dateButtonText: {
-    fontSize: 14,
+  stepCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
   },
-  errorText: {
-    fontSize: 12,
+  stepLine: {
+    height: 2,
+    flex: 1,
+    maxWidth: '80%',
+  },
+  stepNumber: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  formHeaderContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  formTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#333333',
+    textAlign: 'right',
+    marginBottom: 4,
+  },
+  formSubtitle: {
+    fontSize: 14,
+    color: '#666666',
+    textAlign: 'right',
+  },
+  fieldContainer: {
+    marginBottom: 8,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+  },
+  fieldTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+    color: '#333333',
+    textAlign: 'right',
+  },
+  dateButton: {
+    height: 50,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+  },
+  dateIcon: {
+    marginLeft: 10,
+  },
+  dateButtonText: {
+    fontSize: 16,
+    flex: 1,
+    textAlign: 'right',
   },
   footer: {
+    flexDirection: 'row-reverse',
     padding: 16,
     borderTopWidth: 1,
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    gap: 16,
+    borderTopColor: '#e0e0e0',
+    backgroundColor: '#ffffff',
   },
   button: {
     flex: 1,
-  },
-  categoriesContainer: {
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  seedTypeGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  seedTypeTile: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 8,
-    borderRadius: 8,
-  },
-  seedTypeIcon: {
-    fontSize: 38,
-  },
-  seedTypeName: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  fieldHeaderContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  fieldIcon: {
-    fontSize: 30,
-  },
-  inputGroup: {
-    gap: 8,
-  },
-  labelContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  typeSelector: {
     height: 48,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 1,
+    borderRadius: 24,
     justifyContent: 'center',
-  },
-  selectedType: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    flexDirection: 'row',
+    marginHorizontal: 6,
   },
-  selectedTypeIcon: {
-    fontSize: 24,
+  previousButton: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#3498db',
   },
-  selectedTypeInfo: {
-    flex: 1,
+  nextButton: {
+    backgroundColor: '#3498db',
   },
-  selectedTypeText: {
+  buttonText: {
     fontSize: 16,
-    textAlign: 'right',
-  },
-  selectedTypeCategory: {
-    fontSize: 12,
-    textAlign: 'right',
-  },
-  typePlaceholder: {
-    fontSize: 16,
+    fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,
@@ -1011,6 +1152,74 @@ const styles = StyleSheet.create({
   fertilizerName: {
     fontSize: 14,
     textAlign: 'center',
+  },
+  inputGroup: {
+    gap: 8,
+  },
+  labelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  typeSelector: {
+    height: 48,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    justifyContent: 'center',
+  },
+  selectedType: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  selectedTypeIcon: {
+    fontSize: 24,
+  },
+  selectedTypeInfo: {
+    flex: 1,
+  },
+  selectedTypeText: {
+    fontSize: 16,
+    textAlign: 'right',
+  },
+  selectedTypeCategory: {
+    fontSize: 12,
+    textAlign: 'right',
+  },
+  typePlaceholder: {
+    fontSize: 16,
+  },
+  unitSelectorContainer: {
+    flexDirection: 'row-reverse',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'space-between',
+  },
+  unitOption: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    padding: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    width: '48%',
+    marginBottom: 8,
+  },
+  unitIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  unitIcon: {
+    fontSize: 16,
+  },
+  unitLabel: {
+    flex: 1,
+    fontSize: 14,
+    textAlign: 'right',
   },
 });
 

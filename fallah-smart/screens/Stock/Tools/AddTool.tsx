@@ -285,7 +285,14 @@ const AddToolScreen: React.FC<AddToolScreenProps> = ({ navigation, route }) => {
             {TOOL_ICONS.basic.category} النوع
                 </Text>
           <TouchableOpacity
-            style={[styles.select, { borderColor: theme.colors.neutral.border }]}
+            style={[styles.select, { 
+              borderColor: theme.colors.neutral.border,
+              shadowColor: theme.colors.neutral.textSecondary,
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 4,
+              elevation: 2,
+            }]}
             onPress={() => {
               Alert.alert(
                 'اختر النوع',
@@ -331,16 +338,21 @@ const AddToolScreen: React.FC<AddToolScreenProps> = ({ navigation, route }) => {
   const renderPurchaseSection = (values: FormData, setFieldValue: any, errors: any, touched: any) => (
     <View style={[styles.section, { width }]}>
       <TouchableOpacity
-        style={[styles.dateButton, { borderColor: theme.colors.neutral.border }]}
+        style={[styles.dateButton, { 
+          borderColor: theme.colors.neutral.border,
+          shadowColor: theme.colors.neutral.textSecondary,
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+          elevation: 2,
+        }]}
         onPress={() => setShowPurchaseDatePicker(true)}
       >
-        <Text style={[styles.dateButtonText, { color: theme.colors.neutral.textPrimary }]}>
+        <Text style={[styles.dateButtonText, { 
+          color: values.purchaseDate ? theme.colors.neutral.textPrimary : theme.colors.neutral.textSecondary 
+        }]}>
           {TOOL_ICONS.purchase.date} {values.purchaseDate
-            ? values.purchaseDate.toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric'
-              })
+            ? values.purchaseDate.toLocaleDateString('en-GB')
             : 'تاريخ الشراء'}
         </Text>
       </TouchableOpacity>
@@ -398,31 +410,41 @@ const AddToolScreen: React.FC<AddToolScreenProps> = ({ navigation, route }) => {
   const renderMaintenanceSection = (values: FormData, setFieldValue: any) => (
     <View style={[styles.section, { width }]}>
               <TouchableOpacity
-        style={[styles.dateButton, { borderColor: theme.colors.neutral.border }]}
+                style={[styles.dateButton, { 
+                  borderColor: theme.colors.neutral.border,
+                  shadowColor: theme.colors.neutral.textSecondary,
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 4,
+                  elevation: 2,
+                }]}
                 onPress={() => setShowLastMaintenanceDatePicker(true)}
               >
-                <Text style={[styles.dateButtonText, { color: theme.colors.neutral.textPrimary }]}>
-          {TOOL_ICONS.maintenance.last} {values.lastMaintenanceDate
-            ? values.lastMaintenanceDate.toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric'
-              })
+                <Text style={[styles.dateButtonText, { 
+                  color: values.lastMaintenanceDate ? theme.colors.neutral.textPrimary : theme.colors.neutral.textSecondary 
+                }]}>
+                  {TOOL_ICONS.maintenance.last} {values.lastMaintenanceDate
+                    ? values.lastMaintenanceDate.toLocaleDateString('en-GB')
                     : 'تاريخ آخر صيانة'}
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-        style={[styles.dateButton, { borderColor: theme.colors.neutral.border }]}
+                style={[styles.dateButton, { 
+                  borderColor: theme.colors.neutral.border,
+                  shadowColor: theme.colors.neutral.textSecondary,
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 4,
+                  elevation: 2,
+                }]}
                 onPress={() => setShowNextMaintenanceDatePicker(true)}
               >
-                <Text style={[styles.dateButtonText, { color: theme.colors.neutral.textPrimary }]}>
-          {TOOL_ICONS.maintenance.next} {values.nextMaintenanceDate
-            ? values.nextMaintenanceDate.toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric'
-              })
+                <Text style={[styles.dateButtonText, { 
+                  color: values.nextMaintenanceDate ? theme.colors.neutral.textPrimary : theme.colors.neutral.textSecondary 
+                }]}>
+                  {TOOL_ICONS.maintenance.next} {values.nextMaintenanceDate
+                    ? values.nextMaintenanceDate.toLocaleDateString('en-GB')
                     : 'تاريخ الصيانة القادمة'}
                 </Text>
               </TouchableOpacity>
@@ -504,7 +526,7 @@ const AddToolScreen: React.FC<AddToolScreenProps> = ({ navigation, route }) => {
                       styles.navButtonText,
                       theme.typography.arabic.body,
                       { color: theme.colors.primary.base }
-                    ]}>⬅️ السابق</Text>
+                    ]}>السابق ←</Text>
                   </TouchableOpacity>
                 )}
                 {currentSection < SECTIONS.length - 1 ? (
@@ -522,7 +544,7 @@ const AddToolScreen: React.FC<AddToolScreenProps> = ({ navigation, route }) => {
                       styles.navButtonText,
                       theme.typography.arabic.body,
                       { color: theme.colors.neutral.surface }
-                    ]}>التالي ➡️</Text>
+                    ]}>→ التالي</Text>
                   </TouchableOpacity>
                 ) : (
                   <TouchableOpacity
