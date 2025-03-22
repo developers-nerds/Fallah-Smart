@@ -393,7 +393,7 @@ const AdvisorApplicationScreen = ({ navigation }) => {
           </View>
           
           <View style={styles.headerCenter}>
-            <Text style={styles.title}>Become an Advisor</Text>
+            <Text style={styles.title}>كن مستشارًا</Text>
           </View>
           
           <View style={styles.headerRight}></View>
@@ -414,7 +414,7 @@ const AdvisorApplicationScreen = ({ navigation }) => {
         <View style={styles.stepContainer}>
           {currentStep === 1 && (
             <>
-              <Text style={styles.stepTitle}>Become an Agricultural Advisor</Text>
+              <Text style={styles.stepTitle}>كن مستشارًا زراعيًا</Text>
               
               <View style={styles.introIllustration}>
                 <LinearGradient
@@ -423,7 +423,7 @@ const AdvisorApplicationScreen = ({ navigation }) => {
                 >
                   <View style={styles.illustrationContent}>
                     <MaterialIcons name="agriculture" size={60} color={theme.colors.primary.base} />
-                    <Text style={styles.illustrationText}>Become an Advisor</Text>
+                    <Text style={styles.illustrationText}>كن مستشارًا</Text>
                     <View style={styles.illustrationIconsRow}>
                       <View style={[styles.illustrationIcon, {backgroundColor: '#E3F2FD'}]}>
                         <MaterialIcons name="verified-user" size={24} color="#1976D2" />
@@ -440,30 +440,30 @@ const AdvisorApplicationScreen = ({ navigation }) => {
               </View>
               
               <Text style={styles.introText}>
-                Join our network of agricultural experts and help farmers across the country improve their yield and sustainability.
+                انضم إلى شبكة خبراء الزراعة لدينا وساعد المزارعين في جميع أنحاء البلاد على تحسين إنتاجهم واستدامتهم.
               </Text>
               
               <View style={styles.benefitsContainer}>
-                <Text style={styles.benefitsTitle}>As an Advisor, you'll be able to:</Text>
+                <Text style={styles.benefitsTitle}>كمستشار، ستتمكن من:</Text>
                 
                 <View style={styles.benefitItem}>
                   <MaterialIcons name="check-circle" size={24} color={theme.colors.primary.base} />
-                  <Text style={styles.benefitText}>Provide expert advice to farmers</Text>
+                  <Text style={styles.benefitText}>تقديم المشورة الخبيرة للمزارعين</Text>
                 </View>
                 
                 <View style={styles.benefitItem}>
                   <MaterialIcons name="check-circle" size={24} color={theme.colors.primary.base} />
-                  <Text style={styles.benefitText}>Earn additional income through consultations</Text>
+                  <Text style={styles.benefitText}>كسب دخل إضافي من خلال الاستشارات</Text>
                 </View>
                 
                 <View style={styles.benefitItem}>
                   <MaterialIcons name="check-circle" size={24} color={theme.colors.primary.base} />
-                  <Text style={styles.benefitText}>Build your professional profile and reputation</Text>
+                  <Text style={styles.benefitText}>بناء ملفك المهني وسمعتك</Text>
                 </View>
                 
                 <View style={styles.benefitItem}>
                   <MaterialIcons name="check-circle" size={24} color={theme.colors.primary.base} />
-                  <Text style={styles.benefitText}>Access specialized tools and resources</Text>
+                  <Text style={styles.benefitText}>الوصول إلى أدوات وموارد متخصصة</Text>
                 </View>
               </View>
             </>
@@ -471,38 +471,38 @@ const AdvisorApplicationScreen = ({ navigation }) => {
           
           {currentStep === 2 && (
             <>
-              <Text style={styles.stepTitle}>Professional Information</Text>
+              <Text style={styles.stepTitle}>المعلومات المهنية</Text>
               
               <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Specialization*</Text>
+                <Text style={styles.inputLabel}>التخصص*</Text>
                 <TextInput
                   style={styles.input}
                   value={formData.specialization}
                   onChangeText={(text) => handleInputChange('specialization', text)}
-                  placeholder="e.g. Crop Management, Soil Science, etc."
+                  placeholder="مثال: إدارة المحاصيل، علوم التربة، إلخ."
                   placeholderTextColor={theme.colors.neutral.textSecondary}
                 />
               </View>
               
               <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Years of Experience*</Text>
+                <Text style={styles.inputLabel}>سنوات الخبرة*</Text>
                 <TextInput
                   style={styles.input}
                   value={formData.experience}
                   onChangeText={(text) => handleInputChange('experience', text)}
-                  placeholder="e.g. 5 years in organic farming"
+                  placeholder="مثال: 5 سنوات في الزراعة العضوية"
                   placeholderTextColor={theme.colors.neutral.textSecondary}
                   keyboardType="default"
                 />
               </View>
               
               <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Education*</Text>
+                <Text style={styles.inputLabel}>التعليم*</Text>
                 <TextInput
                   style={[styles.input, styles.multilineInput]}
                   value={formData.education}
                   onChangeText={(text) => handleInputChange('education', text)}
-                  placeholder="Describe your educational background"
+                  placeholder="وصف خلفيتك التعليمية"
                   placeholderTextColor={theme.colors.neutral.textSecondary}
                   multiline
                   numberOfLines={4}
@@ -514,26 +514,27 @@ const AdvisorApplicationScreen = ({ navigation }) => {
           
           {currentStep === 3 && (
             <>
-              <Text style={styles.stepTitle}>Certifications & Documents</Text>
+              <Text style={styles.stepTitle}>الشهادات والمستندات</Text>
               
               <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Certifications</Text>
+                <Text style={styles.inputLabel}>الشهادات</Text>
                 <Text style={styles.inputHelper}>
-                  List any relevant certifications you have earned
+                  اذكر أي شهادات مهنية حصلت عليها
                 </Text>
                 <TextInput
                   style={[styles.input, styles.multilineInput]}
-                  placeholder="Enter your certifications"
+                  placeholder="أدخل شهاداتك"
                   multiline
                   value={formData.certifications}
                   onChangeText={(text) => handleInputChange('certifications', text)}
+                  placeholderTextColor={theme.colors.neutral.textSecondary}
                 />
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Certification Photos</Text>
+                <Text style={styles.inputLabel}>صور الشهادات</Text>
                 <Text style={styles.inputHelper}>
-                  Add photos of your certificates or licenses
+                  أضف صور لشهاداتك أو تراخيصك
                 </Text>
 
                 <View style={styles.photoButtonsContainer}>
@@ -542,7 +543,7 @@ const AdvisorApplicationScreen = ({ navigation }) => {
                     onPress={pickCertificationPhoto}
                   >
                     <MaterialIcons name="photo-library" size={22} color={theme.colors.primary.base} />
-                    <Text style={styles.photoButtonText}>Gallery</Text>
+                    <Text style={styles.photoButtonText}>المعرض</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -550,7 +551,7 @@ const AdvisorApplicationScreen = ({ navigation }) => {
                     onPress={takeCertificationPhoto}
                   >
                     <MaterialIcons name="camera-alt" size={22} color={theme.colors.primary.base} />
-                    <Text style={styles.photoButtonText}>Camera</Text>
+                    <Text style={styles.photoButtonText}>الكاميرا</Text>
                   </TouchableOpacity>
                 </View>
 
@@ -572,12 +573,12 @@ const AdvisorApplicationScreen = ({ navigation }) => {
               </View>
               
               <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Application Note</Text>
+                <Text style={styles.inputLabel}>ملاحظة التطبيق</Text>
                 <TextInput
                   style={[styles.input, styles.multilineInput]}
                   value={formData.applicationNote}
                   onChangeText={(text) => handleInputChange('applicationNote', text)}
-                  placeholder="Any additional information you want to share"
+                  placeholder="أي معلومات إضافية ترغب في مشاركتها"
                   placeholderTextColor={theme.colors.neutral.textSecondary}
                   multiline
                   numberOfLines={3}
@@ -586,14 +587,14 @@ const AdvisorApplicationScreen = ({ navigation }) => {
               </View>
               
               <View style={styles.documentsContainer}>
-                <Text style={styles.inputLabel}>Supporting Documents*</Text>
+                <Text style={styles.inputLabel}>المستندات الداعمة*</Text>
                 <Text style={styles.inputHelper}>
-                  Upload copies of your certificates, diplomas, or other relevant documents
+                  قم بتحميل نسخ من شهاداتك أو دبلوماتك أو أي وثائق أخرى ذات صلة
                 </Text>
                 
                 <TouchableOpacity style={styles.uploadButton} onPress={pickDocument}>
                   <Ionicons name="document-attach" size={24} color={theme.colors.primary.base} />
-                  <Text style={styles.uploadButtonText}>Add Document</Text>
+                  <Text style={styles.uploadButtonText}>إضافة مستند</Text>
                 </TouchableOpacity>
                 
                 {documents.length > 0 && (
@@ -603,7 +604,7 @@ const AdvisorApplicationScreen = ({ navigation }) => {
                         <View style={styles.documentInfo}>
                           <Ionicons name="document-text" size={24} color={theme.colors.primary.base} />
                           <Text style={styles.documentName} numberOfLines={1} ellipsizeMode="middle">
-                            {doc.name || `Document ${index + 1}`}
+                            {doc.name || `مستند ${index + 1}`}
                           </Text>
                         </View>
                         <TouchableOpacity onPress={() => removeDocument(index)}>
@@ -625,7 +626,7 @@ const AdvisorApplicationScreen = ({ navigation }) => {
               onPress={goToPreviousStep}
             >
               <MaterialIcons name="arrow-back" size={20} color={theme.colors.primary.base} />
-              <Text style={styles.backStepButtonText}>Back</Text>
+              <Text style={styles.backStepButtonText}>رجوع</Text>
             </TouchableOpacity>
           ) : <View style={{ width: 100 }} />}
           
@@ -634,7 +635,7 @@ const AdvisorApplicationScreen = ({ navigation }) => {
               style={styles.nextStepButton} 
               onPress={goToNextStep}
             >
-              <Text style={styles.nextStepButtonText}>Next</Text>
+              <Text style={styles.nextStepButtonText}>التالي</Text>
               <MaterialIcons name="arrow-forward" size={20} color="white" />
             </TouchableOpacity>
           ) : (
@@ -647,7 +648,7 @@ const AdvisorApplicationScreen = ({ navigation }) => {
                 <ActivityIndicator size="small" color="white" />
               ) : (
                 <>
-                  <Text style={styles.submitButtonText}>Submit Application</Text>
+                  <Text style={styles.submitButtonText}>تقديم الطلب</Text>
                   <MaterialIcons name="send" size={20} color="white" style={styles.submitIcon} />
                 </>
               )}

@@ -45,7 +45,7 @@ import {
   CommentImageGalleryProps, 
   PostImageGalleryProps,
   PostDetailState
-} from '../../types/postDetail';
+} from '../../types/postDetails';
 
 // Constants
 const BASE_URL = process.env.EXPO_PUBLIC_API;
