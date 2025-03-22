@@ -16,7 +16,7 @@ import axios from 'axios';
 import { LinearGradient } from 'expo-linear-gradient';
 import { pesticideService, Pesticide } from '../../services/pesticideService';
 import { api, animalApi, stockSeedApi, stockEquipmentApi, stockFeedApi, stockFertilizerApi, stockToolApi, stockHarvestApi } from '../../services/api';
-import { StockItem, CategoryData, StockData, Insight, PesticideType } from './types';
+import { PesticideType } from './types';
 import { AIAnalysis, Insight as AIInsight, Prediction, Risk } from '../../types/AIAnalysis';
 import { useTranslation } from 'react-i18next';
 
@@ -80,10 +80,20 @@ const chartColors: Record<keyof StockData, {
     background: 'rgba(153, 102, 255, 0.2)',
     gradient: ['#9B59B6', '#8E44AD'] as const
   },
-  other: {
-    primary: 'rgba(201, 203, 207, 1)',
-    background: 'rgba(236, 239, 241, 0.5)',
-    gradient: ['#95A5A6', '#7F8C8D'] as const
+  feed: {
+    primary: 'rgba(255, 159, 64, 1)',
+    background: 'rgba(255, 159, 64, 0.2)',
+    gradient: ['#FF9F40', '#E67E22'] as const
+  },
+  tools: {
+    primary: 'rgba(46, 204, 113, 1)',
+    background: 'rgba(46, 204, 113, 0.2)',
+    gradient: ['#2ECC71', '#27AE60'] as const
+  },
+  harvest: {
+    primary: 'rgba(52, 152, 219, 1)',
+    background: 'rgba(52, 152, 219, 0.2)',
+    gradient: ['#3498DB', '#2980B9'] as const
   }
 };
 
@@ -104,6 +114,8 @@ interface StockItem {
   age?: number;
   count?: number;
   stock?: StockItem;
+  lowStockThreshold?: number;
+  minQuantityAlert?: number;
 }
 
 // Update CategoryData interface to include proper types for nested objects
@@ -143,11 +155,13 @@ interface StockData {
   seeds: CategoryData;
   fertilizer: CategoryData;
   equipment: CategoryData;
-  other: CategoryData;
+  feed: CategoryData;
+  tools: CategoryData;
+  harvest: CategoryData;
 }
 
 // Add MaterialCommunityIcons type
-type MaterialCommunityIconName = 'symbol' | 'function' | 'solid' | 'filter' | 'wrap' | 'card' | 'cow' | 'flask' | 'seed' | 'shovel' | 'tools' | 'shape' | 'check-circle' | 'alert-circle' | 'close-circle' | 'trending-down' | 'alert' | 'loading';
+type MaterialCommunityIconName = 'symbol' | 'function' | 'solid' | 'filter' | 'wrap' | 'card' | 'cow' | 'flask' | 'seed' | 'shovel' | 'tools' | 'shape' | 'check-circle' | 'alert-circle' | 'close-circle' | 'trending-down' | 'alert' | 'loading' | 'food' | 'hammer' | 'basket';
 
 // Update interfaces to include icon type
 interface Insight {
@@ -172,7 +186,9 @@ const getCategoryIcon = (category: keyof StockData): MaterialCommunityIconName =
     seeds: 'seed',
     fertilizer: 'shovel',
     equipment: 'tools',
-    other: 'shape'
+    feed: 'food',
+    tools: 'hammer',
+    harvest: 'basket'
   };
   return icons[category] || 'shape';
 };
@@ -265,7 +281,18 @@ const getRecommendations = (stockData: StockData): Recommendation[] => {
   
   // Check low stock items
   Object.entries(stockData).forEach(([category, data]) => {
-    if (category !== 'other') {
+    const categoryTranslations: Record<string, string> = {
+      animals: 'الحيوانات',
+      pesticides: 'المبيدات',
+      seeds: 'البذور',
+      fertilizer: 'الأسمدة',
+      equipment: 'المعدات',
+      feed: 'الأعلاف',
+      tools: 'الأدوات',
+      harvest: 'المحاصيل'
+    };
+
+    if (category !== 'harvest') { // Typically you don't need to restock harvest
       const lowStockItems = data.items.filter((item: StockItem) => 
         (item.quantity || 0) <= (item.minQuantity || 0)
       );
@@ -273,11 +300,7 @@ const getRecommendations = (stockData: StockData): Recommendation[] => {
       if (lowStockItems.length > 0) {
         recommendations.push({
           priority: 'High',
-          message: `إعادة تعبئة ${lowStockItems.length} عنصر من ${category === 'animals' ? 'الحيوانات' :
-                   category === 'pesticides' ? 'المبيدات' :
-                   category === 'seeds' ? 'البذور' :
-                   category === 'fertilizer' ? 'الأسمدة' :
-                   category === 'equipment' ? 'المعدات' : 'الأخرى'}`,
+          message: `إعادة تعبئة ${lowStockItems.length} عنصر من ${categoryTranslations[category] || category}`,
           action: 'إعادة التخزين'
         });
       }
@@ -950,7 +973,9 @@ const renderCategoryCard = (category: keyof StockData, data: CategoryData) => {
     seeds: 'البذور',
     fertilizer: 'الأسمدة',
     equipment: 'المعدات',
-    other: 'أخرى'
+    feed: 'الأعلاف',
+    tools: 'الأدوات',
+    harvest: 'المحاصيل'
   };
 
   return (
@@ -1056,7 +1081,21 @@ const StockStatisticsScreen: React.FC = () => {
       trends: [0, 0, 0, 0, 0, 0],
       types: {}
     },
-    other: { 
+    feed: { 
+      count: 0, 
+      value: 0, 
+      items: [], 
+      trends: [0, 0, 0, 0, 0, 0],
+      types: {}
+    },
+    tools: { 
+      count: 0, 
+      value: 0, 
+      items: [], 
+      trends: [0, 0, 0, 0, 0, 0],
+      types: {}
+    },
+    harvest: { 
       count: 0, 
       value: 0, 
       items: [], 
@@ -1227,7 +1266,21 @@ const StockStatisticsScreen: React.FC = () => {
           trends: [0, 0, 0, 0, 0, 0],
           types: {}
         },
-        other: { 
+        feed: { 
+          count: 0, 
+          value: 0, 
+          items: [], 
+          trends: [0, 0, 0, 0, 0, 0],
+          types: {}
+        },
+        tools: { 
+          count: 0, 
+          value: 0, 
+          items: [], 
+          trends: [0, 0, 0, 0, 0, 0],
+          types: {}
+        },
+        harvest: { 
           count: 0, 
           value: 0, 
           items: [], 
@@ -1243,7 +1296,9 @@ const StockStatisticsScreen: React.FC = () => {
         seeds: Array(6).fill(0),
         fertilizer: Array(6).fill(0),
         equipment: Array(6).fill(0),
-        other: Array(6).fill(0)
+        feed: Array(6).fill(0),
+        tools: Array(6).fill(0),
+        harvest: Array(6).fill(0)
       };
 
       // Fetch animals data with history
@@ -1499,27 +1554,34 @@ const StockStatisticsScreen: React.FC = () => {
         console.error('Error fetching equipment data:', error);
       }
 
-      // Fetch and process feed, tools, and harvest data into "other" category
-      let otherCount = 0;
-      
+      // Fetch and process feed, tools, and harvest data into separate categories
       // Feed data
       try {
         const feeds = await stockFeedApi.getAllFeeds();
         console.log('Feed Data loaded successfully:', feeds?.length || 0);
         
         if (Array.isArray(feeds)) {
+          let currentCount = 0;
+          
           feeds.forEach((feed: StockItem) => {
-            counters.other.count++;
+            counters.feed.count++;
             const quantity = Number(feed.quantity) || 0;
-            otherCount += quantity;
+            currentCount += quantity;
             
             const price = Number(feed.price) || 0;
-            counters.other.value += quantity * price;
-            counters.other.items.push({...feed, category: 'feed'});
+            counters.feed.value += quantity * price;
+            counters.feed.items.push({...feed, category: 'feed'});
             
             if (feed.type) {
-              counters.other.types['feed_' + feed.type] = (counters.other.types['feed_' + feed.type] || 0) + 1;
+              counters.feed.types[feed.type] = (counters.feed.types[feed.type] || 0) + 1;
             }
+          });
+          
+          // Generate trends for feed
+          trendsData.feed = Array(6).fill(0).map((_, index) => {
+            const monthsAgo = 5 - index;
+            const variation = (Math.random() * 0.1) - 0.05; // +/- 5% random variation
+            return Math.max(1, Math.round(currentCount * (1 - (monthsAgo * 0.06) + variation)));
           });
         }
       } catch (error) {
@@ -1532,18 +1594,27 @@ const StockStatisticsScreen: React.FC = () => {
         console.log('Tools Data loaded successfully:', tools?.length || 0);
         
         if (Array.isArray(tools)) {
+          let currentCount = 0;
+          
           tools.forEach((tool: StockItem) => {
-            counters.other.count++;
+            counters.tools.count++;
             const quantity = Number(tool.quantity) || 0;
-            otherCount += quantity;
+            currentCount += quantity;
             
             const price = Number(tool.price) || 0;
-            counters.other.value += quantity * price;
-            counters.other.items.push({...tool, category: 'tools'});
+            counters.tools.value += quantity * price;
+            counters.tools.items.push({...tool, category: 'tools'});
             
             if (tool.type) {
-              counters.other.types['tool_' + tool.type] = (counters.other.types['tool_' + tool.type] || 0) + 1;
+              counters.tools.types[tool.type] = (counters.tools.types[tool.type] || 0) + 1;
             }
+          });
+          
+          // Generate trends for tools
+          trendsData.tools = Array(6).fill(0).map((_, index) => {
+            const monthsAgo = 5 - index;
+            const variation = (Math.random() * 0.1) - 0.05; // +/- 5% random variation
+            return Math.max(1, Math.round(currentCount * (1 - (monthsAgo * 0.04) + variation)));
           });
         }
       } catch (error) {
@@ -1556,31 +1627,35 @@ const StockStatisticsScreen: React.FC = () => {
         console.log('Harvest Data loaded successfully:', harvests?.length || 0);
         
         if (Array.isArray(harvests)) {
+          let currentCount = 0;
+          
           harvests.forEach((harvest: StockItem) => {
-            counters.other.count++;
+            counters.harvest.count++;
             const quantity = Number(harvest.quantity) || 0;
-            otherCount += quantity;
+            currentCount += quantity;
             
             const price = Number(harvest.price) || 0;
-            counters.other.value += quantity * price;
-            counters.other.items.push({...harvest, category: 'harvest'});
+            counters.harvest.value += quantity * price;
+            counters.harvest.items.push({...harvest, category: 'harvest'});
             
             if (harvest.type) {
-              counters.other.types['harvest_' + harvest.type] = (counters.other.types['harvest_' + harvest.type] || 0) + 1;
+              counters.harvest.types[harvest.type] = (counters.harvest.types[harvest.type] || 0) + 1;
             }
+          });
+          
+          // Generate trends for harvest
+          trendsData.harvest = Array(6).fill(0).map((_, index) => {
+            const monthsAgo = 5 - index;
+            const variation = (Math.random() * 0.1) - 0.05; // +/- 5% random variation
+            return Math.max(1, Math.round(currentCount * (1 - (monthsAgo * 0.07) + variation)));
           });
         }
       } catch (error) {
         console.error('Error fetching harvest data:', error);
       }
       
-      // Generate trends for "other" category
-      trendsData.other = Array(6).fill(0).map((_, index) => {
-          const monthsAgo = 5 - index;
-        const variation = (Math.random() * 0.1) - 0.05; // +/- 5% random variation
-        return Math.max(1, Math.round(otherCount * (1 - (monthsAgo * 0.06) + variation)));
-      });
-
+      // No longer needed since "other" category has been split into feed, tools, and harvest
+      
       // Update state with processed data
       setStockData({
         animals: {
@@ -1603,9 +1678,17 @@ const StockStatisticsScreen: React.FC = () => {
           ...counters.equipment,
           trends: trendsData.equipment
         },
-        other: {
-          ...counters.other,
-          trends: trendsData.other
+        feed: {
+          ...counters.feed,
+          trends: trendsData.feed
+        },
+        tools: {
+          ...counters.tools,
+          trends: trendsData.tools
+        },
+        harvest: {
+          ...counters.harvest,
+          trends: trendsData.harvest
         }
       });
 
@@ -1968,7 +2051,9 @@ const StockStatisticsScreen: React.FC = () => {
                category === 'pesticides' ? 'المبيدات' :
                category === 'seeds' ? 'البذور' :
                category === 'fertilizer' ? 'الأسمدة' :
-               category === 'equipment' ? 'المعدات' : 'أخرى'}
+               category === 'equipment' ? 'المعدات' :
+               category === 'feed' ? 'الأعلاف' :
+               category === 'tools' ? 'الأدوات' : 'الأخرى'}
             </Text>
             <LineChart
               data={prepareChartData(category as keyof StockData)}
@@ -2006,7 +2091,9 @@ const StockStatisticsScreen: React.FC = () => {
                  item.category === 'pesticides' ? 'مبيدات' :
                  item.category === 'seeds' ? 'بذور' :
                  item.category === 'fertilizer' ? 'أسمدة' :
-                 item.category === 'equipment' ? 'معدات' : 'أخرى'}
+                 item.category === 'equipment' ? 'معدات' :
+                 item.category === 'feed' ? 'أعلاف' :
+                 item.category === 'tools' ? 'أدوات' : 'أخرى'}
               </Text>
               <Text style={[baseStyles.alertItemQuantity, { color: COLORS.error }]}>الكمية: {item.quantity?.toLocaleString('fr-FR')}</Text>
             </View>
