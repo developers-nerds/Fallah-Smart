@@ -9,7 +9,10 @@ import {
   RefreshControl,
   Dimensions,
   Platform,
-  StatusBar
+  StatusBar,
+  Keyboard,
+  KeyboardAvoidingView,
+  TouchableWithoutFeedback
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../../context/ThemeContext';
@@ -29,6 +32,7 @@ import { withRetry } from '../../../services/api';
 import axios from 'axios';
 import { storage } from '../../../utils/storage';
 import { pesticideService } from '../../../services/pesticideService';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 const ITEMS_PER_PAGE = 4;
@@ -39,75 +43,53 @@ type PesticideListScreenProps = {
 
 export const PesticideListScreen = ({ navigation }: PesticideListScreenProps) => {
   const theme = useTheme();
-  const { pesticides: contextPesticides, loading: contextLoading, error: contextError, fetchPesticides: refreshPesticides } = usePesticide();
+  const { 
+    pesticides: contextPesticides, 
+    loading: contextLoading, 
+    error: contextError, 
+    fetchPesticides 
+  } = usePesticide();
   
-  // Local state for direct API calls
+  // Local state for UI interaction
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [pesticides, setPesticides] = useState<StockPesticide[]>([]);
-  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [selectedType, setSelectedType] = useState<string | null>('الكل');
   const [localError, setLocalError] = useState<string | null>(null);
-  const initialLoadCompleted = useRef(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const fetchPesticides = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
+  // Add useFocusEffect to reload data when the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      // Load or reload pesticides when the screen gains focus
+      const loadData = async () => {
+        try {
+          setRefreshing(true);
+          await fetchPesticides();
+          setLocalError(null);
+        } catch (error) {
+          const errorMessage = error instanceof Error 
+            ? (error.message.includes('فشل الاتصال بالخادم') 
+                ? error.message 
+                : 'Failed to load pesticides')
+            : 'Failed to load pesticides';
+          setLocalError(errorMessage);
+          console.error('Error loading pesticides on focus:', error);
+        } finally {
+          setRefreshing(false);
+        }
+      };
       
-      const tokens = await storage.getTokens();
-      if (!tokens?.access) {
-        setError('يرجى تسجيل الدخول أولا');
-        return;
-      }
+      loadData();
       
-      const response = await withRetry(async () => {
-        return axios.get(`${API_URL}/pesticides`, {
-          headers: {
-            'Authorization': `Bearer ${tokens.access}`
-          }
-        });
-      }, 3, 1500);
-      
-      if (response?.data) {
-        setPesticides(response.data);
-      }
-    } catch (error) {
-      console.error('Error fetching pesticides:', error);
-      if (error.message && error.message.includes('فشل الاتصال بالخادم')) {
-        setError(error.message);
-      } else {
-        setError('فشل في جلب المبيدات');
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    const loadPesticides = async () => {
-      if (initialLoadCompleted.current) return;
-      
-      try {
-        await fetchPesticides();
-        setLocalError(null);
-      } catch (error) {
-        const errorMessage = error instanceof Error 
-          ? (error.message.includes('فشل الاتصال بالخادم') 
-              ? error.message 
-              : 'Failed to load pesticides')
-          : 'Failed to load pesticides';
-        setLocalError(errorMessage);
-        console.error('Error loading pesticides:', error);
-      } finally {
-        initialLoadCompleted.current = true;
-      }
-    };
-    
-    loadPesticides();
-  }, []);
+      return () => {
+        // Clean up any pending operations when losing focus
+        if (searchTimeoutRef.current) {
+          clearTimeout(searchTimeoutRef.current);
+        }
+      };
+    }, [fetchPesticides])
+  );
 
   const handleRefresh = useCallback(async () => {
     if (refreshing) return; // Prevent multiple refresh calls
@@ -131,43 +113,53 @@ export const PesticideListScreen = ({ navigation }: PesticideListScreenProps) =>
   }, [fetchPesticides, refreshing]);
 
   const types = useMemo(() => {
-    const uniqueTypes = new Set(pesticides.map(pesticide => pesticide.type));
+    const uniqueTypes = new Set(contextPesticides.map(pesticide => pesticide.type));
     return ['الكل', ...Array.from(uniqueTypes)];
-  }, [pesticides]);
+  }, [contextPesticides]);
 
   const filteredPesticides = useMemo(() => {
-    return pesticides
+    return contextPesticides
       .filter(pesticide => {
         const matchesSearch = pesticide.name.toLowerCase().includes(searchQuery.toLowerCase());
         if (!selectedType || selectedType === 'الكل') return matchesSearch;
         return matchesSearch && pesticide.type === selectedType;
       })
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-  }, [pesticides, searchQuery, selectedType]);
+  }, [contextPesticides, searchQuery, selectedType]);
 
   const paginatedPesticides = useMemo(() => {
     return filteredPesticides.slice(0, page * ITEMS_PER_PAGE);
   }, [filteredPesticides, page]);
-
-  const handleLoadMore = useCallback(() => {
-    if (paginatedPesticides.length < filteredPesticides.length) {
-      setPage(prev => prev + 1);
-    }
-  }, [paginatedPesticides.length, filteredPesticides.length]);
 
   const renderFooter = useCallback(() => {
     if (paginatedPesticides.length >= filteredPesticides.length) return null;
     
     return (
       <TouchableOpacity
-        style={[styles.seeMoreButton, { backgroundColor: theme.colors.primary.base }]}
-        onPress={handleLoadMore}
+        style={[
+          styles.seeMoreButton, 
+          { 
+            backgroundColor: theme.colors.primary.base,
+            ...Platform.select({
+              ios: {
+                shadowColor: theme.colors.primary.base,
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.3,
+                shadowRadius: 3,
+              },
+              android: {
+                elevation: 3,
+              },
+            }),
+          }
+        ]}
+        onPress={() => setPage(prev => prev + 1)}
       >
         <Text style={styles.seeMoreText}>عرض المزيد</Text>
-        <MaterialCommunityIcons name="chevron-down" size={24} color="#FFF" />
+        <MaterialCommunityIcons name="chevron-down" size={20} color="#FFF" />
       </TouchableOpacity>
     );
-  }, [paginatedPesticides.length, filteredPesticides.length, handleLoadMore, theme]);
+  }, [paginatedPesticides.length, filteredPesticides.length, theme]);
 
   const renderTypeChip = useCallback(({ item }: { item: string }) => {
     const typeInfo = item === 'الكل' ? { 
@@ -177,25 +169,38 @@ export const PesticideListScreen = ({ navigation }: PesticideListScreenProps) =>
       materialIcon: 'check-all'
     } : (PESTICIDE_TYPE_ICONS[item as keyof typeof PESTICIDE_TYPE_ICONS] || PESTICIDE_TYPE_ICONS.other);
     
+    const isSelected = selectedType === item;
+    
     return (
       <TouchableOpacity
         style={[
           styles.typeChip,
           { 
-            backgroundColor: selectedType === item ? typeInfo.color : theme.colors.neutral.surface,
-            borderColor: selectedType === item ? typeInfo.color : theme.colors.neutral.border,
+            backgroundColor: isSelected ? typeInfo.color : theme.colors.neutral.surface,
+            borderColor: isSelected ? typeInfo.color : theme.colors.neutral.border,
+            ...Platform.select({
+              ios: isSelected ? {
+                shadowColor: typeInfo.color,
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.3,
+                shadowRadius: 3,
+              } : {},
+              android: isSelected ? {
+                elevation: 2,
+              } : {},
+            }),
           }
         ]}
-        onPress={() => setSelectedType(selectedType === item ? null : item)}
+        onPress={() => setSelectedType(isSelected ? null : item)}
       >
         <Text style={styles.typeIcon}>{typeInfo.icon}</Text>
         <Text style={[
           styles.typeText,
-          { color: selectedType === item ? '#FFF' : theme.colors.neutral.textSecondary }
+          { color: isSelected ? '#FFF' : theme.colors.neutral.textSecondary }
         ]}>
           {item === 'الكل' ? 'كل المبيدات' : typeInfo.label}
         </Text>
-        {selectedType === item && (
+        {isSelected && (
           <MaterialCommunityIcons 
             name="close-circle" 
             size={16} 
@@ -213,7 +218,7 @@ export const PesticideListScreen = ({ navigation }: PesticideListScreenProps) =>
     
     return (
       <Animated.View 
-        entering={FadeInDown.delay(index * 100).springify()}
+        entering={FadeInDown.delay(index * 50).springify().damping(12)}
         style={[
           styles.card,
           { 
@@ -221,12 +226,12 @@ export const PesticideListScreen = ({ navigation }: PesticideListScreenProps) =>
             ...Platform.select({
               ios: {
                 shadowColor: theme.colors.neutral.textPrimary,
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.1,
-                shadowRadius: 8,
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.12,
+                shadowRadius: 6,
               },
               android: {
-                elevation: 4,
+                elevation: 3,
               },
             }),
           }
@@ -322,27 +327,61 @@ export const PesticideListScreen = ({ navigation }: PesticideListScreenProps) =>
     );
   }, [theme, navigation]);
 
+  const handleSearchChange = useCallback((text: string) => {
+    setSearchQuery(text);
+    
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    
+    if (page !== 1) {
+      searchTimeoutRef.current = setTimeout(() => {
+        setPage(1);
+        searchTimeoutRef.current = null;
+      }, 300);
+    }
+  }, [page]);
+
   const renderHeader = useCallback(() => (
-    <Animated.View entering={FadeIn.springify()}>
-      <View style={styles.searchContainer}>
+    <Animated.View entering={FadeIn.duration(300).springify()}>
+      <View style={[styles.searchContainer, { 
+        borderBottomWidth: 0,
+        paddingBottom: theme.spacing.sm,
+      }]}>
         <SearchBar
           value={searchQuery}
-          onChangeText={setSearchQuery}
+          onChangeText={handleSearchChange}
           placeholder="ابحث عن المبيدات..."
-          style={styles.searchBar}
+          style={[styles.searchBar, {
+            backgroundColor: theme.colors.neutral.background,
+            ...Platform.select({
+              ios: {
+                shadowColor: theme.colors.neutral.textPrimary,
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.1,
+                shadowRadius: 4,
+              },
+              android: {
+                elevation: 2,
+              },
+            }),
+          }]}
         />
       </View>
-      <FlatList
-        data={types}
-        renderItem={renderTypeChip}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.typesList}
-        contentContainerStyle={styles.typesContent}
-        keyExtractor={item => item}
-      />
+      <View style={{paddingBottom: theme.spacing.sm}}>
+        <FlatList
+          data={types}
+          renderItem={renderTypeChip}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.typesList}
+          contentContainerStyle={styles.typesContent}
+          keyExtractor={item => item}
+          keyboardShouldPersistTaps="always"
+        />
+      </View>
     </Animated.View>
-  ), [searchQuery, types, renderTypeChip]);
+  ), [searchQuery, types, renderTypeChip, theme, handleSearchChange]);
 
   const styles = createThemedStyles((theme) => {
     // Define fallback values for typography to prevent undefined errors
@@ -383,19 +422,15 @@ export const PesticideListScreen = ({ navigation }: PesticideListScreenProps) =>
       },
       searchContainer: {
         padding: theme.spacing.md,
-        gap: theme.spacing.md,
+        paddingBottom: theme.spacing.xs,
         backgroundColor: theme.colors.neutral.surface,
-        borderBottomWidth: 1,
-        borderBottomColor: theme.colors.neutral.border,
       },
       searchBar: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: theme.colors.neutral.background,
-        borderRadius: theme.borderRadius.medium,
+        borderRadius: theme.borderRadius.pill, // More rounded search bar
         paddingHorizontal: theme.spacing.md,
         height: 40,
-        ...theme.shadows.small,
       },
       searchInput: {
         flex: 1,
@@ -416,10 +451,11 @@ export const PesticideListScreen = ({ navigation }: PesticideListScreenProps) =>
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: theme.spacing.md,
-        paddingVertical: theme.spacing.sm,
-        borderRadius: theme.borderRadius.large,
+        paddingVertical: theme.spacing.xs,
+        borderRadius: theme.borderRadius.pill, // More rounded for better appearance
         gap: theme.spacing.xs,
         borderWidth: 1,
+        marginHorizontal: 4,
       },
       typeChipSelected: {
         ...theme.shadows.small,
@@ -439,32 +475,34 @@ export const PesticideListScreen = ({ navigation }: PesticideListScreenProps) =>
         gap: theme.spacing.md,
       },
       card: {
-        borderRadius: theme.borderRadius.large,
+        borderRadius: theme.borderRadius.medium,
         overflow: 'hidden',
-        marginBottom: theme.spacing.md,
+        marginBottom: theme.spacing.sm,
+        borderWidth: 0.5,
+        borderColor: theme.colors.neutral.border + '50',
       },
       cardContent: {
-        padding: theme.spacing.md,
+        padding: theme.spacing.sm,
       },
       cardHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingBottom: theme.spacing.md,
-        gap: theme.spacing.sm,
+        paddingBottom: theme.spacing.sm,
+        gap: theme.spacing.xs,
       },
       iconContainer: {
-        width: 56,
-        height: 56,
-        borderRadius: 28,
+        width: 48,
+        height: 48,
+        borderRadius: 24,
         justifyContent: 'center',
         alignItems: 'center',
       },
       pesticideIcon: {
-        fontSize: getTypographySize('typography.arabic.h3.fontSize', 28),
+        fontSize: getTypographySize('typography.arabic.h4.fontSize', 24),
       },
       headerInfo: {
         flex: 1,
-        gap: 4,
+        gap: 2,
       },
       subtitleContainer: {
         flexDirection: 'row',
@@ -480,7 +518,7 @@ export const PesticideListScreen = ({ navigation }: PesticideListScreenProps) =>
         fontSize: getTypographySize('typography.arabic.caption.fontSize', 18),
       },
       pesticideName: {
-        fontSize: getTypographySize('typography.arabic.h3.fontSize', 28),
+        fontSize: getTypographySize('typography.arabic.h4.fontSize', 22),
         fontWeight: '600',
         color: theme.colors.neutral.textPrimary,
       },
@@ -491,10 +529,10 @@ export const PesticideListScreen = ({ navigation }: PesticideListScreenProps) =>
       naturalBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: theme.spacing.sm,
-        paddingVertical: theme.spacing.xs,
-        borderRadius: theme.borderRadius.medium,
-        gap: theme.spacing.xs,
+        paddingHorizontal: theme.spacing.xs,
+        paddingVertical: 2,
+        borderRadius: theme.borderRadius.small,
+        gap: 2,
       },
       naturalIcon: {
         fontSize: getTypographySize('typography.arabic.caption.fontSize', 18),
@@ -509,7 +547,7 @@ export const PesticideListScreen = ({ navigation }: PesticideListScreenProps) =>
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingTop: theme.spacing.md,
+        paddingTop: theme.spacing.sm,
         borderTopWidth: 1,
         borderTopColor: theme.colors.neutral.border,
       },
@@ -519,7 +557,7 @@ export const PesticideListScreen = ({ navigation }: PesticideListScreenProps) =>
         gap: 4,
       },
       quantity: {
-        fontSize: getTypographySize('typography.arabic.body.fontSize', 20),
+        fontSize: getTypographySize('typography.arabic.caption.fontSize', 18),
         fontWeight: '600',
       },
       unit: {
@@ -559,7 +597,7 @@ export const PesticideListScreen = ({ navigation }: PesticideListScreenProps) =>
         justifyContent: 'center',
         alignItems: 'center',
         padding: theme.spacing.lg,
-        gap: theme.spacing.md,
+        gap: theme.spacing.lg,
       },
       emptyIcon: {
         fontSize: 48,
@@ -579,20 +617,46 @@ export const PesticideListScreen = ({ navigation }: PesticideListScreenProps) =>
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: theme.spacing.md,
-        borderRadius: theme.borderRadius.medium,
-        marginTop: theme.spacing.md,
-        gap: theme.spacing.sm,
+        padding: theme.spacing.sm,
+        borderRadius: theme.borderRadius.small,
+        marginTop: theme.spacing.sm,
+        gap: theme.spacing.xs,
       },
       seeMoreText: {
         color: '#FFF',
         fontSize: getTypographySize('typography.arabic.body.fontSize', 20),
         fontWeight: '600',
       },
+      emptyButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: theme.spacing.md,
+        paddingVertical: theme.spacing.sm,
+        borderRadius: theme.borderRadius.pill,
+        gap: theme.spacing.sm,
+        marginTop: theme.spacing.md,
+        ...Platform.select({
+          ios: {
+            shadowColor: theme.colors.primary.base,
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.3,
+            shadowRadius: 3,
+          },
+          android: {
+            elevation: 3,
+          },
+        }),
+      },
+      emptyButtonText: {
+        color: '#FFF',
+        fontSize: getTypographySize('typography.arabic.body.fontSize', 18),
+        fontWeight: '600',
+      },
     };
   });
 
-  if (loading && !pesticides.length) {
+  if (contextLoading && !contextPesticides.length) {
     return (
       <View style={[styles.container, styles.centerContent]}>
         <ActivityIndicator size="large" color={theme.colors.primary.base} />
@@ -600,7 +664,7 @@ export const PesticideListScreen = ({ navigation }: PesticideListScreenProps) =>
     );
   }
 
-  if (localError) {
+  if (contextError) {
     return (
       <View style={[styles.container, styles.centerContent]}>
         <MaterialCommunityIcons 
@@ -609,7 +673,7 @@ export const PesticideListScreen = ({ navigation }: PesticideListScreenProps) =>
           color={theme.colors.error} 
         />
         <Text style={[styles.emptyText, { color: theme.colors.error }]}>
-          {localError}
+          {contextError}
         </Text>
       </View>
     );
@@ -622,37 +686,37 @@ export const PesticideListScreen = ({ navigation }: PesticideListScreenProps) =>
         barStyle="dark-content"
       />
       
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>المبيدات</Text>
-        <TouchableOpacity
-          onPress={() => navigation.navigate('AddPesticide')}
-        >
-          <MaterialCommunityIcons 
-            name="plus" 
-            size={24} 
-            color={theme.colors.primary.base} 
-          />
-        </TouchableOpacity>
-      </View>
-
       <FlatList
         data={paginatedPesticides}
         renderItem={renderPesticideCard}
         keyExtractor={item => item.id}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[
+          styles.listContent,
+          paginatedPesticides.length === 0 && { flex: 1, justifyContent: 'center' }
+        ]}
         ListHeaderComponent={renderHeader}
         ListFooterComponent={renderFooter}
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
+          <Animated.View 
+            entering={FadeIn.delay(300).duration(500)}
+            style={styles.emptyContainer}
+          >
             <MaterialCommunityIcons 
               name="flask-empty-outline" 
-              size={64} 
-              color={theme.colors.neutral.textSecondary} 
+              size={72} 
+              color={theme.colors.neutral.textSecondary + '80'} 
             />
             <Text style={[styles.emptyText, { color: theme.colors.neutral.textSecondary }]}>
               لا توجد مبيدات
             </Text>
-          </View>
+            <TouchableOpacity 
+              style={[styles.emptyButton, { backgroundColor: theme.colors.primary.base }]}
+              onPress={() => navigation.navigate('AddPesticide')}
+            >
+              <MaterialCommunityIcons name="plus" size={20} color="#FFF" />
+              <Text style={styles.emptyButtonText}>إضافة مبيد</Text>
+            </TouchableOpacity>
+          </Animated.View>
         }
         refreshControl={
           <RefreshControl
@@ -662,6 +726,9 @@ export const PesticideListScreen = ({ navigation }: PesticideListScreenProps) =>
             tintColor={theme.colors.primary.base}
           />
         }
+        keyboardShouldPersistTaps="always"
+        keyboardDismissMode="none"
+        scrollEventThrottle={16}
       />
       
       <FAB
@@ -672,7 +739,18 @@ export const PesticideListScreen = ({ navigation }: PesticideListScreenProps) =>
           margin: 16,
           right: 0,
           bottom: 0,
-          backgroundColor: theme.colors.primary.base
+          backgroundColor: theme.colors.primary.base,
+          ...Platform.select({
+            ios: {
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.3,
+              shadowRadius: 3,
+            },
+            android: {
+              elevation: 6,
+            },
+          }),
         }}
       />
     </SafeAreaView>

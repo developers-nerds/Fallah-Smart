@@ -12,7 +12,8 @@ import {
   I18nManager,
   SafeAreaView,
   Dimensions,
-  TextInput
+  TextInput,
+  Modal
 } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
 import { useEquipment } from '../../../context/EquipmentContext';
@@ -221,6 +222,126 @@ type EquipmentDetailScreenProps = {
   route: RouteProp<StockStackParamList, 'EquipmentDetail'>;
 };
 
+// Add types for the QuantityModal component
+interface QuantityModalProps {
+  visible: boolean;
+  onClose: () => void;
+  onConfirm: (quantity: number, notes: string) => void;
+  type: 'add' | 'remove';
+  currentQuantity: number;
+  loading: boolean;
+}
+
+const QuantityModal: React.FC<QuantityModalProps> = ({
+  visible,
+  onClose,
+  onConfirm,
+  type,
+  currentQuantity,
+  loading,
+}) => {
+  const [quantity, setQuantity] = useState('');
+  const [notes, setNotes] = useState('');
+  const theme = useTheme();
+
+  const handleClose = useCallback(() => {
+    setQuantity('');
+    setNotes('');
+    onClose();
+  }, [onClose]);
+
+  const handleConfirm = async () => {
+    const num = Number(quantity);
+    if (num > 0) {
+      if (type === 'remove' && num > currentQuantity) {
+        Alert.alert('خطأ', 'لا يمكن سحب كمية أكبر من المتوفرة');
+        return;
+      }
+      try {
+        await onConfirm(num, notes);
+        setQuantity('');
+        setNotes('');
+    } catch (error) {
+        console.error('Error updating quantity:', error);
+      }
+    }
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalContent, { backgroundColor: theme.colors.neutral.surface }]}>
+          <Text style={[styles.modalTitle, { color: theme.colors.neutral.textPrimary }]}>
+            {type === 'add' ? 'إضافة للمخزون' : 'سحب من المخزون'}
+          </Text>
+
+          <View style={styles.modalInputContainer}>
+            <TextInput
+              style={[styles.modalInput, { 
+                backgroundColor: theme.colors.neutral.background,
+                color: theme.colors.neutral.textPrimary,
+                textAlign: 'right'
+              }]}
+              value={quantity}
+              onChangeText={setQuantity}
+              keyboardType="numeric"
+              placeholder="الكمية"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+              editable={!loading}
+            />
+
+            <TextInput
+              style={[styles.modalInput, { 
+                backgroundColor: theme.colors.neutral.background,
+                color: theme.colors.neutral.textPrimary,
+                height: 100,
+                textAlignVertical: 'top',
+                textAlign: 'right'
+              }]}
+              value={notes}
+              onChangeText={setNotes}
+              placeholder="ملاحظات (اختياري)"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+              multiline
+              numberOfLines={4}
+              editable={!loading}
+            />
+          </View>
+
+          <View style={styles.modalButtons}>
+            <TouchableOpacity 
+              style={[styles.modalButton, styles.cancelButton]} 
+              onPress={handleClose}
+              disabled={loading}
+            >
+              <Text style={[styles.buttonText, { color: theme.colors.neutral.textPrimary }]}>
+                إلغاء
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[
+                styles.modalButton, 
+                styles.confirmButton,
+                { backgroundColor: type === 'add' ? theme.colors.success : theme.colors.error },
+                loading && { opacity: 0.7 }
+              ]} 
+              onPress={handleConfirm}
+              disabled={loading || !quantity}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={[styles.buttonText, { color: '#fff' }]}>تأكيد</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
 const EquipmentDetailScreen: React.FC<EquipmentDetailScreenProps> = ({ navigation, route }) => {
   const theme = useTheme();
   const { t } = useTranslation();
@@ -231,15 +352,18 @@ const EquipmentDetailScreen: React.FC<EquipmentDetailScreenProps> = ({ navigatio
   const [isDeleting, setIsDeleting] = useState(false);
   const [equipment, setEquipment] = useState<StockEquipment | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showRemoveModal, setShowRemoveModal] = useState(false);
+  const [quantityLoading, setQuantityLoading] = useState(false);
   
   const { deleteEquipment } = useEquipment();
 
   // Direct API fetch function for equipment details
   const fetchEquipmentDetail = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      
+      try {
+        setIsLoading(true);
+        setError(null);
+        
       const tokens = await storage.getTokens();
       
       if (!tokens?.access) {
@@ -261,8 +385,8 @@ const EquipmentDetailScreen: React.FC<EquipmentDetailScreenProps> = ({ navigatio
     } catch (error) {
       console.error('Error fetching equipment detail:', error);
       setError('فشل في تحميل تفاصيل المعدة');
-    } finally {
-      setIsLoading(false);
+      } finally {
+          setIsLoading(false);
     }
   };
 
@@ -333,6 +457,59 @@ const EquipmentDetailScreen: React.FC<EquipmentDetailScreenProps> = ({ navigatio
       </Animated.View>
     );
   }, [theme.colors.neutral]);
+
+  // Add quantity change handler
+  const handleQuantityChange = async (type: 'add' | 'remove', quantity: number, notes: string) => {
+    if (!equipment) return;
+    
+    setQuantityLoading(true);
+    try {
+      const tokens = await storage.getTokens();
+      
+      if (!tokens?.access) {
+        Alert.alert('خطأ', 'الرجاء تسجيل الدخول أولا');
+        return;
+      }
+      
+      const updatedQuantity = type === 'add' 
+        ? equipment.quantity + quantity
+        : Math.max(0, equipment.quantity - quantity);
+      
+      const response = await axios.patch(
+        `${process.env.EXPO_PUBLIC_API_URL}/stock/equipment/${equipmentId}`,
+        {
+          quantity: updatedQuantity,
+          notes: notes ? `${type === 'add' ? 'إضافة' : 'سحب'} ${quantity} وحدة. ${notes}` : undefined
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${tokens.access}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      if (response.data) {
+        setEquipment(response.data);
+        
+        if (type === 'add') {
+          setShowAddModal(false);
+      } else {
+          setShowRemoveModal(false);
+        }
+        
+        Alert.alert(
+          'نجاح',
+          `تم ${type === 'add' ? 'إضافة' : 'سحب'} ${quantity} وحدة بنجاح`
+        );
+      }
+    } catch (error) {
+      console.error('Error updating quantity:', error);
+      Alert.alert('خطأ', `فشل في ${type === 'add' ? 'إضافة' : 'سحب'} الكمية`);
+    } finally {
+      setQuantityLoading(false);
+    }
+  };
 
   if (isLoading || isDeleting) {
     return (
@@ -441,8 +618,8 @@ const EquipmentDetailScreen: React.FC<EquipmentDetailScreenProps> = ({ navigatio
               <Text style={[styles.subtitle, { color: theme.colors.neutral.textSecondary }]}>
                 {equipmentType.name}
               </Text>
-            </View>
-          </View>
+              </View>
+              </View>
 
           <View style={styles.statsContainer}>
             <View style={[styles.statCard, { backgroundColor: theme.colors.neutral.background }]}>
@@ -452,8 +629,8 @@ const EquipmentDetailScreen: React.FC<EquipmentDetailScreenProps> = ({ navigatio
               <Text style={[styles.statLabel, { color: theme.colors.neutral.textSecondary }]}>
                 الكمية
               </Text>
-            </View>
-
+        </View>
+          
             <View style={[styles.statCard, { backgroundColor: theme.colors.neutral.background }]}>
               <Text style={[styles.statValue, { color: theme.colors.neutral.textPrimary }]}>
                 {equipment.purchasePrice || '-'}
@@ -461,7 +638,7 @@ const EquipmentDetailScreen: React.FC<EquipmentDetailScreenProps> = ({ navigatio
               <Text style={[styles.statLabel, { color: theme.colors.neutral.textSecondary }]}>
                 د.أ
               </Text>
-              </View>
+        </View>
 
             <View style={[styles.statCard, { backgroundColor: theme.colors.neutral.background }]}>
               <View style={[
@@ -470,13 +647,32 @@ const EquipmentDetailScreen: React.FC<EquipmentDetailScreenProps> = ({ navigatio
               ]}>
                 <Text style={styles.statusIconText}>
                   {statusInfo.icon || '❓'}
-                </Text>
+              </Text>
               </View>
               <Text style={[styles.statLabel, { color: theme.colors.neutral.textSecondary }]}>
                 {statusInfo.name}
               </Text>
             </View>
         </View>
+          
+          <View style={styles.quantityActions}>
+                <TouchableOpacity
+              style={[styles.quantityButton, { backgroundColor: theme.colors.success }]}
+              onPress={() => setShowAddModal(true)}
+                >
+              <Text style={styles.quantityButtonIcon}>➕</Text>
+              <Text style={styles.quantityButtonText}>إضافة للمخزون</Text>
+                </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.quantityButton, { backgroundColor: theme.colors.error }]}
+              onPress={() => setShowRemoveModal(true)}
+              disabled={equipment.quantity <= 0}
+            >
+              <Text style={styles.quantityButtonIcon}>➖</Text>
+              <Text style={styles.quantityButtonText}>سحب من المخزون</Text>
+            </TouchableOpacity>
+            </View>
           
           <View style={styles.headerActions}>
             <TouchableOpacity
@@ -488,7 +684,7 @@ const EquipmentDetailScreen: React.FC<EquipmentDetailScreenProps> = ({ navigatio
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.actionButton, { backgroundColor: theme.colors.error }]}
-            onPress={handleDelete}
+              onPress={handleDelete}
               disabled={isDeleting}
             >
               {isDeleting ? (
@@ -500,7 +696,7 @@ const EquipmentDetailScreen: React.FC<EquipmentDetailScreenProps> = ({ navigatio
                 </>
               )}
             </TouchableOpacity>
-        </View>
+          </View>
         </Animated.View>
 
         <View style={styles.content}>
@@ -513,15 +709,15 @@ const EquipmentDetailScreen: React.FC<EquipmentDetailScreenProps> = ({ navigatio
           {renderField('سنة التصنيع', equipment.yearOfManufacture, FIELD_ICONS.yearOfManufacture)}
           
           {/* Purchase Information */}
-          {renderField('تاريخ الشراء', formatDate(equipment.purchaseDate), FIELD_ICONS.purchaseDate)}
-          {renderField('تاريخ انتهاء الضمان', formatDate(equipment.warrantyExpiryDate), FIELD_ICONS.warrantyExpiryDate)}
+          {renderField('تاريخ الشراء', equipment.purchaseDate ? formatDate(equipment.purchaseDate) : 'N/A', FIELD_ICONS.purchaseDate)}
+          {renderField('تاريخ انتهاء الضمان', equipment.warrantyExpiryDate ? formatDate(equipment.warrantyExpiryDate) : 'N/A', FIELD_ICONS.warrantyExpiryDate)}
           {renderField('سعر الشراء', equipment.purchasePrice ? `${equipment.purchasePrice} د.ج` : null, FIELD_ICONS.purchasePrice)}
           
           {/* Maintenance Information */}
-          {renderField('آخر صيانة', formatDate(equipment.lastMaintenanceDate), FIELD_ICONS.lastMaintenanceDate)}
-          {renderField('الصيانة القادمة', formatDate(equipment.nextMaintenanceDate), FIELD_ICONS.nextMaintenanceDate)}
+          {renderField('آخر صيانة', equipment.lastMaintenanceDate ? formatDate(equipment.lastMaintenanceDate) : 'N/A', FIELD_ICONS.lastMaintenanceDate)}
+          {renderField('الصيانة القادمة', equipment.nextMaintenanceDate ? formatDate(equipment.nextMaintenanceDate) : 'N/A', FIELD_ICONS.nextMaintenanceDate)}
           {renderField('فترة الصيانة', equipment.maintenanceInterval ? `${equipment.maintenanceInterval} يوم` : null, FIELD_ICONS.nextMaintenanceDate)}
-          {renderField('ملاحظات الصيانة', equipment.maintenanceNotes, FIELD_ICONS.notes)}
+          {renderField('ملاحظات الصيانة', equipment.maintenanceCosts, FIELD_ICONS.notes)}
           
           {/* Technical Information */}
           {renderField('نوع الوقود', FUEL_TYPES[equipment.fuelType as FuelType]?.name, FIELD_ICONS.fuelType)}
@@ -534,7 +730,7 @@ const EquipmentDetailScreen: React.FC<EquipmentDetailScreenProps> = ({ navigatio
           {renderField('الموقع', equipment.location, FIELD_ICONS.location)}
           {renderField('المشغل المعين', equipment.assignedOperator, FIELD_ICONS.operator)}
           {renderField('ساعات التشغيل', equipment.operatingHours ? `${equipment.operatingHours} ساعة` : null, FIELD_ICONS.operatingHours)}
-          {renderField('آخر تشغيل', formatDate(equipment.lastOperationDate), FIELD_ICONS.lastOperationDate)}
+          {renderField('آخر تشغيل', equipment.lastOperationDate ? formatDate(equipment.lastOperationDate) : 'N/A', FIELD_ICONS.lastOperationDate)}
           
           {/* Additional Information */}
           {renderField('ملاحظات', equipment.notes, FIELD_ICONS.notes)}
@@ -542,6 +738,24 @@ const EquipmentDetailScreen: React.FC<EquipmentDetailScreenProps> = ({ navigatio
           {renderField('إرشادات السلامة', equipment.safetyGuidelines, FIELD_ICONS.safetyGuidelines)}
         </View>
     </ScrollView>
+
+      <QuantityModal
+        visible={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onConfirm={(quantity, notes) => handleQuantityChange('add', quantity, notes)}
+        type="add"
+        currentQuantity={equipment.quantity}
+        loading={quantityLoading}
+      />
+
+      <QuantityModal
+        visible={showRemoveModal}
+        onClose={() => setShowRemoveModal(false)}
+        onConfirm={(quantity, notes) => handleQuantityChange('remove', quantity, notes)}
+        type="remove"
+        currentQuantity={equipment.quantity}
+        loading={quantityLoading}
+      />
     </SafeAreaView>
   );
 };
@@ -710,6 +924,82 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     marginTop: 12,
+  },
+  quantityActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  quantityButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 12,
+    gap: 8,
+  },
+  quantityButtonIcon: {
+    fontSize: 16,
+    color: '#FFF',
+  },
+  quantityButtonText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    width: '85%',
+    borderRadius: 16,
+    padding: 24,
+    gap: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  modalInputContainer: {
+    gap: 16,
+  },
+  modalInput: {
+    height: 48,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 16,
+    marginTop: 16,
+  },
+  modalButton: {
+    flex: 1,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+  },
+  cancelButton: {
+    backgroundColor: '#f5f5f5',
+    borderWidth: 1,
+    borderColor: '#ccc',
+  },
+  confirmButton: {
+    backgroundColor: '#4caf50',
+  },
+  buttonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 
