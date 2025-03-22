@@ -184,6 +184,18 @@ Auctions.belongsTo(CropListings, {
   foreignKey: "cropListingId",
   as: "cropListing",
 });
+//  CropListings one-to-many with cropOrders
+CropListings.hasMany(CropOrders, {
+  foreignKey: "cropListingId",
+  as: "orders",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+CropOrders.belongsTo(CropListings, {
+  foreignKey: "cropListingId",
+  as: "cropListing",
+});
+
 
 // 5. Auctions one-to-many with AuctionBids
 Auctions.hasMany(AuctionBids, {
