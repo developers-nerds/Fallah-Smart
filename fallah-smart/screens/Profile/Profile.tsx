@@ -561,7 +561,7 @@ const Profile = () => {
           <Text style={styles.profileName}>
             {profile?.firstName && profile?.lastName 
               ? `${profile.firstName} ${profile.lastName}` 
-              : profile?.username || 'Your Profile'}
+              : profile?.username || 'ملفك الشخصي'}
           </Text>
         </View>
         
@@ -570,7 +570,7 @@ const Profile = () => {
           {/* Personal Information Section */}
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionHeader}>Personal Information</Text>
+              <Text style={styles.sectionHeader}>المعلومات الشخصية</Text>
               <MaterialCommunityIcons name="account" size={20} color={theme.colors.primary.base} />
             </View>
             
@@ -578,10 +578,10 @@ const Profile = () => {
             <View style={styles.profileField}>
               <View style={styles.fieldRow}>
                 <MaterialCommunityIcons name="account-circle" size={18} color="#555" style={styles.fieldIcon} />
-                <Text style={styles.fieldLabel}>Username</Text>
+                <Text style={styles.fieldLabel}>اسم المستخدم</Text>
               </View>
               <Text style={styles.fieldValue}>
-                {profile?.username || <Text style={styles.fieldValueLight}>Not set</Text>}
+                {profile?.username || <Text style={styles.fieldValueLight}>غير محدد</Text>}
               </Text>
             </View>
             
@@ -589,22 +589,22 @@ const Profile = () => {
             <View style={styles.profileField}>
               <View style={styles.fieldRow}>
                 <MaterialCommunityIcons name="card-account-details" size={18} color="#555" style={styles.fieldIcon} />
-                <Text style={styles.fieldLabel}>Full Name</Text>
+                <Text style={styles.fieldLabel}>الاسم الكامل</Text>
               </View>
               <Text style={styles.fieldValue}>
                 {profile?.firstName && profile?.lastName 
                   ? `${profile.firstName} ${profile.lastName}` 
-                  : <Text style={styles.fieldValueLight}>Not set</Text>}
+                  : <Text style={styles.fieldValueLight}>غير محدد</Text>}
               </Text>
             </View>
             
             <View style={styles.profileField}>
               <View style={styles.fieldRow}>
                 <MaterialCommunityIcons name="gender-male-female" size={18} color="#555" style={styles.fieldIcon} />
-                <Text style={styles.fieldLabel}>Gender</Text>
+                <Text style={styles.fieldLabel}>الجنس</Text>
               </View>
               <Text style={styles.fieldValue}>
-                {profile?.gender || <Text style={styles.fieldValueLight}>Not set</Text>}
+                {profile?.gender || <Text style={styles.fieldValueLight}>غير محدد</Text>}
               </Text>
             </View>
           </View>
@@ -612,27 +612,27 @@ const Profile = () => {
           {/* Contact Information Section */}
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionHeader}>Contact Information</Text>
+              <Text style={styles.sectionHeader}>معلومات الاتصال</Text>
               <MaterialCommunityIcons name="contacts" size={20} color={theme.colors.primary.base} />
             </View>
             
             <View style={styles.profileField}>
               <View style={styles.fieldRow}>
                 <MaterialCommunityIcons name="email" size={18} color="#555" style={styles.fieldIcon} />
-                <Text style={styles.fieldLabel}>Email</Text>
+                <Text style={styles.fieldLabel}>البريد الإلكتروني</Text>
               </View>
               <Text style={styles.fieldValue}>
-                {profile?.email || <Text style={styles.fieldValueLight}>Not set</Text>}
+                {profile?.email || <Text style={styles.fieldValueLight}>غير محدد</Text>}
               </Text>
             </View>
             
             <View style={styles.profileField}>
               <View style={styles.fieldRow}>
                 <MaterialCommunityIcons name="phone" size={18} color="#555" style={styles.fieldIcon} />
-                <Text style={styles.fieldLabel}>Phone Number</Text>
+                <Text style={styles.fieldLabel}>رقم الهاتف</Text>
               </View>
               <Text style={styles.fieldValue}>
-                {profile?.phoneNumber || <Text style={styles.fieldValueLight}>Not set</Text>}
+                {profile?.phoneNumber || <Text style={styles.fieldValueLight}>غير محدد</Text>}
               </Text>
             </View>
           </View>
@@ -646,7 +646,7 @@ const Profile = () => {
             }}
           >
             <MaterialCommunityIcons name="account-edit" size={20} color="#FFFFFF" />
-            <Text style={styles.editButtonText}>Edit Profile</Text>
+            <Text style={styles.editButtonText}>تعديل الملف الشخصي</Text>
           </TouchableOpacity>
         </View>
         
@@ -686,7 +686,7 @@ const Profile = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit Profile</Text>
+              <Text style={styles.modalTitle}>تعديل الملف الشخصي</Text>
               <TouchableOpacity 
                 style={styles.closeButton}
                 onPress={() => {
@@ -734,7 +734,7 @@ const Profile = () => {
                   >
                     <MaterialCommunityIcons name="camera" size={18} color={theme.colors.primary.base} />
                     <Text style={styles.selectImageText}>
-                      {selectedImage || profile?.profilePicture ? 'Change Photo' : 'Add Photo'}
+                      {selectedImage || profile?.profilePicture ? 'تغيير الصورة' : 'إضافة صورة'}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -742,12 +742,12 @@ const Profile = () => {
               
               {/* Form fields with better visual structure and icons */}
               <View style={styles.formSection}>
-                <Text style={styles.formSectionTitle}>Account Information</Text>
+                <Text style={styles.formSectionTitle}>معلومات الحساب</Text>
                 
                 <View style={styles.inputContainer}>
                   <View style={styles.inputLabelRow}>
                     <MaterialCommunityIcons name="account" size={16} color={theme.colors.neutral.textSecondary} />
-                    <Text style={styles.inputLabel}>Username</Text>
+                    <Text style={styles.inputLabel}>اسم المستخدم</Text>
                   </View>
                   <TextInput
                     style={styles.input}
@@ -755,7 +755,7 @@ const Profile = () => {
                     onChangeText={(text) => 
                       setEditedProfile(prev => ({ ...prev, username: text }))
                     }
-                    placeholder="Enter username"
+                    placeholder="أدخل اسم المستخدم"
                     placeholderTextColor={theme.colors.neutral.textSecondary}
                   />
                 </View>
@@ -763,7 +763,7 @@ const Profile = () => {
                 <View style={styles.inputContainer}>
                   <View style={styles.inputLabelRow}>
                     <MaterialCommunityIcons name="badge-account" size={16} color={theme.colors.neutral.textSecondary} />
-                    <Text style={styles.inputLabel}>First Name</Text>
+                    <Text style={styles.inputLabel}>الاسم الأول</Text>
                   </View>
                   <TextInput
                     style={styles.input}
@@ -771,7 +771,7 @@ const Profile = () => {
                     onChangeText={(text) => 
                       setEditedProfile(prev => ({ ...prev, firstName: text }))
                     }
-                    placeholder="Enter first name"
+                    placeholder="أدخل الاسم الأول"
                     placeholderTextColor={theme.colors.neutral.textSecondary}
                   />
                 </View>
@@ -779,7 +779,7 @@ const Profile = () => {
                 <View style={styles.inputContainer}>
                   <View style={styles.inputLabelRow}>
                     <MaterialCommunityIcons name="badge-account" size={16} color={theme.colors.neutral.textSecondary} />
-                    <Text style={styles.inputLabel}>Last Name</Text>
+                    <Text style={styles.inputLabel}>اسم العائلة</Text>
                   </View>
                   <TextInput
                     style={styles.input}
@@ -787,7 +787,7 @@ const Profile = () => {
                     onChangeText={(text) => 
                       setEditedProfile(prev => ({ ...prev, lastName: text }))
                     }
-                    placeholder="Enter last name"
+                    placeholder="أدخل اسم العائلة"
                     placeholderTextColor={theme.colors.neutral.textSecondary}
                   />
                 </View>
@@ -795,7 +795,7 @@ const Profile = () => {
                 <View style={styles.inputContainer}>
                   <View style={styles.inputLabelRow}>
                     <MaterialCommunityIcons name="gender-male-female" size={16} color={theme.colors.neutral.textSecondary} />
-                    <Text style={styles.inputLabel}>Gender</Text>
+                    <Text style={styles.inputLabel}>الجنس</Text>
                   </View>
                   <View style={styles.genderContainer}>
                     {GENDER_OPTIONS.map((option) => (
@@ -824,29 +824,12 @@ const Profile = () => {
               </View>
               
               <View style={styles.formSection}>
-                <Text style={styles.formSectionTitle}>Contact Information</Text>
-                
-                <View style={styles.inputContainer}>
-                  <View style={styles.inputLabelRow}>
-                    <MaterialCommunityIcons name="phone" size={16} color={theme.colors.neutral.textSecondary} />
-                    <Text style={styles.inputLabel}>Phone Number</Text>
-                  </View>
-                  <TextInput
-                    style={styles.input}
-                    value={editedProfile?.phoneNumber || ''}
-                    onChangeText={(text) => 
-                      setEditedProfile(prev => ({ ...prev, phoneNumber: text }))
-                    }
-                    keyboardType="phone-pad"
-                    placeholder="Enter phone number"
-                    placeholderTextColor={theme.colors.neutral.textSecondary}
-                  />
-                </View>
+                <Text style={styles.formSectionTitle}>معلومات الاتصال</Text>
                 
                 <View style={styles.inputContainer}>
                   <View style={styles.inputLabelRow}>
                     <MaterialCommunityIcons name="email" size={16} color={theme.colors.neutral.textSecondary} />
-                    <Text style={styles.inputLabel}>Email</Text>
+                    <Text style={styles.inputLabel}>البريد الإلكتروني</Text>
                   </View>
                   <TextInput
                     style={styles.input}
@@ -854,13 +837,27 @@ const Profile = () => {
                     onChangeText={(text) => 
                       setEditedProfile(prev => ({ ...prev, email: text }))
                     }
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    placeholder="Enter email"
+                    placeholder="أدخل البريد الإلكتروني"
                     placeholderTextColor={theme.colors.neutral.textSecondary}
-                    editable={false} // Usually email shouldn't be changeable easily
+                    keyboardType="email-address"
                   />
-                  <Text style={styles.emailEditNote}>Contact support to change your email address</Text>
+                </View>
+                
+                <View style={styles.inputContainer}>
+                  <View style={styles.inputLabelRow}>
+                    <MaterialCommunityIcons name="phone" size={16} color={theme.colors.neutral.textSecondary} />
+                    <Text style={styles.inputLabel}>رقم الهاتف</Text>
+                  </View>
+                  <TextInput
+                    style={styles.input}
+                    value={editedProfile?.phoneNumber || ''}
+                    onChangeText={(text) => 
+                      setEditedProfile(prev => ({ ...prev, phoneNumber: text }))
+                    }
+                    placeholder="أدخل رقم الهاتف"
+                    placeholderTextColor={theme.colors.neutral.textSecondary}
+                    keyboardType="phone-pad"
+                  />
                 </View>
               </View>
             </ScrollView>
@@ -873,7 +870,7 @@ const Profile = () => {
                   setIsEditing(false);
                 }}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={styles.cancelButtonText}>إلغاء</Text>
               </TouchableOpacity>
               
               <TouchableOpacity
@@ -888,7 +885,7 @@ const Profile = () => {
                 {isSubmitting ? (
                   <ActivityIndicator size="small" color="white" />
                 ) : (
-                  <Text style={styles.saveButtonText}>Save Changes</Text>
+                  <Text style={styles.saveButtonText}>حفظ التغييرات</Text>
                 )}
               </TouchableOpacity>
             </View>

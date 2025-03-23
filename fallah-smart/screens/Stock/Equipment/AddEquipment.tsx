@@ -1,14 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Text, Platform, StatusBar, Alert, I18nManager, KeyboardAvoidingView, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  Platform,
+  StatusBar,
+  KeyboardAvoidingView,
+  StyleSheet,
+  I18nManager,
+} from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import { useTranslation } from 'react-i18next';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { useEquipment } from '../../../context/EquipmentContext';
 import { EQUIPMENT_TYPES, EQUIPMENT_STATUS, OPERATIONAL_STATUS, FUEL_TYPES, EquipmentType, EquipmentStatus, OperationalStatus, FuelType } from './constants';
 import { formatDate } from '../../../utils/date';
-import { Button, Divider, TextInput } from 'react-native-paper';
+import { Button, Divider } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { FadeInDown, FadeIn, ZoomIn } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeInRight, ZoomIn } from 'react-native-reanimated';
 import { StockStackParamList } from '../../../navigation/types';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAuth } from '../../../context/AuthContext';
@@ -16,15 +28,16 @@ import axios from 'axios';
 import { storage } from '../../../utils/storage';
 import { useTheme } from '../../../context/ThemeContext';
 import { theme as appTheme } from '../../../theme/theme';
-
-type Theme = typeof appTheme;
+import { Formik } from 'formik';
+import * as Yup from 'yup';
+import { TextInput } from '../../../components/TextInput';
 
 // Force RTL layout
 I18nManager.allowRTL(true);
 I18nManager.forceRTL(true);
 
 type AddEquipmentScreenProps = {
-  navigation: any;
+  navigation: StackNavigationProp<StockStackParamList, 'AddEquipment'>;
   route: RouteProp<StockStackParamList, 'AddEquipment'>;
 };
 
@@ -32,7 +45,7 @@ interface FormPage {
   title: string;
   subtitle: string;
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
-  fields: string[];
+  fields: Array<keyof FormData>;
 }
 
 interface FormData {
@@ -48,6 +61,7 @@ interface FormData {
   model: string;
   yearOfManufacture: string;
   purchasePrice: string;
+  price: string;
   fuelType: FuelType;
   fuelCapacity: string;
   powerOutput: string;
@@ -60,37 +74,20 @@ interface FormData {
   safetyGuidelines: string;
 }
 
-interface CustomTextInputProps {
-  label: string;
-  value: string;
-  onChangeText: (text: string) => void;
-  keyboardType?: 'default' | 'numeric' | 'email-address' | 'phone-pad';
-  multiline?: boolean;
-  numberOfLines?: number;
-  required?: boolean;
-  error?: string;
-  icon: string;
-}
-
-interface CustomSelectProps {
-  label: string;
-  value: string;
-  items: Array<{ label: string; value: string; icon: string }>;
-  required?: boolean;
-  error?: string;
-  horizontal?: boolean;
-  icon: string;
-}
-
-interface CustomDatePickerProps {
-  label: string;
-  value: Date | null;
-  required?: boolean;
-  error?: string;
-  icon: string;
-}
-
 type DateField = 'purchaseDate' | 'warrantyExpiryDate';
+
+const validationSchema = Yup.object().shape({
+  name: Yup.string().required('اسم المعدة مطلوب'),
+  type: Yup.string().required('نوع المعدة مطلوب'),
+  quantity: Yup.string()
+    .required('الكمية مطلوبة')
+    .test('is-number', 'الكمية يجب أن تكون رقماً', value => !isNaN(parseFloat(value))),
+  // Other fields are optional
+  price: Yup.string()
+    .test('is-number', 'السعر يجب أن يكون رقماً', value => !value || !isNaN(parseFloat(value))),
+  purchasePrice: Yup.string()
+    .test('is-number', 'سعر الشراء يجب أن يكون رقماً', value => !value || !isNaN(parseFloat(value))),
+});
 
 export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, route }) => {
   const { t } = useTranslation();
@@ -106,9 +103,8 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
   const [currentPage, setCurrentPage] = useState(0);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [dateField, setDateField] = useState<DateField>('purchaseDate');
-  const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
   
-  const [formData, setFormData] = useState<FormData>({
+  const [initialFormValues, setInitialFormValues] = useState<FormData>({
     name: '',
     type: 'tractor' as EquipmentType,
     status: 'operational' as EquipmentStatus,
@@ -121,6 +117,7 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
     model: '',
     yearOfManufacture: '',
     purchasePrice: '',
+    price: '',
     fuelType: 'diesel' as FuelType,
     fuelCapacity: '',
     powerOutput: '',
@@ -134,8 +131,6 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
   });
 
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [formSubmitting, setFormSubmitting] = useState(false);
 
   // Add user check effect
   useEffect(() => {
@@ -149,13 +144,51 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
     checkUser();
   }, []);
 
+  // Load existing equipment data if editing
+  useEffect(() => {
+    if (isEditing && equipmentToEdit) {
+      setInitialFormValues({
+        name: equipmentToEdit.name || '',
+        type: (equipmentToEdit.type as EquipmentType) || 'tractor',
+        status: (equipmentToEdit.status as EquipmentStatus) || 'operational',
+        operationalStatus: (equipmentToEdit.operationalStatus as OperationalStatus) || 'good',
+        quantity: equipmentToEdit.quantity?.toString() || '1',
+        purchaseDate: equipmentToEdit.purchaseDate ? new Date(equipmentToEdit.purchaseDate) : new Date(),
+        warrantyExpiryDate: equipmentToEdit.warrantyExpiryDate ? new Date(equipmentToEdit.warrantyExpiryDate) : null,
+        serialNumber: equipmentToEdit.serialNumber || '',
+        manufacturer: equipmentToEdit.manufacturer || '',
+        model: equipmentToEdit.model || '',
+        yearOfManufacture: typeof equipmentToEdit.yearOfManufacture === 'number' 
+          ? equipmentToEdit.yearOfManufacture.toString() 
+          : equipmentToEdit.yearOfManufacture || '',
+        purchasePrice: equipmentToEdit.purchasePrice?.toString() || '',
+        // Handle the price property safely
+        price: (equipmentToEdit as any)?.price?.toString() || '',
+        fuelType: (equipmentToEdit.fuelType as FuelType) || 'diesel',
+        fuelCapacity: typeof equipmentToEdit.fuelCapacity === 'number' 
+          ? equipmentToEdit.fuelCapacity.toString() 
+          : equipmentToEdit.fuelCapacity || '',
+        powerOutput: equipmentToEdit.powerOutput || '',
+        dimensions: equipmentToEdit.dimensions || '',
+        weight: typeof equipmentToEdit.weight === 'number' 
+          ? equipmentToEdit.weight.toString() 
+          : equipmentToEdit.weight || '',
+        location: equipmentToEdit.location || '',
+        assignedOperator: equipmentToEdit.assignedOperator || '',
+        notes: equipmentToEdit.notes || '',
+        operatingInstructions: equipmentToEdit.operatingInstructions || '',
+        safetyGuidelines: equipmentToEdit.safetyGuidelines || ''
+      });
+    }
+  }, [isEditing, equipmentToEdit]);
+
   // Define form pages with Arabic titles and subtitles
   const formPages: FormPage[] = [
     {
       title: 'معلومات أساسية',
       subtitle: 'أدخل المعلومات الأساسية للمعدة',
       icon: 'tractor',
-      fields: ['name', 'type', 'model', 'manufacturer'],
+      fields: ['name', 'type', 'quantity', 'model', 'manufacturer'],
     },
     {
       title: 'معلومات تقنية',
@@ -167,7 +200,7 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
       title: 'معلومات الشراء',
       subtitle: 'أدخل معلومات شراء المعدة',
       icon: 'cash',
-      fields: ['purchaseDate', 'warrantyExpiryDate', 'purchasePrice'],
+      fields: ['purchaseDate', 'warrantyExpiryDate', 'purchasePrice', 'price'],
     },
     {
       title: 'ملاحظات إضافية',
@@ -177,69 +210,35 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
     },
   ];
 
-  useEffect(() => {
-    if (isEditing && equipmentToEdit) {
-      setFormData({
-        name: equipmentToEdit.name,
-        type: equipmentToEdit.type as EquipmentType,
-        status: equipmentToEdit.status as EquipmentStatus,
-        operationalStatus: equipmentToEdit.operationalStatus as OperationalStatus,
-        quantity: equipmentToEdit.quantity.toString(),
-        purchaseDate: new Date(equipmentToEdit.purchaseDate),
-        warrantyExpiryDate: equipmentToEdit.warrantyExpiryDate ? new Date(equipmentToEdit.warrantyExpiryDate) : null,
-        serialNumber: equipmentToEdit.serialNumber || '',
-        manufacturer: equipmentToEdit.manufacturer || '',
-        model: equipmentToEdit.model || '',
-        yearOfManufacture: equipmentToEdit.yearOfManufacture ? equipmentToEdit.yearOfManufacture.toString() : '',
-        purchasePrice: equipmentToEdit.purchasePrice ? equipmentToEdit.purchasePrice.toString() : '',
-        fuelType: equipmentToEdit.fuelType as FuelType || 'diesel' as FuelType,
-        fuelCapacity: equipmentToEdit.fuelCapacity ? equipmentToEdit.fuelCapacity.toString() : '',
-        powerOutput: equipmentToEdit.powerOutput || '',
-        dimensions: equipmentToEdit.dimensions || '',
-        weight: equipmentToEdit.weight ? equipmentToEdit.weight.toString() : '',
-        location: equipmentToEdit.location || '',
-        assignedOperator: equipmentToEdit.assignedOperator || '',
-        notes: equipmentToEdit.notes || '',
-        operatingInstructions: equipmentToEdit.operatingInstructions || '',
-        safetyGuidelines: equipmentToEdit.safetyGuidelines || '',
-      });
-    }
-  }, [isEditing, equipmentToEdit]);
-
-  const validateCurrentPage = () => {
-    const currentFields = formPages[currentPage].fields;
-    const newErrors: Partial<Record<keyof FormData, string>> = {};
+  const validateCurrentPage = (values: FormData) => {
     let isValid = true;
-
-    currentFields.forEach(field => {
-      if (field === 'name' && !formData.name) {
-        newErrors.name = 'هذا الحقل مطلوب';
+    const currentFields = formPages[currentPage].fields;
+    
+    // Only first page fields are required
+    const requiredFieldsByPage: { [key: number]: Array<keyof FormData> } = {
+      0: ['name', 'type', 'quantity'], // First page: only name, type and quantity are required
+      1: [], // Second page: no required fields
+      2: [], // Third page: no required fields 
+      3: []  // Fourth page: no required fields
+    };
+    
+    const requiredFields = requiredFieldsByPage[currentPage] || [];
+    
+    // Only check required fields for this page
+    for (const field of requiredFields) {
+      if (!values[field]) {
         isValid = false;
+        break;
       }
-      if (field === 'type' && !formData.type) {
-        newErrors.type = 'هذا الحقل مطلوب';
-        isValid = false;
-      }
-      if (field === 'quantity' && (!formData.quantity || parseInt(formData.quantity) <= 0)) {
-        newErrors.quantity = 'يجب أن تكون الكمية رقماً موجباً';
-        isValid = false;
-      }
-    });
-
-    setErrors(newErrors);
+    }
+    
     return isValid;
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (values: FormData) => {
     try {
-      if (!validateCurrentPage()) {
-        return;
-      }
-
       setLoading(true);
-      setError(null);
-      setFormSubmitting(true);
-
+      
       // Get stored user data
       const storedUser = await storage.getUser();
       if (!storedUser?.id) {
@@ -247,39 +246,39 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
         navigation.goBack();
         return;
       }
-
+      
       const equipmentData = {
-        ...formData,
-        quantity: parseInt(formData.quantity, 10),
-        yearOfManufacture: formData.yearOfManufacture ? parseInt(formData.yearOfManufacture, 10) : null,
-        purchasePrice: formData.purchasePrice ? parseFloat(formData.purchasePrice) : null,
-        fuelCapacity: formData.fuelCapacity ? parseFloat(formData.fuelCapacity) : null,
-        weight: formData.weight ? parseFloat(formData.weight) : null,
-        purchaseDate: formData.purchaseDate.toISOString(),
-        warrantyExpiryDate: formData.warrantyExpiryDate?.toISOString() || null,
-        type: formData.type || 'tractor',
-        status: formData.status || 'operational',
-        operationalStatus: formData.operationalStatus || 'good',
-        fuelType: formData.fuelType || 'diesel',
-        serialNumber: formData.serialNumber || null,
-        manufacturer: formData.manufacturer || null,
-        model: formData.model || null,
-        powerOutput: formData.powerOutput || null,
-        dimensions: formData.dimensions || null,
-        location: formData.location || null,
-        assignedOperator: formData.assignedOperator || null,
-        notes: formData.notes || null,
-        operatingInstructions: formData.operatingInstructions || null,
-        safetyGuidelines: formData.safetyGuidelines || null,
+        name: values.name,
+        type: values.type,
+        status: values.status,
+        operationalStatus: values.operationalStatus,
+        quantity: parseInt(values.quantity, 10),
+        purchaseDate: values.purchaseDate.toISOString(),
+        warrantyExpiryDate: values.warrantyExpiryDate ? values.warrantyExpiryDate.toISOString() : null,
+        serialNumber: values.serialNumber,
+        manufacturer: values.manufacturer,
+        model: values.model,
+        yearOfManufacture: values.yearOfManufacture ? parseInt(values.yearOfManufacture, 10) : undefined,
+        purchasePrice: values.purchasePrice ? parseFloat(values.purchasePrice) : undefined,
+        price: values.price ? parseFloat(values.price) : undefined,
+        fuelType: values.fuelType,
+        fuelCapacity: values.fuelCapacity ? parseFloat(values.fuelCapacity) : undefined,
+        powerOutput: values.powerOutput,
+        dimensions: values.dimensions,
+        weight: values.weight ? parseFloat(values.weight) : undefined,
+        location: values.location,
+        assignedOperator: values.assignedOperator,
+        notes: values.notes,
+        operatingInstructions: values.operatingInstructions,
+        safetyGuidelines: values.safetyGuidelines,
         userId: storedUser.id,
       };
 
       console.log('Equipment data to be sent:', equipmentData);
 
+      // Try direct API request with proper type conversion
       try {
         const tokens = await storage.getTokens();
-        console.log('Auth tokens:', tokens ? 'Available' : 'Not Available');
-        
         if (!tokens?.access) {
           Alert.alert('خطأ', 'الرجاء تسجيل الدخول مرة أخرى');
           navigation.goBack();
@@ -308,47 +307,31 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
         console.log('API call successful:', response.data);
         Alert.alert('نجاح', isEditing ? 'تم تحديث المعدة بنجاح' : 'تمت إضافة المعدة بنجاح');
         navigation.goBack();
-      } catch (error: any) {
-        console.error('API call failed:', error);
-        if (error.response) {
-          console.error('API response status:', error.response.status);
-          console.error('API response data:', error.response.data);
-          
-          if (error.response.status === 401) {
-            Alert.alert('خطأ', 'انتهت صلاحية الجلسة. الرجاء تسجيل الدخول مرة أخرى');
-            navigation.goBack();
-            return;
-          }
-        }
-        Alert.alert(
-          'خطأ',
-          `فشل في ${isEditing ? 'تحديث' : 'حفظ'} المعدة: ${error?.response?.data?.message || error?.message || 'خطأ في الاتصال'}`
-        );
+        return;
+      } catch (apiError: any) {
+        console.error('Direct API call failed:', apiError);
+        // Fall back to context methods
       }
+
+      if (isEditing && equipmentId) {
+        await updateEquipment(equipmentId, equipmentData as any);
+        Alert.alert('نجاح', 'تم تحديث المعدة بنجاح');
+      } else {
+        await addEquipment(equipmentData as any);
+        Alert.alert('نجاح', 'تمت إضافة المعدة بنجاح');
+      }
+      navigation.goBack();
     } catch (error) {
       console.error('Error submitting equipment:', error);
-      Alert.alert('خطأ', `فشل في ${isEditing ? 'تحديث' : 'حفظ'} المعدة`);
+      Alert.alert('خطأ', 'فشل في حفظ المعدة');
     } finally {
       setLoading(false);
-      setFormSubmitting(false);
     }
   };
 
-  const updateFormField = (field: keyof FormData, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    // Clear error when field is updated
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: undefined }));
-    }
-  };
-
-  const nextPage = () => {
-    if (validateCurrentPage()) {
-      if (currentPage < formPages.length - 1) {
-        setCurrentPage(currentPage + 1);
-      } else {
-        handleSubmit();
-      }
+  const nextPage = (values: FormData) => {
+    if (validateCurrentPage(values) && currentPage < formPages.length - 1) {
+      setCurrentPage(currentPage + 1);
     }
   };
 
@@ -362,9 +345,12 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
     setShowDatePicker(false);
-    if (selectedDate) {
-      updateFormField(dateField, selectedDate);
+    if (selectedDate && dateField) {
+      return {
+        [dateField]: selectedDate,
+      };
     }
+    return {};
   };
 
   const showDatePickerModal = (field: DateField) => {
@@ -372,952 +358,336 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
     setShowDatePicker(true);
   };
 
-  const handleTypeSelect = (type: EquipmentType) => {
-    updateFormField('type', type);
+  const handleTypeSelect = (type: EquipmentType, setFieldValue: (field: string, value: any) => void) => {
+    setFieldValue('type', type);
   };
 
-  const handleStatusSelect = (status: EquipmentStatus) => {
-    updateFormField('status', status);
+  const handleStatusSelect = (status: EquipmentStatus, setFieldValue: (field: string, value: any) => void) => {
+    setFieldValue('status', status);
   };
 
-  const handleOperationalStatusSelect = (status: OperationalStatus) => {
-    updateFormField('operationalStatus', status);
+  const handleOperationalStatusSelect = (status: OperationalStatus, setFieldValue: (field: string, value: any) => void) => {
+    setFieldValue('operationalStatus', status);
   };
 
-  const handleFuelTypeSelect = (type: FuelType) => {
-    updateFormField('fuelType', type);
+  const handleFuelTypeSelect = (type: FuelType, setFieldValue: (field: string, value: any) => void) => {
+    setFieldValue('fuelType', type);
   };
 
-  // Custom components with improved styling
-  const CustomTextInput: React.FC<CustomTextInputProps> = ({ 
-    label, 
-    value, 
-    onChangeText, 
-    keyboardType = 'default', 
-    multiline = false, 
-    numberOfLines = 1, 
-    required = false, 
-    error, 
-    icon 
-  }) => (
-    <View style={styles.inputContainer}>
-      <View style={styles.labelContainer}>
-        <Text style={styles.inputIcon}>{icon}</Text>
-        <Text style={[styles.inputLabel, { color: theme.colors.neutral.textPrimary }]}>
-          {label} {required && <Text style={{ color: theme.colors.error }}>*</Text>}
-        </Text>
-      </View>
-      <TextInput
-        style={[
-          multiline ? styles.textInputMultiline : styles.textInput,
-          { backgroundColor: theme.colors.neutral.surface }
-        ]}
-        value={value}
-        onChangeText={onChangeText}
-        keyboardType={keyboardType || 'default'}
-        multiline={multiline}
-        numberOfLines={multiline ? numberOfLines : 1}
-        placeholder={label}
-        placeholderTextColor={theme.colors.neutral.textSecondary}
-        error={!!error}
-        mode="outlined"
-        right={<TextInput.Icon icon="pencil" />}
-        theme={{ 
-          colors: { 
-            primary: theme.colors.primary.base,
-            text: theme.colors.neutral.textPrimary,
-            error: theme.colors.error,
-            placeholder: theme.colors.neutral.textSecondary,
-            surface: theme.colors.neutral.surface,
-            background: theme.colors.neutral.background,
-          } 
-        }}
-        outlineColor={theme.colors.neutral.border}
-        activeOutlineColor={theme.colors.primary.base}
-        textAlign="right"
-        textAlignVertical={multiline ? "top" : "center"}
-        dense
-      />
-      {error && (
-        <Text style={[styles.errorText, { color: theme.colors.error }]}>
-          {error}
-        </Text>
-      )}
-    </View>
-  );
-
-  const CustomSelect: React.FC<CustomSelectProps> = ({ 
-    label, 
-    value, 
-    items, 
-    required = false, 
-    error, 
-    horizontal = false, 
-    icon 
-  }) => {
-    const [showOptions, setShowOptions] = useState(false);
-    const selectedItem = items.find(item => item.value === value);
-
-    const handlePress = (item: { value: string; label: string; icon: string }) => {
-              if (label === 'نوع المعدة') {
-                handleTypeSelect(item.value as EquipmentType);
-              } else if (label === 'حالة المعدة') {
-                handleStatusSelect(item.value as EquipmentStatus);
-              } else if (label === 'الحالة التشغيلية') {
-                handleOperationalStatusSelect(item.value as OperationalStatus);
-              } else if (label === 'نوع الوقود') {
-                handleFuelTypeSelect(item.value as FuelType);
-              }
-      setShowOptions(false);
-    };
-
-    return (
-      <Animated.View 
-        entering={FadeInDown.duration(400)}
-        style={styles.inputContainer}
-      >
-        <View style={styles.labelContainer}>
-          <Text style={styles.inputIcon}>{icon}</Text>
-          <Text style={[styles.inputLabel, { color: theme.colors.neutral.textPrimary }]}>
-            {label} {required && <Text style={{ color: theme.colors.error }}>*</Text>}
-          </Text>
-        </View>
-
-        {!showOptions && value ? (
-          <Button
-            mode="outlined"
-            onPress={() => setShowOptions(true)}
-            style={[
-              styles.selectedButton,
-              { 
-                borderColor: theme.colors.primary.base,
-                backgroundColor: theme.colors.neutral.surface,
-                borderWidth: 2,
-              }
-            ]}
-            contentStyle={{
-              height: 56,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'flex-end',
-            }}
+  const renderField = (field: keyof FormData, values: FormData, errors: any, touched: any, handleChange: any, setFieldValue: any) => {
+    switch (field) {
+      case 'name':
+        return (
+          <Animated.View
+            key={field}
+            entering={FadeInRight.delay(100).springify()}
           >
-            <View style={styles.selectedItemContent}>
-              <Text style={[
-                styles.selectedItemIcon,
-                { color: theme.colors.primary.base }
-              ]}>
-                {selectedItem?.icon}
-              </Text>
-              <Text 
-                style={[
-                  styles.selectedItemText,
-                  { color: theme.colors.primary.base }
-                ]}
-              >
-                {selectedItem?.label}
-              </Text>
-            </View>
-          </Button>
-        ) : showOptions ? (
-          <View style={[styles.selectContainer, horizontal && styles.horizontalSelect]}>
-            {items.map((item) => (
-              <Button
-                key={item.value}
-                mode={value === item.value ? "contained" : "outlined"}
-                onPress={() => handlePress(item)}
-            style={[
-              styles.selectButton,
-                  { 
-                    borderColor: value === item.value ? theme.colors.primary.base : theme.colors.neutral.border,
-                    backgroundColor: value === item.value ? theme.colors.primary.base : theme.colors.neutral.surface,
-                    borderWidth: 2,
-                  }
-                ]}
-                contentStyle={{
-                  minHeight: 72,
-                  paddingVertical: 8,
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <View style={styles.selectButtonContent}>
-                  <Text style={[
-                    styles.selectButtonIcon,
-                    { color: value === item.value ? theme.colors.neutral.surface : theme.colors.primary.base }
-                  ]}>
-                    {item.icon}
-                  </Text>
-                  <Text 
-                    style={[
-              styles.selectButtonText,
-                      { 
-                        color: value === item.value ? theme.colors.neutral.surface : theme.colors.primary.base,
-                      }
-            ]}
-                    numberOfLines={2}
-                    adjustsFontSizeToFit
+            <TextInput
+              label="اسم المعدة"
+              value={values.name}
+              onChangeText={handleChange('name')}
+              error={touched.name && errors.name ? errors.name : undefined}
+            />
+          </Animated.View>
+        );
+      case 'type':
+        return (
+          <Animated.View
+            key={field}
+            entering={FadeInRight.delay(150).springify()}
+            style={styles.fieldContainer}
           >
-                    {item.label}
-                  </Text>
-                </View>
-          </Button>
-        ))}
-      </View>
-        ) : (
-          <Button
-            mode="outlined"
-            onPress={() => setShowOptions(true)}
-            style={[
-              styles.selectButton,
-              { 
-                borderColor: theme.colors.neutral.border,
-                backgroundColor: theme.colors.neutral.surface,
-                borderWidth: 2,
-                width: '100%',
-              }
-            ]}
-            contentStyle={{
-              height: 56,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Text style={[styles.selectButtonText, { color: theme.colors.neutral.textSecondary }]}>
-              اختر {label}
+            <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
+              نوع المعدة
             </Text>
-          </Button>
-        )}
-
-      {error && (
-          <Animated.Text 
-            entering={FadeIn.duration(300)}
-            style={[styles.errorText, { color: theme.colors.error }]}
+            <View style={styles.typeSelector}>
+              {Object.entries(EQUIPMENT_TYPES).map(([key, { icon, name }]) => (
+                <TouchableOpacity
+                  key={key}
+                  style={[
+                    styles.typeButton,
+                    {
+                      backgroundColor: values.type === key 
+                        ? theme.colors.primary.base 
+                        : theme.colors.neutral.surface,
+                      borderColor: values.type === key 
+                        ? theme.colors.primary.base 
+                        : theme.colors.neutral.border,
+                    },
+                  ]}
+                  onPress={() => handleTypeSelect(key as EquipmentType, setFieldValue)}
+                >
+                  <Text style={styles.typeIcon}>{icon}</Text>
+                  <Text
+                    style={[
+                      styles.typeText,
+                      {
+                        color: values.type === key 
+                          ? '#FFFFFF' 
+                          : theme.colors.neutral.textSecondary,
+                      },
+                    ]}
+                  >
+                    {name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {touched.type && errors.type && (
+              <Text style={[styles.errorText, { color: theme.colors.error }]}>{errors.type}</Text>
+            )}
+          </Animated.View>
+        );
+      case 'quantity':
+        return (
+          <Animated.View
+            key={field}
+            entering={FadeInRight.delay(200).springify()}
           >
-          {error}
-          </Animated.Text>
-        )}
-      </Animated.View>
-    );
-  };
-
-  const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ 
-    label, 
-    value, 
-    required = false, 
-    error, 
-    icon 
-  }) => (
-    <View style={styles.inputContainer}>
-      <View style={styles.labelContainer}>
-        <Text style={styles.inputIcon}>{icon}</Text>
-        <Text style={[styles.inputLabel, { color: theme.colors.neutral.textPrimary }]}>
-          {label} {required && <Text style={{ color: theme.colors.error }}>*</Text>}
-        </Text>
-      </View>
-      <TouchableOpacity
-        style={[
-          styles.datePickerButton,
-          { 
-            backgroundColor: theme.colors.neutral.surface, 
-            borderColor: error ? theme.colors.error : theme.colors.neutral.border,
-            shadowColor: theme.colors.neutral.textSecondary,
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.1,
-            shadowRadius: 4,
-            elevation: 2,
-          }
-        ]}
-        onPress={() => showDatePickerModal(label === 'تاريخ الشراء' ? 'purchaseDate' : 'warrantyExpiryDate')}
-      >
-        <MaterialCommunityIcons 
-          name="calendar" 
-          size={24} 
-          color={theme.colors.primary.base} 
-          style={{ marginLeft: 8 }}
-        />
-        <Text 
-          style={[
-            styles.datePickerButtonText, 
-            { 
-              color: value ? theme.colors.neutral.textPrimary : theme.colors.neutral.textSecondary,
-              marginRight: 8,
-            }
-          ]}
-        >
-          {value ? formatDate(value) : 'اختر تاريخ'}
-        </Text>
-      </TouchableOpacity>
-      {error && (
-        <Text style={[styles.errorText, { color: theme.colors.error }]}>
-          {error}
-        </Text>
-      )}
-    </View>
-  );
-
-  const renderCurrentPageFields = () => {
-    const currentFields = formPages[currentPage].fields;
-    
-    return (
-      <View style={styles.fieldsContainer}>
-        {currentFields.map((field) => {
-          switch (field) {
-            case 'name':
-              return (
-                <CustomTextInput
-                  key={field}
-                  label="اسم المعدة"
-                  value={formData.name}
-                  onChangeText={(value: string) => updateFormField('name', value)}
-                  required={true}
-                  error={errors.name}
-                  icon="🏷️"
-                  keyboardType="default"
-                  multiline={false}
-                  numberOfLines={1}
-                />
-              );
-            case 'type':
-              return (
-                <CustomSelect
-                  key={field}
-                  label="نوع المعدة"
-                  value={formData.type}
-                  items={Object.entries(EQUIPMENT_TYPES).map(([value, { icon, name }]) => ({
-                    label: name,
-                    value,
-                    icon,
-                  }))}
-                  required={true}
-                  error={errors.type}
-                  icon="🔧"
-                />
-              );
-            case 'status':
-              return (
-                <CustomSelect
-                  key={field}
-                  label="حالة المعدة"
-                  value={formData.status}
-                  items={Object.entries(EQUIPMENT_STATUS).map(([value, { icon, name }]) => ({
-                    label: name,
-                    value,
-                    icon,
-                  }))}
-                  required
-                  horizontal
-                  error={errors.status}
-                  icon="🔄"
-                />
-              );
-            case 'operationalStatus':
-              return (
-                <CustomSelect
-                  key={field}
-                  label="الحالة التشغيلية"
-                  value={formData.operationalStatus}
-                  items={Object.entries(OPERATIONAL_STATUS).map(([value, { icon, name }]) => ({
-                    label: name,
-                    value,
-                    icon,
-                  }))}
-                  required
-                  horizontal
-                  error={errors.operationalStatus}
-                  icon="📊"
-                />
-              );
-            case 'quantity':
-              return (
-                <CustomTextInput
-                  key={field}
-                  label="الكمية"
-                  value={formData.quantity}
-                  onChangeText={(value: string) => updateFormField('quantity', value)}
-                  keyboardType="numeric"
-                  required={true}
-                  error={errors.quantity}
-                  icon="🔢"
-                  multiline={false}
-                  numberOfLines={1}
-                />
-              );
-            case 'purchaseDate':
-              return (
-                <CustomDatePicker
-                  key={field}
-                  label="تاريخ الشراء"
-                  value={formData.purchaseDate}
-                  required
-                  error={errors.purchaseDate}
-                  icon="📅"
-                />
-              );
-            case 'warrantyExpiryDate':
-              return (
-                <CustomDatePicker
-                  key={field}
-                  label="تاريخ انتهاء الضمان"
-                  value={formData.warrantyExpiryDate}
-                  error={errors.warrantyExpiryDate}
-                  icon="🔰"
-                  required={false}
-                />
-              );
-            case 'serialNumber':
-              return (
-                <CustomTextInput
-                  key={field}
-                  label="الرقم التسلسلي"
-                  value={formData.serialNumber}
-                  onChangeText={(value: string) => updateFormField('serialNumber', value)}
-                  error={errors.serialNumber}
-                  icon="🔍"
-                  keyboardType="default"
-                  multiline={false}
-                  numberOfLines={1}
-                  required={false}
-                />
-              );
-            case 'manufacturer':
-              return (
-                <CustomTextInput
-                  key={field}
-                  label="الشركة المصنعة"
-                  value={formData.manufacturer}
-                  onChangeText={(value: string) => updateFormField('manufacturer', value)}
-                  error={errors.manufacturer}
-                  icon="🏭"
-                  keyboardType="default"
-                  multiline={false}
-                  numberOfLines={1}
-                  required={false}
-                />
-              );
-            case 'model':
-              return (
-                <CustomTextInput
-                  key={field}
-                  label="الطراز"
-                  value={formData.model}
-                  onChangeText={(value: string) => updateFormField('model', value)}
-                  error={errors.model}
-                  icon="📋"
-                  keyboardType="default"
-                  multiline={false}
-                  numberOfLines={1}
-                  required={false}
-                />
-              );
-            case 'yearOfManufacture':
-              return (
-                <CustomTextInput
-                  key={field}
-                  label="سنة الصنع"
-                  value={formData.yearOfManufacture}
-                  onChangeText={(value: string) => updateFormField('yearOfManufacture', value)}
-                  keyboardType="numeric"
-                  error={errors.yearOfManufacture}
-                  icon="📆"
-                  multiline={false}
-                  numberOfLines={1}
-                  required={false}
-                />
-              );
-            case 'purchasePrice':
-              return (
-                <CustomTextInput
-                  key={field}
-                  label="سعر الشراء (د.ج)"
-                  value={formData.purchasePrice}
-                  onChangeText={(value: string) => updateFormField('purchasePrice', value)}
-                  keyboardType="numeric"
-                  error={errors.purchasePrice}
-                  icon="💲"
-                  multiline={false}
-                  numberOfLines={1}
-                  required={false}
-                />
-              );
-            case 'fuelType':
-              return (
-                <CustomSelect
-                  key={field}
-                  label="نوع الوقود"
-                  value={formData.fuelType}
-                  items={Object.entries(FUEL_TYPES).map(([value, { icon, name }]) => ({
-                    label: name,
-                    value,
-                    icon,
-                  }))}
-                  error={errors.fuelType}
-                  icon="⛽"
-                  required={false}
-                />
-              );
-            case 'fuelCapacity':
-              return (
-                <CustomTextInput
-                  key={field}
-                  label="سعة الوقود (لتر)"
-                  value={formData.fuelCapacity}
-                  onChangeText={(value: string) => updateFormField('fuelCapacity', value)}
-                  keyboardType="numeric"
-                  error={errors.fuelCapacity}
-                  icon="🛢️"
-                  multiline={false}
-                  numberOfLines={1}
-                  required={false}
-                />
-              );
-            case 'powerOutput':
-              return (
-                <CustomTextInput
-                  key={field}
-                  label="قدرة المحرك"
-                  value={formData.powerOutput}
-                  onChangeText={(value: string) => updateFormField('powerOutput', value)}
-                  error={errors.powerOutput}
-                  icon="⚡"
-                  keyboardType="default"
-                  multiline={false}
-                  numberOfLines={1}
-                  required={false}
-                />
-              );
-            case 'dimensions':
-              return (
-                <CustomTextInput
-                  key={field}
-                  label="الأبعاد"
-                  value={formData.dimensions}
-                  onChangeText={(value: string) => updateFormField('dimensions', value)}
-                  error={errors.dimensions}
-                  icon="📏"
-                  keyboardType="default"
-                  multiline={false}
-                  numberOfLines={1}
-                  required={false}
-                />
-              );
-            case 'weight':
-              return (
-                <CustomTextInput
-                  key={field}
-                  label="الوزن (كغ)"
-                  value={formData.weight}
-                  onChangeText={(value: string) => updateFormField('weight', value)}
-                  keyboardType="numeric"
-                  error={errors.weight}
-                  icon="⚖️"
-                  multiline={false}
-                  numberOfLines={1}
-                  required={false}
-                />
-              );
-            case 'location':
-              return (
-                <CustomTextInput
-                  key={field}
-                  label="موقع المعدة"
-                  value={formData.location}
-                  onChangeText={(value: string) => updateFormField('location', value)}
-                  error={errors.location}
-                  icon="📍"
-                  keyboardType="default"
-                  multiline={false}
-                  numberOfLines={1}
-                  required={false}
-                />
-              );
-            case 'assignedOperator':
-              return (
-                <CustomTextInput
-                  key={field}
-                  label="المشغل المسؤول"
-                  value={formData.assignedOperator}
-                  onChangeText={(value: string) => updateFormField('assignedOperator', value)}
-                  error={errors.assignedOperator}
-                  icon="👨‍🔧"
-                  keyboardType="default"
-                  multiline={false}
-                  numberOfLines={1}
-                  required={false}
-                />
-              );
-            case 'notes':
-              return (
-                <CustomTextInput
-                  key={field}
-                  label="ملاحظات"
-                  value={formData.notes}
-                  onChangeText={(value: string) => updateFormField('notes', value)}
-                  multiline={true}
-                  numberOfLines={3}
-                  error={errors.notes}
-                  icon="📝"
-                  keyboardType="default"
-                  required={false}
-                />
-              );
-            case 'operatingInstructions':
-              return (
-                <CustomTextInput
-                  key={field}
-                  label="تعليمات التشغيل"
-                  value={formData.operatingInstructions}
-                  onChangeText={(value: string) => updateFormField('operatingInstructions', value)}
-                  multiline={true}
-                  numberOfLines={3}
-                  error={errors.operatingInstructions}
-                  icon="📖"
-                  keyboardType="default"
-                  required={false}
-                />
-              );
-            case 'safetyGuidelines':
-              return (
-                <CustomTextInput
-                  key={field}
-                  label="إرشادات السلامة"
-                  value={formData.safetyGuidelines}
-                  onChangeText={(value: string) => updateFormField('safetyGuidelines', value)}
-                  multiline={true}
-                  numberOfLines={3}
-                  error={errors.safetyGuidelines}
-                  icon="⚠️"
-                  keyboardType="default"
-                  required={false}
-                />
-              );
-            default:
-              return null;
-          }
-        })}
-      </View>
-    );
+            <TextInput
+              label="الكمية"
+              value={values.quantity}
+              onChangeText={handleChange('quantity')}
+              keyboardType="numeric"
+              error={touched.quantity && errors.quantity ? errors.quantity : undefined}
+            />
+          </Animated.View>
+        );
+      case 'purchaseDate':
+      case 'warrantyExpiryDate':
+        const dateLabel = {
+          purchaseDate: 'تاريخ الشراء',
+          warrantyExpiryDate: 'تاريخ انتهاء الضمان',
+        }[field];
+        
+        return (
+          <Animated.View 
+            key={field} 
+            entering={FadeInRight.delay(250).springify()}
+            style={styles.fieldContainer}
+          >
+            <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
+              {dateLabel}
+            </Text>
+            <TouchableOpacity
+              style={[
+                styles.datePickerButton,
+                { 
+                  backgroundColor: theme.colors.neutral.surface,
+                  borderColor: theme.colors.neutral.border,
+                }
+              ]}
+              onPress={() => showDatePickerModal(field as DateField)}
+            >
+              <Text style={{ color: theme.colors.neutral.textPrimary }}>
+                {values[field] instanceof Date 
+                  ? values[field].toLocaleDateString() 
+                  : values[field] 
+                    ? new Date(values[field]).toLocaleDateString() 
+                    : 'اختر التاريخ'
+                }
+              </Text>
+              <Feather name="calendar" size={20} color={theme.colors.primary.base} />
+            </TouchableOpacity>
+            {touched[field] && errors[field] && (
+              <Text style={[styles.errorText, { color: theme.colors.error }]}>{errors[field]}</Text>
+            )}
+          </Animated.View>
+        );
+      case 'notes':
+      case 'operatingInstructions':
+      case 'safetyGuidelines':
+        const multilineLabels = {
+          notes: 'ملاحظات',
+          operatingInstructions: 'تعليمات التشغيل',
+          safetyGuidelines: 'إرشادات السلامة',
+        };
+        
+        return (
+          <Animated.View
+            key={field}
+            entering={FadeInRight.delay(300).springify()}
+          >
+            <TextInput
+              label={multilineLabels[field]}
+              value={values[field] as string}
+              onChangeText={handleChange(field)}
+              multiline={true}
+              numberOfLines={4}
+              error={touched[field] && errors[field] ? errors[field] : undefined}
+            />
+          </Animated.View>
+        );
+      case 'fuelType':
+        return (
+          <Animated.View
+            key={field}
+            entering={FadeInRight.delay(350).springify()}
+            style={styles.fieldContainer}
+          >
+            <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
+              نوع الوقود
+            </Text>
+            <View style={styles.typeSelector}>
+              {Object.entries(FUEL_TYPES).map(([key, { icon, name }]) => (
+                <TouchableOpacity
+                  key={key}
+                  style={[
+                    styles.typeButton,
+                    {
+                      backgroundColor: values.fuelType === key 
+                        ? theme.colors.primary.base 
+                        : theme.colors.neutral.surface,
+                      borderColor: values.fuelType === key 
+                        ? theme.colors.primary.base 
+                        : theme.colors.neutral.border,
+                    },
+                  ]}
+                  onPress={() => handleFuelTypeSelect(key as FuelType, setFieldValue)}
+                >
+                  <Text style={styles.typeIcon}>{icon}</Text>
+                  <Text
+                    style={[
+                      styles.typeText,
+                      {
+                        color: values.fuelType === key 
+                          ? '#FFFFFF' 
+                          : theme.colors.neutral.textSecondary,
+                      },
+                    ]}
+                  >
+                    {name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {touched.fuelType && errors.fuelType && (
+              <Text style={[styles.errorText, { color: theme.colors.error }]}>{errors.fuelType}</Text>
+            )}
+          </Animated.View>
+        );
+      default:
+        // For all other text fields
+        const fieldLabels: { [K in keyof FormData]?: string } = {
+          manufacturer: 'الشركة المصنعة',
+          model: 'الطراز',
+          yearOfManufacture: 'سنة الصنع',
+          serialNumber: 'الرقم التسلسلي',
+          purchasePrice: 'سعر الشراء',
+          price: 'السعر الحالي',
+          fuelCapacity: 'سعة الوقود',
+          powerOutput: 'قدرة المحرك',
+          dimensions: 'الأبعاد',
+          weight: 'الوزن',
+          location: 'الموقع',
+          assignedOperator: 'المشغل المسؤول',
+        };
+        
+        return (
+          <Animated.View
+            key={field}
+            entering={FadeInRight.delay(150).springify()}
+          >
+            <TextInput
+              label={fieldLabels[field] || String(field)}
+              value={values[field] as string}
+              onChangeText={handleChange(field)}
+              keyboardType={['purchasePrice', 'price', 'fuelCapacity', 'powerOutput', 'weight'].includes(field as string) ? 'numeric' : 'default'}
+              error={touched[field] && errors[field] ? errors[field] : undefined}
+            />
+          </Animated.View>
+        );
+    }
   };
 
   const renderProgressBar = () => {
     return (
       <View style={styles.progressContainer}>
-        {formPages.map((_, index) => (
-          <Animated.View 
-            key={index} 
-            style={[
-              styles.progressStep, 
-              {
-                flex: 1,
-                backgroundColor: index <= currentPage ? theme.colors.primary.base : theme.colors.neutral.border,
-              },
-            ]}
-          />
+        {formPages.map((page, index) => (
+          <React.Fragment key={index}>
+            <TouchableOpacity
+              onPress={() => {
+                if (index <= currentPage) {
+                  setCurrentPage(index);
+                }
+              }}
+            >
+              <Animated.View 
+                style={[
+                  styles.progressDot, 
+                  { 
+                    backgroundColor: index <= currentPage 
+                      ? theme.colors.primary.base 
+                      : theme.colors.neutral.border,
+                    transform: [{ scale: index === currentPage ? 1.3 : 1 }],
+                  }
+                ]} 
+              >
+                {index < currentPage && (
+                  <Feather name="check" size={16} color="#FFFFFF" />
+                )}
+              </Animated.View>
+              <Animated.Text 
+                style={[
+                  styles.progressLabel,
+                  {
+                    color: index <= currentPage 
+                      ? theme.colors.primary.base 
+                      : theme.colors.neutral.textSecondary,
+                    opacity: index === currentPage ? 1 : 0.7,
+                    fontSize: index === currentPage ? 14 : 12,
+                    fontWeight: index === currentPage ? 'bold' : 'normal',
+                  }
+                ]}
+              >
+                {page.title}
+              </Animated.Text>
+            </TouchableOpacity>
+            {index < formPages.length - 1 && (
+              <View 
+                style={[
+                  styles.progressLine, 
+                  { 
+                    backgroundColor: index < currentPage 
+                      ? theme.colors.primary.base 
+                      : theme.colors.neutral.border,
+                    height: index === currentPage ? 4 : 2,
+                  }
+                ]} 
+              />
+            )}
+          </React.Fragment>
         ))}
       </View>
     );
   };
 
-  const renderPageHeader = () => {
-    const currentPageData = formPages[currentPage];
-    return (
-      <View style={styles.pageHeader}>
+  const renderPageHeader = () => (
+    <View style={styles.pageHeader}>
+      <Animated.View 
+        style={styles.pageIconContainer}
+        entering={ZoomIn.delay(100).springify()}
+      >
         <MaterialCommunityIcons
-          name={currentPageData.icon}
-          style={[styles.pageIcon, { color: theme.colors.primary.base }]}
+          name={formPages[currentPage].icon}
+          size={40}
+          color={theme.colors.primary.base}
         />
-      <View style={styles.pageTitleContainer}>
-          <Text style={[styles.pageTitle, { color: theme.colors.neutral.textPrimary }]}>
-            {currentPageData.title}
-          </Text>
-          <Text style={[styles.pageSubtitle, { color: theme.colors.neutral.textSecondary }]}>
-            {currentPageData.subtitle}
-      </Text>
-        </View>
+      </Animated.View>
+      <Animated.Text 
+        style={[styles.pageTitle, { color: theme.colors.neutral.textPrimary }]}
+        entering={FadeInDown.delay(200).springify()}
+      >
+        {formPages[currentPage].title}
+      </Animated.Text>
+      <Animated.Text 
+        style={[styles.pageSubtitle, { color: theme.colors.neutral.textSecondary }]}
+        entering={FadeInDown.delay(300).springify()}
+      >
+        {formPages[currentPage].subtitle}
+      </Animated.Text>
     </View>
   );
-  };
-
-  const renderFormProgress = () => {
-  return (
-      <View style={styles.formProgressContainer}>
-        <Text style={[styles.formProgressText, { color: theme.colors.neutral.textPrimary }]}>
-          {`الخطوة ${currentPage + 1} من ${formPages.length}`}
-              </Text>
-            </View>
-  );
-};
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  form: {
-    padding: 16,
-    paddingBottom: 48,
-  },
-  progressContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-      marginBottom: 32,
-    alignItems: 'center',
-      backgroundColor: theme.colors.neutral.surface,
-      padding: 16,
-      borderRadius: 16,
-      elevation: 2,
-      shadowColor: "#000",
-      shadowOffset: {
-        width: 0,
-        height: 2,
-      },
-      shadowOpacity: 0.1,
-      shadowRadius: 3,
-  },
-  progressStep: {
-      height: 8,
-      marginHorizontal: 3,
-      borderRadius: 4,
-  },
-  pageHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-      marginBottom: 24,
-      backgroundColor: theme.colors.neutral.surface,
-      padding: 16,
-      borderRadius: 16,
-      elevation: 2,
-      shadowColor: "#000",
-      shadowOffset: {
-        width: 0,
-        height: 2,
-      },
-      shadowOpacity: 0.1,
-      shadowRadius: 3,
-  },
-  pageIcon: {
-      fontSize: 32,
-    marginRight: 16,
-      backgroundColor: theme.colors.primary.surface,
-      padding: 12,
-      borderRadius: 12,
-      overflow: 'hidden',
-  },
-  pageTitleContainer: {
-    flex: 1,
-  },
-  pageTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-      marginBottom: 6,
-    textAlign: 'right',
-  },
-  pageSubtitle: {
-      fontSize: 26,
-    textAlign: 'right',
-      opacity: 0.8,
-  },
-  formProgressContainer: {
-    alignItems: 'center',
-      marginBottom: 16,
-      backgroundColor: theme.colors.neutral.surface,
-      padding: 12,
-      borderRadius: 12,
-      elevation: 2,
-      shadowColor: "#000",
-      shadowOffset: {
-        width: 0,
-        height: 2,
-      },
-      shadowOpacity: 0.1,
-      shadowRadius: 3,
-  },
-  formProgressText: {
-      fontSize: 26,
-      fontWeight: '600',
-      textAlign: 'center',
-  },
-  divider: {
-    marginVertical: 16,
-    height: 1,
-  },
-  formContent: {
-    marginBottom: 24,
-  },
-  fieldsContainer: {
-    gap: 20,
-  },
-  labelContainer: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  inputIcon: {
-      fontSize: 24,
-      marginLeft: 12,
-      opacity: 0.9,
-  },
-  inputContainer: {
-      marginBottom: 24,
-      backgroundColor: theme.colors.neutral.surface,
-      padding: 16,
-      borderRadius: 16,
-      elevation: 2,
-      shadowColor: "#000",
-      shadowOffset: {
-        width: 0,
-        height: 2,
-      },
-      shadowOpacity: 0.1,
-      shadowRadius: 3,
-  },
-  inputLabel: {
-      fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'right',
-      marginBottom: 8,
-      color: theme.colors.neutral.textPrimary,
-  },
-  textInput: {
-    height: 50,
-    textAlign: 'right',
-      fontSize: 26,
-  },
-  textInputMultiline: {
-    minHeight: 100,
-    textAlign: 'right',
-    fontSize: 16,
-    paddingTop: 12,
-  },
-  inputError: {
-    borderWidth: 1.5,
-  },
-  errorText: {
-    fontSize: 13,
-    marginTop: 6,
-    marginRight: 4,
-    textAlign: 'right',
-  },
-  errorMessage: {
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 16,
-    padding: 10,
-    borderRadius: 8,
-  },
-  selectContainer: {
-    flexDirection: 'row-reverse',
-    flexWrap: 'wrap',
-      gap: 12,
-      justifyContent: 'space-between',
-      backgroundColor: theme.colors.neutral.background,
-      padding: 12,
-      borderRadius: 12,
-  },
-  horizontalSelect: {
-    justifyContent: 'space-between',
-  },
-  selectButton: {
-      marginBottom: 12,
-      borderRadius: 12,
-      width: '48%',
-      flex: 0,
-      paddingVertical: 12,
-      paddingHorizontal: 8,
-      elevation: 3,
-      shadowColor: "#000",
-      shadowOffset: {
-        width: 0,
-        height: 2,
-      },
-      shadowOpacity: 0.15,
-      shadowRadius: 3,
-      minHeight: 72,
-    },
-    selectButtonContent: {
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 8,
-      paddingHorizontal: 4,
-    },
-    selectButtonIcon: {
-      fontSize: 24,
-      marginBottom: 4,
-  },
-  selectButtonText: {
-      fontWeight: '700',
-      fontSize: 20,
-      textAlign: 'center',
-      flexWrap: 'wrap',
-      lineHeight: 20,
-  },
-  datePickerButton: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    shadowColor: '#00000040',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  datePickerButtonText: {
-    marginVertical: 2,
-    fontWeight: 'normal',
-    fontSize: 16,
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-      gap: 20,
-      marginTop: 32,
-      paddingHorizontal: 8,
-  },
-  button: {
-    flex: 1,
-      paddingVertical: 12,
-      borderRadius: 16,
-      elevation: 3,
-      shadowColor: "#000",
-      shadowOffset: {
-        width: 0,
-        height: 2,
-      },
-      shadowOpacity: 0.15,
-      shadowRadius: 3,
-  },
-  buttonText: {
-      fontSize: 18,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-    selectedButton: {
-      width: '100%',
-      borderRadius: 12,
-      marginBottom: 0,
-    },
-    selectedItemContent: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'flex-end',
-      gap: 12,
-      paddingHorizontal: 16,
-    },
-    selectedItemIcon: {
-      fontSize: 20,
-    },
-    selectedItemText: {
-      fontSize: 20,
-      fontWeight: '600',
-    },
-  });
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
@@ -1326,92 +696,276 @@ const styles = StyleSheet.create({
         barStyle={theme.colors.neutral.textPrimary === '#1A2F2B' ? 'dark-content' : 'light-content'}
       />
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+        style={styles.keyboardAvoidingView}
       >
-        <ScrollView 
-          style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="always"
-          keyboardDismissMode="none"
+        <Formik
+          initialValues={initialFormValues}
+          validationSchema={validationSchema}
+          onSubmit={handleSubmit}
+          enableReinitialize
         >
-          <View style={[styles.form, { backgroundColor: theme.colors.neutral.background }]}>
-            {renderProgressBar()}
-            {renderPageHeader()}
-            {renderFormProgress()}
-            
-            <Divider style={[styles.divider, { backgroundColor: theme.colors.neutral.border }]} />
-            
-            <View style={styles.formContent}>
-              {renderCurrentPageFields()}
-            </View>
+          {({ handleChange, handleBlur, handleSubmit, values, errors, touched, setFieldValue, isValid }) => (
+            <>
+              <ScrollView
+                style={styles.scrollView}
+                contentContainerStyle={styles.contentContainer}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="always"
+              >
+                <View style={styles.header}>
+                  <Animated.Text 
+                    entering={FadeInRight.delay(50).springify()}
+                    style={[styles.headerTitle, { color: theme.colors.primary.base }]}
+                  >
+                    {isEditing ? 'تعديل معدة' : 'إضافة معدة جديدة'}
+                  </Animated.Text>
+                  {renderProgressBar()}
+                </View>
 
-            {error && (
-              <Text style={[styles.errorMessage, { 
-                color: theme.colors.error,
-                backgroundColor: `${theme.colors.error}10`
+                <View style={[styles.pageContainer, {
+                  backgroundColor: theme.colors.neutral.surface,
+                }]}>
+                  {renderPageHeader()}
+                  
+                  <Animated.View 
+                    style={styles.formContainer}
+                    entering={FadeInRight.delay(200).springify()}
+                  >
+                    {formPages[currentPage].fields.map(field => 
+                      renderField(field, values, errors, touched, handleChange, setFieldValue)
+                    )}
+                  </Animated.View>
+                </View>
+
+                {showDatePicker && dateField && (
+                  <DateTimePicker
+                    value={values[dateField] instanceof Date 
+                      ? values[dateField] 
+                      : values[dateField] 
+                        ? new Date(values[dateField]) 
+                        : new Date()
+                    }
+                    mode="date"
+                    display="default"
+                    onChange={(event, selectedDate) => {
+                      setShowDatePicker(false);
+                      if (selectedDate && dateField) {
+                        setFieldValue(dateField, selectedDate);
+                      }
+                    }}
+                  />
+                )}
+              </ScrollView>
+
+              <View style={[styles.footer, { 
+                backgroundColor: theme.colors.neutral.surface,
+                borderTopColor: theme.colors.neutral.border,
               }]}>
-                {error}
-              </Text>
-            )}
-
-            <View style={styles.buttonContainer}>
-              <Button
-                mode="outlined"
-                onPress={prevPage}
-                style={[
-                  styles.button, 
-                  { 
-                    borderColor: theme.colors.primary.base,
-                    shadowColor: theme.colors.neutral.textSecondary,
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.1,
-                    shadowRadius: 4,
-                    elevation: 2,
-                  }
-                ]}
-                labelStyle={[styles.buttonText, { color: theme.colors.primary.base }]}
-                disabled={loading}
-              >
-                {currentPage === 0 ? 'إلغاء' : 'السابق ←'}
-              </Button>
-              <Button
-                mode="contained"
-                onPress={nextPage}
-                loading={loading}
-                style={[
-                  styles.button, 
-                  { 
-                    backgroundColor: theme.colors.primary.base,
-                    shadowColor: theme.colors.neutral.textSecondary,
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.2,
-                    shadowRadius: 4,
-                    elevation: 3,
-                  }
-                ]}
-                labelStyle={[styles.buttonText, { color: theme.colors.neutral.surface }]}
-                disabled={formSubmitting}
-              >
-                {currentPage === formPages.length - 1 ? (isEditing ? 'تحديث ✓' : 'حفظ ✓') : '→ التالي'}
-              </Button>
-            </View>
-          </View>
-        </ScrollView>
+                <View style={styles.buttonContainer}>
+                  <Button
+                    mode="outlined"
+                    onPress={prevPage}
+                    style={[
+                      styles.button, 
+                      { 
+                        borderColor: theme.colors.primary.base,
+                        marginRight: 8,
+                      }
+                    ]}
+                    labelStyle={{ color: theme.colors.primary.base }}
+                    disabled={loading}
+                  >
+                    {currentPage === 0 ? 'إلغاء' : 'السابق ←'}
+                  </Button>
+                  
+                  {currentPage < formPages.length - 1 ? (
+                    <Button
+                      mode="contained"
+                      onPress={() => nextPage(values)}
+                      style={[
+                        styles.button, 
+                        { 
+                          backgroundColor: theme.colors.primary.base,
+                        }
+                      ]}
+                      labelStyle={{ color: theme.colors.neutral.surface }}
+                      disabled={!validateCurrentPage(values)}
+                    >
+                      → التالي
+                    </Button>
+                  ) : (
+                    <Button
+                      mode="contained"
+                      onPress={() => handleSubmit()}
+                      style={[
+                        styles.button, 
+                        { 
+                          backgroundColor: theme.colors.primary.base,
+                        }
+                      ]}
+                      labelStyle={{ color: theme.colors.neutral.surface }}
+                      loading={loading}
+                      disabled={!isValid || loading}
+                    >
+                      {isEditing ? 'تحديث ✓' : 'حفظ ✓'}
+                    </Button>
+                  )}
+                </View>
+              </View>
+            </>
+          )}
+        </Formik>
       </KeyboardAvoidingView>
-
-      {showDatePicker && (
-        <DateTimePicker
-          value={dateField === 'purchaseDate' ? formData.purchaseDate : (formData.warrantyExpiryDate || new Date())}
-          mode="date"
-          display="default"
-          onChange={handleDateChange}
-          textColor={theme.colors.neutral.textPrimary}
-        />
-      )}
     </SafeAreaView>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  contentContainer: {
+    padding: 16,
+    paddingBottom: 160, // Add more padding at bottom to ensure form is visible with keyboard
+  },
+  header: {
+    marginBottom: 24,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  progressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 20,
+  },
+  progressDot: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  progressLine: {
+    width: 30,
+    marginHorizontal: 5,
+  },
+  progressLabel: {
+    textAlign: 'center',
+    marginTop: 4,
+    maxWidth: 70,
+  },
+  pageContainer: {
+    marginBottom: 24,
+    borderRadius: 16,
+    overflow: 'hidden',
+    elevation: 2,
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  pageHeader: {
+    alignItems: 'center',
+    padding: 24,
+    paddingBottom: 16,
+  },
+  pageIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  pageTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  pageSubtitle: {
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  formContainer: {
+    padding: 16,
+    gap: 16,
+  },
+  fieldContainer: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 16,
+    marginBottom: 8,
+    fontWeight: '500',
+  },
+  typeSelector: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'center',
+  },
+  typeButton: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 2,
+    minWidth: 100,
+    margin: 4,
+  },
+  typeIcon: {
+    fontSize: 24,
+    marginBottom: 8,
+  },
+  typeText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  datePickerButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  errorText: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  footer: {
+    padding: 16,
+    borderTopWidth: 1,
+    elevation: 4,
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: -2 },
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  button: {
+    flex: 1,
+    borderRadius: 8,
+  },
+});
 
 export default AddEquipment;

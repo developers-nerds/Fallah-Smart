@@ -18,7 +18,7 @@ const scanRoutes = require("./routes/scanRoutes");
 const conversationRoutes = require("./routes/conversationRoutes");
 const messageRoutes = require("./routes/messageRoutes");
 const accountRoutes = require("./routes/accountRoutes");
-const cropRoutes = require("./routes/crops");
+const cropRoutes = require("./routes/cropRoutes");
 const cropDetailsRoutes = require("./routes/cropsDetails");
 const animalRoutes = require("./routes/animalRoutes");
 const animalDetailsRoutes = require("./routes/animalsDetails");
@@ -34,6 +34,7 @@ const stockFertilizerRoutes = require("./routes/stockFertilizerRoutes");
 const stockEquipmentRoutes = require("./routes/stockEquipmentRoutes");
 const stockToolsRoutes = require("./routes/stockToolsRoutes");
 const stockHarvestRoutes = require("./routes/stockHarvestRoutes");
+const stockDashboardRoutes = require("./routes/stockDashboardRoutes");
 
 ///////////////////////Education Routes///////////////////////
 const Education_AnimalsRoute = require("./routes/Education_AnimalsRoute");
@@ -54,8 +55,35 @@ const app = express();
 const port = process.env.PORT || 5000;
 const host = process.env.HOST || 'localhost'; 
 
+// CORS configuration
+const corsOptions = {
+  origin: function(origin, callback) {
+    // Allow requests from these origins
+    const allowedOrigins = [
+      'http://localhost:5173',     // Vite dev server
+      'http://localhost:3000',     // React dev server
+      'http://localhost:8080',     // Possible alternative port
+      'http://localhost:5000'      // Same origin
+    ];
+    
+    // Allow requests with no origin (like mobile apps, curl, postman)
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,               // Allow credentials (cookies, auth headers)
+  methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+};
+
+// Apply CORS with options
+app.use(cors(corsOptions));
+
 // Middleware
-app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -116,6 +144,7 @@ app.use("/api/stock/fertilizer", stockFertilizerRoutes);
 app.use("/api/stock/equipment", stockEquipmentRoutes);
 app.use("/api/stock/tools", stockToolsRoutes);
 app.use("/api/stock/harvest", stockHarvestRoutes);
+app.use("/api/stock-dashboard", stockDashboardRoutes);
 
 //Education Routes
 app.use("/api/education/animals", Education_AnimalsRoute);
