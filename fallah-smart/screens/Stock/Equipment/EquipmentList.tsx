@@ -21,7 +21,7 @@ import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { StockStackParamList } from '../../../navigation/types';
 import { FAB } from '../../../components/FAB';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { formatDate } from '../../../utils/date';
 import { EQUIPMENT_TYPES, EQUIPMENT_STATUS, OPERATIONAL_STATUS, EquipmentType, EquipmentStatus, OperationalStatus } from './constants';
@@ -202,88 +202,89 @@ export const EquipmentListScreen = ({ navigation }: EquipmentListScreenProps) =>
     }
   }, []);
 
-  useEffect(() => {
-    console.log('EquipmentListScreen mounted - fetching equipment');
-    
-    let isMounted = true;
-    
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        setRefreshing(true);
-        setLocalError(null);
-        
-        // Try direct API call first
-        let equipmentData;
+  useFocusEffect(
+    useCallback(() => {
+      console.log('EquipmentListScreen focused - checking for updates');
+      
+      let isMounted = true;
+      
+      const loadData = async () => {
         try {
-          equipmentData = await fetchEquipmentDirectly();
-        } catch (apiError) {
-          console.error('API fetch failed, using mock data:', apiError);
-          equipmentData = MOCK_EQUIPMENT;
-        }
-        
-        if (isMounted && equipmentData) {
-          console.log('Equipment fetched successfully, updating UI');
+          setLoading(true);
+          setRefreshing(true);
+          setLocalError(null);
           
-          // Store the equipment data locally
-          setLocalEquipment(equipmentData || []);
-          
-          // Also update the context
+          // Try direct API call first
+          let equipmentData;
           try {
-            await fetchEquipment();
-            console.log('Context updated with equipment data');
-          } catch (contextError) {
-            console.error('Failed to update context, but we have local data:', contextError);
+            equipmentData = await fetchEquipmentDirectly();
+          } catch (apiError) {
+            console.error('API fetch failed, using mock data:', apiError);
+            equipmentData = MOCK_EQUIPMENT;
           }
-        }
-      } catch (err) {
-        console.error('Error directly loading equipment:', err);
-        
-        // Try context as fallback
-        try {
-          console.log('Falling back to context method...');
-          await fetchEquipment();
           
-          if (isMounted) {
-            console.log('Context method succeeded');
-            // If we have context data but no local data, use the context data
-            if (contextEquipment.length > 0 && localEquipment.length === 0) {
-              setLocalEquipment(contextEquipment);
-            } else if (localEquipment.length === 0) {
-              // If still no data, use mock data
-              console.log('No data from API or context, using mock data');
-              setLocalEquipment(MOCK_EQUIPMENT);
+          if (isMounted && equipmentData) {
+            console.log('Equipment fetched successfully, updating UI');
+            
+            // Store the equipment data locally
+            setLocalEquipment(equipmentData || []);
+            
+            // Also update the context
+            try {
+              await fetchEquipment();
+              console.log('Context updated with equipment data');
+            } catch (contextError) {
+              console.error('Failed to update context, but we have local data:', contextError);
             }
           }
-        } catch (contextErr) {
-          console.error('Context method also failed:', contextErr);
+        } catch (err) {
+          console.error('Error directly loading equipment:', err);
           
-          if (isMounted) {
-            // Use mock data as last resort
-            console.log('All methods failed, using mock data');
-            setLocalEquipment(MOCK_EQUIPMENT);
+          // Try context as fallback
+          try {
+            console.log('Falling back to context method...');
+            await fetchEquipment();
             
-            const errorMsg = err instanceof Error 
-              ? err.message 
-              : 'Failed to load equipment';
-            setLocalError(errorMsg);
+            if (isMounted) {
+              console.log('Context method succeeded');
+              // If we have context data but no local data, use the context data
+              if (contextEquipment.length > 0 && localEquipment.length === 0) {
+                setLocalEquipment(contextEquipment);
+              } else if (localEquipment.length === 0) {
+                // If still no data, use mock data
+                console.log('No data from API or context, using mock data');
+                setLocalEquipment(MOCK_EQUIPMENT);
+              }
+            }
+          } catch (contextErr) {
+            console.error('Context method also failed:', contextErr);
+            
+            if (isMounted) {
+              // Use mock data as last resort
+              console.log('All methods failed, using mock data');
+              setLocalEquipment(MOCK_EQUIPMENT);
+              
+              const errorMsg = err instanceof Error 
+                ? err.message 
+                : 'Failed to load equipment';
+              setLocalError(errorMsg);
+            }
+          }
+        } finally {
+          if (isMounted) {
+            setLoading(false);
+            setRefreshing(false);
           }
         }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-          setRefreshing(false);
-        }
-      }
-    };
-    
-    loadData();
-    
-    return () => {
-      console.log('EquipmentListScreen unmounting - cleaning up');
-      isMounted = false;
-    };
-  }, [fetchEquipment, fetchEquipmentDirectly, contextEquipment]);
+      };
+      
+      loadData();
+      
+      return () => {
+        isMounted = false;
+      };
+    }, [fetchEquipment, fetchEquipmentDirectly, contextEquipment])
+  );
 
   const onRefresh = useCallback(async () => {
     console.log('Refreshing equipment list...');
