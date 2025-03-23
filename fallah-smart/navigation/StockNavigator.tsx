@@ -21,7 +21,7 @@ import PesticideListScreen from '../screens/Stock/Pesticides/PesticideList';
 import { PesticideProvider } from '../context/PesticideContext';
 import Blogs from '../screens/blogs/blogs';
 import PostDetail from '../screens/blogs/PostDetail';
-import StockStatisticsScreen from '../screens/Stock/StockStatisticsScreen';
+import StockStatisticsScreen from '../screens/Stock/StockStatics';
 import { StockStackParamList } from './types';
 import { ToolProvider } from '../context/ToolContext';
 import { EquipmentProvider } from '../context/EquipmentContext';
