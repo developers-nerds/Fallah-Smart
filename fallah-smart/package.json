@@ -63,6 +63,7 @@
     "react-native-fast-image": "^8.6.3",
     "react-native-gesture-handler": "~2.20.2",
     "react-native-gif": "^1.0.3",
+    "react-native-keyboard-aware-scroll-view": "^0.9.5",
     "react-native-modal": "^14.0.0-rc.0",
     "react-native-paper": "^5.13.1",
     "react-native-picker-select": "^9.3.1",

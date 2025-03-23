@@ -39,6 +39,7 @@ export type StockStackParamList = {
   PostDetail: { postId: string };
   Statistics: undefined;
   Marketplace: undefined;
+  AddProduct: undefined;
   AdvisorApplication: undefined;
   NotificationSettings: undefined;
   SupplierRegistrationForm: undefined;

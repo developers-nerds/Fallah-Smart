@@ -1,23 +1,26 @@
-import { BarChart3, BookOpen, Home, MessageSquare, ShoppingCart, Wallet } from "lucide-react"
+import { BarChart3, BookOpen, Home, MessageSquare, ShoppingCart, Wallet, Users, BarChart } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 import { useLocation, Link } from "react-router-dom"
+import { useAppSelector } from "../redux/store"
 
 const sidebarItems = [
   {
     title: "Dashboard",
     icon: Home,
-    url: "/",
+    url: "/dashboard",
   },
   {
     title: "Stock",
     icon: BarChart3,
     url: "/stock",
   },
+
   {
     title: "Marketplace",
     icon: ShoppingCart,
     url: "/marketplace",
   },
+
   {
     title: "AI Chat",
     icon: MessageSquare,
@@ -42,6 +45,15 @@ const sidebarItems = [
 
 export function AppSidebar() {
   const location = useLocation()
+  const { user } = useAppSelector(state => state.auth)
+  
+  // Get initials for avatar
+  const getInitials = () => {
+    if (user?.firstName && user?.lastName) {
+      return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
+    }
+    return "AD"
+  }
 
   return (
     <aside className="hidden h-screen w-64 flex-shrink-0 flex-col bg-white border-r border-[#E6EAE8] md:flex">
@@ -86,11 +98,11 @@ export function AppSidebar() {
         <div className="flex items-center gap-3">
           <Avatar className="h-10 w-10 border border-[#E6EAE8]">
             <AvatarImage src="/placeholder.svg?height=40&width=40" alt="Admin" />
-            <AvatarFallback className="bg-[#093731] text-white">AD</AvatarFallback>
+            <AvatarFallback className="bg-[#093731] text-white">{getInitials()}</AvatarFallback>
           </Avatar>
           <div className="overflow-hidden">
-            <p className="truncate text-sm font-medium text-[#1A2F2B]">Admin User</p>
-            <p className="truncate text-xs text-[#4A5F5B]">admin@fallahsmart.com</p>
+            <p className="truncate text-sm font-medium text-[#1A2F2B]">{user?.firstName} {user?.lastName}</p>
+            <p className="truncate text-xs text-[#4A5F5B]">{user?.email || 'admin@fallahsmart.com'}</p>
           </div>
         </div>
       </div>
