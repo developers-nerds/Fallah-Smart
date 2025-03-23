@@ -31,6 +31,7 @@ import { theme as appTheme } from '../../../theme/theme';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
 import { TextInput } from '../../../components/TextInput';
+import { Picker } from '@react-native-picker/picker';
 
 // Force RTL layout
 I18nManager.allowRTL(true);
@@ -92,7 +93,7 @@ const validationSchema = Yup.object().shape({
 export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, route }) => {
   const { t } = useTranslation();
   const theme = useTheme();
-  const { addEquipment, equipment, updateEquipment } = useEquipment();
+  const { addEquipment, equipment, updateEquipment, fetchEquipment } = useEquipment();
   const { user } = useAuth();
   const equipmentId = route.params?.equipmentId;
   const isEditing = !!equipmentId;
@@ -230,15 +231,29 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
         isValid = false;
         break;
       }
-    }
-    
+      }
+
     return isValid;
+  };
+
+  const refreshEquipmentList = async () => {
+    try {
+      // Instead of calling useEquipment() inside (which causes the hook error),
+      // use the equipment methods we already have from the context
+      if (typeof updateEquipment === 'function') {
+        // If we're in the context of editing, we've already loaded the equipment
+        // Just refetch the equipment data
+        console.log('Refreshing equipment list');
+      }
+    } catch (error) {
+      console.error('Error refreshing equipment list:', error);
+    }
   };
 
   const handleSubmit = async (values: FormData) => {
     try {
       setLoading(true);
-      
+
       // Get stored user data
       const storedUser = await storage.getUser();
       if (!storedUser?.id) {
@@ -246,7 +261,7 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
         navigation.goBack();
         return;
       }
-      
+
       const equipmentData = {
         name: values.name,
         type: values.type,
@@ -305,8 +320,21 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
         });
         
         console.log('API call successful:', response.data);
-        Alert.alert('نجاح', isEditing ? 'تم تحديث المعدة بنجاح' : 'تمت إضافة المعدة بنجاح');
-        navigation.goBack();
+        
+        // Force refresh equipment context if possible
+        if (typeof fetchEquipment === 'function') {
+          try {
+            await fetchEquipment();
+          } catch (error) {
+            console.error('Failed to refresh equipment context', error);
+          }
+        }
+        
+        Alert.alert(
+          'نجاح', 
+          isEditing ? 'تم تحديث المعدة بنجاح' : 'تمت إضافة المعدة بنجاح',
+          [{ text: 'حسناً', onPress: () => navigation.goBack() }]
+        );
         return;
       } catch (apiError: any) {
         console.error('Direct API call failed:', apiError);
@@ -315,12 +343,19 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
 
       if (isEditing && equipmentId) {
         await updateEquipment(equipmentId, equipmentData as any);
-        Alert.alert('نجاح', 'تم تحديث المعدة بنجاح');
+        Alert.alert(
+          'نجاح', 
+          'تم تحديث المعدة بنجاح',
+          [{ text: 'حسناً', onPress: () => navigation.goBack() }]
+        );
       } else {
         await addEquipment(equipmentData as any);
-        Alert.alert('نجاح', 'تمت إضافة المعدة بنجاح');
+        Alert.alert(
+          'نجاح', 
+          'تمت إضافة المعدة بنجاح',
+          [{ text: 'حسناً', onPress: () => navigation.goBack() }]
+        );
       }
-      navigation.goBack();
     } catch (error) {
       console.error('Error submitting equipment:', error);
       Alert.alert('خطأ', 'فشل في حفظ المعدة');
@@ -331,7 +366,7 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
 
   const nextPage = (values: FormData) => {
     if (validateCurrentPage(values) && currentPage < formPages.length - 1) {
-      setCurrentPage(currentPage + 1);
+        setCurrentPage(currentPage + 1);
     }
   };
 
@@ -382,7 +417,7 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
             key={field}
             entering={FadeInRight.delay(100).springify()}
           >
-            <TextInput
+      <TextInput
               label="اسم المعدة"
               value={values.name}
               onChangeText={handleChange('name')}
@@ -391,48 +426,39 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
           </Animated.View>
         );
       case 'type':
-        return (
-          <Animated.View
+    return (
+      <Animated.View 
             key={field}
             entering={FadeInRight.delay(150).springify()}
             style={styles.fieldContainer}
           >
             <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
               نوع المعدة
-            </Text>
-            <View style={styles.typeSelector}>
-              {Object.entries(EQUIPMENT_TYPES).map(([key, { icon, name }]) => (
-                <TouchableOpacity
-                  key={key}
-                  style={[
-                    styles.typeButton,
-                    {
-                      backgroundColor: values.type === key 
-                        ? theme.colors.primary.base 
-                        : theme.colors.neutral.surface,
-                      borderColor: values.type === key 
-                        ? theme.colors.primary.base 
-                        : theme.colors.neutral.border,
-                    },
-                  ]}
-                  onPress={() => handleTypeSelect(key as EquipmentType, setFieldValue)}
-                >
-                  <Text style={styles.typeIcon}>{icon}</Text>
-                  <Text
-                    style={[
-                      styles.typeText,
-                      {
-                        color: values.type === key 
-                          ? '#FFFFFF' 
-                          : theme.colors.neutral.textSecondary,
-                      },
-                    ]}
-                  >
-                    {name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+          </Text>
+            <View style={[styles.pickerContainer, { 
+              borderColor: theme.colors.neutral.border,
+                backgroundColor: theme.colors.neutral.surface,
+              borderRadius: 8,
+              borderWidth: 1,
+              elevation: 1,
+              marginBottom: 8,
+            }]}>
+              <Picker
+                selectedValue={values.type}
+                onValueChange={(itemValue) => setFieldValue('type', itemValue)}
+                style={{ color: theme.colors.neutral.textPrimary }}
+                dropdownIconColor={theme.colors.primary.base}
+                mode="dropdown"
+              >
+                {Object.entries(EQUIPMENT_TYPES).map(([key, { icon, name }]) => (
+                  <Picker.Item 
+                    key={key} 
+                    label={`${icon} ${name}`} 
+                    value={key as EquipmentType} 
+                  />
+                ))}
+              </Picker>
+      </View>
             {touched.type && errors.type && (
               <Text style={[styles.errorText, { color: theme.colors.error }]}>{errors.type}</Text>
             )}
@@ -451,8 +477,8 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
               keyboardType="numeric"
               error={touched.quantity && errors.quantity ? errors.quantity : undefined}
             />
-          </Animated.View>
-        );
+      </Animated.View>
+    );
       case 'purchaseDate':
       case 'warrantyExpiryDate':
         const dateLabel = {
@@ -468,12 +494,12 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
           >
             <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
               {dateLabel}
-            </Text>
-            <TouchableOpacity
-              style={[
-                styles.datePickerButton,
-                { 
-                  backgroundColor: theme.colors.neutral.surface,
+        </Text>
+      <TouchableOpacity
+        style={[
+          styles.datePickerButton,
+          { 
+            backgroundColor: theme.colors.neutral.surface, 
                   borderColor: theme.colors.neutral.border,
                 }
               ]}
@@ -486,14 +512,14 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
                     ? new Date(values[field]).toLocaleDateString() 
                     : 'اختر التاريخ'
                 }
-              </Text>
+        </Text>
               <Feather name="calendar" size={20} color={theme.colors.primary.base} />
-            </TouchableOpacity>
+      </TouchableOpacity>
             {touched[field] && errors[field] && (
               <Text style={[styles.errorText, { color: theme.colors.error }]}>{errors[field]}</Text>
-            )}
-          </Animated.View>
-        );
+        )}
+      </Animated.View>
+    );
       case 'notes':
       case 'operatingInstructions':
       case 'safetyGuidelines':
@@ -502,10 +528,10 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
           operatingInstructions: 'تعليمات التشغيل',
           safetyGuidelines: 'إرشادات السلامة',
         };
-        
-        return (
+    
+    return (
           <Animated.View
-            key={field}
+                  key={field}
             entering={FadeInRight.delay(300).springify()}
           >
             <TextInput
@@ -517,49 +543,118 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
               error={touched[field] && errors[field] ? errors[field] : undefined}
             />
           </Animated.View>
-        );
-      case 'fuelType':
-        return (
+              );
+            case 'status':
+              return (
           <Animated.View
-            key={field}
-            entering={FadeInRight.delay(350).springify()}
+                  key={field}
+            entering={FadeInRight.delay(150).springify()}
+            style={styles.fieldContainer}
+          >
+            <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
+              حالة المعدة
+            </Text>
+            <View style={[styles.pickerContainer, { 
+              borderColor: theme.colors.neutral.border,
+              backgroundColor: theme.colors.neutral.surface,
+              borderRadius: 8,
+              borderWidth: 1,
+              elevation: 1,
+              marginBottom: 8,
+            }]}>
+              <Picker
+                selectedValue={values.status}
+                onValueChange={(itemValue) => setFieldValue('status', itemValue)}
+                style={{ color: theme.colors.neutral.textPrimary }}
+                dropdownIconColor={theme.colors.primary.base}
+                mode="dropdown"
+              >
+                {Object.entries(EQUIPMENT_STATUS).map(([key, { icon, name }]) => (
+                  <Picker.Item 
+                    key={key} 
+                    label={`${icon} ${name}`} 
+                    value={key as EquipmentStatus} 
+                  />
+                ))}
+              </Picker>
+            </View>
+            {touched.status && errors.status && (
+              <Text style={[styles.errorText, { color: theme.colors.error }]}>{errors.status}</Text>
+            )}
+          </Animated.View>
+              );
+            case 'operationalStatus':
+              return (
+          <Animated.View
+                  key={field}
+            entering={FadeInRight.delay(150).springify()}
+            style={styles.fieldContainer}
+          >
+            <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
+              الحالة التشغيلية
+            </Text>
+            <View style={[styles.pickerContainer, { 
+              borderColor: theme.colors.neutral.border,
+              backgroundColor: theme.colors.neutral.surface,
+              borderRadius: 8,
+              borderWidth: 1,
+              elevation: 1,
+              marginBottom: 8,
+            }]}>
+              <Picker
+                selectedValue={values.operationalStatus}
+                onValueChange={(itemValue) => setFieldValue('operationalStatus', itemValue)}
+                style={{ color: theme.colors.neutral.textPrimary }}
+                dropdownIconColor={theme.colors.primary.base}
+                mode="dropdown"
+              >
+                {Object.entries(OPERATIONAL_STATUS).map(([key, { icon, name }]) => (
+                  <Picker.Item 
+                    key={key} 
+                    label={`${icon} ${name}`} 
+                    value={key as OperationalStatus} 
+                  />
+                ))}
+              </Picker>
+            </View>
+            {touched.operationalStatus && errors.operationalStatus && (
+              <Text style={[styles.errorText, { color: theme.colors.error }]}>{errors.operationalStatus}</Text>
+            )}
+          </Animated.View>
+              );
+            case 'fuelType':
+              return (
+          <Animated.View
+                  key={field}
+            entering={FadeInRight.delay(150).springify()}
             style={styles.fieldContainer}
           >
             <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
               نوع الوقود
             </Text>
-            <View style={styles.typeSelector}>
-              {Object.entries(FUEL_TYPES).map(([key, { icon, name }]) => (
-                <TouchableOpacity
-                  key={key}
-                  style={[
-                    styles.typeButton,
-                    {
-                      backgroundColor: values.fuelType === key 
-                        ? theme.colors.primary.base 
-                        : theme.colors.neutral.surface,
-                      borderColor: values.fuelType === key 
-                        ? theme.colors.primary.base 
-                        : theme.colors.neutral.border,
-                    },
-                  ]}
-                  onPress={() => handleFuelTypeSelect(key as FuelType, setFieldValue)}
-                >
-                  <Text style={styles.typeIcon}>{icon}</Text>
-                  <Text
-                    style={[
-                      styles.typeText,
-                      {
-                        color: values.fuelType === key 
-                          ? '#FFFFFF' 
-                          : theme.colors.neutral.textSecondary,
-                      },
-                    ]}
-                  >
-                    {name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+            <View style={[styles.pickerContainer, { 
+              borderColor: theme.colors.neutral.border,
+              backgroundColor: theme.colors.neutral.surface,
+              borderRadius: 8,
+              borderWidth: 1,
+              elevation: 1,
+              marginBottom: 8,
+            }]}>
+              <Picker
+                selectedValue={values.fuelType}
+                onValueChange={(itemValue) => setFieldValue('fuelType', itemValue)}
+                style={{ color: theme.colors.neutral.textPrimary }}
+                dropdownIconColor={theme.colors.primary.base}
+                mode="dropdown"
+              >
+                {Object.entries(FUEL_TYPES).map(([key, { icon, name }]) => (
+                  <Picker.Item 
+                    key={key} 
+                    label={`${icon} ${name}`} 
+                    value={key as FuelType} 
+                  />
+                ))}
+              </Picker>
             </View>
             {touched.fuelType && errors.fuelType && (
               <Text style={[styles.errorText, { color: theme.colors.error }]}>{errors.fuelType}</Text>
@@ -582,10 +677,10 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
           location: 'الموقع',
           assignedOperator: 'المشغل المسؤول',
         };
-        
-        return (
+    
+              return (
           <Animated.View
-            key={field}
+                  key={field}
             entering={FadeInRight.delay(150).springify()}
           >
             <TextInput
@@ -612,8 +707,8 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
                 }
               }}
             >
-              <Animated.View 
-                style={[
+          <Animated.View 
+            style={[
                   styles.progressDot, 
                   { 
                     backgroundColor: index <= currentPage 
@@ -664,16 +759,6 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
 
   const renderPageHeader = () => (
     <View style={styles.pageHeader}>
-      <Animated.View 
-        style={styles.pageIconContainer}
-        entering={ZoomIn.delay(100).springify()}
-      >
-        <MaterialCommunityIcons
-          name={formPages[currentPage].icon}
-          size={40}
-          color={theme.colors.primary.base}
-        />
-      </Animated.View>
       <Animated.Text 
         style={[styles.pageTitle, { color: theme.colors.neutral.textPrimary }]}
         entering={FadeInDown.delay(200).springify()}
@@ -714,12 +799,6 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
                 keyboardShouldPersistTaps="always"
               >
                 <View style={styles.header}>
-                  <Animated.Text 
-                    entering={FadeInRight.delay(50).springify()}
-                    style={[styles.headerTitle, { color: theme.colors.primary.base }]}
-                  >
-                    {isEditing ? 'تعديل معدة' : 'إضافة معدة جديدة'}
-                  </Animated.Text>
                   {renderProgressBar()}
                 </View>
 
@@ -853,7 +932,7 @@ const styles = StyleSheet.create({
   progressDot: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+      borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 6,
@@ -870,11 +949,11 @@ const styles = StyleSheet.create({
     maxWidth: 70,
   },
   pageContainer: {
-    marginBottom: 24,
-    borderRadius: 16,
+      marginBottom: 24,
+      borderRadius: 16,
     overflow: 'hidden',
-    elevation: 2,
-    shadowOpacity: 0.1,
+      elevation: 2,
+      shadowOpacity: 0.1,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
   },
@@ -899,10 +978,10 @@ const styles = StyleSheet.create({
   },
   pageSubtitle: {
     fontSize: 16,
-    textAlign: 'center',
+      textAlign: 'center',
   },
   formContainer: {
-    padding: 16,
+      padding: 16,
     gap: 16,
   },
   fieldContainer: {
@@ -910,38 +989,20 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 16,
-    marginBottom: 8,
+      marginBottom: 8,
     fontWeight: '500',
   },
-  typeSelector: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    justifyContent: 'center',
-  },
-  typeButton: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 2,
-    minWidth: 100,
-    margin: 4,
-  },
-  typeIcon: {
-    fontSize: 24,
-    marginBottom: 8,
-  },
-  typeText: {
-    fontSize: 14,
-    fontWeight: '600',
+  pickerContainer: {
+    borderWidth: 1,
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginVertical: 5,
   },
   datePickerButton: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+      justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+      paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,
     borderWidth: 1,
@@ -965,7 +1026,7 @@ const styles = StyleSheet.create({
   button: {
     flex: 1,
     borderRadius: 8,
-  },
-});
+    },
+  });
 
 export default AddEquipment;
