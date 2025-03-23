@@ -745,8 +745,8 @@ const Chat = ({ visible = true }) => {
                 onPress={() => deleteMessage(message.id)}
                 activeOpacity={0.7}
               >
-                <MaterialIcons name="delete-outline" size={22} color="#fff" />
-                <Text style={styles.deleteButtonText}>Supprimer</Text>
+                <MaterialIcons name="delete-outline" size={15} color="#fff" />
+                <Text style={styles.deleteButtonText}>مسح </Text>
               </TouchableOpacity>
             </Animated.View>
           )}

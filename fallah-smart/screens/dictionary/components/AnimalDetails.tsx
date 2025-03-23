@@ -124,11 +124,9 @@ const AnimalDetails: React.FC<Props> = ({ route }) => {
   });
 
   const handleSpeech = (content: string, sectionKey: string) => {
-    // Stop any current speech
-    Speech.stop();
-    
-    // If this section is already speaking, just stop it
+    // If this section is already speaking, stop it and return
     if (speaking[sectionKey]) {
+      Speech.stop();
       setSpeaking(prev => ({
         ...prev,
         [sectionKey]: false
@@ -136,11 +134,18 @@ const AnimalDetails: React.FC<Props> = ({ route }) => {
       return;
     }
     
-    // Mark this section as speaking and all others as not speaking
-    setSpeaking(Object.keys(speaking).reduce((acc, key) => {
-      acc[key] = key === sectionKey;
+    // Stop any current speech first
+    Speech.stop();
+    
+    // Reset all speaking states to false
+    const newSpeakingState = Object.keys(speaking).reduce((acc, key) => {
+      acc[key] = false;
       return acc;
-    }, {} as {[key: string]: boolean}));
+    }, {} as {[key: string]: boolean});
+    
+    // Set only the current section to speaking
+    newSpeakingState[sectionKey] = true;
+    setSpeaking(newSpeakingState);
     
     // Speak the content
     Speech.speak(content || 'غير متوفر', {
@@ -258,13 +263,6 @@ const AnimalDetails: React.FC<Props> = ({ route }) => {
           >
             <MaterialCommunityIcons name="share-variant" size={20} color={theme.colors.primary.base} />
             <Text style={styles.actionButtonText}>مشاركة</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.actionButton}
-          >
-            <MaterialCommunityIcons name="star-outline" size={20} color={theme.colors.primary.base} />
-            <Text style={styles.actionButtonText}>المفضلة</Text>
           </TouchableOpacity>
         </View>
 

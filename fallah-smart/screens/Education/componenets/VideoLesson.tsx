@@ -8,7 +8,7 @@ import Chat from './Chat';
 import QuestionAndAnswer from './QuestionAndAnswer';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getUserIdFromToken, saveVideoProgress } from '../utils/userProgress';
+// import { getUserIdFromToken } from '../utils/userProgress';
 
 // API base URL
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
@@ -185,35 +185,33 @@ const VideoLesson = () => {
   }, [selectedVideoId, videoData, additionalVideos]);
 
   // Mark video as watched when user spends more than 30 seconds on it
-  useEffect(() => {
-    if (!videoData) return;
+  // useEffect(() => {
+  //   if (!videoData) return;
     
-    const timer = setTimeout(async () => {
-      try {
-        // Get user ID using the improved function
-        const userId = await getUserIdFromToken();
-        if (!userId) {
-          console.log('User not authenticated, video progress will not be saved');
-          return;
-        }
+  //   const timer = setTimeout(async () => {
+  //     try {
+  //       // Get user ID using the improved function
+  //       const userId = await getUserIdFromToken();
+  //       if (!userId) {
+  //         console.log('User not authenticated, video progress will not be saved');
+  //         return;
+  //       }
         
-        console.log(`Marking video ID ${videoData.id} as watched for user ${userId}`);
+  //       // console.log(`Marking video ID ${videoData.id} as watched for user ${userId}`);
         
-        // Save video progress using the utility function
-        const saveSuccess = await saveVideoProgress(userId, videoData.id, true);
+  //       // Save video progress using the utility function
+  //       // const saveSuccess = await saveVideoProgress(userId, videoData.id, true);
         
-        if (saveSuccess) {
-          console.log("Video marked as watched successfully");
-        } else {
-          console.error("Failed to mark video as watched");
-        }
-      } catch (err) {
-        console.error("Error updating video progress:", err);
-      }
-    }, 30000); // 30 seconds
+  //       // if (saveSuccess) {
+  //       //   console.log("Video marked as watched successfully");
+  //       // } 
+  //     } catch (err) {
+  //       console.error("Error updating video progress:", err);
+  //     }
+  //   }, 3000); // 30 seconds
     
-    return () => clearTimeout(timer);
-  }, [videoData]);
+  //   return () => clearTimeout(timer);
+  // }, [videoData]);
 
   if (loading) {
     return (

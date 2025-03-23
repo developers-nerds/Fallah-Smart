@@ -1058,7 +1058,7 @@ const QuestionAndAnswer: React.FC<Props> = ({ videoId, videoType }) => {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.refreshContainer}>
+      {/* <View style={styles.refreshContainer}>
         <TouchableOpacity 
           style={styles.refreshButton} 
           onPress={() => loadQuestions(true, true)}
@@ -1068,7 +1068,7 @@ const QuestionAndAnswer: React.FC<Props> = ({ videoId, videoType }) => {
           <Text style={styles.refreshText}>تحديث الأسئلة</Text>
         </TouchableOpacity>
         <Text style={styles.debugInfo}>الفيديو: {videoId} | النوع: {videoType || 'غير محدد'}</Text>
-      </View>
+      </View> */}
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
@@ -1081,19 +1081,19 @@ const QuestionAndAnswer: React.FC<Props> = ({ videoId, videoType }) => {
           ref={scrollViewRef}
           showsVerticalScrollIndicator={false}
         >
-          <TouchableOpacity 
+          {/* <TouchableOpacity 
             style={styles.sortButton}
             onPress={sortQuestions}
-          >
-            <Text style={styles.sortButtonText}>
+          > */}
+            {/* <Text style={styles.sortButtonText}>
               ترتيب حسب: {sortOrder === 'newest' ? 'الأحدث' : 'الأكثر إعجاباً'}
             </Text>
             <MaterialIcons 
               name={sortOrder === 'newest' ? 'sort' : 'thumb-up'} 
               size={18} 
               color={theme.colors.primary.base} 
-            />
-          </TouchableOpacity>
+            /> */}
+          {/* </TouchableOpacity> */}
           {sortedQuestions.length === 0 ? (
             <View style={styles.emptyState}>
               <MaterialCommunityIcons 
