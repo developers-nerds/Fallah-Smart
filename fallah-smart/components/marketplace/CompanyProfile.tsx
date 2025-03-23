@@ -402,7 +402,7 @@ export const CompanyProfile: React.FC = () => {
       }
 
       console.log('Using token from storage:', access);
-      
+
       const response = await fetch(`${BaseUrl}/suppliers/me`, {
         headers: {
           Authorization: `Bearer ${access}`,

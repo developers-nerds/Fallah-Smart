@@ -6,6 +6,7 @@ const {
 } = require("../database/assossiation");
 const path = require("path");
 const fs = require("fs");
+const validator = require("validator");
 
 const getSupplierByUserId = async (req, res) => {
   try {
@@ -70,7 +71,6 @@ const createSupplier = async (req, res) => {
     // Validate required fields
     if (
       !company_name ||
-      !about_us ||
       !company_address ||
       !company_phone ||
       !company_email
@@ -78,6 +78,22 @@ const createSupplier = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Missing required fields",
+      });
+    }
+
+    // Validate company name and email format
+    if (!validator.isLength(company_name, { min: 2 })) {
+      return res.status(400).json({
+        success: false,
+        message: "Company name must be at least 2 characters long",
+      });
+    }
+
+    // Email validation
+    if (!validator.isEmail(company_email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide a valid email address",
       });
     }
 
