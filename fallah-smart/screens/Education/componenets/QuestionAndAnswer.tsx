@@ -11,7 +11,9 @@ import {
   Animated,
   Alert,
   Keyboard,
-  Pressable
+  Pressable,
+  KeyboardAvoidingView,
+  Platform
 } from 'react-native';
 import { theme } from '../../../theme/theme';
 import { MaterialIcons, MaterialCommunityIcons, Ionicons, AntDesign } from '@expo/vector-icons';
@@ -119,6 +121,7 @@ const QuestionAndAnswer: React.FC<Props> = ({ videoId, videoType }) => {
     [key: string]: { count: number, isLiked: boolean } 
   }>({});
   const [expandedReplies, setExpandedReplies] = useState<{[key: string]: boolean}>({});
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   
   // Maximum character limits
   const MAX_QUESTION_LENGTH = 300;
@@ -163,6 +166,27 @@ const QuestionAndAnswer: React.FC<Props> = ({ videoId, videoType }) => {
       };
     }, [videoId, videoType, lastRefreshTime])
   );
+
+  // Add keyboard listeners
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      'keyboardDidShow',
+      () => {
+        setKeyboardVisible(true);
+      }
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      'keyboardDidHide',
+      () => {
+        setKeyboardVisible(false);
+      }
+    );
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
 
   const loadCurrentUser = async () => {
     try {
@@ -1020,7 +1044,12 @@ const QuestionAndAnswer: React.FC<Props> = ({ videoId, videoType }) => {
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView 
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 20}
+      enabled={!keyboardVisible}
+    >
       <View style={styles.askContainer}>
         <View style={styles.inputWrapper}>
           <TextInput
@@ -1058,18 +1087,6 @@ const QuestionAndAnswer: React.FC<Props> = ({ videoId, videoType }) => {
         </TouchableOpacity>
       </View>
 
-      {/* <View style={styles.refreshContainer}>
-        <TouchableOpacity 
-          style={styles.refreshButton} 
-          onPress={() => loadQuestions(true, true)}
-          disabled={isLoading}
-        >
-          <MaterialIcons name="refresh" size={22} color={theme.colors.primary.base} />
-          <Text style={styles.refreshText}>تحديث الأسئلة</Text>
-        </TouchableOpacity>
-        <Text style={styles.debugInfo}>الفيديو: {videoId} | النوع: {videoType || 'غير محدد'}</Text>
-      </View> */}
-
       {isLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.primary.base} />
@@ -1080,20 +1097,8 @@ const QuestionAndAnswer: React.FC<Props> = ({ videoId, videoType }) => {
           style={styles.questionsContainer}
           ref={scrollViewRef}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          {/* <TouchableOpacity 
-            style={styles.sortButton}
-            onPress={sortQuestions}
-          > */}
-            {/* <Text style={styles.sortButtonText}>
-              ترتيب حسب: {sortOrder === 'newest' ? 'الأحدث' : 'الأكثر إعجاباً'}
-            </Text>
-            <MaterialIcons 
-              name={sortOrder === 'newest' ? 'sort' : 'thumb-up'} 
-              size={18} 
-              color={theme.colors.primary.base} 
-            /> */}
-          {/* </TouchableOpacity> */}
           {sortedQuestions.length === 0 ? (
             <View style={styles.emptyState}>
               <MaterialCommunityIcons 
@@ -1158,7 +1163,6 @@ const QuestionAndAnswer: React.FC<Props> = ({ videoId, videoType }) => {
 
                 {renderQuestionActions(question)}
                 
-                {/* Render the reply section with the new helper function */}
                 {renderReplySection(question)}
 
                 {replyingTo?.questionId === question.id && (
@@ -1222,7 +1226,7 @@ const QuestionAndAnswer: React.FC<Props> = ({ videoId, videoType }) => {
           <View style={styles.bottomPadding} />
         </ScrollView>
       )}
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 

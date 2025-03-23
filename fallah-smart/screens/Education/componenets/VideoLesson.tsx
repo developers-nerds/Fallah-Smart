@@ -348,6 +348,7 @@ const VideoLesson = () => {
       </View>
 
       {/* Help Button */}
+      
       <TouchableOpacity 
         onPress={() => setIsChatVisible(!isChatVisible)} 
         style={[
@@ -355,7 +356,7 @@ const VideoLesson = () => {
           isChatVisible && styles.helpButtonActive
         ]}
       >
-        <Text style={styles.helpButtonText}>مساعدة</Text>
+        <Text style={styles.helpButtonText}>الفلاح الذكي</Text>
       </TouchableOpacity>
 
       {/* Chat Overlay */}
@@ -367,13 +368,13 @@ const VideoLesson = () => {
           <View style={styles.chatOverlayContainer}>
             <View style={styles.chatOverlay}>
               <View style={styles.chatHeader}>
-                <Text style={styles.chatTitle}>المساعد الذكي</Text>
                 <TouchableOpacity 
                   onPress={() => setIsChatVisible(false)}
                   style={styles.closeChatButton}
                 >
                   <Ionicons name="close" size={24} color={theme.colors.neutral.textPrimary} />
                 </TouchableOpacity>
+                <Text style={styles.chatTitle}>الفلاح الذكي</Text>
               </View>
               <View style={styles.chatWrapper}>
                 <Chat visible={true} />
@@ -526,17 +527,18 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.5)',
-    zIndex: 2,
+    zIndex: 99,
   },
   helpButton: {
     position: 'absolute',
     bottom: 20,
-    right: 20,
+    left: 20,
     backgroundColor: theme.colors.primary.base,
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 30,
     ...theme.shadows.medium,
+    zIndex: 10,
   },
   helpButtonText: {
     color: theme.colors.neutral.surface,
@@ -553,7 +555,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    zIndex: 3,
+    zIndex: 100,
     justifyContent: 'center',
     alignItems: 'center',
     padding: theme.spacing.md,
@@ -576,11 +578,11 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 16,
   },
   chatTitle: {
-    flex: 1,
     color: theme.colors.neutral.surface,
     fontSize: 18,
     fontWeight: '600',
     textAlign: 'right',
+    marginRight: theme.spacing.sm,
   },
   closeChatButton: {
     width: 32,
