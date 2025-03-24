@@ -207,7 +207,47 @@ function Dashboard() {
         
         <div className="rounded-lg bg-white p-3 shadow-sm">
           <h2 className="text-lg font-semibold text-[#1A2F2B]">Stock Overview</h2>
-          <div className="mt-2 h-40 rounded-lg bg-[#F5F6E8]"></div>
+          <div className="mt-2 h-40">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={[
+                    { name: 'Animals', value: 245 },
+                    { name: 'Pesticides', value: 130 },
+                    { name: 'Equipment', value: 87 },
+                    { name: 'Feeds', value: 210 },
+                    { name: 'Fertilizers', value: 155 },
+                    { name: 'Seeds', value: 95 },
+                    { name: 'Tools', value: 72 }
+                  ]}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={25}
+                  outerRadius={40}
+                  paddingAngle={2}
+                  dataKey="value"
+                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  labelLine={false}
+                >
+                  {[
+                    '#4F7942', // Green
+                    '#0088FE', // Blue
+                    '#FF8042', // Orange
+                    '#FFBB28', // Yellow
+                    '#8884d8', // Purple
+                    '#00C49F', // Teal
+                    '#093731'  // Dark Green (primary)
+                  ].map((color, index) => (
+                    <Cell key={`cell-${index}`} fill={color} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  formatter={(value) => [`${value} items`, 'Count']}
+                  contentStyle={{ fontSize: '10px', padding: '2px 4px' }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
         </div>
         <div className="rounded-lg bg-white p-3 shadow-sm">
           <h2 className="text-lg font-semibold text-[#1A2F2B]">Market Prices</h2>
@@ -216,8 +256,60 @@ function Dashboard() {
       </div>
 
       <div className="mt-6 rounded-xl bg-white p-4 shadow-md">
-        <h2 className="text-xl font-semibold text-[#1A2F2B]">Crop Performance</h2>
-        <div className="mt-4 h-64 rounded-lg bg-[#E8F5F3]"></div>
+        <h2 className="text-xl font-semibold text-[#1A2F2B]">Stock Statistics</h2>
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-[#E8F5F3] p-4 rounded-lg shadow-sm">
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-medium text-[#1A2F2B]">Total Items</h3>
+              <span className="bg-[#093731] p-1 rounded-full">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                </svg>
+              </span>
+            </div>
+            <p className="mt-2 text-2xl font-bold text-[#093731]">1,345</p>
+            <p className="text-xs text-gray-500">Across all stock categories</p>
+          </div>
+          
+          <div className="bg-[#E8F5F3] p-4 rounded-lg shadow-sm">
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-medium text-[#1A2F2B]">Total Value</h3>
+              <span className="bg-[#093731] p-1 rounded-full">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </span>
+            </div>
+            <p className="mt-2 text-2xl font-bold text-[#093731]">$24,789.50</p>
+            <p className="text-xs text-gray-500">Estimated inventory value</p>
+          </div>
+          
+          <div className="bg-[#E8F5F3] p-4 rounded-lg shadow-sm">
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-medium text-[#1A2F2B]">Low Stock</h3>
+              <span className="bg-amber-500 p-1 rounded-full">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </span>
+            </div>
+            <p className="mt-2 text-2xl font-bold text-amber-600">42</p>
+            <p className="text-xs text-gray-500">Items below minimum threshold</p>
+          </div>
+          
+          <div className="bg-[#E8F5F3] p-4 rounded-lg shadow-sm">
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-medium text-[#1A2F2B]">Expiring Soon</h3>
+              <span className="bg-red-500 p-1 rounded-full">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </span>
+            </div>
+            <p className="mt-2 text-2xl font-bold text-red-600">18</p>
+            <p className="text-xs text-gray-500">Items expiring within 30 days</p>
+          </div>
+        </div>
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-2">
