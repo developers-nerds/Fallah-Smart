@@ -404,6 +404,102 @@ const transactionController = {
       });
     }
   },
+
+  // Get all users' transactions and balances (Admin only)
+  // Get all transactions for a specific account
+  getAllUsersTransactions: async (req, res) => {
+    try {
+      const { accountId } = req.params;
+
+      // Fetch transactions for the specific account
+      const transactions = await Transactions.findAll({
+        where: { accountId },
+        include: [
+          {
+            model: Accounts,
+            as: 'account',
+            attributes: ['id', 'Methods', 'balance', 'currency', 'userId'],
+          },
+          {
+            model: Category,
+            as: 'category',
+            attributes: ['id', 'name', 'type', 'icon', 'color'],
+          },
+        ],
+        order: [['date', 'DESC']],
+      });
+
+      // Get the specific account details
+      const account = await Accounts.findOne({
+        where: { id: accountId },
+        attributes: ['id', 'Methods', 'balance', 'currency', 'userId'],
+      });
+
+      if (!account) {
+        return res.status(404).json({
+          success: false,
+          message: 'Account not found',
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          transactions,
+          account,
+        },
+      });
+    } catch (error) {
+      console.error('Error fetching account transactions:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: error.message,
+      });
+    }
+  },
+
+  // Get all transactions from all accounts (Admin only)
+  getAllTransactionsAdmin: async (req, res) => {
+    try {
+      // Fetch all transactions with their associated accounts and categories
+      const transactions = await Transactions.findAll({
+        include: [
+          {
+            model: Accounts,
+            as: 'account',
+            attributes: ['id', 'Methods', 'balance', 'currency', 'userId'],
+          },
+          {
+            model: Category,
+            as: 'category',
+            attributes: ['id', 'name', 'type', 'icon', 'color'],
+          },
+        ],
+        order: [['date', 'DESC']],
+      });
+
+      // Get all accounts
+      const accounts = await Accounts.findAll({
+        attributes: ['id', 'Methods', 'balance', 'currency', 'userId'],
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          transactions,
+          accounts,
+        },
+      });
+    } catch (error) {
+      console.error('Error fetching all transactions:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: error.message,
+      });
+    }
+  },
 };
 
 module.exports = transactionController;
