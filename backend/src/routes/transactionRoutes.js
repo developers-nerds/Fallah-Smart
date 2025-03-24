@@ -6,6 +6,12 @@ const auth = require('../middleware/auth');
 // All routes require authentication
 router.use(auth);
 
+// Admin route to get all transactions from all accounts
+router.get('/admin/all', transactionController.getAllTransactionsAdmin);
+
+// Admin route to get all users' transactions
+router.get('/admin/:accountId', transactionController.getAllUsersTransactions);
+
 // Get all transactions for an account with optional interval filtering
 router.get('/:accountId', transactionController.getAllTransactions);
 

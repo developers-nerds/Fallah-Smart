@@ -261,14 +261,14 @@ Users.hasMany(AuctionBids, {
 // Update User and Accounts association to Many-to-One with unique alias
 Users.hasMany(Accounts, {
   foreignKey: "userId",
-  as: "userAccounts", // Changed from "accounts"
+  as: "accounts", // Changed from "accounts"
   onDelete: "CASCADE",
   onUpdate: "CASCADE",
 });
 
 Accounts.belongsTo(Users, {
   foreignKey: "userId",
-  as: "accountOwner", // Changed from "user"
+  as: "User", // Changed from "user"
 });
 
 // Add Category and Transactions association
