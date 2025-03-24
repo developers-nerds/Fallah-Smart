@@ -4,8 +4,8 @@ import { useAppSelector, useAppDispatch } from '../redux/store';
 import { User, setUser } from '../redux/auth';
 import { AlertCircle, Check, User as UserIcon, Upload, Camera } from 'lucide-react';
 
-const API_URL = 'http://localhost:5000/api';
-const BASE_URL = 'http://localhost:5000';
+const API_URL = import.meta.env.VITE_API;
+const BASE_URL = import.meta.env.VITE_API_blog;
 
 interface ProfileFormData {
   firstName: string;
