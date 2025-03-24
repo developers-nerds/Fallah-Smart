@@ -55,8 +55,9 @@ const port = process.env.PORT;
 const corsOptions = {
   origin: function(origin, callback) {
     // Allow requests from these origins
-    const allowedOrigins = [
-      'http://localhost:5174',     // Vite dev server
+    const allowedOrigins = [  
+      'http://localhost:5174',
+       'http://localhost:5173',
       'http://localhost:3000',     // React dev server
       'http://localhost:8081',     // Possible alternative port
       'http://localhost:5000'      // Same origin
