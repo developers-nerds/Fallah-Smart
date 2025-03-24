@@ -19,7 +19,7 @@ import { MaterialCommunityIcons, FontAwesome5, Ionicons } from '@expo/vector-ico
 import { theme } from '../../theme/theme';
 import { storage } from '../../utils/storage';
 import { BackButton } from '../../components/BackButton';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -156,17 +156,25 @@ const generateRandomKey = () => {
 
 export const SupplierRegistrationForm: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
+  const route = useRoute();
+
+  // Check if we're coming from verification request
+  const showVerificationOnly = route.params?.showVerificationOnly || false;
+  // Get the email from route params if available
+  const supplierEmail = route.params?.supplierEmail || '';
+
+  // Initialize form data with the email from params if present
   const [formData, setFormData] = useState<FormData>({
     company_name: '',
     about_us: '',
     company_address: '',
     company_phone: '',
-    company_email: '',
+    company_email: supplierEmail, // Use the email from params
     company_website: '',
     company_logo: null,
     company_banner: null,
-    open_time: '09:00',
-    close_time: '17:00',
+    open_time: '',
+    close_time: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -183,7 +191,7 @@ export const SupplierRegistrationForm: React.FC = () => {
   const [showCountryCodePicker, setShowCountryCodePicker] = useState(false);
   const [countrySearchQuery, setCountrySearchQuery] = useState('');
   const [filteredCountries, setFilteredCountries] = useState(countryCodesData);
-  const [showVerification, setShowVerification] = useState(false);
+  const [showVerification, setShowVerification] = useState(showVerificationOnly);
   const [errors, setErrors] = useState<{ field: string; message: string }[]>([]);
   const [verificationCode, setVerificationCode] = useState<string>('');
   const [codeInputs, setCodeInputs] = useState<string[]>(['', '', '', '', '', '']);
@@ -1412,6 +1420,10 @@ export const SupplierRegistrationForm: React.FC = () => {
   );
 
   const renderCurrentStep = () => {
+    if (showVerification) {
+      return renderVerificationScreen();
+    }
+
     switch (currentStep) {
       case 0:
         return renderBasicInfoStep();
@@ -1550,7 +1562,37 @@ export const SupplierRegistrationForm: React.FC = () => {
     [codeInputs]
   );
 
-  // Function to verify code against backend
+  // Add this function after the existing verifyCode function
+  const updateSupplierVerificationStatus = async (token: string) => {
+    try {
+      console.log('Updating supplier verification status...');
+
+      const response = await fetch(`${BaseUrl}/suppliers/verify`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Failed to update verification status:', errorData);
+        // We don't throw error here to avoid blocking the user experience
+        return false;
+      }
+
+      const data = await response.json();
+      console.log('Verification status updated successfully:', data);
+      return true;
+    } catch (error) {
+      console.error('Error updating verification status:', error);
+      // Don't block the user experience, just log the error
+      return false;
+    }
+  };
+
+  // Now modify the existing verifyCode function to call this new function after successful verification
   const verifyCode = async (code: string) => {
     try {
       setIsVerifying(true);
@@ -1589,7 +1631,17 @@ export const SupplierRegistrationForm: React.FC = () => {
         throw new Error(data.message || 'Failed to verify code');
       }
 
-      // Success! Update the UI
+      // Success! Now call the supplier verification API
+      const verificationUpdated = await updateSupplierVerificationStatus(token);
+
+      if (verificationUpdated) {
+        console.log('Supplier verification status updated successfully');
+      } else {
+        console.warn('Failed to update supplier verification status, but email was verified');
+        // We continue anyway because the email was verified successfully
+      }
+
+      // Update the UI
       setVerificationSuccess(true);
     } catch (error) {
       console.error('Verification error:', error);
@@ -1653,6 +1705,15 @@ export const SupplierRegistrationForm: React.FC = () => {
       }, 1000);
     }
   };
+
+  // Add useEffect to handle direct navigation to verification
+  useEffect(() => {
+    if (showVerificationOnly) {
+      setCurrentStep(5); // Set to the right step number for verification
+      // You might need to check if the user has an account already
+      // and populate any required fields
+    }
+  }, [showVerificationOnly]);
 
   return (
     <KeyboardAvoidingView
