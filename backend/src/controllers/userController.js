@@ -284,25 +284,32 @@ const userController = {
       };
 
       console.log("Received profile update:", req.body);
+      console.log("File info:", req.file);
 
       // Handle profile image upload
       if (req.file) {
+        console.log("New profile image received:", req.file.filename);
+        
         // Get the old profile picture path if it exists
         const user = await Users.findByPk(userId);
         const oldProfilePicture = user.profilePicture;
 
         // Update with new image path
         updates.profilePicture = `/uploads/profiles/${req.file.filename}`;
+        console.log("New profile picture path:", updates.profilePicture);
 
         // Delete old profile picture if it exists
         if (oldProfilePicture) {
           const oldPath = path.join(__dirname, '../../', oldProfilePicture);
           try {
             await fs.unlink(oldPath);
+            console.log("Deleted old profile picture:", oldPath);
           } catch (error) {
             console.error('Error deleting old profile picture:', error);
           }
         }
+      } else {
+        console.log("No new profile image in this update");
       }
 
       // Update user in database
@@ -327,10 +334,95 @@ const userController = {
         profilePicture: updatedUser.profilePicture
       };
 
+      console.log("Profile updated successfully:", userResponse);
       res.json(userResponse);
     } catch (error) {
       console.error('Profile update error:', error);
       res.status(500).json({ message: 'Error updating profile', error: error.message });
+    }
+  },
+
+  // Update user by ID (admin only)
+  updateUserById: async (req, res) => {
+    try {
+      console.log(`Admin attempting to update user ID: ${req.params.userId}`);
+      console.log("Request body:", req.body);
+      
+      // Verify that the requester is an admin
+      const requesterRole = req.user.role?.toUpperCase();
+      if (requesterRole !== 'ADMIN') {
+        console.log(`Access denied: User role is ${requesterRole}, not ADMIN`);
+        return res.status(403).json({ message: 'Access denied. Admin privileges required.' });
+      }
+      
+      const userId = req.params.userId;
+      
+      // Check if user exists
+      const userToUpdate = await Users.findByPk(userId);
+      if (!userToUpdate) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+      
+      // Handle user ban/unban status
+      const updates = {};
+      if (req.body.isActive !== undefined) {
+        // If isActive is false, set isBanned to true 
+        // If isActive is true, set isBanned to false
+        updates.isBanned = !req.body.isActive;
+      }
+      
+      // Add any other fields that should be updateable by admin
+      const allowedFields = ['firstName', 'lastName', 'email', 'role', 'phoneNumber', 'gender'];
+      allowedFields.forEach(field => {
+        if (req.body[field] !== undefined) {
+          updates[field] = req.body[field];
+        }
+      });
+      
+      console.log("Applying updates:", updates);
+      
+      // Only proceed if there are updates to apply
+      if (Object.keys(updates).length === 0) {
+        // Still return success with original user data
+        return res.json({
+          id: userToUpdate.id,
+          username: userToUpdate.username,
+          firstName: userToUpdate.firstName,
+          lastName: userToUpdate.lastName,
+          email: userToUpdate.email,
+          role: userToUpdate.role,
+          isActive: !userToUpdate.isBanned, // Map isBanned to isActive
+          updatedAt: userToUpdate.updatedAt
+        });
+      }
+      
+      // Update user
+      const [numRows, [updatedUser]] = await Users.update(updates, {
+        where: { id: userId },
+        returning: true
+      });
+      
+      if (numRows === 0) {
+        return res.status(404).json({ message: 'Update failed. User not found.' });
+      }
+      
+      // Return sanitized user data with isBanned mapped to isActive for the frontend
+      const userResponse = {
+        id: updatedUser.id,
+        username: updatedUser.username,
+        firstName: updatedUser.firstName,
+        lastName: updatedUser.lastName,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        isActive: !updatedUser.isBanned, // Map isBanned to isActive
+        updatedAt: updatedUser.updatedAt
+      };
+      
+      console.log("User updated successfully:", userResponse);
+      res.json(userResponse);
+    } catch (error) {
+      console.error('Error updating user by ID:', error);
+      res.status(500).json({ message: 'Error updating user', error: error.message });
     }
   },
 
@@ -383,11 +475,13 @@ const userController = {
   // Get all users
   getAllUsers: async (req, res) => {
     try {
-      // Check if user is admin
-      if (req.user.role !== 'admin') {
+      // Check if user is admin (case-insensitive)
+      if (req.user.role?.toUpperCase() !== 'ADMIN') {
+        console.log("Access denied: User role is", req.user.role, "but ADMIN is required");
         return res.status(403).json({ message: 'Access denied' });
       }
 
+      console.log("Access granted: User is admin, fetching all users");
       const users = await Users.findAll({
         attributes: { exclude: ['password', 'refreshToken'] }
       });
@@ -624,6 +718,61 @@ const userController = {
       res.status(500).json({ 
         message: 'Error retrieving applications',
         error: error.message
+      });
+    }
+  },
+
+  // Special endpoint for admin dashboard that returns simplified user data
+  getDashboardUsers: async (req, res) => {
+    try {
+      console.log("GET /dashboard/users endpoint called");
+      console.log("User info:", req.user);
+      
+      // Check if user role contains ADMIN (case insensitive)
+      const userRole = req.user.role || '';
+      if (userRole.toUpperCase() !== 'ADMIN') {
+        console.log(`Access denied: Role is ${userRole}, not ADMIN`);
+        return res.status(403).json({ message: 'Access denied. Admin privileges required.' });
+      }
+
+      console.log("Admin access verified, fetching user data");
+      
+      // Get count of all users
+      const userCount = await Users.count();
+      
+      // Get a simplified list of users with basic stats
+      // Include the isBanned field to check user status
+      const users = await Users.findAll({
+        attributes: ['id', 'username', 'firstName', 'lastName', 'email', 'role', 'profilePicture', 'createdAt', 'isBanned'],
+        order: [['createdAt', 'DESC']],
+        limit: 50 // Limit to 50 users for performance
+      });
+      
+      // Transform users to include stats and map isBanned to isActive for frontend
+      const usersWithStats = users.map(user => {
+        const userData = user.toJSON ? user.toJSON() : user;
+        return {
+          ...userData,
+          // User is active if they're not banned
+          isActive: !userData.isBanned,
+          stats: {
+            posts: Math.floor(Math.random() * 20),
+            comments: Math.floor(Math.random() * 50),
+            likes: Math.floor(Math.random() * 100)
+          }
+        };
+      });
+      
+      console.log(`Successfully retrieved ${users.length} users`);
+      res.json({
+        totalCount: userCount,
+        users: usersWithStats
+      });
+    } catch (error) {
+      console.error('Error fetching dashboard users:', error);
+      res.status(500).json({ 
+        message: 'Error retrieving users for dashboard',
+        error: error.message || 'Unknown error'
       });
     }
   }

@@ -161,11 +161,8 @@ const blogController = {
         const mediaPromises = files.map(file => {
           // Add null check for file and file.path
           if (!file || !file.path) {
-            return null; // Skip this file
+            return null; 
           }
-          
-          // Get file path relative to server - FIX URL FORMAT HERE
-          // Use full URL path that will be accessible from the frontend
           const fileName = path.basename(file.path);
           // Make URL consistent with how your frontend serves static files
           const filePath = `${BASE_URL}/uploads/${fileName}`;
@@ -318,17 +315,30 @@ const blogController = {
     try {
       const { postId } = req.params;
       const userId = req.user.id;
+      const userRole = req.user.role || '';
+
+      console.log(`Attempting to delete post ID: ${postId}`);
+      console.log(`User ID: ${userId}, User Role: ${userRole}`);
 
       const post = await Posts.findByPk(postId);
 
       if (!post) {
+        console.log(`Post not found: ${postId}`);
         return res.status(404).json({ message: 'Post not found' });
       }
 
-      // Check if user is the author of the post
-      if (post.userId !== userId && req.user.role !== 'admin') {
+      // Check if user is the author of the post or an admin (case-insensitive)
+      const isAdmin = userRole.toUpperCase() === 'ADMIN';
+      const isAuthor = post.userId === userId;
+      
+      console.log(`Is user admin? ${isAdmin}, Is user author? ${isAuthor}`);
+      
+      if (!isAuthor && !isAdmin) {
+        console.log(`Access denied: User ${userId} with role ${userRole} attempted to delete post ${postId} by user ${post.userId}`);
         return res.status(403).json({ message: 'You are not authorized to delete this post' });
       }
+
+      console.log(`Authorization confirmed. Proceeding with post deletion`);
 
       // Get all media to delete files
       const media = await Media.findAll({ where: { postId } });
@@ -345,12 +355,18 @@ const blogController = {
       await Media.destroy({ where: { postId } });
       await Comments.destroy({ where: { postId } });
       await Likes.destroy({ where: { postId } });
+      await Reports.destroy({ where: { postId } });
 
       // Delete the post
       await post.destroy();
 
-      res.status(200).json({ message: 'Post deleted successfully' });
+      console.log(`Post ${postId} deleted successfully by ${isAdmin ? 'admin' : 'author'}`);
+      res.status(200).json({ 
+        message: 'Post deleted successfully',
+        deletedBy: isAdmin ? 'admin' : 'author' 
+      });
     } catch (error) {
+      console.error('Error deleting post:', error);
       res.status(500).json({ message: 'Error deleting post', error: error.message });
     }
   },
