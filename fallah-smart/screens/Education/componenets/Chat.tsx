@@ -745,8 +745,8 @@ const Chat = ({ visible = true }) => {
                 onPress={() => deleteMessage(message.id)}
                 activeOpacity={0.7}
               >
-                <MaterialIcons name="delete-outline" size={22} color="#fff" />
-                <Text style={styles.deleteButtonText}>Supprimer</Text>
+                <MaterialIcons name="delete-outline" size={15} color="#fff" />
+                <Text style={styles.deleteButtonText}>مسح </Text>
               </TouchableOpacity>
             </Animated.View>
           )}
@@ -781,13 +781,6 @@ const Chat = ({ visible = true }) => {
             ) : (
               <View style={styles.userMessageHeader}>
                 <Text style={styles.userName}>{userProfile?.username || 'أنت'}</Text>
-                <Image 
-                  source={{ 
-                    uri: userProfile?.profilePicture || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png'
-                  }} 
-                  style={styles.userAvatar}
-                  onError={() => console.log("Failed to load profile image")}
-                />
               </View>
             )}
             
@@ -823,18 +816,18 @@ const Chat = ({ visible = true }) => {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
       <StatusBar barStyle="light-content" backgroundColor={theme.colors.primary.dark} />
-      <LinearGradient
+      {/* <LinearGradient
         colors={[theme.colors.primary.dark, theme.colors.primary.base]}
         style={styles.header}
-      >
-        <View style={styles.headerIconContainer}>
+      > */}
+        {/* <View style={styles.headerIconContainer}>
           <MaterialCommunityIcons 
             name="robot-outline"
             size={24}
             color={theme.colors.neutral.surface}
           />
-        </View>
-        <Text style={styles.headerTitle}>المساعد الزراعي الذكي</Text>
+        </View> */}
+        {/* <Text style={styles.headerTitle}>المساعد الزراعي الذكي</Text>
         <View style={styles.headerButtonsContainer}>
           <Text style={styles.poweredBy}>Gemini AI</Text>
           {messages.length > 0 && (
@@ -846,8 +839,8 @@ const Chat = ({ visible = true }) => {
               <Ionicons name="trash-outline" size={22} color={theme.colors.neutral.surface} />
             </TouchableOpacity>
           )}
-        </View>
-      </LinearGradient>
+        </View> */}
+      {/* </LinearGradient> */}
 
       {isLoading ? (
         <View style={styles.centerContainer}>
@@ -1124,14 +1117,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  userAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    marginLeft: theme.spacing.xs,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
-  },
   botName: {
     fontSize: 13,
     fontWeight: '600',
@@ -1141,7 +1126,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: 'rgba(255, 255, 255, 0.9)',
-    marginRight: theme.spacing.xs,
   },
   messageText: {
     fontSize: 16,
