@@ -13,7 +13,8 @@ import {
   Keyboard,
   Pressable,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  RefreshControl
 } from 'react-native';
 import { theme } from '../../../theme/theme';
 import { MaterialIcons, MaterialCommunityIcons, Ionicons, AntDesign } from '@expo/vector-icons';
@@ -122,6 +123,7 @@ const QuestionAndAnswer: React.FC<Props> = ({ videoId, videoType }) => {
   }>({});
   const [expandedReplies, setExpandedReplies] = useState<{[key: string]: boolean}>({});
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   
   // Maximum character limits
   const MAX_QUESTION_LENGTH = 300;
@@ -209,6 +211,13 @@ const QuestionAndAnswer: React.FC<Props> = ({ videoId, videoType }) => {
     }
   };
 
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    loadQuestions(false, true).then(() => {
+      setRefreshing(false);
+    });
+  }, [videoId, videoType]);
+
   const loadQuestions = async (showLoading = true, forceRefresh = false) => {
     try {
       if (showLoading) {
@@ -278,14 +287,11 @@ const QuestionAndAnswer: React.FC<Props> = ({ videoId, videoType }) => {
       const createdQuestion = await createQuestion(newQuestion, videoIdStr, videoType);
       
       if (createdQuestion) {
-        // Add created question to the state
-        const questionWithReplies = {
-          ...createdQuestion,
-          replies: []
-        };
-        
-        setQuestions(prev => [questionWithReplies, ...prev]);
+        // Reset the question input field
         setNewQuestion('');
+        
+        // Refresh questions list to ensure proper ordering and data consistency
+        await loadQuestions(false, true);
         
         // Animate the new question
         Animated.timing(fadeAnim, {
@@ -1098,7 +1104,29 @@ const QuestionAndAnswer: React.FC<Props> = ({ videoId, videoType }) => {
           ref={scrollViewRef}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[theme.colors.primary.base]}
+              tintColor={theme.colors.primary.base}
+            />
+          }
         >
+          {/* Add a refresh button at the top of the questions list */}
+          <TouchableOpacity 
+            style={styles.refreshButton}
+            onPress={onRefresh}
+            disabled={refreshing}
+          >
+            <Ionicons 
+              name="refresh" 
+              size={20} 
+              color={theme.colors.primary.base} 
+            />
+            <Text style={styles.refreshText}>تحديث</Text>
+          </TouchableOpacity>
+
           {sortedQuestions.length === 0 ? (
             <View style={styles.emptyState}>
               <MaterialCommunityIcons 
@@ -1572,7 +1600,14 @@ const styles = StyleSheet.create({
   refreshButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: theme.spacing.xs,
+    justifyContent: 'center',
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    backgroundColor: theme.colors.neutral.surface,
+    borderRadius: 12,
+    marginHorizontal: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+    ...theme.shadows.small,
   },
   refreshText: {
     marginLeft: theme.spacing.xs,

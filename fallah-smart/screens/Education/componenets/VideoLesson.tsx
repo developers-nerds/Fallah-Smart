@@ -532,7 +532,7 @@ const styles = StyleSheet.create({
   helpButton: {
     position: 'absolute',
     bottom: 20,
-    left: 20,
+    right: 20,
     backgroundColor: theme.colors.primary.base,
     paddingVertical: 12,
     paddingHorizontal: 20,

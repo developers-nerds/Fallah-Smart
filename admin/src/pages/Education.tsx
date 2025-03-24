@@ -4,6 +4,58 @@ import { useSelector } from 'react-redux';
 import { RootState } from '../redux/store';
 import { FaUser, FaGraduationCap, FaPaw, FaSeedling } from 'react-icons/fa';
 
+// Helper functions for user data (based on userProgress.ts)
+const API_URL = 'http://localhost:5000/api';
+
+// Function to get all users (admin only)
+const getAllUsers = async (accessToken: string | null): Promise<User[]> => {
+  try {
+    console.log('Fetching all users data...');
+    const response = await axios.get(`${API_URL}/users`, {
+      headers: accessToken ? {
+        Authorization: `Bearer ${accessToken}`
+      } : {}
+    });
+    
+    console.log(`All users data fetched: ${response.data.length} users`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching all users:', error);
+    return [];
+  }
+};
+
+// Function to get user data by ID
+const getUserById = async (userId: number, accessToken: string | null): Promise<any | null> => {
+  try {
+    if (!accessToken) {
+      console.error('No access token available');
+      return null;
+    }
+    
+    console.log(`Fetching data for user ID: ${userId}`);
+    const response = await axios.get(`${API_URL}/education/userProgress/user/${userId}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    });
+    
+    // If the response contains at least one progress entry with user data
+    const progressEntries = response.data || [];
+    for (const entry of progressEntries) {
+      if (entry.User) {
+        console.log(`Found user data for ID ${userId} in progress entries: ${entry.User.username}`);
+        return entry.User;
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error(`Error fetching user data for ID ${userId}:`, error);
+    return null;
+  }
+};
+
 interface User {
   id: number;
   username: string;
@@ -68,7 +120,7 @@ function Education() {
   const fetchQuizzes = async () => {
     try {
       console.log('Fetching all quizzes...');
-      const response = await axios.get('http://localhost:5000/api/education/quizzes', {
+      const response = await axios.get(`${API_URL}/education/quizzes`, {
         headers: {
           Authorization: `Bearer ${accessToken}`
         }
@@ -93,7 +145,9 @@ function Education() {
   const fetchUserProgressData = async () => {
     try {
       console.log('Fetching user progress data...');
-      const response = await axios.get('http://localhost:5000/api/education/userProgress', {
+      
+      // Now fetch progress data
+      const response = await axios.get(`${API_URL}/education/userProgress`, {
         headers: {
           Authorization: `Bearer ${accessToken}`
         }
@@ -101,28 +155,58 @@ function Education() {
       
       console.log(`User progress data fetched: ${response.data.length} entries`);
       
-      // Get user data for each unique user ID
-      const userIds = [...new Set(response.data.map((progress: UserProgress) => progress.userId))];
+      // Get user data for each unique user ID in progress data
+      const userIds = [...new Set(response.data.map((progress: UserProgress) => progress.userId))] as number[];
       console.log(`Found ${userIds.length} unique user IDs in progress data`);
       
-      // For demo purposes, we'll focus on user 19 as shown in the screenshot
-      const user19Progress = response.data.filter((progress: UserProgress) => progress.userId === 19);
-      console.log(`User 19 has ${user19Progress.length} progress entries`);
-      
-      // Group progress by user ID
+      // Extract user information from the progress data
+      const usersData: User[] = [];
       const progressByUser: Record<number, UserProgress[]> = {};
       
-      // Add user 19's progress
-      progressByUser[19] = user19Progress;
+      // Create array of promises to fetch user data for each ID
+      const userDataPromises = userIds.map(async (userId) => {
+        // Get all progress entries for this user
+        const userProgressEntries = response.data.filter(
+          (progress: UserProgress) => progress.userId === userId
+        );
+        
+        // Store the progress data for this user
+        progressByUser[userId] = userProgressEntries;
+        
+        // First check if any progress entry has the User object
+        const entryWithUser = userProgressEntries.find((entry: UserProgress) => entry.User);
+        if (entryWithUser && entryWithUser.User) {
+          // Use the attached User data if available
+          return entryWithUser.User;
+        }
+        
+        // If not, try to fetch the user data from the API
+        try {
+          const userData = await getUserById(userId, accessToken);
+          if (userData) {
+            return userData;
+          }
+        } catch (err) {
+          console.error(`Error fetching user ${userId} data:`, err);
+        }
+        
+        // If all else fails, create a placeholder
+        return {
+          id: userId,
+          username: `User ${userId}`,
+          firstName: 'User',
+          lastName: String(userId),
+          email: `user${userId}@example.com`
+        };
+      });
       
-      // Add the user to our list
-      const usersData: User[] = [{
-        id: 19,
-        username: 'User 19',
-        firstName: 'User',
-        lastName: '19',
-        email: 'user19@example.com'
-      }];
+      // Wait for all user data to be fetched
+      const userDataResults = await Promise.all(userDataPromises);
+      
+      // Add all user data to our array
+      usersData.push(...userDataResults);
+      
+      console.log(`Processed ${usersData.length} users with progress data`);
       
       setUsers(usersData);
       setUserProgress(progressByUser);
