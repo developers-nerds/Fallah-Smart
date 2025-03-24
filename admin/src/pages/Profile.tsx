@@ -4,8 +4,8 @@ import { useAppSelector, useAppDispatch } from '../redux/store';
 import { User, setUser } from '../redux/auth';
 import { AlertCircle, Check, User as UserIcon, Upload, Camera } from 'lucide-react';
 
-const API_URL = 'http://localhost:5000/api';
-const BASE_URL = 'http://localhost:5000';
+const API_URL = import.meta.env.VITE_API;
+const BASE_URL = import.meta.env.VITE_API_blog;
 
 interface ProfileFormData {
   firstName: string;
@@ -154,13 +154,15 @@ const Profile = () => {
       
       // Add image if uploaded - make sure field name matches server expectation
       if (uploadedImage) {
+        // Use profilePicture as the field name - this should match what the backend expects
         formData.append('profilePicture', uploadedImage);
         
         // Log file details for debugging
         console.log('Uploading file:', {
           name: uploadedImage.name,
           type: uploadedImage.type,
-          size: `${(uploadedImage.size / 1024).toFixed(2)} KB`
+          size: `${(uploadedImage.size / 1024).toFixed(2)} KB`,
+          field: 'profilePicture' // Log the field name we're using
         });
       }
       
@@ -206,6 +208,7 @@ const Profile = () => {
       } catch (error: any) {
         console.error('Error updating profile:', error);
         console.error('Error details:', error.response?.data);
+        console.error('Error status:', error.response?.status);
         
         // Try to update profile without the image if it fails
         if (uploadedImage && error.response?.status === 500) {
