@@ -195,8 +195,8 @@ const Profile = () => {
         const fileName = `profile_${Date.now()}.${fileExtension}`;
         const mimeType = fileExtension.toLowerCase() === 'png' ? 'image/png' : 'image/jpeg';
         
-        // Make sure to use 'profileImage' as the field name to match the backend
-        formData.append('profileImage', {
+        // Make sure to use 'profilePicture' as the field name to match the backend
+        formData.append('profilePicture', {
           uri: Platform.OS === 'android' ? selectedImage.uri : selectedImage.uri.replace('file://', ''),
           name: fileName,
           type: mimeType
@@ -353,7 +353,7 @@ const Profile = () => {
                 setUpdateProgress('Uploading image...');
                 
                 // Append the file to form data with proper type annotation
-                formData.append('profileImage', {
+                formData.append('profilePicture', {
                   uri: processedUri,
                   name: fileName,
                   type: mimeType
@@ -379,7 +379,7 @@ const Profile = () => {
                   cancelToken: cancelTokenSource.token,
                   onUploadProgress: (progressEvent) => {
                     const percentCompleted = Math.round(
-                      (progressEvent.loaded * 100) / progressEvent.total
+                      (progressEvent.loaded * 100) / (progressEvent.total || 1)
                     );
                     setUpdateProgress(`Uploading: ${percentCompleted}%`);
                   }
