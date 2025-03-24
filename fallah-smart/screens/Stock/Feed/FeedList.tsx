@@ -165,7 +165,7 @@ const FeedListScreen = ({ navigation }: FeedListScreenProps) => {
 
   const fetchFeed = async () => {
     try {
-      setLoading(true);
+        setLoading(true);
       setError(null);
       
       const tokens = await storage.getTokens();
@@ -332,7 +332,7 @@ const FeedListScreen = ({ navigation }: FeedListScreenProps) => {
       >
         <TouchableOpacity
           style={styles.cardContent}
-          onPress={() => navigation.navigate('FeedDetail', { feedId: item.id })}
+        onPress={() => navigation.navigate('FeedDetail', { feedId: item.id })}
           activeOpacity={0.7}
         >
           <View style={styles.cardHeader}>
@@ -425,7 +425,7 @@ const FeedListScreen = ({ navigation }: FeedListScreenProps) => {
     } : (FEED_CATEGORIES[item as keyof typeof FEED_CATEGORIES] || FEED_CATEGORIES['أخرى']);
     
     const isSelected = selectedCategory === item;
-    
+
     return (
       <TouchableOpacity
         style={[
@@ -805,14 +805,14 @@ const FeedListScreen = ({ navigation }: FeedListScreenProps) => {
             <Text style={styles.emptyIcon}>🌾</Text>
             <Text style={[styles.emptyText, { color: currentTheme.colors.neutral.textSecondary }]}>
               لا توجد أعلاف
-            </Text>
-            <TouchableOpacity 
+        </Text>
+        <TouchableOpacity
               style={[styles.emptyButton, { backgroundColor: currentTheme.colors.primary.base }]}
-              onPress={() => navigation.navigate('AddFeed', {})}
-            >
+          onPress={() => navigation.navigate('AddFeed', {})}
+        >
               <MaterialCommunityIcons name="plus" size={20} color="#FFF" />
               <Text style={styles.emptyButtonText}>إضافة علف</Text>
-            </TouchableOpacity>
+        </TouchableOpacity>
           </Animated.View>
         }
         refreshControl={
@@ -830,7 +830,7 @@ const FeedListScreen = ({ navigation }: FeedListScreenProps) => {
       
       <FAB
         icon="plus"
-        onPress={() => navigation.navigate('AddFeed', {})}
+                onPress={() => navigation.navigate('AddFeed', {})}
         style={{
           position: 'absolute',
           margin: 16,
