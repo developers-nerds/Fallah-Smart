@@ -37,6 +37,7 @@ const getSupplierByUserId = async (req, res) => {
       auctionsNumber: auctionsNumber.length,
       hasAccount: true,
       supplier,
+      isVerified: supplier.is_verified,
     });
   } catch (error) {
     console.error("Error in getSupplierByUserId:", error);
@@ -69,12 +70,7 @@ const createSupplier = async (req, res) => {
     });
 
     // Validate required fields
-    if (
-      !company_name ||
-      !company_address ||
-      !company_phone ||
-      !company_email
-    ) {
+    if (!company_name || !company_address || !company_phone || !company_email) {
       return res.status(400).json({
         success: false,
         message: "Missing required fields",
@@ -198,7 +194,43 @@ const createSupplier = async (req, res) => {
   }
 };
 
+const updateVerificationStatus = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Find the supplier associated with the logged-in user
+    const supplier = await Suppliers.findOne({
+      where: { userId: userId },
+    });
+
+    if (!supplier) {
+      return res.status(404).json({
+        success: false,
+        message: "Supplier account not found",
+      });
+    }
+
+    // Update the verification status
+    await supplier.update({ is_verified: true });
+
+    // Return success response
+    return res.status(200).json({
+      success: true,
+      message: "Supplier verification status updated successfully",
+      isVerified: true,
+    });
+  } catch (error) {
+    console.error("Error in updateVerificationStatus:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   getSupplierByUserId,
   createSupplier,
+  updateVerificationStatus,
 };
