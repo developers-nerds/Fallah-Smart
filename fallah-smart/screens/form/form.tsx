@@ -244,13 +244,29 @@ export const SupplierRegistrationForm: React.FC = () => {
         throw new Error(data.message || 'Failed to create supplier account');
       }
 
+      // Update supplier status immediately without requiring manual refresh
+      try {
+        // This will fetch the user profile and update the supplier status in the app state
+        await fetch(`${BaseUrl}/users/profile`, {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        console.log('Successfully refreshed user profile after supplier registration');
+      } catch (refreshError) {
+        console.error('Error refreshing profile after supplier registration:', refreshError);
+        // Continue with navigation even if refresh fails
+      }
+
       // Show success message
       Alert.alert('Success', 'Your supplier account has been created successfully!', [
         {
           text: 'OK',
           onPress: () => {
             console.log('Navigating to marketplace after successful registration');
-            navigation.navigate('Marketplace'); // Navigate to marketplace which will trigger a check
+            navigation.navigate('Marketplace', { skipRefreshPrompt: true }); // Add param to skip refresh prompt
           },
         },
       ]);

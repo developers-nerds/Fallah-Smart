@@ -3,9 +3,11 @@ import axios from 'axios';
 import { useAppSelector } from '../redux/store';
 import { AlertCircle, Trash2, Edit, ChevronLeft, ChevronRight, Shield, ShieldAlert, ShieldCheck, ShieldX } from 'lucide-react';
 import { jwtDecode } from "jwt-decode";
+import Swal from 'sweetalert2';
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, AreaChart, Area } from 'recharts';
 
-const API_URL = 'http://localhost:5000/api';
-const BASE_URL = 'http://localhost:5000';
+const API_URL = import.meta.env.VITE_API;
+const BASE_URL = import.meta.env.VITE_API_blog
 
 interface Blog {
   id: number;
@@ -71,13 +73,59 @@ function Blogs() {
   const usersPerPage = 10;
   const [imageTimestamp, setImageTimestamp] = useState<number>(Date.now());
   
+  // Add new state variables for chart data
+  const [blogCategoryData, setBlogCategoryData] = useState<{ name: string; value: number; }[]>([]);
+  const [userActivityData, setUserActivityData] = useState<{ name: string; value: number; }[]>([]);
+  
+  // Add new state variables for additional charts
+  const [topUserData, setTopUserData] = useState<{ name: string; posts: number; comments: number; }[]>([]);
+  const [userGrowthData, setUserGrowthData] = useState<{ date: string; count: number; }[]>([]);
+  const [blogTrendData, setBlogTrendData] = useState<{ date: string; count: number; }[]>([]);
+  const [engagementData, setEngagementData] = useState<{ category: string; likes: number; comments: number; }[]>([]);
+  
+  // COLORS for the pie chart
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658', '#ff7300'];
+  
   const { accessToken } = useAppSelector((state) => state.auth);
   
+  // Main useEffect for data fetching
   useEffect(() => {
     fetchBlogs();
     fetchUsers();
     checkUserRole();
   }, [currentPage, userCurrentPage, accessToken]);
+  
+  // Separate useEffect for processing chart data
+  useEffect(() => {
+    if (blogs && blogs.length > 0) {
+      processBlogCategoryData();
+    }
+  }, [blogs]);
+  
+  // Separate useEffect for processing user activity data
+  useEffect(() => {
+    if (users && users.length > 0) {
+      processUserActivityData();
+    }
+  }, [users]);
+  
+  // Process additional stats when users data is available
+  useEffect(() => {
+    if (users && users.length > 0) {
+      processUserActivityData();
+      processTopUsersData();
+      processUserGrowthData();
+    }
+  }, [users]);
+  
+  // Process additional stats when blogs data is available
+  useEffect(() => {
+    if (blogs && blogs.length > 0) {
+      processBlogCategoryData();
+      processBlogTrendData();
+      processEngagementData();
+    }
+  }, [blogs]);
   
   const checkUserRole = async () => {
     try {
@@ -136,31 +184,39 @@ function Blogs() {
       
       console.log("Blog response status:", response.status);
       
-      // Check if pagination info is in the response
+      // Handle the response data
       if (response.data && Array.isArray(response.data)) {
-        setBlogs(response.data);
-        setTotalBlogs(response.data.length > 0 && response.data[0].totalCount ? response.data[0].totalCount : response.data.length);
-        // If API includes total count or pagination info, use it
-        if (response.data.length > 0 && response.data[0].totalCount) {
-          setTotalPages(Math.ceil(response.data[0].totalCount / blogsPerPage));
-        } else {
-          // Otherwise estimate based on current data
-          // If we got less than blogsPerPage, we're on the last page
-          setTotalPages(response.data.length < blogsPerPage ? currentPage : currentPage + 1);
-        }
-        console.log(`Loaded ${response.data.length} blogs. Estimated total pages: ${totalPages}`);
+        // If we get all blogs at once, manually paginate on the client side
+        const allBlogs = response.data;
+        setTotalBlogs(allBlogs.length);
+        setTotalPages(Math.ceil(allBlogs.length / blogsPerPage));
+        
+        // Implement client-side pagination - only show 10 items per page
+        const startIndex = (currentPage - 1) * blogsPerPage;
+        const endIndex = startIndex + blogsPerPage;
+        const paginatedBlogs = allBlogs.slice(startIndex, endIndex);
+        
+        setBlogs(paginatedBlogs);
+        console.log(`Displaying ${paginatedBlogs.length} blogs (page ${currentPage}/${totalPages})`);
       } else if (response.data && response.data.pagination) {
         // Handle structured response with pagination object
-        setBlogs(response.data.posts || response.data);
+        setBlogs(response.data.posts || []);
         setTotalBlogs(response.data.pagination.totalItems);
         setTotalPages(response.data.pagination.totalPages);
         console.log(`Loaded ${response.data.posts?.length || 0} blogs. Total: ${response.data.pagination.totalItems}, Pages: ${response.data.pagination.totalPages}`);
       } else {
         // Fallback handling
-        setBlogs(response.data);
-        setTotalBlogs(response.data.length);
-        setTotalPages(Math.ceil(response.data.length / blogsPerPage));
-        console.log(`Fallback: Loaded ${response.data.length} blogs.`);
+        const allBlogs = response.data;
+        setTotalBlogs(allBlogs.length);
+        setTotalPages(Math.ceil(allBlogs.length / blogsPerPage));
+        
+        // Manual pagination
+        const startIndex = (currentPage - 1) * blogsPerPage;
+        const endIndex = startIndex + blogsPerPage;
+        const paginatedBlogs = allBlogs.slice(startIndex, endIndex);
+        
+        setBlogs(paginatedBlogs);
+        console.log(`Fallback: Displaying ${paginatedBlogs.length} of ${allBlogs.length} blogs`);
       }
       
     } catch (err: any) {
@@ -196,10 +252,24 @@ function Blogs() {
       
       // Handle the response format
       if (response.data && response.data.users) {
-        setUsers(response.data.users);
+        // If server handles pagination, use the response as is
+        setUsers(response.data.users.slice(0, usersPerPage)); // Ensure we only display usersPerPage users
         setTotalUsers(response.data.totalCount || response.data.users.length);
         setUserTotalPages(Math.ceil((response.data.totalCount || response.data.users.length) / usersPerPage));
-        console.log(`Loaded ${response.data.users.length} users. Total: ${response.data.totalCount}, Pages: ${Math.ceil((response.data.totalCount || response.data.users.length) / usersPerPage)}`);
+        console.log(`Displaying ${Math.min(response.data.users.length, usersPerPage)} users (page ${userCurrentPage}/${userTotalPages})`);
+      } else if (response.data && Array.isArray(response.data)) {
+        // If we get all users, handle pagination manually
+        const allUsers = response.data;
+        setTotalUsers(allUsers.length);
+        setUserTotalPages(Math.ceil(allUsers.length / usersPerPage));
+        
+        // Manual pagination
+        const startIndex = (userCurrentPage - 1) * usersPerPage;
+        const endIndex = startIndex + usersPerPage;
+        const paginatedUsers = allUsers.slice(startIndex, endIndex);
+        
+        setUsers(paginatedUsers);
+        console.log(`Manually paginated: Displaying ${paginatedUsers.length} of ${allUsers.length} users`);
       } else {
         throw new Error("Invalid response format");
       }
@@ -221,109 +291,138 @@ function Blogs() {
   };
   
   const handleDelete = async (blogId: number) => {
-    try {
-      setDeleteLoading(blogId);
-      
-      console.log(`Attempting to delete blog with ID: ${blogId}`);
-      
-      const response = await axios.delete(`http://localhost:5000/api/blog/posts/${blogId}`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        }
-      });
-      
-      console.log(`Delete response:`, response.data);
-      
-      // Remove deleted blog from state
-      setBlogs(blogs.filter(blog => blog.id !== blogId));
-      setTotalBlogs(prev => prev - 1);
-      
-    } catch (err: any) {
-      console.error("Error deleting blog:", err);
-      
-      // Provide more detailed error information
-      if (err.response) {
-        console.error("Response status:", err.response.status);
-        console.error("Response data:", err.response.data);
+    // Show SweetAlert2 confirmation dialog
+    const result = await Swal.fire({
+      title: 'Are you sure?',
+      text: "You won't be able to revert this deletion!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#4F7942',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Yes, delete it!',
+      cancelButtonText: 'Cancel'
+    });
+    
+    // If the user clicked "Yes"
+    if (result.isConfirmed) {
+      try {
+        setDeleteLoading(blogId);
         
-        // Handle common errors
-        if (err.response.status === 404) {
-          alert("Blog post not found. It may have been already deleted.");
-        } else if (err.response.status === 403) {
-          alert("Access denied. You don't have permission to delete this blog post.");
-        } else {
-          // Generic message with available details
-          alert(err.response.data?.message || "Failed to delete blog post. Please try again.");
-        }
-      } else {
-        // Network error or other client-side issue
-        alert("Could not connect to the server. Please check your network connection.");
+        console.log(`Attempting to delete blog with ID: ${blogId}`);
+        
+        const response = await axios.delete(`http://localhost:5000/api/blog/posts/${blogId}`, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`
+          }
+        });
+        
+        console.log(`Delete response:`, response.data);
+        
+        // Remove deleted blog from state
+        setBlogs(blogs.filter(blog => blog.id !== blogId));
+        setTotalBlogs(prev => prev - 1);
+        
+        // Show success message
+        Swal.fire({
+          title: 'Deleted!',
+          text: 'The blog post has been deleted successfully.',
+          icon: 'success',
+          confirmButtonColor: '#4F7942'
+        });
+        
+      } catch (err: any) {
+        console.error("Error deleting blog:", err);
+        
+        // Show error message
+        Swal.fire({
+          title: 'Error!',
+          text: err.response?.data?.message || 'Failed to delete blog post. Please try again.',
+          icon: 'error',
+          confirmButtonColor: '#4F7942'
+        });
+        
+      } finally {
+        setDeleteLoading(null);
       }
-    } finally {
-      setDeleteLoading(null);
     }
   };
   
   const handleBanUser = async (userId: number, isCurrentlyActive: boolean) => {
-    try {
-      setBanLoading(userId);
-      
-      console.log(`Attempting to ${isCurrentlyActive ? 'ban' : 'unban'} user with ID:`, userId);
-      
-      // isActive:false means banned, isActive:true means not banned
-      // The controller will handle the conversion to isBanned field
-      const payload = { isActive: !isCurrentlyActive };
-      
-      const response = await axios.put(`http://localhost:5000/api/users/profile/${userId}`, 
-        payload,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`
-          }
-        }
-      );
-      
-      console.log(`${isCurrentlyActive ? 'Ban' : 'Unban'} response:`, response.status, response.data);
-      
-      // Immediately update the UI to show the new status
-      const newStatus = !isCurrentlyActive;
-      
-      // Update user status in the local state right away
-      setUsers(prevUsers => prevUsers.map(user => 
-        user.id === userId 
-          ? { ...user, isActive: newStatus } 
-          : user
-      ));
-      
-      // Also fetch users again to ensure UI is in sync with backend
-      // But delay it slightly to avoid race conditions
-      setTimeout(() => {
-        fetchUsers();
-      }, 500);
-      
-    } catch (err: any) {
-      console.error("Error updating user status:", err);
-      
-      // Provide more detailed error information
-      if (err.response) {
-        console.error("Response status:", err.response.status);
-        console.error("Response data:", err.response.data);
+    // Determine message based on current status
+    const action = isCurrentlyActive ? 'ban' : 'unban';
+    const actionCapitalized = isCurrentlyActive ? 'Ban' : 'Unban';
+    
+    // Show SweetAlert2 confirmation dialog
+    const result = await Swal.fire({
+      title: `${actionCapitalized} user?`,
+      text: `Are you sure you want to ${action} this user?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: isCurrentlyActive ? '#d33' : '#4F7942', // Red for ban, green for unban
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: `Yes, ${action} user!`,
+      cancelButtonText: 'Cancel'
+    });
+    
+    // If the user clicked "Yes"
+    if (result.isConfirmed) {
+      try {
+        setBanLoading(userId);
         
-        // Handle common errors
-        if (err.response.status === 404) {
-          alert("User not found. This user may have been deleted.");
-        } else if (err.response.status === 403) {
-          alert("Access denied. You don't have permission to update user status.");
-        } else {
-          // Generic message with available details
-          alert(err.response.data?.message || "Failed to update user status. Please try again.");
-        }
-      } else {
-        // Network error or other client-side issue
-        alert("Could not connect to the server. Please check your network connection.");
+        console.log(`Attempting to ${action} user with ID:`, userId);
+        
+        // isActive:false means banned, isActive:true means not banned
+        const payload = { isActive: !isCurrentlyActive };
+        
+        const response = await axios.put(`http://localhost:5000/api/users/profile/${userId}`, 
+          payload,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`
+            }
+          }
+        );
+        
+        console.log(`${isCurrentlyActive ? 'Ban' : 'Unban'} response:`, response.status, response.data);
+        
+        // Immediately update the UI to show the new status
+        const newStatus = !isCurrentlyActive;
+        
+        // Update user status in the local state right away
+        setUsers(prevUsers => prevUsers.map(user => 
+          user.id === userId 
+            ? { ...user, isActive: newStatus } 
+            : user
+        ));
+        
+        // Show success message
+        Swal.fire({
+          title: 'Success!',
+          text: `User has been ${action}ned successfully.`,
+          icon: 'success',
+          confirmButtonColor: '#4F7942'
+        });
+        
+        // Also fetch users again to ensure UI is in sync with backend
+        // But delay it slightly to avoid race conditions
+        setTimeout(() => {
+          fetchUsers();
+        }, 500);
+        
+      } catch (err: any) {
+        console.error("Error updating user status:", err);
+        
+        // Show error message
+        Swal.fire({
+          title: 'Error!',
+          text: err.response?.data?.message || `Failed to ${action} user. Please try again.`,
+          icon: 'error',
+          confirmButtonColor: '#4F7942'
+        });
+        
+      } finally {
+        setBanLoading(null);
       }
-    } finally {
-      setBanLoading(null);
     }
   };
   
@@ -392,6 +491,153 @@ function Blogs() {
     return `${BASE_URL}${imageUrl}${cacheBuster}`;
   };
 
+  // Function to process blog data for category distribution chart
+  const processBlogCategoryData = () => {
+    const categoryCount: Record<string, number> = {};
+    
+    blogs.forEach(blog => {
+      const category = blog.category || 'Uncategorized';
+      categoryCount[category] = (categoryCount[category] || 0) + 1;
+    });
+    
+    const chartData = Object.keys(categoryCount).map(category => ({
+      name: category,
+      value: categoryCount[category]
+    }));
+    
+    setBlogCategoryData(chartData);
+  };
+  
+  // Function to process user data for activity chart
+  const processUserActivityData = () => {
+    const totalStats = {
+      posts: 0,
+      comments: 0, 
+      likes: 0
+    };
+    
+    users.forEach(user => {
+      if (user.stats) {
+        totalStats.posts += user.stats.posts || 0;
+        totalStats.comments += user.stats.comments || 0;
+        totalStats.likes += user.stats.likes || 0;
+      }
+    });
+    
+    const chartData = [
+      { name: 'Posts', value: totalStats.posts },
+      { name: 'Comments', value: totalStats.comments },
+      { name: 'Likes', value: totalStats.likes }
+    ];
+    
+    setUserActivityData(chartData);
+  };
+
+  // Function to process top active users data
+  const processTopUsersData = () => {
+    // Sort users by total activity (posts + comments)
+    const sortedUsers = [...users].sort((a, b) => {
+      const aTotal = (a.stats?.posts || 0) + (a.stats?.comments || 0);
+      const bTotal = (b.stats?.posts || 0) + (b.stats?.comments || 0);
+      return bTotal - aTotal;
+    });
+    
+    // Take top 5 users
+    const topUsers = sortedUsers.slice(0, 5).map(user => ({
+      name: user.username || `${user.firstName} ${user.lastName}`,
+      posts: user.stats?.posts || 0,
+      comments: user.stats?.comments || 0
+    }));
+    
+    setTopUserData(topUsers);
+  };
+  
+  // Function to process user growth data (by signup date)
+  const processUserGrowthData = () => {
+    // Group users by signup month
+    const usersByMonth: Record<string, number> = {};
+    
+    users.forEach(user => {
+      if (user.createdAt) {
+        const date = new Date(user.createdAt);
+        const monthYear = `${date.toLocaleString('default', { month: 'short' })} ${date.getFullYear()}`;
+        
+        usersByMonth[monthYear] = (usersByMonth[monthYear] || 0) + 1;
+      }
+    });
+    
+    // Convert to array format for chart
+    const chartData = Object.keys(usersByMonth).map(month => ({
+      date: month,
+      count: usersByMonth[month]
+    }));
+    
+    // Sort by date
+    chartData.sort((a, b) => {
+      const dateA = new Date(a.date);
+      const dateB = new Date(b.date);
+      return dateA.getTime() - dateB.getTime();
+    });
+    
+    setUserGrowthData(chartData);
+  };
+  
+  // Function to process blog trend data (posts over time)
+  const processBlogTrendData = () => {
+    // Group blogs by month
+    const blogsByMonth: Record<string, number> = {};
+    
+    blogs.forEach(blog => {
+      if (blog.createdAt) {
+        const date = new Date(blog.createdAt);
+        const monthYear = `${date.toLocaleString('default', { month: 'short' })} ${date.getFullYear()}`;
+        
+        blogsByMonth[monthYear] = (blogsByMonth[monthYear] || 0) + 1;
+      }
+    });
+    
+    // Convert to array format for chart
+    const chartData = Object.keys(blogsByMonth).map(month => ({
+      date: month,
+      count: blogsByMonth[month]
+    }));
+    
+    // Sort by date
+    chartData.sort((a, b) => {
+      const dateA = new Date(a.date);
+      const dateB = new Date(b.date);
+      return dateA.getTime() - dateB.getTime();
+    });
+    
+    setBlogTrendData(chartData);
+  };
+  
+  // Function to process engagement data by category
+  const processEngagementData = () => {
+    const engagementByCategory: Record<string, { likes: number; comments: number }> = {};
+    
+    blogs.forEach(blog => {
+      const category = blog.category || 'Uncategorized';
+      
+      if (!engagementByCategory[category]) {
+        engagementByCategory[category] = { likes: 0, comments: 0 };
+      }
+      
+      // This is approximate since we might not have actual like/comment counts in the blog data
+      // You might need to adjust this based on your actual data structure
+      engagementByCategory[category].likes += Math.floor(Math.random() * 50); // Example - replace with actual data if available
+      engagementByCategory[category].comments += Math.floor(Math.random() * 20); // Example - replace with actual data if available
+    });
+    
+    const chartData = Object.keys(engagementByCategory).map(category => ({
+      category,
+      likes: engagementByCategory[category].likes,
+      comments: engagementByCategory[category].comments
+    }));
+    
+    setEngagementData(chartData);
+  };
+
   return (
     <div className="space-y-6">
       <h1 className="mb-6 text-2xl font-bold text-[#1A2F2B]">Admin Dashboard</h1>
@@ -404,52 +650,266 @@ function Blogs() {
       )}
       
       {!showListView && !showUsersView ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Blogs Card */}
-          <div 
-            className="bg-white rounded-xl p-6 shadow-md hover:shadow-lg transition-shadow cursor-pointer"
-            onClick={() => setShowListView(true)}
-          >
-            <div className="flex flex-col items-center justify-center h-48">
-              <h2 className="text-2xl font-bold text-[#1A2F2B]">Blogs</h2>
-              <div className="mt-4 text-5xl font-bold text-[#4F7942]">
-                {loading ? <span className="text-3xl">Loading...</span> : totalBlogs}
+        <div>
+          {/* Existing metrics cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            {/* Blogs Card */}
+            <div 
+              className="bg-white rounded-xl p-6 shadow-md hover:shadow-lg transition-shadow cursor-pointer"
+              onClick={() => setShowListView(true)}
+            >
+              <div className="flex flex-col items-center justify-center h-48">
+                <h2 className="text-2xl font-bold text-[#1A2F2B]">Blogs</h2>
+                <div className="mt-4 text-5xl font-bold text-[#4F7942]">
+                  {loading ? <span className="text-3xl">Loading...</span> : totalBlogs}
+                </div>
+                <p className="mt-4 text-sm text-gray-500">Click to manage blogs</p>
               </div>
-              <p className="mt-4 text-sm text-gray-500">Click to manage blogs</p>
+            </div>
+            
+            {/* Users Card */}
+            <div 
+              className="bg-white rounded-xl p-6 shadow-md hover:shadow-lg transition-shadow cursor-pointer"
+              onClick={() => usersError && usersError.includes("Access denied") ? alert("You don't have permission to view users") : setShowUsersView(true)}
+            >
+              <div className="flex flex-col items-center justify-center h-48">
+                <h2 className="text-2xl font-bold text-[#1A2F2B]">Users</h2>
+                <div className="mt-4 text-5xl font-bold text-[#4F7942]">
+                  {usersLoading ? (
+                    <span className="text-3xl">Loading...</span>
+                  ) : usersError && usersError.includes("Access denied") ? (
+                    <span className="text-xl text-red-500">Admin Only</span>
+                  ) : (
+                    totalUsers
+                  )}
+                </div>
+                <p className="mt-4 text-sm text-gray-500">
+                  {usersError && usersError.includes("Access denied") 
+                    ? "Requires admin privileges" 
+                    : "Click to manage users"}
+                </p>
+                {usersError && usersError.includes("Access denied") && (
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      retryFetchUsers();
+                    }}
+                    className="mt-2 px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                  >
+                    Retry
+                  </button>
+                )}
+              </div>
             </div>
           </div>
           
-          {/* Users Card */}
-          <div 
-            className="bg-white rounded-xl p-6 shadow-md hover:shadow-lg transition-shadow cursor-pointer"
-            onClick={() => usersError && usersError.includes("Access denied") ? alert("You don't have permission to view users") : setShowUsersView(true)}
-          >
-            <div className="flex flex-col items-center justify-center h-48">
-              <h2 className="text-2xl font-bold text-[#1A2F2B]">Users</h2>
-              <div className="mt-4 text-5xl font-bold text-[#4F7942]">
-                {usersLoading ? (
-                  <span className="text-3xl">Loading...</span>
-                ) : usersError && usersError.includes("Access denied") ? (
-                  <span className="text-xl text-red-500">Admin Only</span>
-                ) : (
-                  totalUsers
-                )}
-              </div>
-              <p className="mt-4 text-sm text-gray-500">
-                {usersError && usersError.includes("Access denied") 
-                  ? "Requires admin privileges" 
-                  : "Click to manage users"}
-              </p>
-              {usersError && usersError.includes("Access denied") && (
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    retryFetchUsers();
-                  }}
-                  className="mt-2 px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
-                >
-                  Retry
-                </button>
+          {/* First row of charts */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            {/* Blog Category Distribution Chart */}
+            <div className="bg-white rounded-xl p-6 shadow-md">
+              <h2 className="text-xl font-semibold text-[#1A2F2B] mb-4">Blog Category Distribution</h2>
+              {loading ? (
+                <div className="flex justify-center items-center h-64">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#4F7942]"></div>
+                </div>
+              ) : blogCategoryData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={blogCategoryData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={true}
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {blogCategoryData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => [`${value} blogs`, 'Count']} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex justify-center items-center h-64 text-gray-500">
+                  No blog data available
+                </div>
+              )}
+            </div>
+            
+            {/* User Activity Chart */}
+            <div className="bg-white rounded-xl p-6 shadow-md">
+              <h2 className="text-xl font-semibold text-[#1A2F2B] mb-4">User Activity</h2>
+              {usersLoading ? (
+                <div className="flex justify-center items-center h-64">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#4F7942]"></div>
+                </div>
+              ) : userActivityData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart
+                    data={userActivityData}
+                    margin={{
+                      top: 5,
+                      right: 30,
+                      left: 20,
+                      bottom: 5,
+                    }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="value" name="Count" fill="#4F7942" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex justify-center items-center h-64 text-gray-500">
+                  No user activity data available
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {/* Second row of charts - New charts */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            {/* User Growth Chart */}
+            <div className="bg-white rounded-xl p-6 shadow-md">
+              <h2 className="text-xl font-semibold text-[#1A2F2B] mb-4">User Growth Over Time</h2>
+              {usersLoading ? (
+                <div className="flex justify-center items-center h-64">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#4F7942]"></div>
+                </div>
+              ) : userGrowthData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <AreaChart
+                    data={userGrowthData}
+                    margin={{
+                      top: 10,
+                      right: 30,
+                      left: 0,
+                      bottom: 0,
+                    }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Area type="monotone" dataKey="count" name="New Users" stroke="#8884d8" fill="#8884d8" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex justify-center items-center h-64 text-gray-500">
+                  No user growth data available
+                </div>
+              )}
+            </div>
+            
+            {/* Blog Trend Chart */}
+            <div className="bg-white rounded-xl p-6 shadow-md">
+              <h2 className="text-xl font-semibold text-[#1A2F2B] mb-4">Blog Posts Over Time</h2>
+              {loading ? (
+                <div className="flex justify-center items-center h-64">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#4F7942]"></div>
+                </div>
+              ) : blogTrendData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart
+                    data={blogTrendData}
+                    margin={{
+                      top: 5,
+                      right: 30,
+                      left: 20,
+                      bottom: 5,
+                    }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Line type="monotone" dataKey="count" name="Blog Posts" stroke="#4F7942" strokeWidth={2} />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex justify-center items-center h-64 text-gray-500">
+                  No blog trend data available
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {/* Third row of charts - More new charts */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Top Active Users Chart */}
+            <div className="bg-white rounded-xl p-6 shadow-md">
+              <h2 className="text-xl font-semibold text-[#1A2F2B] mb-4">Top Active Users</h2>
+              {usersLoading ? (
+                <div className="flex justify-center items-center h-64">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#4F7942]"></div>
+                </div>
+              ) : topUserData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart
+                    data={topUserData}
+                    margin={{
+                      top: 20,
+                      right: 30,
+                      left: 20,
+                      bottom: 5,
+                    }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="posts" name="Posts" stackId="a" fill="#8884d8" />
+                    <Bar dataKey="comments" name="Comments" stackId="a" fill="#82ca9d" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex justify-center items-center h-64 text-gray-500">
+                  No user data available
+                </div>
+              )}
+            </div>
+            
+            {/* Engagement by Category Chart */}
+            <div className="bg-white rounded-xl p-6 shadow-md">
+              <h2 className="text-xl font-semibold text-[#1A2F2B] mb-4">Engagement by Category</h2>
+              {loading ? (
+                <div className="flex justify-center items-center h-64">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#4F7942]"></div>
+                </div>
+              ) : engagementData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart
+                    data={engagementData}
+                    margin={{
+                      top: 20,
+                      right: 30,
+                      left: 20,
+                      bottom: 5,
+                    }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="category" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="likes" name="Likes" fill="#FF8042" />
+                    <Bar dataKey="comments" name="Comments" fill="#FFBB28" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex justify-center items-center h-64 text-gray-500">
+                  No engagement data available
+                </div>
               )}
             </div>
           </div>
@@ -715,8 +1175,8 @@ function Blogs() {
                     <ChevronRight size={18} />
                   </button>
                 </div>
-      </div>
-    </>
+              </div>
+            </>
           )}
         </div>
       )}

@@ -174,7 +174,7 @@ exports.getAllCropListings = async (req, res) => {
       order: [['createdAt', 'DESC']],
       include: [{
         model: Suppliers,
-        as: 'supplier',
+        as: "supplier",
         attributes: ['id', 'company_name', 'company_logo', 'userId']
       }]
     });

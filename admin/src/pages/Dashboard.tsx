@@ -82,6 +82,10 @@ function Dashboard() {
     activeUsers: 0
   });
 
+  // Colors for charts
+  const COLORS = ['#4F7942', '#8FBC8F', '#2E8B57', '#3CB371', '#90EE90', '#006400'];
+  const EDUCATION_COLORS = ['#FFC107', '#16A3A9', '#DC3545', '#FD7E14'];
+
   // Fetch blogs on component mount
   useEffect(() => {
     fetchBlogs();
@@ -272,10 +276,6 @@ function Dashboard() {
     setEducationData(educationChartData);
   };
 
-  // Colors for charts
-  const COLORS = ['#4F7942', '#8FBC8F', '#2E8B57', '#3CB371', '#90EE90', '#006400'];
-  const EDUCATION_COLORS = ['#FFC107', '#16A3A9', '#DC3545', '#FD7E14'];
-
   // Format date for display
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -460,8 +460,7 @@ function Dashboard() {
         </div>
       </div>
     </>
-  )
+  );
 }
 
-export default Dashboard
-
+export default Dashboard;
