@@ -10,10 +10,11 @@ import {
   Platform,
   StatusBar,
   I18nManager,
-  SafeAreaView,
   Modal,
   TextInput,
+  RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../../context/ThemeContext';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
@@ -26,6 +27,7 @@ import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../../context/AuthContext';
 import { formatDate } from '../../../utils/date';
+import { BlurView } from 'expo-blur';
 
 // Force RTL layout
 I18nManager.allowRTL(true);
@@ -146,73 +148,75 @@ const QuantityModal = ({
   return (
     <Modal visible={visible} transparent animationType="fade">
       <View style={styles.modalOverlay}>
-        <View style={[styles.modalContent, { backgroundColor: theme.colors.neutral.surface }]}>
-          <Text style={[styles.modalTitle, { color: theme.colors.neutral.textPrimary }]}>
-            {type === 'add' ? 'إضافة للمخزون' : 'سحب من المخزون'}
-          </Text>
+        <BlurView intensity={80} tint="dark" style={styles.modalBlur}>
+          <View style={[styles.modalContent, { backgroundColor: theme.colors.neutral.surface }]}>
+            <Text style={[styles.modalTitle, { color: theme.colors.neutral.textPrimary }]}>
+              {type === 'add' ? 'إضافة للمخزون' : 'سحب من المخزون'}
+            </Text>
 
-          <View style={styles.modalInputContainer}>
-            <TextInput
-              style={[styles.modalInput, { 
-                backgroundColor: theme.colors.neutral.background,
-                color: theme.colors.neutral.textPrimary,
-                textAlign: 'right'
-              }]}
-              value={quantity}
-              onChangeText={setQuantity}
-              keyboardType="numeric"
-              placeholder="الكمية"
-              placeholderTextColor={theme.colors.neutral.textSecondary}
-              editable={!loading}
-            />
+            <View style={styles.modalInputContainer}>
+              <TextInput
+                style={[styles.modalInput, { 
+                  backgroundColor: theme.colors.neutral.background,
+                  color: theme.colors.neutral.textPrimary,
+                  textAlign: 'right'
+                }]}
+                value={quantity}
+                onChangeText={setQuantity}
+                keyboardType="numeric"
+                placeholder="الكمية"
+                placeholderTextColor={theme.colors.neutral.textSecondary}
+                editable={!loading}
+              />
 
-            <TextInput
-              style={[styles.modalInput, { 
-                backgroundColor: theme.colors.neutral.background,
-                color: theme.colors.neutral.textPrimary,
-                height: 100,
-                textAlignVertical: 'top',
-                textAlign: 'right'
-              }]}
-              value={notes}
-              onChangeText={setNotes}
-              placeholder="ملاحظات (اختياري)"
-              placeholderTextColor={theme.colors.neutral.textSecondary}
-              multiline
-              numberOfLines={4}
-              editable={!loading}
-            />
+              <TextInput
+                style={[styles.modalInput, { 
+                  backgroundColor: theme.colors.neutral.background,
+                  color: theme.colors.neutral.textPrimary,
+                  height: 100,
+                  textAlignVertical: 'top',
+                  textAlign: 'right'
+                }]}
+                value={notes}
+                onChangeText={setNotes}
+                placeholder="ملاحظات (اختياري)"
+                placeholderTextColor={theme.colors.neutral.textSecondary}
+                multiline
+                numberOfLines={4}
+                editable={!loading}
+              />
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.cancelButton]} 
+                onPress={handleClose}
+                disabled={loading}
+              >
+                <Text style={[styles.buttonText, { color: theme.colors.neutral.textPrimary }]}>
+                  إلغاء
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[
+                  styles.modalButton, 
+                  styles.confirmButton,
+                  { backgroundColor: type === 'add' ? theme.colors.success : theme.colors.error },
+                  loading && { opacity: 0.7 }
+                ]} 
+                onPress={handleConfirm}
+                disabled={loading || !quantity}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={[styles.buttonText, { color: '#fff' }]}>تأكيد</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
-
-          <View style={styles.modalButtons}>
-            <TouchableOpacity 
-              style={[styles.modalButton, styles.cancelButton]} 
-              onPress={handleClose}
-              disabled={loading}
-            >
-              <Text style={[styles.buttonText, { color: theme.colors.neutral.textPrimary }]}>
-                إلغاء
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[
-                styles.modalButton, 
-                styles.confirmButton,
-                { backgroundColor: type === 'add' ? theme.colors.success : theme.colors.error },
-                loading && { opacity: 0.7 }
-              ]} 
-              onPress={handleConfirm}
-              disabled={loading || !quantity}
-            >
-              {loading ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={[styles.buttonText, { color: '#fff' }]}>تأكيد</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
+        </BlurView>
       </View>
     </Modal>
   );
@@ -228,6 +232,7 @@ const ToolDetailScreen: React.FC<ToolDetailScreenProps> = ({ navigation, route }
   const { t } = useTranslation();
   const { user } = useAuth();
   
+  const { toolId } = route.params;
   const [tool, setTool] = useState<Tool | null>(null);
   const [loading, setLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -235,6 +240,7 @@ const ToolDetailScreen: React.FC<ToolDetailScreenProps> = ({ navigation, route }
   const [showAddModal, setShowAddModal] = useState(false);
   const [showRemoveModal, setShowRemoveModal] = useState(false);
   const [quantityLoading, setQuantityLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const fetchToolDetails = async () => {
     try {
@@ -250,7 +256,7 @@ const ToolDetailScreen: React.FC<ToolDetailScreenProps> = ({ navigation, route }
       }
       
       const response = await axios.get(
-        `${process.env.EXPO_PUBLIC_API_URL}/stock/tools/${route.params.id}`,
+        `${process.env.EXPO_PUBLIC_API_URL}/stock/tools/${toolId}`,
         {
           headers: {
             'Authorization': `Bearer ${tokens.access}`
@@ -269,7 +275,13 @@ const ToolDetailScreen: React.FC<ToolDetailScreenProps> = ({ navigation, route }
 
   useEffect(() => {
     fetchToolDetails();
-  }, [route.params.id]);
+  }, [toolId]);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchToolDetails();
+    setRefreshing(false);
+  }, []);
 
   const handleDelete = useCallback(async () => {
     Alert.alert(
@@ -292,7 +304,7 @@ const ToolDetailScreen: React.FC<ToolDetailScreenProps> = ({ navigation, route }
               }
               
               await axios.delete(
-                `${process.env.EXPO_PUBLIC_API_URL}/stock/tools/${route.params.id}`,
+                `${process.env.EXPO_PUBLIC_API_URL}/stock/tools/${toolId}`,
                 {
                   headers: {
                     'Authorization': `Bearer ${tokens.access}`
@@ -311,7 +323,7 @@ const ToolDetailScreen: React.FC<ToolDetailScreenProps> = ({ navigation, route }
         },
       ]
     );
-  }, [route.params.id, navigation]);
+  }, [toolId, navigation]);
 
   const handleQuantityChange = async (type: 'add' | 'remove', quantity: number, notes?: string) => {
     if (!tool) return;
@@ -330,7 +342,7 @@ const ToolDetailScreen: React.FC<ToolDetailScreenProps> = ({ navigation, route }
         : Math.max(0, tool.quantity - quantity);
       
       const response = await axios.patch(
-        `${process.env.EXPO_PUBLIC_API_URL}/stock/tools/${route.params.id}`,
+        `${process.env.EXPO_PUBLIC_API_URL}/stock/tools/${toolId}`,
         {
           quantity: updatedQuantity,
           notes: notes ? `${type === 'add' ? 'إضافة' : 'سحب'} ${quantity} قطعة. ${notes}` : undefined
@@ -387,7 +399,7 @@ const ToolDetailScreen: React.FC<ToolDetailScreenProps> = ({ navigation, route }
     );
   }, [theme.colors.neutral]);
 
-  if (loading || isDeleting) {
+  if (loading && !tool || isDeleting) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
         <StatusBar backgroundColor={theme.colors.neutral.surface} barStyle="dark-content" />
@@ -440,7 +452,17 @@ const ToolDetailScreen: React.FC<ToolDetailScreenProps> = ({ navigation, route }
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
       <StatusBar backgroundColor={theme.colors.neutral.surface} barStyle="dark-content" />
-      <ScrollView style={styles.scrollView}>
+      <ScrollView 
+        style={styles.scrollView}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={[theme.colors.primary.base]}
+            tintColor={theme.colors.primary.base}
+          />
+        }
+      >
         <Animated.View 
           entering={FadeInDown.springify()}
           style={[
@@ -491,7 +513,9 @@ const ToolDetailScreen: React.FC<ToolDetailScreenProps> = ({ navigation, route }
 
           <View style={styles.statsContainer}>
             <View style={[styles.statCard, { backgroundColor: theme.colors.neutral.background }]}>
-              <Text style={[styles.statValue, { color: theme.colors.neutral.textPrimary }]}>
+              <Text style={[styles.statValue, { 
+                color: isLowStock ? theme.colors.error : theme.colors.neutral.textPrimary 
+              }]}>
                 {tool.quantity}
               </Text>
               <Text style={[styles.statLabel, { color: theme.colors.neutral.textSecondary }]}>
@@ -528,9 +552,14 @@ const ToolDetailScreen: React.FC<ToolDetailScreenProps> = ({ navigation, route }
             </View>
         </View>
 
-        <View style={styles.quantityActions}>
+        <View style={styles.actionsRow}>
           <TouchableOpacity 
-            style={[styles.quantityButton, { backgroundColor: theme.colors.success }]}
+            style={[
+              styles.quantityButton, 
+              { 
+                backgroundColor: theme.colors.success,
+              }
+            ]}
             onPress={() => setShowAddModal(true)}
           >
             <Text style={styles.quantityButtonIcon}>➕</Text>
@@ -538,7 +567,12 @@ const ToolDetailScreen: React.FC<ToolDetailScreenProps> = ({ navigation, route }
           </TouchableOpacity>
           
           <TouchableOpacity 
-            style={[styles.quantityButton, { backgroundColor: theme.colors.error }]}
+            style={[
+              styles.quantityButton, 
+              { 
+                backgroundColor: theme.colors.error,
+              }
+            ]}
             onPress={() => setShowRemoveModal(true)}
             disabled={tool.quantity <= 0}
           >
@@ -573,6 +607,42 @@ const ToolDetailScreen: React.FC<ToolDetailScreenProps> = ({ navigation, route }
         </Animated.View>
 
         <View style={styles.content}>
+          {isLowStock && (
+            <Animated.View 
+              entering={FadeInDown.delay(100).springify()}
+              style={[
+                styles.warningCard, 
+                { 
+                  backgroundColor: theme.colors.warning + '15',
+                  borderColor: theme.colors.warning,
+                }
+              ]}
+            >
+              <Text style={styles.warningIcon}>⚠️</Text>
+              <Text style={[styles.warningText, { color: theme.colors.warning }]}>
+                المخزون منخفض (الحد الأدنى: {tool.minQuantityAlert} قطعة)
+              </Text>
+            </Animated.View>
+          )}
+
+          {needsMaintenance && (
+            <Animated.View 
+              entering={FadeInDown.delay(150).springify()}
+              style={[
+                styles.warningCard, 
+                { 
+                  backgroundColor: theme.colors.error + '15',
+                  borderColor: theme.colors.error,
+                }
+              ]}
+            >
+              <Text style={styles.warningIcon}>🔧</Text>
+              <Text style={[styles.warningText, { color: theme.colors.error }]}>
+                موعد الصيانة متأخر منذ {new Date(tool.nextMaintenanceDate as string).toLocaleDateString('ar-SA')}
+              </Text>
+            </Animated.View>
+          )}
+
           {/* Basic Information */}
           {renderField('اسم الأداة', tool.name, FIELD_ICONS.name)}
           {renderField('الكمية', tool.quantity, FIELD_ICONS.quantity)}
@@ -727,7 +797,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: '#FFF',
   },
-  quantityActions: {
+  actionsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 12,
@@ -771,6 +841,23 @@ const styles = StyleSheet.create({
   content: {
     padding: 24,
     gap: 16,
+  },
+  warningCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 12,
+  },
+  warningIcon: {
+    fontSize: 24,
+  },
+  warningText: {
+    fontSize: 14, 
+    fontWeight: '500',
+    flex: 1,
+    textAlign: 'right',
   },
   infoCard: {
     padding: 16,
@@ -835,6 +922,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalBlur: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modalContent: {
     width: '85%',

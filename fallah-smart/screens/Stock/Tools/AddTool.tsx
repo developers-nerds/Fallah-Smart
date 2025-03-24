@@ -9,6 +9,9 @@ import {
   Platform,
   I18nManager,
   Dimensions,
+  Modal,
+  FlatList,
+  TextInput as RNTextInput,
 } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -29,6 +32,7 @@ import Animated, {
   withTiming,
   runOnJS
 } from 'react-native-reanimated';
+import { useTool } from '../../../context/ToolContext';
 
 // Force RTL layout
 I18nManager.allowRTL(true);
@@ -39,6 +43,162 @@ const { width } = Dimensions.get('window');
 type AddToolScreenProps = {
   navigation: StackNavigationProp<StockStackParamList, 'AddTool'>;
   route: RouteProp<StockStackParamList, 'AddTool'>;
+};
+
+// Enhance the TOOL_NAMES_BY_TYPE with a much more extensive list of tools
+const TOOL_NAMES_BY_TYPE: Record<ToolType, Array<{ icon: string; name: string; description?: string }>> = {
+  hand_tools: [
+    { icon: '🔨', name: 'مطرقة', description: 'أداة للطرق والتثبيت' },
+    { icon: '🪛', name: 'مفك براغي', description: 'لتثبيت وفك البراغي' },
+    { icon: '🗜️', name: 'كماشة', description: 'للإمساك والثني' },
+    { icon: '🔧', name: 'مفتاح ربط', description: 'لربط الصواميل' },
+    { icon: '⛏️', name: 'مجرفة يدوية', description: 'للحفر والتنقيب' },
+    { icon: '🪚', name: 'منشار يدوي', description: 'لقطع الخشب والمواد' },
+    { icon: '🔧', name: 'مفتاح إنجليزي', description: 'لربط أحجام مختلفة من الصواميل' },
+    { icon: '🗜️', name: 'كلابة', description: 'لقطع وثني الأسلاك' },
+    { icon: '🪠', name: 'مفك فيليبس', description: 'مفك براغي للبراغي المتصالبة' },
+    { icon: '🪛', name: 'مفك مسطح', description: 'مفك براغي للبراغي المسطحة' },
+    { icon: '🔧', name: 'مفتاح ألن', description: 'لربط البراغي السداسية' },
+    { icon: '🪄', name: 'مسدس سيليكون', description: 'لتطبيق السيليكون ومواد اللصق' },
+    { icon: '🪓', name: 'فأس صغير', description: 'للقطع والنحت' },
+    { icon: '🔪', name: 'سكين متعدد الأغراض', description: 'للقطع والتشذيب' },
+    { icon: '📏', name: 'مسطرة فولاذية', description: 'للقياس الدقيق' },
+    { icon: '🗜️', name: 'ملزمة', description: 'لتثبيت القطع أثناء العمل' },
+    { icon: '🔨', name: 'مطرقة مخلب', description: 'لإدخال وإزالة المسامير' },
+    { icon: '⚒️', name: 'مطرقة نجار', description: 'لأعمال النجارة الدقيقة' },
+    { icon: '🧰', name: 'ميزان ماء', description: 'للتأكد من استواء الأسطح' }
+  ],
+  power_tools: [
+    { icon: '🔌', name: 'مثقاب كهربائي', description: 'لعمل ثقوب دقيقة' },
+    { icon: '⚡', name: 'منشار كهربائي', description: 'لقطع المواد بسرعة' },
+    { icon: '🔋', name: 'فارة خشب', description: 'لتنعيم الأسطح الخشبية' },
+    { icon: '⚙️', name: 'مجلخة زاوية', description: 'للقطع والتجليخ' },
+    { icon: '🔌', name: 'مفك كهربائي', description: 'لربط البراغي بسرعة' },
+    { icon: '⚡', name: 'منشار دائري', description: 'لقطع الخشب والألواح بدقة' },
+    { icon: '🔌', name: 'روتر كهربائي', description: 'لنحت وتشكيل الخشب' },
+    { icon: '⚡', name: 'مكبس مسامير', description: 'لتثبيت المسامير بسرعة' },
+    { icon: '🔌', name: 'مسدس حراري', description: 'لإزالة الدهان وتليين المواد' },
+    { icon: '⚙️', name: 'ماكينة لحام', description: 'للحام المعادن' },
+    { icon: '🔌', name: 'ملمع كهربائي', description: 'لتلميع الأسطح المعدنية والخشبية' },
+    { icon: '⚡', name: 'منشار ترددي', description: 'لقطع الأخشاب والمعادن' },
+    { icon: '🔌', name: 'مثقاب تأثيري', description: 'للثقب في الخرسانة والمواد الصلبة' },
+    { icon: '⚙️', name: 'مطرقة هدم', description: 'لهدم وتكسير المواد الصلبة' },
+    { icon: '🔌', name: 'مكبس هواء', description: 'لتشغيل الأدوات الهوائية' },
+    { icon: '⚡', name: 'مسدس رش طلاء', description: 'لرش الدهانات' },
+    { icon: '🔌', name: 'ماكينة تفريز', description: 'لعمل الشقوق والحزوز في الخشب' },
+    { icon: '⚙️', name: 'مقص صاج كهربائي', description: 'لقص الصاج والمعادن الرقيقة' }
+  ],
+  pruning_tools: [
+    { icon: '✂️', name: 'مقص تقليم', description: 'لتقليم الفروع الصغيرة' },
+    { icon: '🪓', name: 'منشار تقليم', description: 'لقطع الفروع الكبيرة' },
+    { icon: '✂️', name: 'مقص أغصان', description: 'لقطع الأغصان المرتفعة' },
+    { icon: '🌿', name: 'مقص عشب', description: 'لتقليم العشب والنباتات' },
+    { icon: '✂️', name: 'مقص تقليم بمقبض طويل', description: 'للوصول إلى الفروع العالية' },
+    { icon: '🪓', name: 'ساطور أغصان', description: 'لقطع الأغصان السميكة' },
+    { icon: '✂️', name: 'مقص تقليم دقيق', description: 'للتقليم الدقيق للنباتات' },
+    { icon: '🪓', name: 'فأس تقليم صغير', description: 'لتقليم الأشجار الصغيرة' },
+    { icon: '✂️', name: 'مقص تقليم كهربائي', description: 'للتقليم السريع' },
+    { icon: '🌿', name: 'منشار قوسي', description: 'لقطع الأغصان الكبيرة' },
+    { icon: '✂️', name: 'مقص بستنة', description: 'للعناية بالنباتات المنزلية' },
+    { icon: '🪓', name: 'مقص تقليم هيدروليكي', description: 'للتقليم بأقل جهد' },
+    { icon: '✂️', name: 'سكين تطعيم', description: 'لتطعيم الأشجار' },
+    { icon: '🌿', name: 'أداة تقشير اللحاء', description: 'لإزالة اللحاء المتضرر' },
+    { icon: '✂️', name: 'مزيل الفروع الميتة', description: 'لإزالة الفروع المريضة والميتة' }
+  ],
+  irrigation_tools: [
+    { icon: '💦', name: 'رشاش ماء', description: 'لري المساحات الكبيرة' },
+    { icon: '🚰', name: 'مضخة يدوية', description: 'لضخ المياه يدويًا' },
+    { icon: '🌊', name: 'خرطوم ري', description: 'لتوصيل المياه للنباتات' },
+    { icon: '🚿', name: 'صنبور', description: 'للتحكم بتدفق المياه' },
+    { icon: '🔌', name: 'موصلات ري', description: 'لربط أنظمة الري' },
+    { icon: '💦', name: 'رشاش دوار', description: 'لري المساحات الواسعة بشكل دائري' },
+    { icon: '🚰', name: 'مضخة غاطسة', description: 'لضخ المياه من الآبار والخزانات' },
+    { icon: '🌊', name: 'نظام ري بالتنقيط', description: 'لري النباتات بكفاءة' },
+    { icon: '🚿', name: 'مؤقت ري', description: 'للتحكم الآلي بوقت الري' },
+    { icon: '💦', name: 'مرشح مياه', description: 'لتنقية مياه الري' },
+    { icon: '🚰', name: 'محبس مياه', description: 'للتحكم بتدفق المياه' },
+    { icon: '🌊', name: 'موزع مياه', description: 'لتوزيع المياه على عدة خطوط' },
+    { icon: '🚿', name: 'جهاز قياس رطوبة التربة', description: 'لتحديد وقت الري المناسب' },
+    { icon: '💦', name: 'رشاش ضباب', description: 'لري النباتات الحساسة والشتلات' },
+    { icon: '🚰', name: 'خزان مياه', description: 'لتخزين مياه الري' },
+    { icon: '🌊', name: 'مسدس رش', description: 'للري اليدوي المركز' },
+    { icon: '🚿', name: 'مستشعر مطر', description: 'لإيقاف الري عند هطول المطر' },
+    { icon: '💦', name: 'أنابيب ري بالتنقيط', description: 'لتوزيع المياه بدقة' }
+  ],
+  harvesting_tools: [
+    { icon: '🔪', name: 'سكين حصاد', description: 'لحصاد المحاصيل' },
+    { icon: '✂️', name: 'مقص قطف', description: 'لقطف الثمار' },
+    { icon: '🧺', name: 'سلة قطف', description: 'لجمع المحصول' },
+    { icon: '🌾', name: 'منجل', description: 'لحصاد الحبوب' },
+    { icon: '🧹', name: 'مذراة', description: 'لفصل الحبوب عن القش' },
+    { icon: '🔪', name: 'سكين حصاد منحنية', description: 'لحصاد الحبوب والأعشاب' },
+    { icon: '✂️', name: 'مقص قطف بمقبض طويل', description: 'لقطف الثمار العالية' },
+    { icon: '🧺', name: 'حقيبة قطف', description: 'لحمل المحصول أثناء القطف' },
+    { icon: '🌾', name: 'مشط زيتون', description: 'لجمع ثمار الزيتون' },
+    { icon: '🧹', name: 'غربال', description: 'لتنظيف وفرز البذور' },
+    { icon: '🔪', name: 'أداة قلع الجذور', description: 'لقلع المحاصيل الجذرية' },
+    { icon: '✂️', name: 'مقص عنب', description: 'لقطف العنب' },
+    { icon: '🧺', name: 'صندوق تخزين المحصول', description: 'لتخزين ونقل المحصول' },
+    { icon: '🌾', name: 'محش آلي', description: 'لحصاد مساحات كبيرة' },
+    { icon: '🧹', name: 'جهاز فرز', description: 'لفرز المحاصيل حسب الحجم' },
+    { icon: '🔪', name: 'مقشرة', description: 'لإزالة قشور بعض المحاصيل' },
+    { icon: '✂️', name: 'أداة قطف تفاح', description: 'مصممة خصيصًا لقطف التفاح' }
+  ],
+  measuring_tools: [
+    { icon: '📏', name: 'شريط قياس', description: 'لقياس الأطوال' },
+    { icon: '📐', name: 'ميزان مياه', description: 'لضبط الاستواء' },
+    { icon: '💧', name: 'مقياس رطوبة', description: 'لقياس رطوبة التربة' },
+    { icon: '🌡️', name: 'ميزان حرارة', description: 'لقياس درجة الحرارة' },
+    { icon: '🧪', name: 'مقياس pH', description: 'لقياس حموضة التربة' },
+    { icon: '📏', name: 'مقياس ليزر', description: 'لقياس المسافات بدقة عالية' },
+    { icon: '📐', name: 'مقياس زوايا', description: 'لقياس الزوايا وضبطها' },
+    { icon: '💧', name: 'مقياس هطول الأمطار', description: 'لقياس كمية الأمطار' },
+    { icon: '🌡️', name: 'مقياس حرارة التربة', description: 'لقياس درجة حرارة التربة' },
+    { icon: '🧪', name: 'جهاز تحليل التربة', description: 'لفحص خصائص التربة المختلفة' },
+    { icon: '📏', name: 'أداة تخطيط الصفوف', description: 'للمساعدة في تخطيط صفوف الزراعة' },
+    { icon: '📐', name: 'بوصلة', description: 'لتحديد الاتجاهات' },
+    { icon: '💧', name: 'مقياس تدفق المياه', description: 'لقياس معدل تدفق المياه' },
+    { icon: '🌡️', name: 'مقياس الرياح', description: 'لقياس سرعة الرياح' },
+    { icon: '🧪', name: 'مقياس الإشعاع الشمسي', description: 'لقياس كمية الإشعاع الشمسي' },
+    { icon: '📏', name: 'مقياس عمق البذور', description: 'للتحكم في عمق زراعة البذور' },
+    { icon: '📐', name: 'جهاز GPS زراعي', description: 'للتحديد الدقيق للمواقع' },
+    { icon: '💧', name: 'مقياس التبخر', description: 'لقياس معدل تبخر المياه' }
+  ],
+  safety_equipment: [
+    { icon: '🧤', name: 'قفازات', description: 'لحماية اليدين' },
+    { icon: '👓', name: 'نظارات واقية', description: 'لحماية العينين' },
+    { icon: '⛑️', name: 'خوذة', description: 'لحماية الرأس' },
+    { icon: '😷', name: 'قناع', description: 'لحماية الجهاز التنفسي' },
+    { icon: '🔊', name: 'سدادات أذن', description: 'لحماية السمع' },
+    { icon: '👢', name: 'حذاء أمان', description: 'لحماية القدمين' },
+    { icon: '🧤', name: 'قفازات مقاومة للكيماويات', description: 'للتعامل مع المواد الكيميائية' },
+    { icon: '👓', name: 'درع وجه', description: 'لحماية كامل الوجه' },
+    { icon: '⛑️', name: 'غطاء رأس واقي', description: 'للحماية من الشمس والأتربة' },
+    { icon: '😷', name: 'قناع مرشح للمبيدات', description: 'مخصص للحماية من المبيدات' },
+    { icon: '🔊', name: 'سماعات حماية', description: 'للحماية من الضوضاء العالية' },
+    { icon: '👢', name: 'واقي الساق', description: 'لحماية الساقين أثناء العمل' },
+    { icon: '🧤', name: 'أكمام واقية', description: 'لحماية الذراعين' },
+    { icon: '👓', name: 'نظارات واقية من الغبار', description: 'للحماية من الغبار والرذاذ' },
+    { icon: '⛑️', name: 'خوذة مع درع وجه', description: 'لحماية الرأس والوجه معًا' },
+    { icon: '😷', name: 'قناع غاز', description: 'للحماية من الغازات السامة' },
+    { icon: '🔊', name: 'غطاء أذن', description: 'للحماية من البرد مع السمع' },
+    { icon: '👢', name: 'حذاء مقاوم للماء', description: 'للعمل في البيئات الرطبة' },
+    { icon: '🧤', name: 'قفازات عازلة للحرارة', description: 'للتعامل مع الأدوات الساخنة' }
+  ],
+  other: [
+    { icon: '🔧', name: 'أداة أخرى', description: 'أدوات متنوعة أخرى' },
+    { icon: '🔋', name: 'بطارية معدات', description: 'بطاريات للأدوات الكهربائية' },
+    { icon: '🧵', name: 'أدوات ربط', description: 'أسلاك وحبال وروابط متنوعة' },
+    { icon: '🧹', name: 'أدوات تنظيف', description: 'للتنظيف والصيانة' },
+    { icon: '📦', name: 'صناديق تخزين', description: 'لتخزين المعدات' },
+    { icon: '📋', name: 'معدات فحص', description: 'لفحص المحاصيل والتربة' },
+    { icon: '🔦', name: 'معدات إضاءة', description: 'للعمل في الظلام' },
+    { icon: '🧰', name: 'حقيبة أدوات', description: 'لحمل وتنظيم الأدوات' },
+    { icon: '🧪', name: 'أدوات تطعيم', description: 'لتطعيم النباتات' },
+    { icon: '🧬', name: 'معدات بيولوجية', description: 'للتحكم البيولوجي' },
+    { icon: '🧲', name: 'أدوات مغناطيسية', description: 'للالتقاط والتثبيت' },
+    { icon: '🔌', name: 'محولات كهربائية', description: 'لتشغيل المعدات الكهربائية' }
+  ]
 };
 
 interface FormData {
@@ -103,7 +263,7 @@ const initialFormData: FormData = {
 const SECTIONS = [
   {
     id: 'basic',
-    title: `${TOOL_ICONS.sections.basic} المعلومات الأساسية`,
+    title: `المعلومات الأساسية`,
     description: 'اسم الأداة، الكمية، والنوع',
     icon: '🛠️'
   },
@@ -133,6 +293,30 @@ const SECTIONS = [
   }
 ];
 
+// First, create a function to get all tool names across all types for the dropdown
+const getAllToolsForDropdown = () => {
+  const allTools: Array<{ icon: string; name: string; type: ToolType; description?: string }> = [];
+  
+  // Combine all tools from different types
+  Object.entries(TOOL_NAMES_BY_TYPE).forEach(([type, tools]) => {
+    tools.forEach(tool => {
+      // For the "other" type, only add the generic "أداة أخرى" option
+      if (type === 'other' && tool.name === 'أداة أخرى') {
+        allTools.push({...tool, type: type as ToolType});
+      } 
+      // For regular types, add all tools
+      else if (type !== 'other') {
+        allTools.push({...tool, type: type as ToolType});
+      }
+    });
+  });
+  
+  // Sort alphabetically by name
+  allTools.sort((a, b) => a.name.localeCompare(b.name));
+  
+  return allTools;
+};
+
 const AddToolScreen: React.FC<AddToolScreenProps> = ({ navigation, route }) => {
   const theme = useTheme();
   const [loading, setLoading] = useState(false);
@@ -140,6 +324,10 @@ const AddToolScreen: React.FC<AddToolScreenProps> = ({ navigation, route }) => {
   const [showPurchaseDatePicker, setShowPurchaseDatePicker] = useState(false);
   const [showLastMaintenanceDatePicker, setShowLastMaintenanceDatePicker] = useState(false);
   const [showNextMaintenanceDatePicker, setShowNextMaintenanceDatePicker] = useState(false);
+  const [showToolSelector, setShowToolSelector] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  const { fetchTools } = useTool();
   
   const translateX = useSharedValue(0);
 
@@ -189,7 +377,22 @@ const AddToolScreen: React.FC<AddToolScreenProps> = ({ navigation, route }) => {
       );
 
       if (response.data) {
-      navigation.goBack();
+        // Don't call fetchTools here as it may trigger the refresh loop
+        // Instead, show success and navigate back immediately
+        
+        Alert.alert(
+          'نجاح',
+          'تمت إضافة الأداة بنجاح',
+          [
+            {
+              text: 'حسناً',
+              onPress: () => {
+                // Navigate back to the tool list screen
+                navigation.goBack();
+              }
+            }
+          ]
+        );
       }
     } catch (error) {
       console.error('Error adding tool:', error);
@@ -201,10 +404,7 @@ const AddToolScreen: React.FC<AddToolScreenProps> = ({ navigation, route }) => {
 
   const renderSectionHeader = () => (
     <View style={[styles.header, { borderBottomColor: theme.colors.neutral.border }]}>
-      <View style={[styles.sectionIconContainer, { backgroundColor: theme.colors.primary.surface }]}>
-        <Text style={styles.sectionIcon}>{SECTIONS[currentSection].icon}</Text>
-      </View>
-      <Text style={[styles.sectionTitle, theme.typography.arabic.h2, { color: theme.colors.neutral.textPrimary }]}>
+      <Text style={[styles.sectionTitle, theme.typography.arabic.h3, { color: theme.colors.neutral.textPrimary }]}>
         {SECTIONS[currentSection].title}
       </Text>
       <Text style={[styles.sectionDescription, theme.typography.arabic.body, { color: theme.colors.neutral.textSecondary }]}>
@@ -249,91 +449,269 @@ const AddToolScreen: React.FC<AddToolScreenProps> = ({ navigation, route }) => {
     </View>
   );
 
-  const renderBasicSection = (values: FormData, setFieldValue: any, errors: any, touched: any) => (
-    <View style={[styles.section, { width }]}>
-            <TextInput
-        label={`${TOOL_ICONS.basic.name} اسم الأداة`}
-              value={values.name}
-              onChangeText={(text) => setFieldValue('name', text)}
-              error={touched.name && errors.name}
-            />
+  const renderBasicSection = (values: FormData, setFieldValue: any, errors: any, touched: any) => {
+    // Group all tools for dropdown
+    const allToolOptions = Object.entries(TOOL_NAMES_BY_TYPE).flatMap(([type, tools]) => 
+      tools.map(tool => ({
+        ...tool,
+        typeKey: type as ToolType,
+        typeLabel: TOOL_TYPES[type as ToolType].name,
+        typeIcon: TOOL_TYPES[type as ToolType].icon,
+      }))
+    ).sort((a, b) => a.name.localeCompare(b.name));
 
-            <View style={styles.row}>
-              <View style={styles.halfInput}>
-                <TextInput
-            label={`${TOOL_ICONS.basic.quantity} الكمية`}
-                  value={values.quantity}
-                  onChangeText={(text) => setFieldValue('quantity', text)}
-                  keyboardType="numeric"
-                  error={touched.quantity && errors.quantity}
-                />
-              </View>
-              <View style={styles.halfInput}>
-                <TextInput
-            label={`${TOOL_ICONS.basic.minQuantity} حد التنبيه`}
-                  value={values.minQuantityAlert}
-                  onChangeText={(text) => setFieldValue('minQuantityAlert', text)}
-                  keyboardType="numeric"
-                  error={touched.minQuantityAlert && errors.minQuantityAlert}
-                />
-              </View>
-            </View>
+    // Filter tools based on search query
+    const filteredTools = searchQuery 
+      ? allToolOptions.filter(tool => 
+          tool.name.includes(searchQuery) || 
+          tool.typeLabel.includes(searchQuery)
+        )
+      : allToolOptions;
 
-            <View style={styles.row}>
-              <View style={styles.halfInput}>
-                <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-            {TOOL_ICONS.basic.category} النوع
-                </Text>
-          <TouchableOpacity
-            style={[styles.select, { 
-              borderColor: theme.colors.neutral.border,
-              shadowColor: theme.colors.neutral.textSecondary,
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.1,
-              shadowRadius: 4,
-              elevation: 2,
-            }]}
-            onPress={() => {
-              Alert.alert(
-                'اختر النوع',
-                '',
-                Object.entries(TOOL_TYPES).map(([key, value]) => ({
-                  text: `${value.icon} ${value.name}`,
-                  onPress: () => setFieldValue('category', key)
-                }))
-              );
-            }}
-          >
-            <Text style={{ color: theme.colors.neutral.textPrimary }}>
-              {TOOL_TYPES[values.category].icon} {TOOL_TYPES[values.category].name}
-            </Text>
-          </TouchableOpacity>
-              </View>
-              <View style={styles.halfInput}>
-                <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-            {TOOL_ICONS.basic.condition} الحالة
-                </Text>
-          <TouchableOpacity
-            style={[styles.select, { borderColor: theme.colors.neutral.border }]}
-            onPress={() => {
-              Alert.alert(
-                'اختر الحالة',
-                '',
-                Object.entries(TOOL_CONDITION).map(([key, value]) => ({
-                  text: `${value.icon} ${value.name}`,
-                  onPress: () => setFieldValue('condition', key)
-                }))
-              );
-            }}
-          >
-            <Text style={{ color: theme.colors.neutral.textPrimary }}>
-              {TOOL_CONDITION[values.condition].icon} {TOOL_CONDITION[values.condition].name}
-            </Text>
-          </TouchableOpacity>
+    return (
+      <View style={[styles.section, { width }]}>
+        <View style={[styles.sectionTitle, { marginBottom: 15 }]}>
+          <Text style={[styles.label, { color: theme.colors.neutral.textSecondary, fontSize: 16 }]}>
+            اسم الأداة، الكمية، والنوع
+          </Text>
         </View>
-              </View>
+        
+        {/* Tool name selection - styled like AddPesticide */}
+        <TouchableOpacity
+          style={[
+            styles.toolSelector,
+            {
+              backgroundColor: theme.colors.neutral.surface,
+              borderRadius: 12,
+              padding: 16,
+              borderWidth: 1,
+              borderColor: theme.colors.primary.base,
+              ...theme.shadows.small
+            }
+          ]}
+          onPress={() => setShowToolSelector(true)}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View style={{ 
+              backgroundColor: theme.colors.primary.surface, 
+              height: 50, 
+              width: 50, 
+              borderRadius: 25,
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: 12
+            }}>
+              <Text style={{ fontSize: 24 }}>
+                {(() => {
+                  // Find the tool's icon
+                  for (const [type, tools] of Object.entries(TOOL_NAMES_BY_TYPE)) {
+                    const found = tools.find(tool => tool.name === values.name);
+                    if (found) return found.icon;
+                  }
+                  return '🔧';
+                })()}
+              </Text>
             </View>
-  );
+            <View style={{ flex: 1 }}>
+              <Text style={{ 
+                color: theme.colors.neutral.textPrimary, 
+                fontSize: 18, 
+                fontWeight: '600',
+                marginBottom: 4
+              }}>
+                {values.name || 'اختر اسم الأداة'}
+              </Text>
+              <Text style={{ color: theme.colors.neutral.textSecondary, fontSize: 14 }}>
+                {values.name 
+                  ? `النوع: ${TOOL_TYPES[values.category].icon} ${TOOL_TYPES[values.category].name}` 
+                  : 'سيتم تحديد النوع تلقائياً'
+                }
+              </Text>
+            </View>
+            <Text style={{ color: theme.colors.primary.base, fontSize: 16 }}>تغيير ↓</Text>
+          </View>
+        </TouchableOpacity>
+        
+        {/* Tool Selection Modal */}
+        <Modal
+          visible={showToolSelector}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setShowToolSelector(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={[styles.modalContent, { backgroundColor: theme.colors.neutral.surface }]}>
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, { color: theme.colors.neutral.textPrimary }]}>
+                  اختر الأداة
+                </Text>
+                <TouchableOpacity onPress={() => setShowToolSelector(false)}>
+                  <Text style={{ color: theme.colors.primary.base, fontSize: 16 }}>إغلاق</Text>
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.searchContainer}>
+                <RNTextInput
+                  style={styles.searchInput}
+                  placeholder="ابحث عن أداة..."
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  clearButtonMode="while-editing"
+                />
+              </View>
+
+              <FlatList
+                data={filteredTools}
+                keyExtractor={(item, index) => `${item.typeKey}-${item.name}-${index}`}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.toolItem}
+                    onPress={() => {
+                      setFieldValue('name', item.name);
+                      setFieldValue('category', item.typeKey);
+                      setShowToolSelector(false);
+                      setSearchQuery('');
+                    }}
+                  >
+                    <View style={styles.toolItemContent}>
+                      <Text style={styles.toolIcon}>{item.icon}</Text>
+                      <View style={styles.toolInfo}>
+                        <Text style={styles.toolName}>{item.name}</Text>
+                        <Text style={styles.toolCategory}>
+                          {item.typeIcon} {item.typeLabel}
+                        </Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                )}
+                ItemSeparatorComponent={() => <View style={styles.separator} />}
+                ListFooterComponent={
+                  <TouchableOpacity
+                    style={[styles.customToolButton, { backgroundColor: theme.colors.primary.surface }]}
+                    onPress={() => {
+                      // Handle custom name input
+                      if (Platform.OS === 'ios') {
+                        Alert.prompt(
+                          'أدخل اسم الأداة',
+                          'سيتم إضافة الأداة تحت تصنيف "أخرى"',
+                          [
+                            { text: 'إلغاء', style: 'cancel' },
+                            {
+                              text: 'موافق',
+                              onPress: customName => {
+                                if (customName && customName.trim()) {
+                                  setFieldValue('name', customName.trim());
+                                  setFieldValue('category', 'other');
+                                  setShowToolSelector(false);
+                                  setSearchQuery('');
+                                }
+                              }
+                            }
+                          ],
+                          'plain-text'
+                        );
+                      } else {
+                        // Android workaround
+                        Alert.alert(
+                          'إدخال اسم مخصص',
+                          'أدخل اسم الأداة المخصصة',
+                          [
+                            { text: 'إلغاء', style: 'cancel' },
+                            {
+                              text: 'متابعة',
+                              onPress: () => {
+                                setFieldValue('name', 'أداة مخصصة');
+                                setFieldValue('category', 'other');
+                                setShowToolSelector(false);
+                                setSearchQuery('');
+                              }
+                            }
+                          ]
+                        );
+                      }
+                    }}
+                  >
+                    <Text style={styles.customToolButtonText}>✏️ إدخال اسم مخصص</Text>
+                  </TouchableOpacity>
+                }
+              />
+            </View>
+          </View>
+        </Modal>
+        
+        {touched.name && errors.name && (
+          <Text style={{ color: theme.colors.error, marginTop: 5 }}>{errors.name}</Text>
+        )}
+
+        <View style={styles.row}>
+          <View style={styles.halfInput}>
+            <TextInput
+              label={`${TOOL_ICONS.basic.quantity} الكمية`}
+              value={values.quantity}
+              onChangeText={(text) => setFieldValue('quantity', text)}
+              keyboardType="numeric"
+              error={touched.quantity && errors.quantity}
+            />
+          </View>
+          <View style={styles.halfInput}>
+            <TextInput
+              label={`${TOOL_ICONS.basic.minQuantity} حد التنبيه`}
+              value={values.minQuantityAlert}
+              onChangeText={(text) => setFieldValue('minQuantityAlert', text)}
+              keyboardType="numeric"
+              error={touched.minQuantityAlert && errors.minQuantityAlert}
+            />
+          </View>
+        </View>
+
+        {/* Tool condition selector */}
+        <View style={styles.conditionSection}>
+          <Text style={[styles.label, { color: theme.colors.neutral.textSecondary, fontSize: 18, marginBottom: 10 }]}>
+            {TOOL_ICONS.basic.condition} حالة الأداة
+          </Text>
+          
+          <View style={styles.conditionRow}>
+            {Object.entries(TOOL_CONDITION).map(([key, value]) => (
+              <TouchableOpacity
+                key={key}
+                style={[
+                  styles.conditionButton,
+                  {
+                    backgroundColor: values.condition === key
+                      ? value.color + '30' // Add transparency to the color
+                      : theme.colors.neutral.surface,
+                    borderColor: values.condition === key
+                      ? value.color
+                      : theme.colors.neutral.border,
+                    borderWidth: 2,
+                    borderRadius: 12,
+                    padding: 10,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flex: 1,
+                    margin: 4,
+                    ...theme.shadows.small
+                  }
+                ]}
+                onPress={() => setFieldValue('condition', key)}
+              >
+                <Text style={{ fontSize: 24, marginBottom: 4 }}>{value.icon}</Text>
+                <Text style={{
+                  color: values.condition === key
+                    ? value.color
+                    : theme.colors.neutral.textPrimary,
+                  fontWeight: '600',
+                  textAlign: 'center'
+                }}>
+                  {value.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      </View>
+    );
+  };
 
   const renderPurchaseSection = (values: FormData, setFieldValue: any, errors: any, touched: any) => (
     <View style={[styles.section, { width }]}>
@@ -738,6 +1116,128 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     marginBottom: 10,
+    fontWeight: '500',
+  },
+  nameSelectionContainer: {
+    marginBottom: 20,
+  },
+  nameSelectionButton: {
+    width: '100%',
+  },
+  categorySection: {
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  categoryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  categoryCard: {
+    minHeight: 100,
+  },
+  conditionSection: {
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  conditionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  conditionButton: {
+    minHeight: 80,
+  },
+  sectionTitle: {
+    marginBottom: 15,
+  },
+  categoryDisplay: {
+    padding: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  toolSelector: {
+    borderWidth: 1,
+    borderColor: '#000',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 20,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    height: '80%',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 30,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  searchContainer: {
+    paddingVertical: 10,
+    marginBottom: 10,
+  },
+  searchInput: {
+    height: 40,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    backgroundColor: '#f5f5f5',
+  },
+  toolItem: {
+    paddingVertical: 12,
+  },
+  toolItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  toolIcon: {
+    fontSize: 28,
+    marginRight: 10,
+    width: 40,
+    textAlign: 'center',
+  },
+  toolInfo: {
+    flex: 1,
+  },
+  toolName: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  toolCategory: {
+    fontSize: 14,
+    color: '#666',
+  },
+  separator: {
+    height: 1,
+    backgroundColor: '#eee',
+    marginVertical: 2,
+  },
+  customToolButton: {
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 15,
+    marginBottom: 30,
+  },
+  customToolButtonText: {
+    fontSize: 16,
     fontWeight: '500',
   },
 });

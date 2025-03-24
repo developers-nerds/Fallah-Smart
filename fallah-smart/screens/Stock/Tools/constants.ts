@@ -1,76 +1,67 @@
 export type ToolType = 'hand_tools' | 'power_tools' | 'pruning_tools' | 'irrigation_tools' | 'harvesting_tools' | 'measuring_tools' | 'safety_equipment' | 'other';
-export type ToolStatus = 'available' | 'in_use' | 'maintenance' | 'broken' | 'lost';
-export type ToolCondition = 'new' | 'good' | 'fair' | 'poor';
+export type ToolStatus = 'available' | 'in_use' | 'maintenance' | 'lost';
+export type ToolCondition = 'new' | 'good' | 'fair' | 'poor' | 'broken';
 
-export const TOOL_TYPES: Record<ToolType, { icon: string; name: string }> = {
-  hand_tools: { icon: '🔨', name: 'أدوات يدوية' },
-  power_tools: { icon: '⚡', name: 'أدوات كهربائية' },
-  pruning_tools: { icon: '✂️', name: 'أدوات تقليم' },
-  irrigation_tools: { icon: '💧', name: 'أدوات ري' },
-  harvesting_tools: { icon: '🌾', name: 'أدوات حصاد' },
-  measuring_tools: { icon: '📏', name: 'أدوات قياس' },
-  safety_equipment: { icon: '⛑️', name: 'معدات السلامة' },
-  other: { icon: '🔧', name: 'أخرى' }
+export const TOOL_TYPES: Record<ToolType, { name: string; icon: string }> = {
+  hand_tools: { name: 'أدوات يدوية', icon: '🔨' },
+  power_tools: { name: 'أدوات كهربائية', icon: '🔌' },
+  pruning_tools: { name: 'أدوات تقليم', icon: '✂️' },
+  irrigation_tools: { name: 'أدوات ري', icon: '💦' },
+  harvesting_tools: { name: 'أدوات حصاد', icon: '🌾' },
+  measuring_tools: { name: 'أدوات قياس', icon: '📏' },
+  safety_equipment: { name: 'معدات سلامة', icon: '⛑️' },
+  other: { name: 'أخرى', icon: '🔧' }
 };
 
-export const TOOL_STATUS: Record<ToolStatus, { icon: string; name: string; color: string }> = {
-  available: { icon: '✅', name: 'متاح', color: '#4CAF50' },
-  in_use: { icon: '🔄', name: 'قيد الاستخدام', color: '#2196F3' },
-  maintenance: { icon: '🔧', name: 'صيانة', color: '#FFC107' },
-  broken: { icon: '❌', name: 'معطل', color: '#F44336' },
-  lost: { icon: '❓', name: 'مفقود', color: '#9E9E9E' }
+export const TOOL_STATUS: Record<ToolStatus, { name: string; icon: string; color: string }> = {
+  available: { name: 'متاح', icon: '✅', color: '#4CAF50' },
+  in_use: { name: 'قيد الاستخدام', icon: '🔄', color: '#2196F3' },
+  maintenance: { name: 'في الصيانة', icon: '🔧', color: '#FFC107' },
+  lost: { name: 'مفقود', icon: '❓', color: '#F44336' }
 };
 
-export const TOOL_CONDITION: Record<ToolCondition, { icon: string; name: string; color: string }> = {
-  new: { icon: '⭐', name: 'جديد', color: '#4CAF50' },
-  good: { icon: '✅', name: 'جيد', color: '#8BC34A' },
-  fair: { icon: '⚠️', name: 'مقبول', color: '#FFC107' },
-  poor: { icon: '⛔', name: 'سيء', color: '#F44336' }
+export const TOOL_CONDITION: Record<ToolCondition, { name: string; icon: string; color: string }> = {
+  new: { name: 'جديد', icon: '🌟', color: '#4CAF50' },
+  good: { name: 'جيد', icon: '👍', color: '#2196F3' },
+  fair: { name: 'متوسط', icon: '👌', color: '#FF9800' },
+  poor: { name: 'سيء', icon: '👎', color: '#795548' },
+  broken: { name: 'معطل', icon: '❌', color: '#F44336' }
 };
 
 export const TOOL_ICONS = {
   sections: {
     basic: '📋',
-    purchase: '🛒',
+    purchase: '💰',
     location: '📍',
     maintenance: '🔧',
-    instructions: '📖'
+    instructions: '📝'
   },
   basic: {
-    tools: '🔧',
-    name: '📝',
-    type: '🔧',
-    quantity: '📦',
+    tools: '🧰',
+    name: '🏷️',
+    quantity: '🔢',
     minQuantity: '⚠️',
-    condition: '🔍',
     category: '📁',
-    status: '📊'
+    condition: '📊',
   },
   purchase: {
-    date: '🛒',
-    price: '💰',
-    brand: '🏢',
-    model: '📱'
-  },
-  maintenance: {
-    last: '🔨',
-    next: '📅',
-    interval: '⏱️',
-    notes: '📝'
+    date: '📅',
+    price: '💲',
+    brand: '🏭',
+    model: '🔍',
   },
   location: {
-    storage: '📍',
-    assigned: '👤'
+    storage: '🏠',
+    assigned: '👤',
+  },
+  maintenance: {
+    last: '⏮️',
+    next: '⏭️',
+    interval: '⏱️',
+    notes: '📝',
   },
   instructions: {
-    usage: '📖',
-    safety: '⚠️'
-  },
-  status: {
-    available: '✅',
-    inUse: '🔄',
-    maintenance: '🔧',
-    broken: '❌',
-    lost: '❓'
+    usage: '📘',
+    safety: '⚠️',
   }
 }; 
