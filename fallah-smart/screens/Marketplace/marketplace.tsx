@@ -391,20 +391,6 @@ const Marketplace = () => {
         return (
           <View style={{ flex: 1 }}>
             <CompanyProfile />
-            {!isSupplier && (
-              <View style={styles.refreshContainer}>
-                <Text style={styles.refreshText}>
-                  Just created a supplier profile? Refresh to update status.
-                </Text>
-                <TouchableOpacity
-                  style={styles.refreshButton}
-                  onPress={forceRefreshSupplierStatus}
-                >
-                  <MaterialCommunityIcons name="refresh" size={18} color="white" />
-                  <Text style={styles.refreshButtonText}>Refresh Status</Text>
-                </TouchableOpacity>
-              </View>
-            )}
           </View>
         );
       default:
