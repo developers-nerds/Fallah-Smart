@@ -54,10 +54,10 @@ const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests from these origins
     const allowedOrigins = [
-      "http://localhost:5173", // Vite dev server
-      "http://localhost:3000", // React dev server
-      "http://localhost:8080", // Possible alternative port
-      "http://localhost:5000", // Same origin
+      'http://localhost:5173',     // Vite dev server
+      'http://localhost:3000',     // React dev server
+      'http://localhost:8081',     // Possible alternative port
+      'http://localhost:5000'      // Same origin
     ];
 
     // Allow requests with no origin (like mobile apps, curl, postman)
