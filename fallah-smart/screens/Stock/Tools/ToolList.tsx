@@ -75,7 +75,7 @@ const ToolListScreen: React.FC<ToolListScreenProps> = ({ navigation }) => {
   const [lastFetchTime, setLastFetchTime] = useState(0);
   const REFRESH_THRESHOLD = 5000; // Only refresh if it's been at least 5 seconds since last fetch
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   useEffect(() => {
     fetchTools();
   }, []);
@@ -174,15 +174,15 @@ const ToolListScreen: React.FC<ToolListScreenProps> = ({ navigation }) => {
   const filteredTools = useMemo(() => {
     return tools
       .filter(tool => {
-        const matchesSearch = tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          tool.brand?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          tool.model?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          tool.storageLocation?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      tool.brand?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      tool.model?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      tool.storageLocation?.toLowerCase().includes(searchQuery.toLowerCase());
 
         const matchesCategory = !selectedCategory || selectedCategory === 'الكل' || 
                                tool.category === selectedCategory;
 
-        return matchesSearch && matchesCategory;
+    return matchesSearch && matchesCategory;
       })
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
   }, [tools, searchQuery, selectedCategory]);
@@ -227,7 +227,7 @@ const ToolListScreen: React.FC<ToolListScreenProps> = ({ navigation }) => {
           { color: isSelected ? '#FFF' : theme.colors.neutral.textSecondary }
         ]}>
           {item === 'الكل' ? 'كل الأدوات' : typeInfo.name}
-        </Text>
+            </Text>
         {isSelected && (
           <MaterialCommunityIcons 
             name="close-circle" 
@@ -247,10 +247,10 @@ const ToolListScreen: React.FC<ToolListScreenProps> = ({ navigation }) => {
     return (
       <Animated.View 
         entering={FadeInDown.delay(index * 50).springify().damping(12)}
-        style={[
+          style={[
           styles.card,
-          { 
-            backgroundColor: theme.colors.neutral.surface,
+            {
+              backgroundColor: theme.colors.neutral.surface,
             ...Platform.select({
               ios: {
                 shadowColor: theme.colors.neutral.textPrimary,
@@ -264,8 +264,8 @@ const ToolListScreen: React.FC<ToolListScreenProps> = ({ navigation }) => {
             }),
           }
         ]}
-      >
-        <TouchableOpacity
+        >
+          <TouchableOpacity
           style={styles.cardContent}
           onPress={() => navigation.navigate('ToolDetail', { toolId: item.id })}
           activeOpacity={0.7}
@@ -294,7 +294,7 @@ const ToolListScreen: React.FC<ToolListScreenProps> = ({ navigation }) => {
                     <MaterialCommunityIcons name="factory" size={14} color={theme.colors.neutral.textSecondary} />
                     <Text style={[styles.brandText, { color: theme.colors.neutral.textSecondary }]}>
                       {item.brand}
-                    </Text>
+            </Text>
                   </View>
                 )}
               </View>
@@ -384,7 +384,7 @@ const ToolListScreen: React.FC<ToolListScreenProps> = ({ navigation }) => {
         />
       </View>
       <View style={{paddingBottom: theme.spacing.sm}}>
-        <FlatList
+      <FlatList
           data={categories}
           renderItem={renderCategoryChip}
           horizontal
@@ -405,7 +405,7 @@ const ToolListScreen: React.FC<ToolListScreenProps> = ({ navigation }) => {
       <TouchableOpacity
         style={[
           styles.seeMoreButton, 
-          { 
+          {
             backgroundColor: theme.colors.primary.base,
             ...Platform.select({
               ios: {
@@ -445,11 +445,11 @@ const ToolListScreen: React.FC<ToolListScreenProps> = ({ navigation }) => {
     };
 
     return {
-      container: {
-        flex: 1,
+  container: {
+    flex: 1,
         backgroundColor: theme.colors.neutral.background,
-      },
-      header: {
+  },
+  header: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -466,7 +466,7 @@ const ToolListScreen: React.FC<ToolListScreenProps> = ({ navigation }) => {
         backgroundColor: theme.colors.neutral.surface,
       },
       searchBar: {
-        flexDirection: 'row',
+    flexDirection: 'row',
         alignItems: 'center',
         borderRadius: theme.borderRadius.pill, // More rounded search bar
         paddingHorizontal: theme.spacing.md,
@@ -478,10 +478,10 @@ const ToolListScreen: React.FC<ToolListScreenProps> = ({ navigation }) => {
       categoriesContent: {
         paddingHorizontal: 16,
         gap: 8,
-      },
-      categoryChip: {
+  },
+  categoryChip: {
         flexDirection: 'row',
-        alignItems: 'center',
+    alignItems: 'center',
         paddingHorizontal: theme.spacing.md,
         paddingVertical: theme.spacing.xs,
         borderRadius: theme.borderRadius.pill, // More rounded for better appearance
@@ -499,8 +499,8 @@ const ToolListScreen: React.FC<ToolListScreenProps> = ({ navigation }) => {
       listContent: {
         padding: theme.spacing.md,
         gap: theme.spacing.md,
-      },
-      card: {
+  },
+  card: {
         borderRadius: theme.borderRadius.medium,
         overflow: 'hidden',
         marginBottom: theme.spacing.sm,
@@ -509,9 +509,9 @@ const ToolListScreen: React.FC<ToolListScreenProps> = ({ navigation }) => {
       },
       cardContent: {
         padding: theme.spacing.sm,
-      },
-      cardHeader: {
-        flexDirection: 'row',
+  },
+  cardHeader: {
+    flexDirection: 'row',
         alignItems: 'center',
         paddingBottom: theme.spacing.sm,
         gap: theme.spacing.xs,
@@ -568,26 +568,26 @@ const ToolListScreen: React.FC<ToolListScreenProps> = ({ navigation }) => {
       cardFooter: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
+    justifyContent: 'space-between',
         paddingTop: theme.spacing.sm,
         borderTopWidth: 1,
         borderTopColor: theme.colors.neutral.border,
       },
       quantityContainer: {
         flexDirection: 'row',
-        alignItems: 'center',
+    alignItems: 'center',
         gap: 4,
-      },
+  },
       quantity: {
         fontSize: getTypographySize('typography.arabic.caption.fontSize', 18),
         fontWeight: '600',
-      },
+  },
       unitText: {
         fontSize: getTypographySize('typography.arabic.caption.fontSize', 18),
-      },
+  },
       statusBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
         padding: 4,
         borderRadius: 4,
         gap: 4,
@@ -598,7 +598,7 @@ const ToolListScreen: React.FC<ToolListScreenProps> = ({ navigation }) => {
       },
       locationContainer: {
         flexDirection: 'row',
-        alignItems: 'center',
+    alignItems: 'center',
         gap: 6,
       },
       locationText: {
@@ -606,9 +606,9 @@ const ToolListScreen: React.FC<ToolListScreenProps> = ({ navigation }) => {
         fontWeight: '500',
       },
       emptyContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
         padding: theme.spacing.lg,
         gap: theme.spacing.lg,
       },
@@ -624,8 +624,8 @@ const ToolListScreen: React.FC<ToolListScreenProps> = ({ navigation }) => {
       },
       centerContent: {
         justifyContent: 'center',
-        alignItems: 'center',
-      },
+    alignItems: 'center',
+  },
       seeMoreButton: {
         flexDirection: 'row',
         alignItems: 'center',

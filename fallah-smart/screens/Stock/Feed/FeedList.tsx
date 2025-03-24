@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,11 +9,11 @@ import {
   Alert,
   ActivityIndicator,
   Dimensions,
-  Animated,
-  GestureResponderEvent,
-  ViewStyle,
-  TextStyle,
+  Platform,
+  StatusBar,
+  Keyboard,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../../context/ThemeContext';
 import { theme as defaultTheme } from '../../../theme/theme';
 import { useFeed } from '../../../context/FeedContext';
@@ -25,6 +25,11 @@ import axios from 'axios';
 import { storage } from '../../../utils/storage';
 import { API_URL } from '../../../config/api';
 import { withRetry } from '../../../services/api';
+import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
+import { SearchBar } from '../../../components/SearchBar';
+import { FAB } from '../../../components/FAB';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { createThemedStyles } from '../../../utils/createThemedStyles';
 
 // Define fallback colors to prevent undefined errors
 const fallbackColors = {
@@ -44,248 +49,97 @@ const fallbackColors = {
   info: '#2196F3',
 };
 
-const ITEMS_PER_PAGE = 8;
+const ITEMS_PER_PAGE = 4;
 const { width } = Dimensions.get('window');
+
+// Define animal category colors for the feed categories
+const ANIMAL_CATEGORY_COLORS = {
+  'ماشية': '#4CAF50', // Green for livestock
+  'دواجن': '#FF9800', // Orange for poultry
+  'طيور': '#2196F3', // Blue for birds
+  'أسماك': '#03A9F4', // Light blue for fish
+  'حيوانات صغيرة': '#9C27B0', // Purple for small animals
+  'حيوانات الحراسة والعمل': '#795548', // Brown for guard/working animals
+  'حشرات': '#FF5722', // Deep orange for insects
+  'أخرى': '#607D8B', // Blue grey for other
+};
+
+// Animal types with icons
+const ANIMAL_TYPES: Record<string, { icon: string; name: string; category: string }> = {
+  // Livestock (ماشية)
+  cow: { icon: '🐄', name: 'بقرة', category: 'ماشية' },
+  bull: { icon: '🐂', name: 'ثور', category: 'ماشية' },
+  buffalo: { icon: '🦬', name: 'جاموس', category: 'ماشية' },
+  sheep: { icon: '🐑', name: 'خروف', category: 'ماشية' },
+  ram: { icon: '🐏', name: 'كبش', category: 'ماشية' },
+  goat: { icon: '🐐', name: 'ماعز', category: 'ماشية' },
+  camel: { icon: '🐪', name: 'جمل', category: 'ماشية' },
+  horse: { icon: '🐎', name: 'حصان', category: 'ماشية' },
+  donkey: { icon: '🦓', name: 'حمار', category: 'ماشية' },
+  // Poultry (دواجن)
+  chicken: { icon: '🐔', name: 'دجاج', category: 'دواجن' },
+  rooster: { icon: '🐓', name: 'ديك', category: 'دواجن' },
+  chick: { icon: '🐥', name: 'كتكوت', category: 'دواجن' },
+  duck: { icon: '🦆', name: 'بط', category: 'دواجن' },
+  turkey: { icon: '🦃', name: 'ديك رومي', category: 'دواجن' },
+  // Fish (أسماك)
+  fish: { icon: '🐟', name: 'أسماك', category: 'أسماك' },
+  // Other (أخرى)
+  other: { icon: '🔄', name: 'أخرى', category: 'أخرى' },
+};
+
+// Feed names based on categories with icons
+const FEED_NAMES: Record<string, { icon: string; name: string; category: string }> = {
+  // Livestock Feed (أعلاف الماشية)
+  cattle_concentrate: { icon: '🌾', name: 'علف مركز للأبقار', category: 'أعلاف الماشية' },
+  dairy_feed: { icon: '🥛', name: 'علف الألبان', category: 'أعلاف الماشية' },
+  beef_feed: { icon: '🥩', name: 'علف التسمين', category: 'أعلاف الماشية' },
+  calf_feed: { icon: '🐄', name: 'علف العجول', category: 'أعلاف الماشية' },
+  sheep_concentrate: { icon: '🌿', name: 'علف الأغنام المركز', category: 'أعلاف الماشية' },
+  lamb_feed: { icon: '🐑', name: 'علف الحملان', category: 'أعلاف الماشية' },
+  camel_concentrate: { icon: '🐪', name: 'علف الإبل المركز', category: 'أعلاف الماشية' },
+  horse_feed: { icon: '🐎', name: 'علف الخيول', category: 'أعلاف الماشية' },
+  
+  // Poultry Feed (أعلاف الدواجن)
+  layer_feed: { icon: '🥚', name: 'علف الدجاج البياض', category: 'أعلاف الدواجن' },
+  broiler_feed: { icon: '🍗', name: 'علف الدجاج اللاحم', category: 'أعلاف الدواجن' },
+  starter_feed: { icon: '🐥', name: 'علف البادئ', category: 'أعلاف الدواجن' },
+  grower_feed: { icon: '🐔', name: 'علف النمو', category: 'أعلاف الدواجن' },
+  duck_feed: { icon: '🦆', name: 'علف البط', category: 'أعلاف الدواجن' },
+  turkey_feed: { icon: '🦃', name: 'علف الديك الرومي', category: 'أعلاف الدواجن' },
+  
+  // Fish Feed (أعلاف الأسماك)
+  floating_fish_feed: { icon: '🐟', name: 'علف الأسماك العائم', category: 'أعلاف الأسماك' },
+  sinking_fish_feed: { icon: '🎣', name: 'علف الأسماك الغاطس', category: 'أعلاف الأسماك' },
+  
+  // Supplements (المكملات الغذائية)
+  mineral_supplement: { icon: '🧂', name: 'مكملات معدنية', category: 'المكملات الغذائية' },
+  vitamin_supplement: { icon: '💊', name: 'مكملات فيتامينات', category: 'المكملات الغذائية' },
+  protein_supplement: { icon: '🥜', name: 'مكملات بروتين', category: 'المكملات الغذائية' },
+  
+  // Raw Materials (المواد الخام)
+  corn: { icon: '🌽', name: 'ذرة', category: 'المواد الخام' },
+  wheat: { icon: '🌾', name: 'قمح', category: 'المواد الخام' },
+  barley: { icon: '🌾', name: 'شعير', category: 'المواد الخام' },
+  soybean: { icon: '🫘', name: 'فول الصويا', category: 'المواد الخام' },
+  hay: { icon: '🌿', name: 'دريس', category: 'المواد الخام' },
+  
+  // Other (أخرى)
+  custom_feed: { icon: '🔄', name: 'علف مخصص', category: 'أخرى' },
+};
+
+// Feed categories with icons
+const FEED_CATEGORIES = {
+  'أعلاف الماشية': { icon: '🌾', color: '#4CAF50', label: 'أعلاف الماشية' },
+  'أعلاف الدواجن': { icon: '🐔', color: '#FF9800', label: 'أعلاف الدواجن' },
+  'أعلاف الأسماك': { icon: '🐟', color: '#03A9F4', label: 'أعلاف الأسماك' },
+  'المكملات الغذائية': { icon: '💊', color: '#9C27B0', label: 'مكملات غذائية' },
+  'المواد الخام': { icon: '🌽', color: '#795548', label: 'مواد خام' },
+  'أخرى': { icon: '🔄', color: '#607D8B', label: 'أخرى' },
+};
 
 type FeedListScreenProps = {
   navigation: StackNavigationProp<StockStackParamList, 'FeedList'>;
-};
-
-// Define styles globally to fix the reference issue
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8f9fa',
-  },
-  centerContent: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  addButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  list: {
-    padding: 16,
-  },
-  card: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  cardTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  typeIcon: {
-    fontSize: 24,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  cardContent: {
-    gap: 8,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  label: {
-    fontSize: 14,
-  },
-  value: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  alert: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 12,
-    padding: 8,
-    borderRadius: 6,
-  },
-  alertText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-    gap: 16,
-  },
-  emptyIcon: {
-    fontSize: 48,
-  },
-  emptyText: {
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  loadingMore: {
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  errorText: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: 12,
-    marginBottom: 20,
-  },
-  retryButton: {
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 12,
-  },
-  addButtonEmpty: {
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 12,
-  },
-  loadingMoreText: {
-    fontSize: 14,
-  },
-});
-
-// Create a dedicated component for feed item to properly use hooks
-const FeedItem = ({ 
-  item, 
-  index, 
-  theme, 
-  onPress,
-  getAnimalTypeIcon
-}: { 
-  item: StockFeed; 
-  index: number; 
-  theme: any;
-  onPress: () => void;
-  getAnimalTypeIcon: (type: string) => string;
-}) => {
-  const itemAnimation = React.useRef(new Animated.Value(0)).current;
-  
-  React.useEffect(() => {
-    Animated.timing(itemAnimation, {
-      toValue: 1,
-      duration: 300,
-      delay: index * 50,
-      useNativeDriver: true,
-    }).start();
-  }, [index, itemAnimation]);
-
-  if (!item) return null;
-
-  return (
-    <Animated.View
-      style={[
-        {
-          opacity: itemAnimation,
-          transform: [
-            {
-              translateY: itemAnimation.interpolate({
-                inputRange: [0, 1],
-                outputRange: [20, 0],
-              }),
-            },
-          ],
-        },
-      ]}
-    >
-      <TouchableOpacity
-        style={[
-          styles.card,
-          { backgroundColor: theme.colors.neutral.surface }
-        ]}
-        onPress={onPress}
-      >
-        <View style={styles.cardHeader}>
-          <View style={styles.cardTitleContainer}>
-            <Text style={styles.typeIcon}>{getAnimalTypeIcon(item.animalType || '')}</Text>
-            <Text style={[styles.cardTitle, { color: theme.colors.neutral.textPrimary }]}>
-              {item.name || 'علف بدون اسم'}
-            </Text>
-          </View>
-          <MaterialCommunityIcons
-            name="chevron-left"
-            size={24}
-            color={theme.colors.neutral.textSecondary}
-          />
-        </View>
-
-        <View style={styles.cardContent}>
-          <View style={styles.infoRow}>
-            <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-              الكمية:
-            </Text>
-            <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-              {item.quantity || 0} {item.unit || ''}
-            </Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-              السعر:
-            </Text>
-            <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-              {item.price || 0} د.أ
-            </Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={[styles.label, { color: theme.colors.neutral.textSecondary }]}>
-              تاريخ الصلاحية:
-            </Text>
-            <Text style={[styles.value, { color: theme.colors.neutral.textPrimary }]}>
-              {item.expiryDate ? new Date(item.expiryDate).toLocaleDateString() : '-'}
-            </Text>
-          </View>
-        </View>
-
-        {item.quantity && item.minQuantityAlert && item.quantity <= item.minQuantityAlert && (
-          <View style={[styles.alert, { backgroundColor: theme.colors.accent.light }]}>
-            <MaterialCommunityIcons
-              name="alert"
-              size={16}
-              color={theme.colors.accent.dark}
-            />
-            <Text style={[styles.alertText, { color: theme.colors.accent.dark }]}>
-              المخزون منخفض
-            </Text>
-          </View>
-        )}
-      </TouchableOpacity>
-    </Animated.View>
-  );
 };
 
 const FeedListScreen = ({ navigation }: FeedListScreenProps) => {
@@ -299,21 +153,19 @@ const FeedListScreen = ({ navigation }: FeedListScreenProps) => {
     }
   };
   
-  const { feed: contextFeed } = useFeed();
+  const { feed: contextFeed, fetchFeed: contextFetchFeed } = useFeed();
   const [feed, setFeed] = useState<StockFeed[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [totalPages, setTotalPages] = useState(1);
-  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>('الكل');
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const fetchFeed = async (page = 1) => {
+  const fetchFeed = async () => {
     try {
-      if (page === 1) {
-        setLoading(true);
-      }
+      setLoading(true);
       setError(null);
       
       const tokens = await storage.getTokens();
@@ -337,16 +189,13 @@ const FeedListScreen = ({ navigation }: FeedListScreenProps) => {
         }, 3, 1500);
         
         if (response.data) {
-          // Assuming direct array response without pagination
-          setFeed(response.data || []);
-          setTotalPages(1); // Set to 1 since we're not using pagination in API
-          
-          // Animate new items
-          Animated.timing(fadeAnim, {
-            toValue: 1,
-            duration: 500,
-            useNativeDriver: true,
-          }).start();
+          // Sort by updatedAt or createdAt date in descending order (newest first)
+          const sortedFeed = [...response.data].sort((a, b) => {
+            const dateA = a.updatedAt ? new Date(a.updatedAt) : a.createdAt ? new Date(a.createdAt) : new Date(0);
+            const dateB = b.updatedAt ? new Date(b.updatedAt) : b.createdAt ? new Date(b.createdAt) : new Date(0);
+            return dateB.getTime() - dateA.getTime();
+          });
+          setFeed(sortedFeed);
         }
       } catch (err) {
         console.error('Error fetching feed:', err);
@@ -364,11 +213,33 @@ const FeedListScreen = ({ navigation }: FeedListScreenProps) => {
     }
   };
 
-  useEffect(() => {
-    fetchFeed();
-  }, []);
+  // Use focus effect to reload data when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      const loadData = async () => {
+        try {
+          setRefreshing(true);
+          await fetchFeed();
+        } catch (error) {
+          console.error('Error loading feed on focus:', error);
+        } finally {
+          setRefreshing(false);
+        }
+      };
+      
+      loadData();
+      
+      return () => {
+        if (searchTimeoutRef.current) {
+          clearTimeout(searchTimeoutRef.current);
+        }
+      };
+    }, [])
+  );
 
-  const onRefresh = React.useCallback(async () => {
+  const handleRefresh = useCallback(async () => {
+    if (refreshing) return;
+    
     setRefreshing(true);
     try {
       await fetchFeed();
@@ -378,63 +249,530 @@ const FeedListScreen = ({ navigation }: FeedListScreenProps) => {
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [refreshing]);
 
-  const loadMoreItems = () => {
-    // Simple client-side pagination since we're loading all data at once
-    if (isLoadingMore || currentPage * ITEMS_PER_PAGE >= feed.length) return;
+  const handleSearchChange = useCallback((text: string) => {
+    setSearchQuery(text);
     
-    setIsLoadingMore(true);
-    setTimeout(() => {
-      setCurrentPage(prev => prev + 1);
-      setIsLoadingMore(false);
-    }, 500);
-  };
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    
+    if (currentPage !== 1) {
+      searchTimeoutRef.current = setTimeout(() => {
+        setCurrentPage(1);
+        searchTimeoutRef.current = null;
+      }, 300);
+    }
+  }, [currentPage]);
+
+  // Extract unique categories from feed items
+  const categories = useMemo(() => {
+    const uniqueCategories = new Set();
+    feed.forEach(item => {
+      // Extract category from feed name
+      const feedInfo = Object.values(FEED_NAMES).find(f => f.name === item.name);
+      if (feedInfo?.category) {
+        uniqueCategories.add(feedInfo.category);
+      }
+    });
+    return ['الكل', ...Array.from(uniqueCategories as Set<string>)];
+  }, [feed]);
+
+  const filteredFeed = useMemo(() => {
+    return feed.filter(item => {
+      const feedInfo = Object.values(FEED_NAMES).find(f => f.name === item.name);
+      const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCategory = selectedCategory === 'الكل' || feedInfo?.category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [feed, searchQuery, selectedCategory]);
+
+  const paginatedFeed = useMemo(() => {
+    return filteredFeed.slice(0, currentPage * ITEMS_PER_PAGE);
+  }, [filteredFeed, currentPage]);
 
   const getAnimalTypeIcon = (animalType: string) => {
-    switch (animalType) {
-      case 'cattle': return '🐄';
-      case 'sheep': return '🐑';
-      case 'poultry': return '🐓';
-      case 'camel': return '🐪';
-      case 'fish': return '🐟';
-      default: return '🌿';
-    }
+    // Use animal type info if available
+    const animalTypeInfo = ANIMAL_TYPES[animalType] || Object.values(ANIMAL_TYPES).find(a => a.name === animalType);
+    return animalTypeInfo?.icon || '🌿';
   };
 
-  const handleRetry = () => {
-    fetchFeed(1);
+  const getFeedCategoryInfo = (feedName: string) => {
+    const feedInfo = Object.values(FEED_NAMES).find(f => f.name === feedName);
+    return FEED_CATEGORIES[feedInfo?.category as keyof typeof FEED_CATEGORIES] || FEED_CATEGORIES['أخرى'];
   };
 
-  const renderFeedItem = ({ item, index }: { item: StockFeed; index: number }) => {
+  const renderFeedCard = useCallback(({ item, index }: { item: StockFeed; index: number }) => {
     if (!item) return null;
     
+    const isLowStock = item.quantity <= item.minQuantityAlert;
+    const feedCategoryInfo = getFeedCategoryInfo(item.name);
+    
     return (
-      <FeedItem 
-        item={item} 
-        index={index} 
-        theme={currentTheme}
-        onPress={() => navigation.navigate('FeedDetail', { feedId: item.id })}
-        getAnimalTypeIcon={getAnimalTypeIcon}
-      />
+      <Animated.View 
+        entering={FadeInDown.delay(index * 50).springify().damping(12)}
+        style={[
+          styles.card,
+          { 
+            backgroundColor: currentTheme.colors.neutral.surface,
+            ...Platform.select({
+              ios: {
+                shadowColor: currentTheme.colors.neutral.textPrimary,
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.12,
+                shadowRadius: 6,
+              },
+              android: {
+                elevation: 3,
+              },
+            }),
+          }
+        ]}
+      >
+        <TouchableOpacity
+          style={styles.cardContent}
+          onPress={() => navigation.navigate('FeedDetail', { feedId: item.id })}
+          activeOpacity={0.7}
+        >
+          <View style={styles.cardHeader}>
+            <View style={[
+              styles.iconContainer,
+              { backgroundColor: feedCategoryInfo.color + '20' }
+            ]}>
+              <Text style={[styles.feedIcon, { color: feedCategoryInfo.color }]}>
+                {feedCategoryInfo.icon}
+              </Text>
+            </View>
+            
+            <View style={styles.headerInfo}>
+              <Text style={[styles.feedName, { color: currentTheme.colors.neutral.textPrimary }]}>
+                {item.name || 'علف بدون اسم'}
+              </Text>
+              <View style={styles.subtitleContainer}>
+                <Text style={[styles.feedCategory, { color: feedCategoryInfo.color }]}>
+                  {feedCategoryInfo.label}
+                </Text>
+                
+                {item.manufacturer && (
+                  <View style={styles.manufacturerContainer}>
+                    <MaterialCommunityIcons name="factory" size={14} color={currentTheme.colors.neutral.textSecondary} />
+                    <Text style={[styles.manufacturerText, { color: currentTheme.colors.neutral.textSecondary }]}>
+                      {item.manufacturer}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            <Text style={styles.animalTypeIcon}>
+              {getAnimalTypeIcon(item.animalType)}
+            </Text>
+          </View>
+
+          <View style={styles.cardFooter}>
+            <View style={styles.quantityContainer}>
+              <Text style={[styles.quantity, { 
+                color: isLowStock ? currentTheme.colors.error : currentTheme.colors.neutral.textPrimary 
+              }]}>
+                {item.quantity}
+              </Text>
+              <Text style={[styles.unit, { color: currentTheme.colors.neutral.textSecondary }]}>
+                {item.unit}
+              </Text>
+            </View>
+
+            {isLowStock && (
+              <View style={[styles.statusBadge, { backgroundColor: currentTheme.colors.error + '20' }]}>
+                <MaterialCommunityIcons 
+                  name="alert" 
+                  size={16} 
+                  color={currentTheme.colors.error} 
+                />
+                <Text style={[styles.statusText, { color: currentTheme.colors.error }]}>
+                  مخزون منخفض
+                </Text>
+              </View>
+            )}
+            
+            {item.expiryDate && (
+              <View style={styles.expiryContainer}>
+                <MaterialCommunityIcons 
+                  name="calendar" 
+                  size={16} 
+                  color={currentTheme.colors.neutral.textSecondary} 
+                />
+                <Text style={[styles.expiryText, { color: currentTheme.colors.neutral.textSecondary }]}>
+                  {new Date(item.expiryDate).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit'
+                  })}
+                </Text>
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
     );
-  };
+  }, [currentTheme, navigation]);
 
-  const renderFooter = () => {
-    if (!isLoadingMore) return null;
-
+  const renderCategoryChip = useCallback(({ item }: { item: string }) => {
+    const categoryInfo = item === 'الكل' ? { 
+      icon: '🌐', 
+      color: currentTheme.colors.primary.base,
+      label: 'كل الأعلاف'
+    } : (FEED_CATEGORIES[item as keyof typeof FEED_CATEGORIES] || FEED_CATEGORIES['أخرى']);
+    
+    const isSelected = selectedCategory === item;
+    
     return (
-      <View style={styles.loadingMore}>
-        <ActivityIndicator size="small" color={currentTheme.colors.primary.base} />
-        <Text style={[styles.loadingMoreText, { color: currentTheme.colors.neutral.textSecondary }]}>
-          جاري تحميل المزيد...
+      <TouchableOpacity
+        style={[
+          styles.categoryChip,
+          { 
+            backgroundColor: isSelected ? categoryInfo.color : currentTheme.colors.neutral.surface,
+            borderColor: isSelected ? categoryInfo.color : currentTheme.colors.neutral.border,
+            ...Platform.select({
+              ios: isSelected ? {
+                shadowColor: categoryInfo.color,
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.3,
+                shadowRadius: 3,
+              } : {},
+              android: isSelected ? {
+                elevation: 2,
+              } : {},
+            }),
+          }
+        ]}
+        onPress={() => setSelectedCategory(isSelected ? null : item)}
+      >
+        <Text style={styles.categoryIcon}>{categoryInfo.icon}</Text>
+        <Text style={[
+          styles.categoryText,
+          { color: isSelected ? '#FFF' : currentTheme.colors.neutral.textSecondary }
+        ]}>
+          {item === 'الكل' ? 'كل الأعلاف' : categoryInfo.label}
         </Text>
-      </View>
+        {isSelected && (
+          <MaterialCommunityIcons 
+            name="close-circle" 
+            size={16} 
+            color="#FFF" 
+          />
+        )}
+      </TouchableOpacity>
     );
-  };
+  }, [selectedCategory, currentTheme]);
 
-  // Display loading indicator
-  if (loading && !refreshing) {
+  const renderFooter = useCallback(() => {
+    if (paginatedFeed.length >= filteredFeed.length) return null;
+    
+    return (
+      <TouchableOpacity
+        style={[
+          styles.seeMoreButton, 
+          { 
+            backgroundColor: currentTheme.colors.primary.base,
+            ...Platform.select({
+              ios: {
+                shadowColor: currentTheme.colors.primary.base,
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.3,
+                shadowRadius: 3,
+              },
+              android: {
+                elevation: 3,
+              },
+            }),
+          }
+        ]}
+        onPress={() => setCurrentPage(prev => prev + 1)}
+      >
+        <Text style={styles.seeMoreText}>عرض المزيد</Text>
+        <MaterialCommunityIcons name="chevron-down" size={20} color="#FFF" />
+      </TouchableOpacity>
+    );
+  }, [paginatedFeed.length, filteredFeed.length, currentTheme]);
+
+  const renderHeader = useCallback(() => (
+    <Animated.View entering={FadeIn.duration(300).springify()}>
+      <View style={[styles.searchContainer, { 
+        borderBottomWidth: 0,
+        paddingBottom: currentTheme.spacing?.sm || 8,
+      }]}>
+        <SearchBar
+          value={searchQuery}
+          onChangeText={handleSearchChange}
+          placeholder="ابحث عن الأعلاف..."
+          style={[styles.searchBar, {
+            backgroundColor: currentTheme.colors.neutral.background,
+            ...Platform.select({
+              ios: {
+                shadowColor: currentTheme.colors.neutral.textPrimary,
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.1,
+                shadowRadius: 4,
+              },
+              android: {
+                elevation: 2,
+              },
+            }),
+          }]}
+        />
+      </View>
+      <View style={{paddingBottom: currentTheme.spacing?.sm || 8}}>
+        <FlatList
+          data={categories}
+          renderItem={renderCategoryChip}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.categoriesList}
+          contentContainerStyle={styles.categoriesContent}
+          keyExtractor={item => item}
+          keyboardShouldPersistTaps="always"
+        />
+      </View>
+    </Animated.View>
+  ), [searchQuery, categories, renderCategoryChip, currentTheme, handleSearchChange]);
+
+  // Create themed styles
+  const styles = createThemedStyles((theme) => {
+    // Define fallback values for typography to prevent undefined errors
+    const getTypographySize = (typePath: string, fallback: number) => {
+      try {
+        const paths = typePath.split('.');
+        let result: any = theme; // Type as any to avoid index signature errors
+        for (const path of paths) {
+          if (!result || result[path] === undefined) return fallback;
+          result = result[path];
+        }
+        return result;
+      } catch (e) {
+        return fallback;
+      }
+    };
+
+    return {
+      container: {
+        flex: 1,
+        backgroundColor: theme.colors.neutral.background,
+      },
+      header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingTop: Platform.OS === 'ios' ? 44 : StatusBar.currentHeight,
+        paddingHorizontal: theme.spacing?.md || 16,
+        paddingBottom: theme.spacing?.md || 16,
+        backgroundColor: theme.colors.neutral.surface,
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.neutral.border,
+      },
+      headerTitle: {
+        fontSize: getTypographySize('typography.arabic.h2.fontSize', 32),
+        fontWeight: '600',
+        color: theme.colors.neutral.textPrimary,
+      },
+      searchContainer: {
+        padding: theme.spacing?.md || 16,
+        paddingBottom: theme.spacing?.xs || 4,
+        backgroundColor: theme.colors.neutral.surface,
+      },
+      searchBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderRadius: theme.borderRadius?.pill || 20, 
+        paddingHorizontal: theme.spacing?.md || 16,
+        height: 40,
+      },
+      categoryChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: theme.spacing?.md || 16,
+        paddingVertical: theme.spacing?.xs || 4,
+        borderRadius: theme.borderRadius?.pill || 20, 
+        gap: theme.spacing?.xs || 4,
+        borderWidth: 1,
+        marginHorizontal: 4,
+      },
+      categoryIcon: {
+        fontSize: getTypographySize('typography.arabic.body.fontSize', 20),
+      },
+      categoryText: {
+        fontSize: getTypographySize('typography.arabic.caption.fontSize', 18),
+        fontWeight: '500',
+      },
+      categoriesList: {
+        maxHeight: 48,
+      },
+      categoriesContent: {
+        paddingHorizontal: 16,
+        gap: 8,
+      },
+      card: {
+        borderRadius: theme.borderRadius?.medium || 12,
+        overflow: 'hidden',
+        marginBottom: theme.spacing?.sm || 8,
+        borderWidth: 0.5,
+        borderColor: theme.colors.neutral.border + '50',
+      },
+      cardContent: {
+        padding: theme.spacing?.sm || 8,
+      },
+      cardHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingBottom: theme.spacing?.sm || 8,
+        gap: theme.spacing?.xs || 4,
+      },
+      iconContainer: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        justifyContent: 'center',
+        alignItems: 'center',
+      },
+      feedIcon: {
+        fontSize: getTypographySize('typography.arabic.h4.fontSize', 24),
+      },
+      headerInfo: {
+        flex: 1,
+        gap: 2,
+      },
+      feedName: {
+        fontSize: getTypographySize('typography.arabic.h4.fontSize', 22),
+        fontWeight: '600',
+        color: theme.colors.neutral.textPrimary,
+      },
+      feedCategory: {
+        fontSize: getTypographySize('typography.arabic.caption.fontSize', 18),
+        color: theme.colors.neutral.textSecondary,
+      },
+      subtitleContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: theme.spacing?.sm || 8,
+      },
+      manufacturerContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+      },
+      manufacturerText: {
+        fontSize: getTypographySize('typography.arabic.caption.fontSize', 18),
+      },
+      animalTypeIcon: {
+        fontSize: 28,
+      },
+      cardFooter: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingTop: theme.spacing?.sm || 8,
+        borderTopWidth: 1,
+        borderTopColor: theme.colors.neutral.border,
+      },
+      quantityContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+      },
+      quantity: {
+        fontSize: getTypographySize('typography.arabic.caption.fontSize', 18),
+        fontWeight: '600',
+      },
+      unit: {
+        fontSize: getTypographySize('typography.arabic.caption.fontSize', 18),
+        color: theme.colors.neutral.textSecondary,
+      },
+      statusBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 4,
+        borderRadius: 4,
+        gap: 4,
+      },
+      statusText: {
+        color: '#FFF',
+        fontSize: getTypographySize('typography.arabic.caption.fontSize', 18),
+        fontWeight: '500',
+      },
+      expiryContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+      },
+      expiryText: {
+        fontSize: getTypographySize('typography.arabic.caption.fontSize', 18),
+        fontWeight: '500',
+      },
+      seeMoreButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: theme.spacing?.sm || 8,
+        borderRadius: theme.borderRadius?.small || 4,
+        marginTop: theme.spacing?.sm || 8,
+        gap: theme.spacing?.xs || 4,
+      },
+      seeMoreText: {
+        color: '#FFF',
+        fontSize: getTypographySize('typography.arabic.body.fontSize', 20),
+        fontWeight: '600',
+      },
+      centerContent: {
+        justifyContent: 'center',
+        alignItems: 'center',
+      },
+      emptyContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: theme.spacing?.lg || 24,
+        gap: theme.spacing?.lg || 24,
+      },
+      emptyIcon: {
+        fontSize: 48,
+        color: theme.colors.neutral.textSecondary,
+        marginBottom: theme.spacing?.md || 16,
+      },
+      emptyText: {
+        fontSize: getTypographySize('typography.arabic.body.fontSize', 20),
+        color: theme.colors.neutral.textSecondary,
+        textAlign: 'center',
+      },
+      emptyButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: theme.spacing?.md || 16,
+        paddingVertical: theme.spacing?.sm || 8,
+        borderRadius: theme.borderRadius?.pill || 20,
+        gap: theme.spacing?.sm || 8,
+        marginTop: theme.spacing?.md || 16,
+        ...Platform.select({
+          ios: {
+            shadowColor: theme.colors.primary.base,
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.3,
+            shadowRadius: 3,
+          },
+          android: {
+            elevation: 3,
+          },
+        }),
+      },
+      emptyButtonText: {
+        color: '#FFF',
+        fontSize: getTypographySize('typography.arabic.body.fontSize', 18),
+        fontWeight: '600',
+      },
+    };
+  });
+
+  if (loading && !refreshing && feed.length === 0) {
     return (
       <View style={[styles.container, styles.centerContent]}>
         <ActivityIndicator size="large" color={currentTheme.colors.primary.base} />
@@ -442,77 +780,77 @@ const FeedListScreen = ({ navigation }: FeedListScreenProps) => {
     );
   }
 
-  // Display error state
-  if (error && !refreshing && (!feed || feed.length === 0)) {
-    return (
-      <View style={[styles.container, styles.centerContent]}>
-        <MaterialCommunityIcons
-          name="alert-circle-outline" 
-          size={48}
-          color={currentTheme.colors.neutral.textSecondary}
-        />
-        <Text style={[styles.errorText, { color: currentTheme.colors.neutral.textSecondary }]}>
-          {error}
-        </Text>
-        <TouchableOpacity
-          style={[styles.retryButton, { backgroundColor: currentTheme.colors.primary.base }]}
-          onPress={handleRetry}
-        >
-          <Text style={{ color: currentTheme.colors.neutral.surface }}>إعادة المحاولة</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  // Main content view
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: currentTheme.colors.neutral.textPrimary }]}>
-          الأعلاف ({feed?.length || 0})
-        </Text>
-        <TouchableOpacity
-          style={[styles.addButton, { backgroundColor: currentTheme.colors.primary.base }]}
-          onPress={() => navigation.navigate('AddFeed', {})}
-        >
-          <MaterialCommunityIcons name="plus" size={24} color="white" />
-        </TouchableOpacity>
-      </View>
-
+    <SafeAreaView style={styles.container}>
+      <StatusBar
+        backgroundColor={currentTheme.colors.neutral.surface}
+        barStyle="dark-content"
+      />
+      
       <FlatList
-        data={feed || []}
-        renderItem={renderFeedItem}
-        keyExtractor={(item, index) => `feed-${item?.id || index}`}
-        contentContainerStyle={styles.list}
+        data={paginatedFeed}
+        renderItem={renderFeedCard}
+        keyExtractor={item => item.id || Math.random().toString()}
+        contentContainerStyle={[
+          styles.categoriesContent,
+          paginatedFeed.length === 0 && { flex: 1, justifyContent: 'center' }
+        ]}
+        ListHeaderComponent={renderHeader}
+        ListFooterComponent={renderFooter}
+        ListEmptyComponent={
+          <Animated.View 
+            entering={FadeIn.delay(300).duration(500)}
+            style={styles.emptyContainer}
+          >
+            <Text style={styles.emptyIcon}>🌾</Text>
+            <Text style={[styles.emptyText, { color: currentTheme.colors.neutral.textSecondary }]}>
+              لا توجد أعلاف
+            </Text>
+            <TouchableOpacity 
+              style={[styles.emptyButton, { backgroundColor: currentTheme.colors.primary.base }]}
+              onPress={() => navigation.navigate('AddFeed', {})}
+            >
+              <MaterialCommunityIcons name="plus" size={20} color="#FFF" />
+              <Text style={styles.emptyButtonText}>إضافة علف</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        }
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh}
+            onRefresh={handleRefresh}
             colors={[currentTheme.colors.primary.base]}
             tintColor={currentTheme.colors.primary.base}
           />
         }
-        onEndReached={loadMoreItems}
-        onEndReachedThreshold={0.5}
-        ListFooterComponent={renderFooter}
-        ListEmptyComponent={
-          !loading ? (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyIcon}>🌿</Text>
-              <Text style={[styles.emptyText, { color: currentTheme.colors.neutral.textSecondary }]}>
-                لا يوجد أعلاف
-              </Text>
-              <TouchableOpacity
-                style={[styles.addButtonEmpty, { backgroundColor: currentTheme.colors.primary.base }]}
-                onPress={() => navigation.navigate('AddFeed', {})}
-              >
-                <Text style={{ color: currentTheme.colors.neutral.surface }}>إضافة علف جديد</Text>
-              </TouchableOpacity>
-            </View>
-          ) : null
-        }
+        keyboardShouldPersistTaps="always"
+        keyboardDismissMode="none"
+        scrollEventThrottle={16}
       />
-    </View>
+      
+      <FAB
+        icon="plus"
+        onPress={() => navigation.navigate('AddFeed', {})}
+        style={{
+          position: 'absolute',
+          margin: 16,
+          right: 0,
+          bottom: 0,
+          backgroundColor: currentTheme.colors.primary.base,
+          ...Platform.select({
+            ios: {
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.3,
+              shadowRadius: 3,
+            },
+            android: {
+              elevation: 6,
+            },
+          }),
+        }}
+      />
+    </SafeAreaView>
   );
 };
 

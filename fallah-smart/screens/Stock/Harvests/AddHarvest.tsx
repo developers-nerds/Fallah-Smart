@@ -383,7 +383,7 @@ const AddHarvestScreen: React.FC<AddHarvestScreenProps> = ({ navigation, route }
             )}
             
             {/* Step 2: Show crop types for the selected category */}
-            {values.selectedCategory && (
+            {values.selectedCategory && !values.type && (
               <>
                 <View style={styles.stepHeader}>
                   <Text style={[styles.stepInstruction, { color: theme.colors.primary.base }]}>
@@ -434,7 +434,13 @@ const AddHarvestScreen: React.FC<AddHarvestScreenProps> = ({ navigation, route }
                         },
                       ]}
                       value={values.cropName}
-                      onChangeText={handleChange('cropName')}
+                      onChangeText={(text) => {
+                        setFieldValue('cropName', text);
+                        if (text) {
+                          // When user types a name, automatically set the type to match the category
+                          setFieldValue('type', values.selectedCategory);
+                        }
+                      }}
                       onBlur={handleBlur('cropName')}
                       placeholder="أدخل اسم مخصص للمحصول"
                       placeholderTextColor="#9E9E9E"
@@ -494,11 +500,37 @@ const AddHarvestScreen: React.FC<AddHarvestScreenProps> = ({ navigation, route }
                                   },
                                 ]}
                                 value={values.cropName}
-                                onChangeText={handleChange('cropName')}
+                                onChangeText={(text) => {
+                                  setFieldValue('cropName', text);
+                                  if (text) {
+                                    // When user types a name, automatically set the type to match the category
+                                    setFieldValue('type', values.selectedCategory);
+                                  }
+                                }}
                                 onBlur={handleBlur('cropName')}
                                 placeholder="أدخل اسم المحصول"
                                 placeholderTextColor="#9E9E9E"
                               />
+                              <TouchableOpacity
+                                style={[
+                                  styles.button,
+                                  styles.primaryButton,
+                                  {
+                                    backgroundColor: theme.colors.primary.base,
+                                    marginTop: 16,
+                                    width: '100%',
+                                  }
+                                ]}
+                                disabled={!values.cropName}
+                                onPress={() => {
+                                  // Confirm the selection
+                                  if (values.cropName) {
+                                    setFieldValue('type', values.selectedCategory);
+                                  }
+                                }}
+                              >
+                                <Text style={styles.buttonText}>تأكيد</Text>
+                              </TouchableOpacity>
                             </View>
                           );
                         }
@@ -517,7 +549,7 @@ const AddHarvestScreen: React.FC<AddHarvestScreenProps> = ({ navigation, route }
                               // Check if this type is selected
                               const isSelected = values.type === cropType.key;
 
-  return (
+                              return (
                                 <TouchableOpacity
                                   key={cropType.key}
                                   style={[
@@ -567,37 +599,94 @@ const AddHarvestScreen: React.FC<AddHarvestScreenProps> = ({ navigation, route }
               </>
             )}
             
-            <View style={styles.inputGroup}>
-              <Text style={[styles.inputLabel, { color: theme.colors.neutral.textSecondary }]}>
-                تاريخ الحصاد *
-              </Text>
-              <TouchableOpacity
-                style={[
-                  styles.dateButton, 
-                  { 
-                    borderColor: theme.colors.neutral.border,
-                    shadowColor: theme.colors.neutral.textSecondary,
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.1,
-                    shadowRadius: 4,
-                    elevation: 2, 
-                  }
-                ]}
-                onPress={() => {
-                  showDatepicker('harvestDate');
-                }}
-              >
-                <MaterialCommunityIcons name="calendar" size={20} color={theme.colors.primary.base} style={{ marginLeft: 10 }} />
-                <Text style={{ color: theme.colors.neutral.textPrimary }}>
-                  {values.harvestDate ? new Date(values.harvestDate).toLocaleDateString('en-GB') : 'اختر تاريخ الحصاد'}
-                </Text>
-              </TouchableOpacity>
-              {touched.harvestDate && errors.harvestDate && (
-                <Text style={[styles.errorText, { color: theme.colors.error }]}>
-                  {errors.harvestDate}
-                </Text>
-              )}
-            </View>
+            {/* Step 3: Show harvest date after both category and type are selected */}
+            {values.selectedCategory && values.type && (
+              <>
+                <View style={styles.stepHeader}>
+                  <Text style={[styles.stepInstruction, { color: theme.colors.primary.base }]}>
+                    الخطوة 3: تفاصيل المحصول
+                  </Text>
+                  
+                  <TouchableOpacity 
+                    style={[
+                      styles.backToCategories,
+                      {
+                        backgroundColor: theme.colors.neutral.surface,
+                        borderColor: theme.colors.primary.base,
+                        borderWidth: 1,
+                        borderRadius: 20,
+                      }
+                    ]}
+                    onPress={() => {
+                      setFieldValue('type', '');
+                    }}
+                  >
+                    <MaterialCommunityIcons name="refresh" size={16} color={theme.colors.primary.base} style={{ marginLeft: 6 }} />
+                    <Text style={{ color: theme.colors.primary.base, fontWeight: 'bold' }}>تغيير النوع</Text>
+                  </TouchableOpacity>
+                </View>
+                
+                <View style={styles.selectedItemCard}>
+                  <View style={styles.selectedItemRow}>
+                    <Text style={styles.selectedItemLabel}>الفئة:</Text>
+                    <View style={styles.selectedItemValueContainer}>
+                      <Text style={styles.categoryIcon}>
+                        {HARVEST_CATEGORIES[values.selectedCategory]?.icon}
+                      </Text>
+                      <Text style={[styles.selectedItemValue, { color: theme.colors.primary.base }]}>
+                        {HARVEST_CATEGORIES[values.selectedCategory]?.name}
+                      </Text>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.selectedItemRow}>
+                    <Text style={styles.selectedItemLabel}>النوع:</Text>
+                    <View style={styles.selectedItemValueContainer}>
+                      <Text style={styles.cropTypeIcon}>
+                        {values.selectedCategory === 'other' 
+                          ? '🧺' 
+                          : HARVEST_TYPES[values.type]?.icon || '🌱'}
+                      </Text>
+                      <Text style={[styles.selectedItemValue, { color: theme.colors.neutral.textPrimary }]}>
+                        {values.cropName}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+                
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.inputLabel, { color: theme.colors.neutral.textSecondary }]}>
+                    تاريخ الحصاد *
+                  </Text>
+                  <TouchableOpacity
+                    style={[
+                      styles.dateButton, 
+                      { 
+                        borderColor: theme.colors.neutral.border,
+                        shadowColor: theme.colors.neutral.textSecondary,
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.1,
+                        shadowRadius: 4,
+                        elevation: 2, 
+                      }
+                    ]}
+                    onPress={() => {
+                      showDatepicker('harvestDate');
+                    }}
+                  >
+                    <MaterialCommunityIcons name="calendar" size={20} color={theme.colors.primary.base} style={{ marginLeft: 10 }} />
+                    <Text style={{ color: theme.colors.neutral.textPrimary }}>
+                      {values.harvestDate ? new Date(values.harvestDate).toLocaleDateString('en-GB') : 'اختر تاريخ الحصاد'}
+                    </Text>
+                  </TouchableOpacity>
+                  {touched.harvestDate && errors.harvestDate && (
+                    <Text style={[styles.errorText, { color: theme.colors.error }]}>
+                      {errors.harvestDate}
+                    </Text>
+                  )}
+                </View>
+              </>
+            )}
           </Animated.View>
         );
       
@@ -971,7 +1060,7 @@ const AddHarvestScreen: React.FC<AddHarvestScreenProps> = ({ navigation, route }
           {isEditing ? 'تعديل محصول' : 'إضافة محصول جديد'} 🌾
         </Text>
         <View style={styles.placeholder} />
-          </View>
+      </View>
 
       {renderProgressBar()}
       
@@ -1353,6 +1442,29 @@ const styles = StyleSheet.create({
     padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  selectedItemCard: {
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  selectedItemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  selectedItemLabel: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  selectedItemValueContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  selectedItemValue: {
+    fontSize: 14,
+    marginLeft: 8,
   },
 });
 

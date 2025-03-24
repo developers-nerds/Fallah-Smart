@@ -758,7 +758,7 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
   };
 
   const renderPageHeader = () => (
-    <View style={styles.pageHeader}>
+      <View style={styles.pageHeader}>
       <Animated.Text 
         style={[styles.pageTitle, { color: theme.colors.neutral.textPrimary }]}
         entering={FadeInDown.delay(200).springify()}
@@ -800,7 +800,7 @@ export const AddEquipment: React.FC<AddEquipmentScreenProps> = ({ navigation, ro
               >
                 <View style={styles.header}>
                   {renderProgressBar()}
-                </View>
+            </View>
 
                 <View style={[styles.pageContainer, {
                   backgroundColor: theme.colors.neutral.surface,

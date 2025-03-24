@@ -388,7 +388,7 @@ const AddToolScreen: React.FC<AddToolScreenProps> = ({ navigation, route }) => {
               text: 'حسناً',
               onPress: () => {
                 // Navigate back to the tool list screen
-                navigation.goBack();
+      navigation.goBack();
               }
             }
           ]
@@ -469,7 +469,7 @@ const AddToolScreen: React.FC<AddToolScreenProps> = ({ navigation, route }) => {
       : allToolOptions;
 
     return (
-      <View style={[styles.section, { width }]}>
+    <View style={[styles.section, { width }]}>
         <View style={[styles.sectionTitle, { marginBottom: 15 }]}>
           <Text style={[styles.label, { color: theme.colors.neutral.textSecondary, fontSize: 16 }]}>
             اسم الأداة، الكمية، والنوع
@@ -643,36 +643,36 @@ const AddToolScreen: React.FC<AddToolScreenProps> = ({ navigation, route }) => {
           <Text style={{ color: theme.colors.error, marginTop: 5 }}>{errors.name}</Text>
         )}
 
-        <View style={styles.row}>
-          <View style={styles.halfInput}>
-            <TextInput
-              label={`${TOOL_ICONS.basic.quantity} الكمية`}
-              value={values.quantity}
-              onChangeText={(text) => setFieldValue('quantity', text)}
-              keyboardType="numeric"
-              error={touched.quantity && errors.quantity}
-            />
-          </View>
-          <View style={styles.halfInput}>
-            <TextInput
-              label={`${TOOL_ICONS.basic.minQuantity} حد التنبيه`}
-              value={values.minQuantityAlert}
-              onChangeText={(text) => setFieldValue('minQuantityAlert', text)}
-              keyboardType="numeric"
-              error={touched.minQuantityAlert && errors.minQuantityAlert}
-            />
-          </View>
-        </View>
+            <View style={styles.row}>
+              <View style={styles.halfInput}>
+                <TextInput
+            label={`${TOOL_ICONS.basic.quantity} الكمية`}
+                  value={values.quantity}
+                  onChangeText={(text) => setFieldValue('quantity', text)}
+                  keyboardType="numeric"
+                  error={touched.quantity && errors.quantity}
+                />
+              </View>
+              <View style={styles.halfInput}>
+                <TextInput
+            label={`${TOOL_ICONS.basic.minQuantity} حد التنبيه`}
+                  value={values.minQuantityAlert}
+                  onChangeText={(text) => setFieldValue('minQuantityAlert', text)}
+                  keyboardType="numeric"
+                  error={touched.minQuantityAlert && errors.minQuantityAlert}
+                />
+              </View>
+            </View>
 
         {/* Tool condition selector */}
         <View style={styles.conditionSection}>
           <Text style={[styles.label, { color: theme.colors.neutral.textSecondary, fontSize: 18, marginBottom: 10 }]}>
             {TOOL_ICONS.basic.condition} حالة الأداة
-          </Text>
+                </Text>
           
           <View style={styles.conditionRow}>
             {Object.entries(TOOL_CONDITION).map(([key, value]) => (
-              <TouchableOpacity
+          <TouchableOpacity
                 key={key}
                 style={[
                   styles.conditionButton,
@@ -704,13 +704,13 @@ const AddToolScreen: React.FC<AddToolScreenProps> = ({ navigation, route }) => {
                   textAlign: 'center'
                 }}>
                   {value.name}
-                </Text>
-              </TouchableOpacity>
+            </Text>
+          </TouchableOpacity>
             ))}
-          </View>
         </View>
-      </View>
-    );
+              </View>
+            </View>
+  );
   };
 
   const renderPurchaseSection = (values: FormData, setFieldValue: any, errors: any, touched: any) => (
