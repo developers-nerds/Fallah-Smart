@@ -3,7 +3,10 @@ import { useAppSelector } from '../redux/store';
 import axios from 'axios';
 import { 
   PieChart, Pie, Cell, 
-  Tooltip, ResponsiveContainer 
+  Tooltip, ResponsiveContainer,
+  LineChart, Line, XAxis, YAxis,
+  CartesianGrid, Legend, AreaChart,
+  Area, BarChart, Bar
 } from 'recharts';
 
 // Interface for blog data
@@ -25,6 +28,35 @@ interface CategoryData {
   name: string;
   value: number;
 }
+
+// Market price data
+const marketPriceData = [
+  { day: 'Mon', tomatoes: 2.5, potatoes: 1.2, cucumbers: 1.8, onions: 1.4 },
+  { day: 'Tue', tomatoes: 2.4, potatoes: 1.3, cucumbers: 1.7, onions: 1.5 },
+  { day: 'Wed', tomatoes: 2.7, potatoes: 1.1, cucumbers: 1.9, onions: 1.3 },
+  { day: 'Thu', tomatoes: 2.9, potatoes: 1.2, cucumbers: 2.0, onions: 1.4 },
+  { day: 'Fri', tomatoes: 3.1, potatoes: 1.4, cucumbers: 1.8, onions: 1.6 },
+  { day: 'Sat', tomatoes: 3.0, potatoes: 1.5, cucumbers: 1.7, onions: 1.7 },
+  { day: 'Sun', tomatoes: 2.8, potatoes: 1.4, cucumbers: 1.6, onions: 1.5 },
+];
+
+// Weather forecast data
+const weatherData = [
+  { day: 'Today', temp: 28, humidity: 65, condition: 'Sunny', icon: '☀️' },
+  { day: 'Tomorrow', temp: 26, humidity: 70, condition: 'Partly Cloudy', icon: '⛅' },
+  { day: 'Wed', temp: 25, humidity: 75, condition: 'Cloudy', icon: '☁️' },
+  { day: 'Thu', temp: 30, humidity: 60, condition: 'Sunny', icon: '☀️' },
+  { day: 'Fri', temp: 27, humidity: 80, condition: 'Rain', icon: '🌧️' },
+];
+
+// Upcoming tasks data
+const tasksData = [
+  { id: 1, task: 'Fertilize tomato field', due: 'Today', priority: 'High', completed: false },
+  { id: 2, task: 'Irrigation system maintenance', due: 'Tomorrow', priority: 'Medium', completed: false },
+  { id: 3, task: 'Harvest cucumbers', due: 'Wed', priority: 'High', completed: false },
+  { id: 4, task: 'Apply pesticides', due: 'Thu', priority: 'Medium', completed: false },
+  { id: 5, task: 'Equipment inspection', due: 'Fri', priority: 'Low', completed: false },
+];
 
 function Dashboard() {
   const { accessToken } = useAppSelector((state) => state.auth);
@@ -251,7 +283,33 @@ function Dashboard() {
         </div>
         <div className="rounded-lg bg-white p-3 shadow-sm">
           <h2 className="text-lg font-semibold text-[#1A2F2B]">Market Prices</h2>
-          <div className="mt-2 h-40 rounded-lg bg-[#F5F6E8]"></div>
+          <div className="mt-2 h-40">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={marketPriceData}
+                margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="day" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 10 }} />
+                <Tooltip 
+                  contentStyle={{ 
+                    fontSize: '10px', 
+                    padding: '2px 4px',
+                    backgroundColor: 'rgba(255,255,255,0.9)',
+                    borderRadius: '4px',
+                    border: 'none'
+                  }}
+                  formatter={(value) => [`$${value}`, 'Price']}
+                />
+                <Legend wrapperStyle={{ fontSize: '10px' }} />
+                <Line type="monotone" dataKey="tomatoes" stroke="#ff6b6b" dot={{ r: 1 }} strokeWidth={2} />
+                <Line type="monotone" dataKey="potatoes" stroke="#4F7942" dot={{ r: 1 }} strokeWidth={2} />
+                <Line type="monotone" dataKey="cucumbers" stroke="#4ecdc4" dot={{ r: 1 }} strokeWidth={2} />
+                <Line type="monotone" dataKey="onions" stroke="#a78bfa" dot={{ r: 1 }} strokeWidth={2} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </div>
 
@@ -315,11 +373,130 @@ function Dashboard() {
       <div className="mt-6 grid gap-4 md:grid-cols-2">
         <div className="rounded-xl bg-white p-4 shadow-md">
           <h2 className="text-xl font-semibold text-[#1A2F2B]">Weather Forecast</h2>
-          <div className="mt-4 h-48 rounded-lg bg-[#F5F6E8]"></div>
+          <div className="mt-4 h-48">
+            <div className="flex h-full items-center justify-around">
+              {weatherData.map((day, index) => (
+                <div 
+                  key={index} 
+                  className="flex flex-col items-center p-1" 
+                  style={{ 
+                    minWidth: '45px', 
+                    maxWidth: '60px' 
+                  }}
+                >
+                  <div className="text-sm font-medium text-gray-600">{day.day}</div>
+                  <div className="my-1 text-2xl">{day.icon}</div>
+                  <div className="font-bold text-[#1A2F2B]">{day.temp}°C</div>
+                  <div className="mt-1">
+                    <div 
+                      className="h-1 w-full rounded-full bg-blue-100"
+                      style={{ width: '40px' }}
+                    >
+                      <div 
+                        className="h-1 rounded-full bg-blue-500" 
+                        style={{ width: `${day.humidity}%` }}
+                      ></div>
+                    </div>
+                    <div className="mt-1 text-xs text-gray-500">{day.humidity}%</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3">
+              <ResponsiveContainer width="100%" height={60}>
+                <AreaChart
+                  data={weatherData}
+                  margin={{ top: 5, right: 0, left: 0, bottom: 0 }}
+                >
+                  <defs>
+                    <linearGradient id="tempGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#FFB86C" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="#FFB86C" stopOpacity={0.2}/>
+                    </linearGradient>
+                  </defs>
+                  <Area 
+                    type="monotone" 
+                    dataKey="temp" 
+                    stroke="#f9a03f" 
+                    fill="url(#tempGradient)" 
+                    strokeWidth={2}
+                    isAnimationActive={false}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
         </div>
         <div className="rounded-xl bg-white p-4 shadow-md">
           <h2 className="text-xl font-semibold text-[#1A2F2B]">Upcoming Tasks</h2>
-          <div className="mt-4 h-48 rounded-lg bg-[#FDF0F3]"></div>
+          <div className="mt-4 h-48 overflow-y-auto">
+            <div className="space-y-3">
+              {tasksData.map((task) => (
+                <div 
+                  key={task.id} 
+                  className="flex items-center rounded-lg border-l-4 bg-white px-3 py-2 shadow-sm"
+                  style={{ 
+                    borderLeftColor: 
+                      task.priority === 'High' ? '#e53e3e' : 
+                      task.priority === 'Medium' ? '#dd6b20' : 
+                      '#4F7942' 
+                  }}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium text-gray-800">{task.task}</div>
+                    <div className="flex items-center space-x-1">
+                      <span className="truncate text-xs text-gray-500">Due: {task.due}</span>
+                      <span className="text-xs">•</span>
+                      <span 
+                        className="text-xs font-medium"
+                        style={{ 
+                          color: 
+                            task.priority === 'High' ? '#e53e3e' : 
+                            task.priority === 'Medium' ? '#dd6b20' : 
+                            '#4F7942' 
+                        }}
+                      >
+                        {task.priority}
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <svg 
+                      className="h-5 w-5 text-gray-400 hover:text-gray-500" 
+                      fill="none" 
+                      viewBox="0 0 24 24" 
+                      stroke="currentColor"
+                    >
+                      <path 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round" 
+                        strokeWidth={2} 
+                        d="M9 5l7 7-7 7" 
+                      />
+                    </svg>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 flex justify-center">
+              <button className="flex items-center gap-1 rounded-full bg-[#F5F6E8] px-3 py-1 text-xs font-medium text-[#4F7942] hover:bg-[#E8EFD4]">
+                <svg 
+                  className="h-3 w-3" 
+                  fill="none" 
+                  viewBox="0 0 24 24" 
+                  stroke="currentColor"
+                >
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth={2} 
+                    d="M12 6v6m0 0v6m0-6h6m-6 0H6" 
+                  />
+                </svg>
+                Add New Task
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </>

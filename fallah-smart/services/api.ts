@@ -49,11 +49,11 @@ const api = axios.create({
 // Add a request interceptor for logging and throttling
 // Use a simple object instead of Map for tracking requests
 const pendingRequests: Record<string, number> = {};
-const REQUEST_THROTTLE_MS = 3000; // Increased to 3 seconds
+const REQUEST_THROTTLE_MS = 5000; // Increased to 5 seconds from 3 seconds
 
 // Cache for storing recent responses
 const responseCache: Record<string, any> = {};
-const CACHE_TTL = 30000; // Increased cache time to 30 seconds for better reliability
+const CACHE_TTL = 60000; // Increased cache time to 60 seconds from 30 seconds for better reliability
 
 api.interceptors.request.use(
   (config) => {
@@ -69,21 +69,23 @@ api.interceptors.request.use(
       const cachedResponse = responseCache[requestKey];
       
       if (cachedResponse) {
-        console.log(`[API] Throttling duplicate request to ${requestKey}`);
-        console.log(`Request throttled, using cached data from ${now - lastRequestTime}ms ago`);
+        console.log(`[API] Silent throttling for ${requestKey}, using cached data from ${now - lastRequestTime}ms ago`);
         
         // Return the cached response data wrapped in a special object
+        // Use a custom property to indicate this is handled silently
         return Promise.reject({
           throttled: true,
+          silent: true, // Add this flag to indicate this should be handled silently
           message: 'Request throttled to prevent excessive calls',
           cachedData: cachedResponse,
           throttleTime: now - lastRequestTime
         });
       }
       
-      console.log(`[API] Throttling duplicate request to ${requestKey}`);
+      console.log(`[API] Throttling duplicate request to ${requestKey} (silent)`);
       return Promise.reject({
         throttled: true,
+        silent: true, // Add this flag to indicate this should be handled silently
         message: 'Request throttled to prevent excessive calls'
       });
     }
@@ -140,7 +142,7 @@ api.interceptors.response.use(
     try {
       // Handle throttled requests with cached data
       if (error.throttled && error.cachedData) {
-        console.log('Returning cached data for throttled request');
+        console.log('Returning cached data for throttled request (silent)');
         // Return a simulated successful response with cached data
         return Promise.resolve({
           status: 200,
@@ -167,7 +169,7 @@ api.interceptors.response.use(
 );
 
 // Utility function to help with retries
-const withRetry = async <T>(apiCall: () => Promise<T>, maxRetries = 2, delayMs = 1000): Promise<T> => {
+const withRetry = async <T>(apiCall: () => Promise<T>, maxRetries = 3, delayMs = 3000): Promise<T> => {
   let lastError: any;
   let attemptCount = 0;
   
@@ -194,7 +196,7 @@ const withRetry = async <T>(apiCall: () => Promise<T>, maxRetries = 2, delayMs =
       
       // For debugging - log the URL being called
       if (attempt > 0) {
-        const backoffTime = delayMs * Math.pow(1.5, attempt - 1);
+        const backoffTime = delayMs * Math.pow(2, attempt - 1); // Exponential backoff with base of 2
         console.log(`[API] Retry attempt ${attempt}/${maxRetries} after ${backoffTime}ms delay...`);
         // Wait before retry, with exponential backoff
         await new Promise(resolve => setTimeout(resolve, backoffTime));
@@ -211,7 +213,22 @@ const withRetry = async <T>(apiCall: () => Promise<T>, maxRetries = 2, delayMs =
     } catch (error: any) {
       lastError = error;
       
-      // Log the error details
+      // If it's a throttled request and should be handled silently, just use cached data or continue
+      if (error.throttled && error.silent) {
+        // If we got cached data due to throttling, just return that without showing errors
+        if (error.cachedData) {
+          console.log(`[API] Silently using cached data due to throttling`);
+          return error.cachedData;
+        }
+        
+        // If we don't have cached data but it's a silent throttle, wait and retry
+        const retryDelay = 2000 + (Math.random() * 1000); // Add some jitter
+        console.log(`[API] Silent throttle detected, waiting ${retryDelay}ms before retry`);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+        continue; // Skip the error logging and retry
+      }
+      
+      // Log the error details for non-silent errors
       console.error(`[API] Request failed on attempt ${attempt + 1}/${maxRetries + 1}:`, 
         error.response?.status || error.message || 'Unknown error');
       
