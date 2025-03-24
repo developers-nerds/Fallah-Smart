@@ -85,7 +85,7 @@ const MenuItem: React.FC<MenuItemProps> = ({ icon, label, onPress, active, navig
         <MaterialCommunityIcons
           name={icon}
           size={24}
-          color={active ? styles.activeMenuItem.backgroundColor : styles.menuItem.backgroundColor}
+          color={active ? '#ffffff' : '#e0e0e0'}
         />
         <DrawerItem
           label={label}
@@ -93,9 +93,7 @@ const MenuItem: React.FC<MenuItemProps> = ({ icon, label, onPress, active, navig
           labelStyle={[
             styles.menuItemLabel,
             {
-              color: active
-                ? styles.activeMenuItem.backgroundColor
-                : styles.menuItem.backgroundColor,
+              color: active ? '#ffffff' : '#e0e0e0',
             },
           ]}
           style={styles.drawerItem}
@@ -142,7 +140,7 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <MaterialCommunityIcons name="menu" size={24} color={theme.colors.neutral.textPrimary} />
+        <MaterialCommunityIcons name="menu" size={24} color="#ffffff" />
       </View>
 
       <MenuItem
@@ -231,8 +229,8 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
 
       <View style={styles.logoutContainer}>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={24} color={theme.colors.error} />
-          <Text style={[styles.logoutText, { color: theme.colors.error }]}>Logout</Text>
+          <Ionicons name="log-out-outline" size={24} color="#ffffff" />
+          <Text style={[styles.logoutText, { color: "#ffffff" }]}>Logout</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -242,14 +240,14 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.neutral.surface,
+    backgroundColor: '#093731',
     padding: theme.spacing.md,
   },
   header: {
     paddingVertical: 20,
     marginBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderBottomColor: 'rgba(255, 255, 255, 0.2)',
   },
   menuItem: {
     marginVertical: 4,
@@ -257,7 +255,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   activeMenuItem: {
-    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
   },
   menuItemContent: {
     flexDirection: 'row',
@@ -267,13 +265,14 @@ const styles = StyleSheet.create({
   menuItemLabel: {
     fontSize: 16,
     marginLeft: 16,
+    color: '#ffffff',
   },
   drawerItem: {
     flex: 1,
   },
   logoutContainer: {
     borderTopWidth: 1,
-    borderTopColor: '#E6DFD5',
+    borderTopColor: 'rgba(255, 255, 255, 0.2)',
     marginTop: 'auto',
     paddingVertical: 16,
   },
@@ -287,6 +286,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontSize: 16,
     fontFamily: 'Roboto-Medium',
+    color: '#ffffff',
   },
 });
 

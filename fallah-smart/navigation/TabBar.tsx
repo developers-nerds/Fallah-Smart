@@ -124,8 +124,8 @@ const TabBar = () => {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: theme.colors.neutral.surface,
-          borderTopColor: theme.colors.neutral.gray.light,
+          backgroundColor: '#093731',
+          borderTopColor: 'rgba(255, 255, 255, 0.2)',
           borderTopWidth: 1,
           height: 60,
           paddingHorizontal: theme.spacing.md,
@@ -138,8 +138,8 @@ const TabBar = () => {
           shadowOpacity: 0.1,
           shadowRadius: 3,
         },
-        tabBarActiveTintColor: theme.colors.primary.base,
-        tabBarInactiveTintColor: theme.colors.neutral.textSecondary,
+        tabBarActiveTintColor: '#ffffff',
+        tabBarInactiveTintColor: '#e0e0e0',
         tabBarLabelStyle: {
           fontSize: theme.fontSizes.caption,
           marginTop: theme.spacing.xs,
@@ -154,8 +154,8 @@ const TabBar = () => {
               name="home-variant"
               color={
                 props.accessibilityState?.selected
-                  ? theme.colors.primary.base
-                  : theme.colors.neutral.textSecondary
+                  ? '#ffffff'
+                  : '#e0e0e0'
               }
               focused={props.accessibilityState?.selected || false}
               onPress={createTabPressHandler(props.onPress)}
@@ -173,8 +173,8 @@ const TabBar = () => {
               name="post"
               color={
                 props.accessibilityState?.selected
-                  ? theme.colors.primary.base
-                  : theme.colors.neutral.textSecondary
+                  ? '#ffffff'
+                  : '#e0e0e0'
               }
               focused={props.accessibilityState?.selected || false}
               onPress={createTabPressHandler(props.onPress)}
@@ -191,8 +191,8 @@ const TabBar = () => {
               name="account"
               color={
                 props.accessibilityState?.selected
-                  ? theme.colors.primary.base
-                  : theme.colors.neutral.textSecondary
+                  ? '#ffffff'
+                  : '#e0e0e0'
               }
               focused={props.accessibilityState?.selected || false}
               onPress={createTabPressHandler(props.onPress)}
@@ -209,8 +209,8 @@ const TabBar = () => {
               name="cog"
               color={
                 props.accessibilityState?.selected
-                  ? theme.colors.primary.base
-                  : theme.colors.neutral.textSecondary
+                  ? '#ffffff'
+                  : '#e0e0e0'
               }
               focused={props.accessibilityState?.selected || false}
               onPress={createTabPressHandler(props.onPress)}
