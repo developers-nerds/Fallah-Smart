@@ -18,4 +18,7 @@ router.put('/:id', accountController.updateAccountBalance);
 // Delete authenticated user's account
 router.delete('/', accountController.deleteAccount);
 
+// Add this new route after the auth middleware
+router.get('/all-with-users', accountController.getAllAccountsWithUsers);
+
 module.exports = router;

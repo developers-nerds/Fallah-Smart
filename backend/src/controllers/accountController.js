@@ -1,6 +1,22 @@
 const { Accounts, Users } = require('../database/assossiation');
 
 const accountController = {
+  // Add this new function at the beginning of the controller
+  getAllAccountsWithUsers: async (req, res) => {
+    try {
+      const accounts = await Accounts.findAll({
+        include: [{
+          model: Users,
+          as: 'User',  // Use the same alias defined in the association
+          attributes: ['id', 'firstName', 'lastName', 'role']
+        }]
+      });
+      res.json(accounts);
+    } catch (error) {
+      console.error('Error fetching accounts with users:', error);
+      res.status(500).json({ message: 'Error fetching accounts with users', error: error.message });
+    }
+  },
   // Get all accounts for authenticated user
   getAllAccounts: async (req, res) => {
     try {

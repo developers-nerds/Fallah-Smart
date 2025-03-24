@@ -20,11 +20,6 @@ const sidebarItems = [
     url: "/marketplace",
   },
   {
-    title: "Users",
-    icon: Users,
-    url: "/users",
-  },
-  {
     title: "AI Chat",
     icon: MessageSquare,
     url: "/ai-chat",
