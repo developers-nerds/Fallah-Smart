@@ -538,35 +538,37 @@ const AddFeedScreen: React.FC<AddFeedScreenProps> = ({ navigation, route }) => {
                   >
                     {/* Animal Type Selection */}
                     <View style={styles(theme).inputGroup}>
-                  <Text style={[styles(theme).label, { color: theme.colors.neutral.textSecondary }]}>
+                      <Text style={[styles(theme).label, { color: theme.colors.neutral.textSecondary }]}>
                         نوع الحيوان *
-                  </Text>
-                      <View
+                      </Text>
+                      <TouchableOpacity
                         style={[
-                          styles(theme).pickerContainer,
+                          styles(theme).dropdownButton,
                           { 
-                            backgroundColor: theme.colors.neutral.surface,
+                            backgroundColor: theme.colors.neutral.background,
                             borderColor: theme.colors.neutral.border,
-                            borderWidth: 1,
-                            borderRadius: 8,
-                            marginBottom: 12
+                            shadowColor: theme.colors.neutral.textSecondary,
+                            shadowOffset: { width: 0, height: 2 },
+                            shadowOpacity: 0.1,
+                            shadowRadius: 4,
+                            elevation: 2,
                           }
                         ]}
+                        onPress={() => setShowTypeModal(true)}
                       >
-                  <Picker
-                    selectedValue={values.animalType}
-                          onValueChange={(itemValue) => {
-                            setFieldValue('animalType', itemValue);
-                            console.log(`Direct picker selected: ${itemValue}`);
-                          }}
-                          style={{ direction: 'rtl' }}
-                        >
-                          <Picker.Item label="اختر نوع الحيوان" value="" />
-                          {Object.entries(ANIMAL_TYPES).map(([id, animal]) => (
-                            <Picker.Item key={id} label={`${animal.icon} ${animal.name}`} value={animal.name} />
-                          ))}
-                        </Picker>
-                      </View>
+                        {values.animalType ? (
+                          <View style={styles(theme).selectedValueContainer}>
+                            <Text style={[styles(theme).selectedValueText, { color: theme.colors.neutral.textPrimary }]}>
+                              {Object.values(ANIMAL_TYPES).find(animal => animal.name === values.animalType)?.icon || ''} {values.animalType}
+                            </Text>
+                          </View>
+                        ) : (
+                          <Text style={[styles(theme).placeholderText, { color: theme.colors.neutral.textSecondary }]}>
+                            اختر نوع الحيوان
+                          </Text>
+                        )}
+                        <MaterialCommunityIcons name="chevron-down" size={24} color={theme.colors.neutral.textSecondary} />
+                      </TouchableOpacity>
                       {touched.animalType && errors.animalType && (
                         <Text style={{ color: theme.colors.error, fontSize: 12, marginTop: 4 }}>
                           {errors.animalType}
@@ -579,32 +581,34 @@ const AddFeedScreen: React.FC<AddFeedScreenProps> = ({ navigation, route }) => {
                       <Text style={[styles(theme).label, { color: theme.colors.neutral.textSecondary }]}>
                         اسم العلف *
                       </Text>
-                      <View
+                      <TouchableOpacity
                         style={[
-                          styles(theme).pickerContainer,
+                          styles(theme).dropdownButton,
                           { 
-                            backgroundColor: theme.colors.neutral.surface,
+                            backgroundColor: theme.colors.neutral.background,
                             borderColor: theme.colors.neutral.border,
-                            borderWidth: 1,
-                            borderRadius: 8,
-                            marginBottom: 12
+                            shadowColor: theme.colors.neutral.textSecondary,
+                            shadowOffset: { width: 0, height: 2 },
+                            shadowOpacity: 0.1,
+                            shadowRadius: 4,
+                            elevation: 2,
                           }
                         ]}
+                        onPress={() => setShowNameModal(true)}
                       >
-                        <Picker
-                          selectedValue={values.name}
-                          onValueChange={(itemValue) => {
-                            setFieldValue('name', itemValue);
-                            console.log(`Direct picker selected feed: ${itemValue}`);
-                          }}
-                          style={{ direction: 'rtl' }}
-                        >
-                          <Picker.Item label="اختر نوع العلف" value="" />
-                          {Object.entries(FEED_NAMES).map(([id, feed]) => (
-                            <Picker.Item key={id} label={`${feed.icon} ${feed.name}`} value={feed.name} />
-                          ))}
-                        </Picker>
-                      </View>
+                        {values.name ? (
+                          <View style={styles(theme).selectedValueContainer}>
+                            <Text style={[styles(theme).selectedValueText, { color: theme.colors.neutral.textPrimary }]}>
+                              {Object.values(FEED_NAMES).find(feed => feed.name === values.name)?.icon || ''} {values.name}
+                            </Text>
+                          </View>
+                        ) : (
+                          <Text style={[styles(theme).placeholderText, { color: theme.colors.neutral.textSecondary }]}>
+                            اختر نوع العلف
+                          </Text>
+                        )}
+                        <MaterialCommunityIcons name="chevron-down" size={24} color={theme.colors.neutral.textSecondary} />
+                      </TouchableOpacity>
                       {touched.name && errors.name && (
                         <Text style={{ color: theme.colors.error, fontSize: 12, marginTop: 4 }}>
                           {errors.name}
@@ -617,52 +621,41 @@ const AddFeedScreen: React.FC<AddFeedScreenProps> = ({ navigation, route }) => {
                       <Text style={[styles(theme).label, { color: theme.colors.neutral.textSecondary }]}>
                         الوحدة *
                       </Text>
-                      <View style={styles(theme).unitSelectorContainer}>
-                        {Object.entries(UNITS).map(([id, unit]) => (
-                          <TouchableOpacity
-                            key={id}
-                            style={[
-                              styles(theme).unitOption,
-                              { 
-                                backgroundColor: values.unit === unit.name 
-                                  ? theme.colors.primary.base + '20' 
-                                  : theme.colors.neutral.surface,
-                                borderColor: values.unit === unit.name 
-                                  ? theme.colors.primary.base 
-                                  : theme.colors.neutral.border,
-                                shadowColor: theme.colors.neutral.textSecondary,
-                                shadowOffset: { width: 0, height: 2 },
-                                shadowOpacity: 0.1,
-                                shadowRadius: 4,
-                                elevation: 2,
-                              }
-                            ]}
-                            onPress={() => setFieldValue('unit', unit.name)}
-                          >
-                            <View style={[
-                              styles(theme).unitIconContainer, 
-                              { 
-                                backgroundColor: values.unit === unit.name 
-                                  ? theme.colors.primary.base 
-                                  : theme.colors.neutral.background
-                              }
-                            ]}>
-                              <Text style={styles(theme).unitIcon}>{unit.icon}</Text>
-                            </View>
-                            <Text style={[
-                              styles(theme).unitLabel, 
-                              { 
-                                color: values.unit === unit.name 
-                                  ? theme.colors.primary.base 
-                                  : theme.colors.neutral.textPrimary,
-                                fontWeight: values.unit === unit.name ? '600' : 'normal'
-                              }
-                            ]}>
-                              {unit.name}
+                      <TouchableOpacity
+                        style={[
+                          styles(theme).dropdownButton,
+                          { 
+                            backgroundColor: theme.colors.neutral.background,
+                            borderColor: theme.colors.neutral.border,
+                            shadowColor: theme.colors.neutral.textSecondary,
+                            shadowOffset: { width: 0, height: 2 },
+                            shadowOpacity: 0.1,
+                            shadowRadius: 4,
+                            elevation: 2,
+                          }
+                        ]}
+                        onPress={() => setShowUnitModal(true)}
+                      >
+                        {values.unit ? (
+                          <View style={styles(theme).selectedValueContainer}>
+                            <Text style={[styles(theme).selectedValueText, { color: theme.colors.neutral.textPrimary }]}>
+                              {Object.values(UNITS).find(unit => unit.name === values.unit)?.icon || ''} {values.unit}
+                              {Object.values(UNITS).find(unit => unit.name === values.unit)?.abbreviation && 
+                                ` (${Object.values(UNITS).find(unit => unit.name === values.unit)?.abbreviation})`}
                             </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
+                          </View>
+                        ) : (
+                          <Text style={[styles(theme).placeholderText, { color: theme.colors.neutral.textSecondary }]}>
+                            اختر الوحدة
+                          </Text>
+                        )}
+                        <MaterialCommunityIcons name="chevron-down" size={24} color={theme.colors.neutral.textSecondary} />
+                      </TouchableOpacity>
+                      {touched.unit && errors.unit && (
+                        <Text style={{ color: theme.colors.error, fontSize: 12, marginTop: 4 }}>
+                          {errors.unit}
+                        </Text>
+                      )}
                     </View>
 
                 <TextInput
@@ -956,6 +949,293 @@ const AddFeedScreen: React.FC<AddFeedScreenProps> = ({ navigation, route }) => {
                 </View>
               </Modal>
             )}
+
+            {/* Animal Type Modal */}
+            <Modal
+              visible={showTypeModal}
+              transparent
+              animationType="slide"
+              onRequestClose={() => setShowTypeModal(false)}
+            >
+              <View style={styles(theme).modalOverlay}>
+                <View style={[
+                  styles(theme).modalContent,
+                  { backgroundColor: theme.colors.neutral.surface }
+                ]}>
+                  <View style={styles(theme).modalHeader}>
+                    <TouchableOpacity
+                      style={styles(theme).closeButton}
+                      onPress={() => setShowTypeModal(false)}
+                    >
+                      <MaterialCommunityIcons name="close" size={24} color={theme.colors.neutral.textSecondary} />
+                    </TouchableOpacity>
+                    <View style={styles(theme).modalTitleContainer}>
+                      <Text style={[styles(theme).modalTitle, { color: theme.colors.neutral.textPrimary }]}>
+                        اختر نوع الحيوان
+                      </Text>
+                      <Text style={[styles(theme).modalSubtitle, { color: theme.colors.neutral.textSecondary }]}>
+                        حدد نوع الحيوان الذي سيستخدم هذا العلف
+                      </Text>
+                    </View>
+                  </View>
+                  
+                  <ScrollView style={styles(theme).modalBody}>
+                    <View style={styles(theme).categorySection}>
+                      {/* Group animals by category */}
+                      {Object.entries(
+                        Object.values(ANIMAL_TYPES).reduce((acc, animal) => {
+                          if (!acc[animal.category]) {
+                            acc[animal.category] = [];
+                          }
+                          acc[animal.category].push(animal);
+                          return acc;
+                        }, {} as Record<string, AnimalTypeInfo[]>)
+                      ).map(([category, animals]) => (
+                        <View key={category} style={styles(theme).categoryGroup}>
+                          <Text style={[styles(theme).categoryTitle, { color: theme.colors.neutral.textPrimary }]}>
+                            {category}
+                          </Text>
+                          <View style={styles(theme).animalGrid}>
+                            {animals.map((animal) => (
+                              <TouchableOpacity
+                                key={animal.name}
+                                style={[
+                                  styles(theme).animalOption,
+                                  { 
+                                    backgroundColor: values.animalType === animal.name ? 
+                                      theme.colors.primary.base + '20' : theme.colors.neutral.background,
+                                    borderColor: values.animalType === animal.name ? 
+                                      theme.colors.primary.base : theme.colors.neutral.border
+                                  }
+                                ]}
+                                onPress={() => handleAnimalTypeSelect(animal.name)}
+                              >
+                                <View style={[
+                                  styles(theme).animalIconContainer,
+                                  { 
+                                    backgroundColor: values.animalType === animal.name ? 
+                                      theme.colors.primary.base : theme.colors.neutral.surface
+                                  }
+                                ]}>
+                                  <Text style={styles(theme).animalIcon}>{animal.icon}</Text>
+                                </View>
+                                <View style={styles(theme).animalInfo}>
+                                  <Text style={[
+                                    styles(theme).animalName,
+                                    { 
+                                      color: values.animalType === animal.name ? 
+                                        theme.colors.primary.base : theme.colors.neutral.textPrimary,
+                                      fontWeight: values.animalType === animal.name ? '600' : 'normal'
+                                    }
+                                  ]}>
+                                    {animal.name}
+                                  </Text>
+                                </View>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  </ScrollView>
+                </View>
+              </View>
+            </Modal>
+
+            {/* Feed Name Modal */}
+            <Modal
+              visible={showNameModal}
+              transparent
+              animationType="slide"
+              onRequestClose={() => setShowNameModal(false)}
+            >
+              <View style={styles(theme).modalOverlay}>
+                <View style={[
+                  styles(theme).modalContent,
+                  { backgroundColor: theme.colors.neutral.surface }
+                ]}>
+                  <View style={styles(theme).modalHeader}>
+                    <TouchableOpacity
+                      style={styles(theme).closeButton}
+                      onPress={() => setShowNameModal(false)}
+                    >
+                      <MaterialCommunityIcons name="close" size={24} color={theme.colors.neutral.textSecondary} />
+                    </TouchableOpacity>
+                    <View style={styles(theme).modalTitleContainer}>
+                      <Text style={[styles(theme).modalTitle, { color: theme.colors.neutral.textPrimary }]}>
+                        اختر نوع العلف
+                      </Text>
+                      <Text style={[styles(theme).modalSubtitle, { color: theme.colors.neutral.textSecondary }]}>
+                        حدد نوع العلف المناسب
+                      </Text>
+                    </View>
+                  </View>
+                  
+                  <ScrollView style={styles(theme).modalBody}>
+                    <View style={styles(theme).categorySection}>
+                      {/* Group feeds by category */}
+                      {Object.entries(
+                        Object.values(FEED_NAMES).reduce((acc, feed) => {
+                          if (!acc[feed.category]) {
+                            acc[feed.category] = [];
+                          }
+                          acc[feed.category].push(feed);
+                          return acc;
+                        }, {} as Record<string, FeedNameInfo[]>)
+                      ).map(([category, feeds]) => (
+                        <View key={category} style={styles(theme).categoryGroup}>
+                          <Text style={[styles(theme).categoryTitle, { color: theme.colors.neutral.textPrimary }]}>
+                            {category}
+                          </Text>
+                          <View style={styles(theme).animalGrid}>
+                            {feeds.map((feed) => (
+                              <TouchableOpacity
+                                key={feed.name}
+                                style={[
+                                  styles(theme).animalOption,
+                                  { 
+                                    backgroundColor: values.name === feed.name ? 
+                                      theme.colors.primary.base + '20' : theme.colors.neutral.background,
+                                    borderColor: values.name === feed.name ? 
+                                      theme.colors.primary.base : theme.colors.neutral.border
+                                  }
+                                ]}
+                                onPress={() => handleFeedNameSelect(feed.name)}
+                              >
+                                <View style={[
+                                  styles(theme).animalIconContainer,
+                                  { 
+                                    backgroundColor: values.name === feed.name ? 
+                                      theme.colors.primary.base : theme.colors.neutral.surface
+                                  }
+                                ]}>
+                                  <Text style={styles(theme).animalIcon}>{feed.icon}</Text>
+                                </View>
+                                <View style={styles(theme).animalInfo}>
+                                  <Text style={[
+                                    styles(theme).animalName,
+                                    { 
+                                      color: values.name === feed.name ? 
+                                        theme.colors.primary.base : theme.colors.neutral.textPrimary,
+                                      fontWeight: values.name === feed.name ? '600' : 'normal'
+                                    }
+                                  ]}>
+                                    {feed.name}
+                                  </Text>
+                                </View>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  </ScrollView>
+                </View>
+              </View>
+            </Modal>
+
+            {/* Unit Modal */}
+            <Modal
+              visible={showUnitModal}
+              transparent
+              animationType="slide"
+              onRequestClose={() => setShowUnitModal(false)}
+            >
+              <View style={styles(theme).modalOverlay}>
+                <View style={[
+                  styles(theme).modalContent,
+                  { backgroundColor: theme.colors.neutral.surface }
+                ]}>
+                  <View style={styles(theme).modalHeader}>
+                    <TouchableOpacity
+                      style={styles(theme).closeButton}
+                      onPress={() => setShowUnitModal(false)}
+                    >
+                      <MaterialCommunityIcons name="close" size={24} color={theme.colors.neutral.textSecondary} />
+                    </TouchableOpacity>
+                    <View style={styles(theme).modalTitleContainer}>
+                      <Text style={[styles(theme).modalTitle, { color: theme.colors.neutral.textPrimary }]}>
+                        اختر الوحدة
+                      </Text>
+                      <Text style={[styles(theme).modalSubtitle, { color: theme.colors.neutral.textSecondary }]}>
+                        حدد وحدة قياس العلف
+                      </Text>
+                    </View>
+                  </View>
+                  
+                  <ScrollView style={styles(theme).modalBody}>
+                    <View style={styles(theme).categorySection}>
+                      {/* Group units by category */}
+                      {Object.entries(
+                        Object.values(UNITS).reduce((acc, unit) => {
+                          if (!acc[unit.category]) {
+                            acc[unit.category] = [];
+                          }
+                          acc[unit.category].push(unit);
+                          return acc;
+                        }, {} as Record<string, UnitInfo[]>)
+                      ).map(([category, units]) => (
+                        <View key={category} style={styles(theme).categoryGroup}>
+                          <Text style={[styles(theme).categoryTitle, { color: theme.colors.neutral.textPrimary }]}>
+                            {category}
+                          </Text>
+                          <View style={styles(theme).animalGrid}>
+                            {units.map((unit) => (
+                              <TouchableOpacity
+                                key={unit.name}
+                                style={[
+                                  styles(theme).animalOption,
+                                  { 
+                                    backgroundColor: values.unit === unit.name ? 
+                                      theme.colors.primary.base + '20' : theme.colors.neutral.background,
+                                    borderColor: values.unit === unit.name ? 
+                                      theme.colors.primary.base : theme.colors.neutral.border
+                                  }
+                                ]}
+                                onPress={() => handleUnitSelect(unit.name)}
+                              >
+                                <View style={[
+                                  styles(theme).animalIconContainer,
+                                  { 
+                                    backgroundColor: values.unit === unit.name ? 
+                                      theme.colors.primary.base : theme.colors.neutral.surface
+                                  }
+                                ]}>
+                                  <Text style={styles(theme).animalIcon}>{unit.icon}</Text>
+                                </View>
+                                <View style={styles(theme).animalInfo}>
+                                  <Text style={[
+                                    styles(theme).animalName,
+                                    { 
+                                      color: values.unit === unit.name ? 
+                                        theme.colors.primary.base : theme.colors.neutral.textPrimary,
+                                      fontWeight: values.unit === unit.name ? '600' : 'normal'
+                                    }
+                                  ]}>
+                                    {unit.name}
+                                  </Text>
+                                  {unit.abbreviation && (
+                                    <Text style={[
+                                      styles(theme).unitAbbreviation,
+                                      {
+                                        color: values.unit === unit.name ? 
+                                          theme.colors.primary.base : theme.colors.neutral.textSecondary
+                                      }
+                                    ]}>
+                                      {unit.abbreviation}
+                                    </Text>
+                                  )}
+                                </View>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  </ScrollView>
+                </View>
+              </View>
+            </Modal>
           </View>
         )}
       </Formik>
@@ -1259,6 +1539,29 @@ const styles = (theme: Theme) => StyleSheet.create({
     flex: 1,
     fontSize: 14,
     textAlign: 'right',
+  },
+  dropdownButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    height: 50,
+    marginBottom: 16,
+  },
+  selectedValueContainer: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  selectedValueText: {
+    fontSize: 16,
+    textAlign: 'right',
+  },
+  placeholderText: {
+    fontSize: 16,
+    textAlign: 'right',
+    flex: 1,
   },
 });
 

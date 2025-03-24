@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,30 +7,29 @@ import {
   FlatList,
   ActivityIndicator,
   RefreshControl,
-  SafeAreaView,
-  StatusBar,
-  I18nManager,
-  Platform,
-  TextInput,
-  ScrollView,
-  Alert,
   Dimensions,
+  StatusBar,
+  Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useTheme } from '../../../context/ThemeContext';
-import { useHarvest } from '../../../context/HarvestContext';
 import { StockHarvest } from '../types';
 import { StockStackParamList } from '../../../navigation/types';
-import { Button } from '../../../components/Button';
-import axios from 'axios';
 import { storage } from '../../../utils/storage';
 import { useAuth } from '../../../context/AuthContext';
-import Animated, { FadeInDown, FadeIn, FadeInRight } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
+import { useFocusEffect } from '@react-navigation/native';
 import { API_URL } from '../../../config/api';
 import { withRetry } from '../../../services/api';
+import axios from 'axios';
+import { SearchBar } from '../../../components/SearchBar';
+import { FAB } from '../../../components/FAB';
+import { createThemedStyles } from '../../../utils/createThemedStyles';
 
 // Force RTL layout
+import { I18nManager } from 'react-native';
 I18nManager.allowRTL(true);
 I18nManager.forceRTL(true);
 
@@ -77,12 +76,12 @@ const HARVEST_TYPES: Record<string, HarvestType> = {
 
 // Simplify the category structure for more reliable filtering
 const HARVEST_CATEGORIES = {
-  'all': { icon: '🌱', name: 'الكل', category: 'all' },
-  'vegetable': { icon: '🥕', name: 'خضروات', category: 'vegetable' },
-  'fruit': { icon: '🍎', name: 'فواكه', category: 'fruit' },
-  'grain': { icon: '🌾', name: 'حبوب', category: 'grain' },
-  'herb': { icon: '🌿', name: 'أعشاب', category: 'herb' },
-  'other': { icon: '🧺', name: 'أخرى', category: 'other' },
+  'all': { icon: '🌱', name: 'الكل', category: 'all', color: '#4CAF50' },
+  'vegetable': { icon: '🥕', name: 'خضروات', category: 'vegetable', color: '#2196F3' },
+  'fruit': { icon: '🍎', name: 'فواكه', category: 'fruit', color: '#F44336' },
+  'grain': { icon: '🌾', name: 'حبوب', category: 'grain', color: '#FF9800' },
+  'herb': { icon: '🌿', name: 'أعشاب', category: 'herb', color: '#8BC34A' },
+  'other': { icon: '🧺', name: 'أخرى', category: 'other', color: '#9E9E9E' },
 };
 
 const UNIT_TYPES = {
@@ -107,17 +106,16 @@ const HarvestListScreen: React.FC<HarvestListScreenProps> = ({ navigation }) => 
   const { user } = useAuth();
   
   const [harvests, setHarvests] = useState<StockHarvest[]>([]);
-  const [filteredHarvests, setFilteredHarvests] = useState<StockHarvest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [visibleItems, setVisibleItems] = useState(ITEMS_PER_PAGE);
+  const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
-  const fetchHarvests = useCallback(async (refresh = false) => {
+  const fetchHarvests = useCallback(async (showRefresh = false) => {
     try {
-      if (!refresh) {
+      if (!showRefresh) {
         setLoading(true);
       }
       setError(null);
@@ -126,6 +124,8 @@ const HarvestListScreen: React.FC<HarvestListScreenProps> = ({ navigation }) => 
       if (!tokens?.access) {
         console.error('No authentication token available');
         setError('يرجى تسجيل الدخول أولا');
+        setLoading(false);
+        setRefreshing(false);
         return;
       }
       
@@ -138,8 +138,14 @@ const HarvestListScreen: React.FC<HarvestListScreenProps> = ({ navigation }) => 
       }, 2, 1500);
       
       if (response.data) {
-        setHarvests(response.data);
-        setFilteredHarvests(response.data);
+        // Sort by date (newest first)
+        const sortedData = [...response.data].sort((a, b) => {
+          const dateA = new Date(a.updatedAt || a.createdAt || a.harvestDate);
+          const dateB = new Date(b.updatedAt || b.createdAt || b.harvestDate);
+          return dateB.getTime() - dateA.getTime();
+        });
+        setHarvests(sortedData);
+        setPage(1);
       }
     } catch (err) {
       console.error('Error fetching harvests:', err);
@@ -154,185 +160,86 @@ const HarvestListScreen: React.FC<HarvestListScreenProps> = ({ navigation }) => 
     }
   }, []);
 
-  useEffect(() => {
-    fetchHarvests();
-  }, [fetchHarvests]);
+  // Refresh harvests when the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchHarvests();
+      return () => {
+        // Cleanup when screen is unfocused
+      };
+    }, [fetchHarvests])
+  );
 
-  useEffect(() => {
-    // Always start with the full list of harvests
-    let filtered = [...harvests];
-    
-    // Log for debugging
-    console.log('Total harvests:', harvests.length, 'Selected category:', selectedCategory);
-    if (harvests.length > 0) {
-      console.log('Sample item:', JSON.stringify(harvests[0]));
-    }
-    
-    // Apply search filter if there's a search query
-    if (searchQuery) {
-      filtered = filtered.filter(item => 
-        item.cropName.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-    
-    // Apply category filter if not showing all
-    if (selectedCategory !== 'all') {
-      // More flexible filtering approach
-      filtered = filtered.filter(item => {
-        // First check exact type match
-        if (item.type === selectedCategory) {
-          return true;
-        }
+  const handleRefresh = useCallback(() => {
+    if (refreshing) return;
+    setRefreshing(true);
+    fetchHarvests(true);
+  }, [fetchHarvests, refreshing]);
+
+  const handleSearchChange = useCallback((text: string) => {
+    setSearchQuery(text);
+    setPage(1);
+  }, []);
+
+  const filteredHarvests = useMemo(() => {
+    return harvests.filter(item => {
+      const matchesSearch = item.cropName.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      if (selectedCategory === 'all') return matchesSearch;
+      
+      // Check for category match using our category definitions
+      if (['vegetable', 'fruit', 'grain', 'herb', 'other'].includes(selectedCategory)) {
+        // Check if the type matches a category directly
+        if (item.type === selectedCategory) return matchesSearch;
         
-        // Check if it's a main category and the item belongs to it
-        if (['vegetable', 'fruit', 'grain', 'herb', 'other'].includes(selectedCategory)) {
-          // Check main category match (for backward compatibility)
-          if (item.type === selectedCategory) {
-            return true;
-          }
-          
-          // Check against our mapping
-          const itemType = HARVEST_TYPES[item.type];
-          if (itemType && itemType.category === selectedCategory) {
-            return true;
-          }
-          
-          // Try to infer category from the crop name
-          const cropNameLower = item.cropName.toLowerCase();
-          
-          // Vegetables
-          if (selectedCategory === 'vegetable' && 
-              (cropNameLower.includes('خضروات') || 
-               cropNameLower.includes('طماطم') || 
-               cropNameLower.includes('خيار') || 
-               cropNameLower.includes('بطاطا') ||
-               cropNameLower.includes('جزر') ||
-               cropNameLower.includes('بصل') ||
-               cropNameLower.includes('ثوم') ||
-               cropNameLower.includes('فلفل') ||
-               cropNameLower.includes('باذنجان'))) {
-            return true;
-          }
-          
-          // Fruits
-          if (selectedCategory === 'fruit' && 
-              (cropNameLower.includes('فواكه') || 
-               cropNameLower.includes('تفاح') || 
-               cropNameLower.includes('برتقال') ||
-               cropNameLower.includes('موز') ||
-               cropNameLower.includes('عنب') ||
-               cropNameLower.includes('فراولة'))) {
-            return true;
-          }
-          
-          // Grains
-          if (selectedCategory === 'grain' && 
-              (cropNameLower.includes('حبوب') || 
-               cropNameLower.includes('قمح') || 
-               cropNameLower.includes('أرز') ||
-               cropNameLower.includes('شعير'))) {
-            return true;
-          }
-          
-          // Herbs
-          if (selectedCategory === 'herb' && 
-              (cropNameLower.includes('أعشاب') || 
-               cropNameLower.includes('نعناع') || 
-               cropNameLower.includes('بقدونس') ||
-               cropNameLower.includes('كزبرة'))) {
-            return true;
-          }
-        } else {
-          // For specific types (like tomato, apple), match by name as well
-          const typeInfo = HARVEST_TYPES[selectedCategory];
-          if (typeInfo && item.cropName.toLowerCase().includes(typeInfo.name.toLowerCase())) {
-            return true;
-          }
-        }
+        // Check if the type is in our mapping
+        const itemType = HARVEST_TYPES[item.type];
+        if (itemType && itemType.category === selectedCategory) return matchesSearch;
         
-        return false;
-      });
-    }
-    
-    console.log('Filtered results:', filtered.length);
-    
-    // Sort harvests by date (newest first)
-    filtered.sort((a, b) => {
-      const dateA = new Date(a.harvestDate);
-      const dateB = new Date(b.harvestDate);
-      return dateB.getTime() - dateA.getTime();
+        // Fallback to crop name check
+        const cropNameLower = item.cropName.toLowerCase();
+        
+        // Simple category-based text matching as fallback
+        switch (selectedCategory) {
+          case 'vegetable':
+            return matchesSearch && (
+              cropNameLower.includes('خضروات') || 
+              cropNameLower.includes('طماطم') || 
+              cropNameLower.includes('خيار') || 
+              cropNameLower.includes('بطاطا')
+            );
+          case 'fruit':
+            return matchesSearch && (
+              cropNameLower.includes('فواكه') || 
+              cropNameLower.includes('تفاح') || 
+              cropNameLower.includes('برتقال')
+            );
+          case 'grain':
+            return matchesSearch && (
+              cropNameLower.includes('حبوب') || 
+              cropNameLower.includes('قمح') || 
+              cropNameLower.includes('أرز')
+            );
+          case 'herb':
+            return matchesSearch && (
+              cropNameLower.includes('أعشاب') || 
+              cropNameLower.includes('نعناع')
+            );
+          case 'other':
+            return matchesSearch;
+          default:
+            return false;
+        }
+      }
+      
+      // For specific types, check if the type matches
+      return matchesSearch && item.type === selectedCategory;
     });
-    
-    setFilteredHarvests(filtered);
-    setVisibleItems(ITEMS_PER_PAGE);
   }, [harvests, searchQuery, selectedCategory]);
 
-  const handleRefresh = () => {
-    fetchHarvests(true);
-  };
-
-  const handleSearch = (text: string) => {
-    setSearchQuery(text);
-  };
-
-  const loadMoreItems = () => {
-    setVisibleItems(prev => prev + ITEMS_PER_PAGE);
-  };
-
-  const renderCategoryButtons = () => {
-    return (
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false} 
-        style={styles.categoriesContainer}
-        contentContainerStyle={styles.categoriesContent}
-      >
-        {Object.keys(HARVEST_CATEGORIES).map((key, index) => {
-          const category = HARVEST_CATEGORIES[key];
-          const isSelected = selectedCategory === key;
-          
-          return (
-            <Animated.View 
-              key={key} 
-              entering={FadeInRight.delay(50 * index).springify()}
-            >
-      <TouchableOpacity
-                style={[
-                  styles.categoryButton,
-                  {
-                    backgroundColor: isSelected 
-                      ? theme.colors.primary.base 
-                      : theme.colors.neutral.surface,
-                    borderColor: isSelected 
-                      ? theme.colors.primary.base 
-                      : theme.colors.neutral.border,
-                  },
-                ]}
-                onPress={() => setSelectedCategory(key)}
-              >
-                <Text style={styles.categoryIcon}>
-                  {category.icon}
-                </Text>
-                <Text
-                  style={[
-                    styles.categoryText,
-                    {
-                      color: isSelected 
-                        ? 'white' 
-                        : theme.colors.neutral.textSecondary,
-                      fontWeight: isSelected ? 'bold' : 'normal',
-                    },
-                  ]}
-                >
-                  {category.name}
-                </Text>
-              </TouchableOpacity>
-            </Animated.View>
-          );
-        })}
-      </ScrollView>
-    );
-  };
+  const paginatedHarvests = useMemo(() => {
+    return filteredHarvests.slice(0, page * ITEMS_PER_PAGE);
+  }, [filteredHarvests, page]);
 
   const getTypeIcon = (item: StockHarvest) => {
     // Check if the item type matches any of our predefined types directly
@@ -361,495 +268,654 @@ const HarvestListScreen: React.FC<HarvestListScreenProps> = ({ navigation }) => 
       return HARVEST_CATEGORIES[item.type].icon;
     }
     
-    // Default fallback icons based on common types
-    if (item.type === 'vegetable') return '🥕';
-    if (item.type === 'fruit') return '🍎';
-    if (item.type === 'grain') return '🌾';
-    if (item.type === 'herb') return '🌿';
-    
     // Final default
     return '🌱';
   };
 
-  const renderItem = ({ item, index }: { item: StockHarvest, index: number }) => {
+  const getTypeColor = (item: StockHarvest): string => {
+    // Try to get category from the type
+    let category = item.type;
+    
+    // Check if the item type is a specific item type (like tomato)
+    if (HARVEST_TYPES[item.type] && HARVEST_TYPES[item.type].category) {
+      category = HARVEST_TYPES[item.type].category;
+    }
+    
+    // Return the color for this category
+    return HARVEST_CATEGORIES[category]?.color || HARVEST_CATEGORIES.other.color;
+  };
+
+  const getTypeName = (item: StockHarvest): string => {
+    // First check if it's a direct category
+    if (HARVEST_CATEGORIES[item.type]) {
+      return HARVEST_CATEGORIES[item.type].name;
+    }
+    
+    // Check if it's a specific type
+    if (HARVEST_TYPES[item.type]) {
+      return HARVEST_TYPES[item.type].name;
+    }
+    
+    // Fallback to cropName
+    return item.cropName;
+  };
+
+  const renderTypeChip = useCallback(({ item }: { item: string }) => {
+    const category = HARVEST_CATEGORIES[item];
+    const isSelected = selectedCategory === item;
+    
+    return (
+      <TouchableOpacity
+        style={[
+          styles.typeChip,
+          { 
+            backgroundColor: isSelected ? category.color : theme.colors.neutral.surface,
+            borderColor: isSelected ? category.color : theme.colors.neutral.border,
+            ...Platform.select({
+              ios: isSelected ? {
+                shadowColor: category.color,
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.3,
+                shadowRadius: 3,
+              } : {},
+              android: isSelected ? {
+                elevation: 2,
+              } : {},
+            }),
+          }
+        ]}
+        onPress={() => setSelectedCategory(isSelected ? 'all' : item)}
+      >
+        <Text style={styles.typeIcon}>{category.icon}</Text>
+        <Text style={[
+          styles.typeText,
+          { color: isSelected ? '#FFF' : theme.colors.neutral.textSecondary }
+        ]}>
+          {category.name}
+        </Text>
+        {isSelected && (
+          <MaterialCommunityIcons 
+            name="close-circle" 
+            size={16} 
+            color="#FFF" 
+          />
+        )}
+      </TouchableOpacity>
+    );
+  }, [selectedCategory, theme]);
+
+  const renderHarvestCard = useCallback(({ item, index }: { item: StockHarvest; index: number }) => {
     const isLowStock = item.minQuantityAlert !== undefined && 
       item.minQuantityAlert > 0 && 
       item.quantity <= item.minQuantityAlert;
 
     const isExpired = item.expiryDate && new Date(item.expiryDate) <= new Date();
-
-    // Format date to English format (MM/DD/YYYY)
-    const formatDate = (dateString: string | Date) => {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: '2-digit', 
-        day: '2-digit' 
-      });
-    };
+    const typeColor = getTypeColor(item);
 
     return (
       <Animated.View 
-        entering={FadeInDown.delay(100 * Math.min(index % 10, 5)).springify()}
-        style={styles.itemAnimatedContainer}
+        entering={FadeInDown.delay(index * 50).springify().damping(12)}
+        style={[
+          styles.card,
+          { 
+            backgroundColor: theme.colors.neutral.surface,
+            ...Platform.select({
+              ios: {
+                shadowColor: theme.colors.neutral.textPrimary,
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.12,
+                shadowRadius: 6,
+              },
+              android: {
+                elevation: 3,
+              },
+            }),
+          }
+        ]}
       >
         <TouchableOpacity
-          style={[styles.itemContainer, { 
-            backgroundColor: theme.colors.neutral.surface,
-            borderLeftWidth: 6,
-            borderLeftColor: isLowStock 
-              ? theme.colors.warning 
-              : isExpired
-                ? theme.colors.error
-                : theme.colors.success
-          }]}
+          style={styles.cardContent}
           onPress={() => navigation.navigate('HarvestDetail', { harvestId: item.id })}
+          activeOpacity={0.7}
         >
-          <View style={styles.itemContent}>
-            <View style={styles.itemIconContainer}>
-              <Text style={styles.itemIconText}>{getTypeIcon(item)}</Text>
+          <View style={styles.cardHeader}>
+            <View style={[
+              styles.iconContainer,
+              { backgroundColor: typeColor + '20' }
+            ]}>
+              <Text style={[styles.harvestIcon, { color: typeColor }]}>
+                {getTypeIcon(item)}
+              </Text>
             </View>
             
-            <View style={styles.itemInfo}>
-              <Text style={[styles.itemName, { color: theme.colors.neutral.textPrimary }]}>
+            <View style={styles.headerInfo}>
+              <Text style={[styles.harvestName, { color: theme.colors.neutral.textPrimary }]}>
                 {item.cropName}
               </Text>
-              
-              <View style={styles.itemDetails}>
-                <View style={styles.detailItem}>
-                  <MaterialCommunityIcons name="scale" size={20} color={theme.colors.neutral.textSecondary} />
-                  <Text style={[styles.detailText, { color: theme.colors.neutral.textSecondary }]}>
-                    {item.quantity} {UNIT_TYPES[item.unit]?.abbreviation || item.unit}
-            </Text>
+              <View style={styles.subtitleContainer}>
+                <Text style={[styles.harvestType, { color: typeColor }]}>
+                  {getTypeName(item)}
+                </Text>
+                
+                {item.storageLocation && (
+                  <View style={styles.locationContainer}>
+                    <MaterialCommunityIcons name="warehouse" size={14} color={theme.colors.neutral.textSecondary} />
+                    <Text style={[styles.locationText, { color: theme.colors.neutral.textSecondary }]}>
+                      {item.storageLocation}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            {item.quality === 'premium' && (
+              <View style={[styles.qualityBadge, { backgroundColor: theme.colors.success + '90' }]}>
+                <Text style={styles.qualityIcon}>⭐⭐⭐</Text>
+                <Text style={styles.qualityText}>ممتاز</Text>
+              </View>
+            )}
           </View>
 
-                <View style={styles.detailItem}>
-                  <MaterialCommunityIcons name="cash" size={20} color={theme.colors.neutral.textSecondary} />
-                  <Text style={[styles.detailText, { color: theme.colors.neutral.textSecondary }]}>
-              {item.price} د.أ
-            </Text>
-                </View>
-          </View>
+          <View style={styles.cardFooter}>
+            <View style={styles.quantityContainer}>
+              <Text style={[styles.quantity, { 
+                color: isLowStock ? theme.colors.error : theme.colors.neutral.textPrimary 
+              }]}>
+                {item.quantity}
+              </Text>
+              <Text style={[styles.unit, { color: theme.colors.neutral.textSecondary }]}>
+                {UNIT_TYPES[item.unit]?.abbreviation || item.unit}
+              </Text>
+            </View>
 
-              <View style={styles.dateContainer}>
-                <MaterialCommunityIcons name="calendar" size={20} color={theme.colors.neutral.textSecondary} />
-                <Text style={[styles.dateText, { color: theme.colors.neutral.textSecondary }]}>
-                  {formatDate(item.harvestDate)}
-            </Text>
-          </View>
-        </View>
-
-            <View style={styles.itemActions}>
-              {isLowStock && (
-                <View style={[styles.alertBadge, { backgroundColor: theme.colors.warning + '20' }]}>
-                  <Text style={[styles.alertText, { color: theme.colors.warning }]}>
-                    ⚠️ المخزون منخفض
-                  </Text>
-                </View>
-              )}
-              {isExpired && (
-                <View style={[styles.alertBadge, { backgroundColor: theme.colors.error + '20' }]}>
-                  <Text style={[styles.alertText, { color: theme.colors.error }]}>
-                    ⚠️ انتهت الصلاحية
-            </Text>
-          </View>
-        )}
-              <MaterialCommunityIcons
-                name="chevron-left"
-                size={28}
-                color={theme.colors.neutral.textSecondary}
+            {isLowStock && (
+              <View style={[styles.statusBadge, { backgroundColor: theme.colors.error + '20' }]}>
+                <MaterialCommunityIcons 
+                  name="alert" 
+                  size={16} 
+                  color={theme.colors.error} 
+                />
+                <Text style={[styles.statusText, { color: theme.colors.error }]}>
+                  مخزون منخفض
+                </Text>
+              </View>
+            )}
+            
+            <View style={styles.dateContainer}>
+              <MaterialCommunityIcons 
+                name="calendar" 
+                size={16} 
+                color={theme.colors.neutral.textSecondary} 
               />
+              <Text style={[styles.dateText, { color: theme.colors.neutral.textSecondary }]}>
+                {new Date(item.harvestDate).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit'
+                })}
+              </Text>
             </View>
           </View>
         </TouchableOpacity>
       </Animated.View>
     );
-  };
+  }, [theme, navigation]);
 
-  const renderEmpty = () => {
-    if (loading) return null;
-    return (
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyIcon}>🌾</Text>
-        <Text style={[styles.emptyText, { color: theme.colors.neutral.textSecondary }]}>
-          لا توجد محاصيل متاحة
-        </Text>
-        <Text style={[styles.emptySubText, { color: theme.colors.neutral.textTertiary || '#9e9e9e' }]}>
-          قم بإضافة محصول جديد للبدء
-        </Text>
-        <Button 
-          title="إضافة محصول جديد" 
-          onPress={() => navigation.navigate('AddHarvest')} 
-          style={styles.addButton}
-        />
-      </View>
-    );
-  };
-
-  const renderSeeMoreButton = () => {
-    if (filteredHarvests.length <= visibleItems) {
+  const renderSeeMoreButton = useCallback(() => {
+    if (paginatedHarvests.length >= filteredHarvests.length) {
       return null;
     }
     
     return (
       <TouchableOpacity 
-        style={[styles.seeMoreButton, { backgroundColor: theme.colors.primary.surface }]}
-        onPress={loadMoreItems}
+        style={[styles.seeMoreButton, { backgroundColor: theme.colors.primary.base }]}
+        onPress={() => setPage(prev => prev + 1)}
       >
-        <Text style={[styles.seeMoreText, { color: theme.colors.primary.base }]}>
-          عرض المزيد من المحاصيل
-        </Text>
-        <MaterialCommunityIcons name="chevron-down" size={24} color={theme.colors.primary.base} />
+        <Text style={styles.seeMoreText}>عرض المزيد</Text>
+        <MaterialCommunityIcons name="chevron-down" size={20} color="#FFF" />
       </TouchableOpacity>
     );
-  };
+  }, [paginatedHarvests.length, filteredHarvests.length, theme, page]);
+
+  const renderHeader = useCallback(() => (
+    <Animated.View entering={FadeIn.duration(300).springify()}>
+      <View style={[styles.searchContainer, { 
+        borderBottomWidth: 0,
+        paddingBottom: theme.spacing?.sm || 8,
+      }]}>
+        <SearchBar
+          value={searchQuery}
+          onChangeText={handleSearchChange}
+          placeholder="ابحث عن المحاصيل..."
+          style={[styles.searchBar, {
+            backgroundColor: theme.colors.neutral.background,
+            ...Platform.select({
+              ios: {
+                shadowColor: theme.colors.neutral.textPrimary,
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.1,
+                shadowRadius: 4,
+              },
+              android: {
+                elevation: 2,
+              },
+            }),
+          }]}
+        />
+      </View>
+      <View style={{paddingBottom: theme.spacing?.sm || 8}}>
+        <FlatList
+          data={Object.keys(HARVEST_CATEGORIES)}
+          renderItem={renderTypeChip}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.typesList}
+          contentContainerStyle={styles.typesContent}
+          keyExtractor={item => item}
+          keyboardShouldPersistTaps="always"
+        />
+      </View>
+    </Animated.View>
+  ), [searchQuery, renderTypeChip, theme, handleSearchChange]);
+
+  const styles = createThemedStyles((theme) => {
+    // Define fallback values for typography to prevent undefined errors
+    const getTypographySize = (typePath: string, fallback: number) => {
+      try {
+        const paths = typePath.split('.');
+        let result: any = theme; // Type as any to avoid index signature errors
+        for (const path of paths) {
+          if (!result || result[path] === undefined) return fallback;
+          result = result[path];
+        }
+        return result;
+      } catch (e) {
+        return fallback;
+      }
+    };
+
+    return {
+      container: {
+        flex: 1,
+        backgroundColor: theme.colors.neutral.background,
+      },
+      header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingTop: Platform.OS === 'ios' ? 44 : StatusBar.currentHeight,
+        paddingHorizontal: theme.spacing?.md || 16,
+        paddingBottom: theme.spacing?.md || 16,
+        backgroundColor: theme.colors.neutral.surface,
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.neutral.border,
+      },
+      headerTitle: {
+        fontSize: getTypographySize('typography.arabic.h2.fontSize', 32),
+        fontWeight: '600',
+        color: theme.colors.neutral.textPrimary,
+      },
+      searchContainer: {
+        padding: theme.spacing?.md || 16,
+        paddingBottom: theme.spacing?.xs || 8,
+        backgroundColor: theme.colors.neutral.surface,
+      },
+      searchBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderRadius: theme.borderRadius?.pill || 50, // More rounded search bar
+        paddingHorizontal: theme.spacing?.md || 16,
+        height: 40,
+      },
+      searchInput: {
+        flex: 1,
+        fontSize: getTypographySize('typography.arabic.body.fontSize', 20),
+        color: theme.colors.neutral.textPrimary,
+        textAlign: 'right',
+        paddingHorizontal: theme.spacing?.sm || 8,
+      },
+      searchIcon: {
+        fontSize: getTypographySize('typography.arabic.body.fontSize', 20),
+        color: theme.colors.neutral.textSecondary,
+      },
+      typeFilters: {
+        flexDirection: 'row',
+        gap: theme.spacing?.sm || 8,
+      },
+      typeChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: theme.spacing?.md || 16,
+        paddingVertical: theme.spacing?.xs || 8,
+        borderRadius: theme.borderRadius?.pill || 50, // More rounded for better appearance
+        gap: theme.spacing?.xs || 4,
+        borderWidth: 1,
+        marginHorizontal: 4,
+      },
+      typeChipSelected: {
+        ...theme.shadows?.small,
+      },
+      typeIcon: {
+        fontSize: getTypographySize('typography.arabic.body.fontSize', 20),
+      },
+      typeText: {
+        fontSize: getTypographySize('typography.arabic.caption.fontSize', 18),
+        fontWeight: '500',
+      },
+      content: {
+        flex: 1,
+      },
+      listContent: {
+        padding: theme.spacing?.md || 16,
+        gap: theme.spacing?.md || 16,
+      },
+      card: {
+        borderRadius: theme.borderRadius?.medium || 12,
+        overflow: 'hidden',
+        marginBottom: theme.spacing?.sm || 8,
+        borderWidth: 0.5,
+        borderColor: theme.colors.neutral.border + '50',
+      },
+      cardContent: {
+        padding: theme.spacing?.sm || 8,
+      },
+      cardHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingBottom: theme.spacing?.sm || 8,
+        gap: theme.spacing?.xs || 4,
+      },
+      iconContainer: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        justifyContent: 'center',
+        alignItems: 'center',
+      },
+      harvestIcon: {
+        fontSize: getTypographySize('typography.arabic.h4.fontSize', 24),
+      },
+      headerInfo: {
+        flex: 1,
+        gap: 2,
+      },
+      subtitleContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: theme.spacing?.sm || 8,
+      },
+      locationContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+      },
+      locationText: {
+        fontSize: getTypographySize('typography.arabic.caption.fontSize', 18),
+      },
+      harvestName: {
+        fontSize: getTypographySize('typography.arabic.h4.fontSize', 22),
+        fontWeight: '600',
+        color: theme.colors.neutral.textPrimary,
+      },
+      harvestType: {
+        fontSize: getTypographySize('typography.arabic.caption.fontSize', 18),
+        color: theme.colors.neutral.textSecondary,
+      },
+      qualityBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: theme.spacing?.xs || 4,
+        paddingVertical: 2,
+        borderRadius: theme.borderRadius?.small || 4,
+        gap: 2,
+      },
+      qualityIcon: {
+        fontSize: getTypographySize('typography.arabic.caption.fontSize', 18),
+        color: '#FFF',
+      },
+      qualityText: {
+        color: '#FFF',
+        fontSize: getTypographySize('typography.arabic.caption.fontSize', 18),
+        fontWeight: '500',
+      },
+      cardFooter: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingTop: theme.spacing?.sm || 8,
+        borderTopWidth: 1,
+        borderTopColor: theme.colors.neutral.border,
+      },
+      quantityContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+      },
+      quantity: {
+        fontSize: getTypographySize('typography.arabic.caption.fontSize', 18),
+        fontWeight: '600',
+      },
+      unit: {
+        fontSize: getTypographySize('typography.arabic.caption.fontSize', 18),
+        color: theme.colors.neutral.textSecondary,
+      },
+      statusBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 4,
+        borderRadius: 4,
+        gap: 4,
+      },
+      statusText: {
+        color: '#FFF',
+        fontSize: getTypographySize('typography.arabic.caption.fontSize', 18),
+        fontWeight: '500',
+      },
+      dateContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+      },
+      dateText: {
+        fontSize: getTypographySize('typography.arabic.caption.fontSize', 18),
+        fontWeight: '500',
+      },
+      typesList: {
+        maxHeight: 48,
+      },
+      typesContent: {
+        paddingHorizontal: 16,
+        gap: 8,
+      },
+      emptyContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: theme.spacing?.lg || 24,
+        gap: theme.spacing?.lg || 24,
+      },
+      emptyIcon: {
+        fontSize: 48,
+        color: theme.colors.neutral.textSecondary,
+        marginBottom: theme.spacing?.md || 16,
+      },
+      emptyText: {
+        fontSize: getTypographySize('typography.arabic.body.fontSize', 20),
+        color: theme.colors.neutral.textSecondary,
+        textAlign: 'center',
+      },
+      centerContent: {
+        justifyContent: 'center',
+        alignItems: 'center',
+      },
+      seeMoreButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: theme.spacing?.sm || 8,
+        borderRadius: theme.borderRadius?.small || 4,
+        marginTop: theme.spacing?.sm || 8,
+        gap: theme.spacing?.xs || 4,
+      },
+      seeMoreText: {
+        color: '#FFF',
+        fontSize: getTypographySize('typography.arabic.body.fontSize', 20),
+        fontWeight: '600',
+      },
+      emptyButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: theme.spacing?.md || 16,
+        paddingVertical: theme.spacing?.sm || 8,
+        borderRadius: theme.borderRadius?.pill || 50,
+        gap: theme.spacing?.sm || 8,
+        marginTop: theme.spacing?.md || 16,
+        ...Platform.select({
+          ios: {
+            shadowColor: theme.colors.primary.base,
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.3,
+            shadowRadius: 3,
+          },
+          android: {
+            elevation: 3,
+          },
+        }),
+      },
+      emptyButtonText: {
+        color: '#FFF',
+        fontSize: getTypographySize('typography.arabic.body.fontSize', 18),
+        fontWeight: '600',
+      },
+      loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+      },
+      loadingText: {
+        fontSize: 16,
+        marginTop: 16,
+      },
+      errorContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 24,
+      },
+      errorIcon: {
+        fontSize: 48,
+        marginBottom: 16,
+      },
+      errorText: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: 24,
+        textAlign: 'center',
+      },
+      retryButton: {
+        marginTop: 8,
+      },
+    };
+  });
+
+  if (loading && !harvests.length) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <ActivityIndicator size="large" color={theme.colors.primary.base} />
+      </View>
+    );
+  }
 
   if (error) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
-        <StatusBar backgroundColor={theme.colors.neutral.surface} barStyle="dark-content" />
-        <View style={[styles.errorContainer, { backgroundColor: theme.colors.neutral.background }]}>
-          <Text style={styles.errorIcon}>⚠️</Text>
-          <Text style={[styles.errorText, { color: theme.colors.error }]}>
-            {error}
-          </Text>
-          <Button
-            title="إعادة المحاولة"
-            onPress={() => fetchHarvests()}
-            style={styles.retryButton}
-          />
-        </View>
-      </SafeAreaView>
+      <View style={[styles.container, styles.centerContent]}>
+        <MaterialCommunityIcons 
+          name="alert-circle-outline" 
+          size={64} 
+          color={theme.colors.error} 
+        />
+        <Text style={[styles.emptyText, { color: theme.colors.error }]}>
+          {error}
+        </Text>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
-      <StatusBar backgroundColor={theme.colors.neutral.surface} barStyle="dark-content" />
-      <View style={[styles.header, { backgroundColor: theme.colors.neutral.surface }]}>
-        <Text style={[styles.headerTitle, { color: theme.colors.neutral.textPrimary }]}>
-          المحاصيل 🌾
-        </Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => {
-            navigation.navigate('AddHarvest');
-            // Set a flag to refresh when returning to this screen
-            navigation.addListener('focus', () => {
-              handleRefresh();
-            });
-          }}
-        >
-          <MaterialCommunityIcons name="plus" size={24} color={theme.colors.primary.base} />
-        </TouchableOpacity>
-      </View>
-
-      <View style={[styles.searchContainer, { backgroundColor: theme.colors.neutral.surface }]}>
-        <MaterialCommunityIcons name="magnify" size={24} color={theme.colors.neutral.textTertiary || '#9e9e9e'} />
-        <TextInput
-          style={[styles.searchInput, { color: theme.colors.neutral.textPrimary }]}
-          placeholder="ابحث عن محصول..."
-          placeholderTextColor={theme.colors.neutral.textTertiary || '#9e9e9e'}
-          value={searchQuery}
-          onChangeText={handleSearch}
-          returnKeyType="search"
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <MaterialCommunityIcons name="close-circle" size={20} color={theme.colors.neutral.textTertiary || '#9e9e9e'} />
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {renderCategoryButtons()}
-
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary.base} />
-          <Text style={[styles.loadingText, { color: theme.colors.neutral.textSecondary }]}>
-            جاري تحميل المحاصيل...
-          </Text>
-        </View>
-      ) : (
-        <>
-          <FlatList
-            data={filteredHarvests.slice(0, visibleItems)}
-            keyExtractor={(item, index) => `harvest-${item.id || index}`}
-            renderItem={renderItem}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-            ListEmptyComponent={renderEmpty}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={handleRefresh}
-                colors={[theme.colors.primary.base]}
-                tintColor={theme.colors.primary.base}
-              />
-            }
-            ListFooterComponent={renderSeeMoreButton}
+    <SafeAreaView style={styles.container}>
+      <StatusBar
+        backgroundColor={theme.colors.neutral.surface}
+        barStyle="dark-content"
+      />
+      
+      <FlatList
+        data={paginatedHarvests}
+        renderItem={renderHarvestCard}
+        keyExtractor={item => item.id}
+        contentContainerStyle={[
+          styles.listContent,
+          paginatedHarvests.length === 0 && { flex: 1, justifyContent: 'center' }
+        ]}
+        ListHeaderComponent={renderHeader}
+        ListFooterComponent={renderSeeMoreButton}
+        ListEmptyComponent={
+          <Animated.View 
+            entering={FadeIn.delay(300).duration(500)}
+            style={styles.emptyContainer}
+          >
+            <MaterialCommunityIcons 
+              name="sprout-outline" 
+              size={72} 
+              color={theme.colors.neutral.textSecondary + '80'} 
+            />
+            <Text style={[styles.emptyText, { color: theme.colors.neutral.textSecondary }]}>
+              لا توجد محاصيل
+            </Text>
+            <TouchableOpacity 
+              style={[styles.emptyButton, { backgroundColor: theme.colors.primary.base }]}
+              onPress={() => navigation.navigate('AddHarvest')}
+            >
+              <MaterialCommunityIcons name="plus" size={20} color="#FFF" />
+              <Text style={styles.emptyButtonText}>إضافة محصول</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        }
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={[theme.colors.primary.base]}
+            tintColor={theme.colors.primary.base}
           />
-        </>
-      )}
+        }
+        keyboardShouldPersistTaps="always"
+      />
+      
+      <FAB
+        icon="plus"
+        onPress={() => navigation.navigate('AddHarvest')}
+        style={{
+          position: 'absolute',
+          margin: 16,
+          right: 0,
+          bottom: 0,
+          backgroundColor: theme.colors.primary.base,
+          ...Platform.select({
+            ios: {
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.3,
+              shadowRadius: 3,
+            },
+            android: {
+              elevation: 6,
+            },
+          }),
+        }}
+      />
     </SafeAreaView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 10,
-    marginHorizontal: 16,
-    marginVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.1)',
-  },
-  searchInput: {
-    flex: 1,
-    marginHorizontal: 8,
-    fontSize: 16,
-    textAlign: 'right',
-  },
-  categoriesContainer: {
-    marginTop: 8,
-    maxHeight: 60,
-  },
-  categoriesContent: {
-    paddingHorizontal: 12,
-  },
-  categoryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    marginHorizontal: 4,
-    borderRadius: 50,
-    borderWidth: 1,
-  },
-  categoryIcon: {
-    fontSize: 18,
-    marginLeft: 8,
-  },
-  categoryText: {
-    fontSize: 16,
-  },
-  typesContainer: {
-    marginTop: 4,
-    maxHeight: 50,
-  },
-  typesContent: {
-    paddingHorizontal: 16,
-  },
-  typeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginHorizontal: 4,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  typeIcon: {
-    fontSize: 16,
-    marginLeft: 6,
-  },
-  typeText: {
-    fontSize: 14,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-  },
-  itemAnimatedContainer: {
-    width: '100%',
-  },
-  itemContainer: {
-    margin: 8,
-    marginHorizontal: 16,
-    borderRadius: 12,
-    overflow: 'hidden',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-  },
-  itemContent: {
-    flexDirection: 'row',
-    padding: 16,
-    alignItems: 'center',
-  },
-  itemIconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 12,
-  },
-  itemIconText: {
-    fontSize: 28,
-  },
-  itemInfo: {
-    flex: 1,
-  },
-  itemName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 6,
-  },
-  itemDetails: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  detailItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 16,
-    marginBottom: 4,
-  },
-  detailText: {
-    marginLeft: 4,
-    fontSize: 16,
-  },
-  dateContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  dateText: {
-    marginLeft: 4,
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  itemActions: {
-    alignItems: 'flex-end',
-  },
-  alertBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginBottom: 10,
-  },
-  alertText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  loadingMore: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
-  },
-  loadingMoreText: {
-    marginLeft: 8,
-    fontSize: 16,
-  },
-  listContent: {
-    paddingBottom: 24,
-    flexGrow: 1,
-  },
-  emptyContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-    minHeight: 300,
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  emptySubText: {
-    fontSize: 16,
-    marginBottom: 24,
-    textAlign: 'center',
-  },
-  addButton: {
-    marginVertical: 8,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  errorIcon: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
-  errorText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 24,
-    textAlign: 'center',
-  },
-  retryButton: {
-    marginTop: 8,
-  },
-  loadMoreButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 16,
-    marginHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 50,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
-  },
-  loadMoreText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginRight: 8,
-  },
-  seeMoreButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 16,
-    marginHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 50,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
-  },
-  seeMoreText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginRight: 8,
-  },
-});
 
 export default HarvestListScreen; 

@@ -13,6 +13,7 @@ import {
   Platform,
   Modal,
   TextInput,
+  RefreshControl,
 } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
 import { useHarvest } from '../../../context/HarvestContext';
@@ -27,6 +28,7 @@ import axios from 'axios';
 import { storage } from '../../../utils/storage';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { HARVEST_TYPES, QUALITY_TYPES, UNIT_TYPES, HARVEST_CATEGORIES } from './constants';
+import { BlurView } from 'expo-blur';
 
 // Force RTL layout
 I18nManager.allowRTL(true);
@@ -138,6 +140,19 @@ const getTypeName = (type: string): string => {
   return type;
 };
 
+// Get unit abbreviation safely without dynamic property access
+const getUnitAbbreviation = (unit: string): string => {
+  switch(unit) {
+    case 'kg': return 'كغ';
+    case 'g': return 'غ';
+    case 'ton': return 'طن';
+    case 'box': return 'صندوق';
+    case 'piece': return 'قطعة';
+    case 'bunch': return 'حزمة';
+    default: return unit;
+  }
+};
+
 type HarvestDetailScreenProps = {
   navigation: StackNavigationProp<StockStackParamList, 'HarvestDetail'>;
   route: RouteProp<StockStackParamList, 'HarvestDetail'>;
@@ -191,73 +206,75 @@ const QuantityModal = ({
   return (
     <Modal visible={visible} transparent animationType="fade">
       <View style={styles.modalOverlay}>
-        <View style={[styles.modalContent, { backgroundColor: theme.colors.neutral.surface }]}>
-          <Text style={[styles.modalTitle, { color: theme.colors.neutral.textPrimary }]}>
-            {type === 'add' ? 'إضافة للمخزون' : 'سحب من المخزون'}
-          </Text>
+        <BlurView intensity={80} tint="dark" style={styles.modalBlur}>
+          <View style={[styles.modalContent, { backgroundColor: theme.colors.neutral.surface }]}>
+            <Text style={[styles.modalTitle, { color: theme.colors.neutral.textPrimary }]}>
+              {type === 'add' ? 'إضافة للمخزون' : 'سحب من المخزون'}
+            </Text>
 
-          <View style={styles.modalInputContainer}>
-            <TextInput
-              style={[styles.modalInput, { 
-                backgroundColor: theme.colors.neutral.background,
-                color: theme.colors.neutral.textPrimary,
-                textAlign: 'right'
-              }]}
-              value={quantity}
-              onChangeText={setQuantity}
-              keyboardType="numeric"
-              placeholder={`الكمية (${getUnitAbbreviation(unit)})`}
-              placeholderTextColor={theme.colors.neutral.textSecondary}
-              editable={!loading}
-            />
+            <View style={styles.modalInputContainer}>
+              <TextInput
+                style={[styles.modalInput, { 
+                  backgroundColor: theme.colors.neutral.background,
+                  color: theme.colors.neutral.textPrimary,
+                  textAlign: 'right'
+                }]}
+                value={quantity}
+                onChangeText={setQuantity}
+                keyboardType="numeric"
+                placeholder={`الكمية (${getUnitAbbreviation(unit)})`}
+                placeholderTextColor={theme.colors.neutral.textSecondary}
+                editable={!loading}
+              />
 
-            <TextInput
-              style={[styles.modalInput, { 
-                backgroundColor: theme.colors.neutral.background,
-                color: theme.colors.neutral.textPrimary,
-                height: 100,
-                textAlignVertical: 'top',
-                textAlign: 'right'
-              }]}
-              value={notes}
-              onChangeText={setNotes}
-              placeholder="ملاحظات (اختياري)"
-              placeholderTextColor={theme.colors.neutral.textSecondary}
-              multiline
-              numberOfLines={4}
-              editable={!loading}
-            />
+              <TextInput
+                style={[styles.modalInput, { 
+                  backgroundColor: theme.colors.neutral.background,
+                  color: theme.colors.neutral.textPrimary,
+                  height: 100,
+                  textAlignVertical: 'top',
+                  textAlign: 'right'
+                }]}
+                value={notes}
+                onChangeText={setNotes}
+                placeholder="ملاحظات (اختياري)"
+                placeholderTextColor={theme.colors.neutral.textSecondary}
+                multiline
+                numberOfLines={4}
+                editable={!loading}
+              />
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.cancelButton]} 
+                onPress={handleClose}
+                disabled={loading}
+              >
+                <Text style={[styles.buttonText, { color: theme.colors.neutral.textPrimary }]}>
+                  إلغاء
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[
+                  styles.modalButton, 
+                  styles.confirmButton,
+                  { backgroundColor: type === 'add' ? theme.colors.success : theme.colors.error },
+                  loading && { opacity: 0.7 }
+                ]} 
+                onPress={handleConfirm}
+                disabled={loading || !quantity}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={[styles.buttonText, { color: '#fff' }]}>تأكيد</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
-
-          <View style={styles.modalButtons}>
-            <TouchableOpacity 
-              style={[styles.modalButton, styles.cancelButton]} 
-              onPress={handleClose}
-              disabled={loading}
-            >
-              <Text style={[styles.buttonText, { color: theme.colors.neutral.textPrimary }]}>
-                إلغاء
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[
-                styles.modalButton, 
-                styles.confirmButton,
-                { backgroundColor: type === 'add' ? theme.colors.success : theme.colors.error },
-                loading && { opacity: 0.7 }
-              ]} 
-              onPress={handleConfirm}
-              disabled={loading || !quantity}
-            >
-              {loading ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={[styles.buttonText, { color: '#fff' }]}>تأكيد</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
+        </BlurView>
       </View>
     </Modal>
   );
@@ -273,6 +290,7 @@ const HarvestDetailScreen: React.FC<HarvestDetailScreenProps> = ({ navigation, r
   const [showAddModal, setShowAddModal] = useState(false);
   const [showRemoveModal, setShowRemoveModal] = useState(false);
   const [quantityLoading, setQuantityLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchHarvestDetail();
@@ -305,8 +323,14 @@ const HarvestDetailScreen: React.FC<HarvestDetailScreenProps> = ({ navigation, r
       setError('فشل في تحميل تفاصيل المحصول');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchHarvestDetail();
+  }, []);
 
   const handleDelete = useCallback(async () => {
     Alert.alert(
@@ -368,19 +392,6 @@ const HarvestDetailScreen: React.FC<HarvestDetailScreenProps> = ({ navigation, r
       case 'standard': return { icon: '⭐⭐', name: 'قياسي' };
       case 'economy': case 'secondary': return { icon: '⭐', name: 'اقتصادي' };
       default: return { icon: '⭐', name: quality };
-    }
-  };
-
-  // Get unit abbreviation safely without dynamic property access
-  const getUnitAbbreviation = (unit: string): string => {
-    switch(unit) {
-      case 'kg': return 'كغ';
-      case 'g': return 'غ';
-      case 'ton': return 'طن';
-      case 'box': return 'صندوق';
-      case 'piece': return 'قطعة';
-      case 'bunch': return 'حزمة';
-      default: return unit;
     }
   };
 
@@ -518,7 +529,14 @@ const HarvestDetailScreen: React.FC<HarvestDetailScreenProps> = ({ navigation, r
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
       <StatusBar backgroundColor={theme.colors.neutral.surface} barStyle="dark-content" />
-      <ScrollView style={styles.scrollView}>
+      <ScrollView style={styles.scrollView} refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          colors={[theme.colors.primary.base]}
+          tintColor={theme.colors.primary.base}
+        />
+      }>
         <Animated.View 
           entering={FadeInDown.springify()}
           style={[
@@ -653,6 +671,42 @@ const HarvestDetailScreen: React.FC<HarvestDetailScreenProps> = ({ navigation, r
         </Animated.View>
 
         <View style={styles.content}>
+          {isLowStock && (
+            <Animated.View 
+              entering={FadeInDown.delay(100).springify()}
+              style={[
+                styles.warningCard, 
+                { 
+                  backgroundColor: theme.colors.warning + '15',
+                  borderColor: theme.colors.warning,
+                }
+              ]}
+            >
+              <Text style={styles.warningIcon}>⚠️</Text>
+              <Text style={[styles.warningText, { color: theme.colors.warning }]}>
+                المخزون منخفض (الحد الأدنى: {harvestItem.minQuantityAlert} {getUnitAbbreviation(harvestItem.unit)})
+              </Text>
+            </Animated.View>
+          )}
+
+          {isExpired && (
+            <Animated.View 
+              entering={FadeInDown.delay(150).springify()}
+              style={[
+                styles.warningCard, 
+                { 
+                  backgroundColor: theme.colors.error + '15',
+                  borderColor: theme.colors.error,
+                }
+              ]}
+            >
+              <Text style={styles.warningIcon}>⏰</Text>
+              <Text style={[styles.warningText, { color: theme.colors.error }]}>
+                منتهي الصلاحية منذ {new Date(harvestItem.expiryDate).toLocaleDateString('ar-SA')}
+              </Text>
+            </Animated.View>
+          )}
+
           {renderField('الكمية', `${harvestItem.quantity} ${getUnitAbbreviation(harvestItem.unit)}`, FIELD_ICONS.quantity)}
           {renderField('السعر', `${harvestItem.price} د.أ`, FIELD_ICONS.price)}
           {renderField('تاريخ الحصاد', new Date(harvestItem.harvestDate).toLocaleDateString('ar-SA'), FIELD_ICONS.harvestDate)}
@@ -888,6 +942,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
+  modalBlur: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   modalContent: {
     width: '85%',
     borderRadius: 16,
@@ -934,6 +994,23 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  warningCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 12,
+  },
+  warningIcon: {
+    fontSize: 24,
+  },
+  warningText: {
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
+    textAlign: 'right',
   },
 });
 
