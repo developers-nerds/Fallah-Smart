@@ -477,6 +477,7 @@ const Blogs = () => {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [showAdvisorPostsOnly, setShowAdvisorPostsOnly] = useState(false);
+  const [isBanned, setIsBanned] = useState(false);
   
   // Add the report reasons array
   const reportReasons = [
@@ -492,6 +493,7 @@ const Blogs = () => {
   // Fetch posts on component mount
   useEffect(() => {
     fetchPosts();
+    fetchUserStatus();
   }, []);
 
   // Fetch all posts from API (no filtering)
@@ -530,6 +532,38 @@ const Blogs = () => {
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  // Add a function to fetch user status
+  const fetchUserStatus = async () => {
+    try {
+      const { access } = await storage.getTokens();
+      if (!access) {
+        console.log('No access token found');
+        return;
+      }
+
+      // Use the correct endpoint from userRoutes.js: router.get('/profile', auth, getProfile)
+      const response = await axios.get(`${BASE_URL}/api/users/profile`, {
+        headers: {
+          Authorization: `Bearer ${access}`
+        }
+      });
+
+      const userData = response.data;
+      setCurrentUser(userData);
+      setUserRole(userData.role);
+      
+      // Check if user is banned
+      if (userData.isBanned) {
+        console.log('User is banned');
+        setIsBanned(true);
+      } else {
+        setIsBanned(false);
+      }
+    } catch (error) {
+      console.error('Error fetching user status:', error);
     }
   };
 
@@ -675,13 +709,29 @@ const Blogs = () => {
 
   // Updated submit handler with better null checking
   const createPost = async () => {
-    if (!newPost.title.trim()) {
-      Alert.alert('Missing Title', 'Please enter a title for your post.');
-      return;
-    }
-
     try {
+      // Re-check ban status before posting
+      await fetchUserStatus();
+      
+      // Check if user is banned after fresh status check
+      if (isBanned) {
+        Alert.alert('حساب مقيد', 'تم تقييد حسابك. لا يمكنك إنشاء منشورات في الوقت الحالي.');
+        return;
+      }
+
+      if (!newPost.title.trim()) {
+        Alert.alert('Missing Title', 'Please enter a title for your post.');
+        return;
+      }
+
       setSubmitting(true);
+      
+      // Get auth token for request
+      const { access } = await storage.getTokens();
+      if (!access) {
+        Alert.alert('خطأ في المصادقة', 'يرجى تسجيل الدخول مرة أخرى');
+        return;
+      }
       
       const formData = new FormData();
       formData.append('title', newPost.title.trim());
@@ -702,9 +752,11 @@ const Blogs = () => {
         });
       }
 
+      // Include auth token in the request
       await axios.post(`${API_URL}/posts`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${access}`
         },
       });
 
@@ -721,7 +773,13 @@ const Blogs = () => {
       Alert.alert('نجاح', 'تم نشر المنشور بنجاح!');
     } catch (error: unknown) {
       console.error('Error creating post:', error);
-      Alert.alert('Error', 'Failed to create post. Please try again.');
+      // Check if the error is due to being banned
+      if (axios.isAxiosError(error) && error.response?.status === 403) {
+        Alert.alert('حساب مقيد', 'تم تقييد حسابك. لا يمكنك إنشاء منشورات.');
+        setIsBanned(true); // Update the UI state to reflect the ban
+      } else {
+        Alert.alert('Error', 'Failed to create post. Please try again.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -1197,6 +1255,15 @@ const Blogs = () => {
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.neutral.background }}>
       <StatusBar backgroundColor={theme.colors.neutral.background} barStyle="dark-content" />
       
+      {isBanned && (
+        <View style={styles.bannerContainer}>
+          <MaterialIcons name="error" size={18} color="white" />
+          <Text style={styles.bannerText}>
+            تم تقييد حسابك. يمكنك فقط مشاهدة المحتوى.
+          </Text>
+        </View>
+      )}
+      
       {loading && !posts.length ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={theme.colors.primary.base} />
@@ -1213,7 +1280,7 @@ const Blogs = () => {
           data={getFilteredPosts as Post[]}
           renderItem={renderPostItem as any}
           keyExtractor={(item: any) => item.id.toString()}
-          contentContainerStyle={styles.postsList}
+          contentContainerStyle={[styles.postsList, isBanned && {paddingTop: 40}]}
           showsHorizontalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="none"
@@ -1289,35 +1356,39 @@ const Blogs = () => {
       )}
       
       {/* Become an Advisor button */}
-      <TouchableOpacity
-        style={[styles.askCommunityButton, styles.becomeAdvisorButton]}
-        onPress={() => navigation.navigate('AdvisorApplication')}
-        activeOpacity={0.8}
-      >
-        <MaterialIcons name="verified-user" size={24} color="white" />
-        <Text style={styles.askCommunityText}>كن مستشاراً</Text>
-      </TouchableOpacity>
-      
-      {/* Ask Community button with verified badge overlay */}
-      <View style={{position: 'relative'}}>
-        {/* Verified badge positioned ABOVE the button */}
-        <View style={styles.advisorBadgeOverlay}>
-          <MaterialIcons 
-            name="verified" 
-            size={24} 
-            color="#1F6AFF" 
-          />
-        </View>
-        
+      {!isBanned && (
         <TouchableOpacity
-          style={styles.askCommunityButton}
-          onPress={() => setModalVisible(true)}
+          style={[styles.askCommunityButton, styles.becomeAdvisorButton]}
+          onPress={() => navigation.navigate('AdvisorApplication')}
           activeOpacity={0.8}
         >
-          <MaterialCommunityIcons name="comment-question-outline" size={24} color="white" />
-          <Text style={styles.askCommunityText}>اسأل المجتمع</Text>
+          <MaterialIcons name="verified-user" size={24} color="white" />
+          <Text style={styles.askCommunityText}>كن مستشاراً</Text>
         </TouchableOpacity>
-      </View>
+      )}
+      
+      {/* Ask Community button with verified badge overlay */}
+      {!isBanned && (
+        <View style={{position: 'relative'}}>
+          {/* Verified badge positioned ABOVE the button */}
+          <View style={styles.advisorBadgeOverlay}>
+            <MaterialIcons 
+              name="verified" 
+              size={24} 
+              color="#1F6AFF" 
+            />
+          </View>
+          
+          <TouchableOpacity
+            style={styles.askCommunityButton}
+            onPress={() => setModalVisible(true)}
+            activeOpacity={0.8}
+          >
+            <MaterialCommunityIcons name="comment-question-outline" size={24} color="white" />
+            <Text style={styles.askCommunityText}>اسأل المجتمع</Text>
+          </TouchableOpacity>
+        </View>
+      )}
       
       {/* New Post Modal */}
       <Modal
@@ -1334,10 +1405,10 @@ const Blogs = () => {
             <Text style={styles.modalTitle}>إنشاء منشور جديد</Text>
             <TouchableOpacity 
               onPress={createPost}
-              disabled={submitting || !newPost.title.trim()}
+              disabled={submitting || !newPost.title.trim() || isBanned}
               style={[
                 styles.modalSubmitButton,
-                (!newPost.title.trim() || submitting) && styles.modalSubmitButtonDisabled
+                (!newPost.title.trim() || submitting || isBanned) && styles.modalSubmitButtonDisabled
               ]}
             >
               {submitting ? (
@@ -1348,11 +1419,20 @@ const Blogs = () => {
             </TouchableOpacity>
           </View>
           
+          {isBanned && (
+            <View style={styles.bannedNotice}>
+              <MaterialIcons name="error" size={24} color={theme.colors.error} />
+              <Text style={styles.bannedText}>
+                حسابك مقيد. لا يمكنك إنشاء منشورات في هذا الوقت.
+              </Text>
+            </View>
+          )}
+          
           <KeyboardAvoidingView 
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={{ flex: 1 }}
           >
-            <ScrollView style={styles.modalContent}>
+            <ScrollView style={[styles.modalContent, isBanned && styles.disabledContent]}>
               <TextInput
                 style={styles.titleInput}
                 placeholder="العنوان"
@@ -1360,6 +1440,7 @@ const Blogs = () => {
                 value={newPost.title}
                 onChangeText={title => setNewPost(prev => ({ ...prev, title }))}
                 maxLength={100}
+                editable={!isBanned}
               />
               
               <TextInput
@@ -1369,6 +1450,7 @@ const Blogs = () => {
                 value={newPost.description}
                 onChangeText={description => setNewPost(prev => ({ ...prev, description }))}
                 multiline
+                editable={!isBanned}
               />
               
               <Text style={styles.sectionLabel}>الفئة</Text>
@@ -1380,7 +1462,8 @@ const Blogs = () => {
                       styles.categoryButton,
                       newPost.category === category.value && { backgroundColor: theme.colors.primary.base }
                     ]}
-                    onPress={() => setNewPost(prev => ({ ...prev, category: category.value }))}
+                    onPress={() => !isBanned && setNewPost(prev => ({ ...prev, category: category.value }))}
+                    disabled={isBanned}
                   >
                     {category.iconType === 'feather' ? (
                       <Feather 
@@ -1412,9 +1495,13 @@ const Blogs = () => {
               </View>
               
               <Text style={styles.sectionLabel}>Add Photos</Text>
-              <TouchableOpacity style={styles.imagePickerButton} onPress={showImageOptions}>
-                <AntDesign name="camera" size={24} color={theme.colors.primary.base} />
-                <Text style={styles.imagePickerText}>إضافة صور</Text>
+              <TouchableOpacity 
+                style={[styles.imagePickerButton, isBanned && styles.disabledButton]} 
+                onPress={showImageOptions}
+                disabled={isBanned}
+              >
+                <AntDesign name="camera" size={24} color={isBanned ? theme.colors.neutral.gray.base : theme.colors.primary.base} />
+                <Text style={[styles.imagePickerText, isBanned && {color: theme.colors.neutral.gray.base}]}>إضافة صور</Text>
               </TouchableOpacity>
               
               <ScrollView 
@@ -1428,6 +1515,7 @@ const Blogs = () => {
                     <TouchableOpacity 
                       style={styles.removeImageButton}
                       onPress={() => removeImage(index)}
+                      disabled={isBanned}
                     >
                       <Feather name="x" size={16} color="white" />
                     </TouchableOpacity>
@@ -2278,6 +2366,48 @@ const styles = StyleSheet.create({
   },
   categoryChipIcon: {
     marginRight: 4,
+  },
+  bannerContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: theme.colors.error,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    zIndex: 1000,
+  },
+  bannerText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  disabledButton: {
+    backgroundColor: theme.colors.neutral.gray.base,
+    opacity: 0.7,
+  },
+  disabledContent: {
+    opacity: 0.7,
+  },
+  bannedNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 0, 0, 0.1)',
+    padding: 16,
+    margin: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.error,
+  },
+  bannedText: {
+    flex: 1,
+    marginLeft: 8,
+    color: theme.colors.error,
+    fontFamily: theme.fonts.medium,
+    fontSize: 14,
   },
 });
 
