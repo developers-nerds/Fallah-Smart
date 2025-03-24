@@ -81,6 +81,9 @@ router.post('/refresh-token', refreshToken);
 router.post('/logout', auth, userController.logout);
 router.get('/profile', auth, getProfile);
 
+// Route to update specific user by ID (admin only)
+router.put('/profile/:userId', auth, userController.updateUserById);
+
 // Middleware to handle both image uploads and text-only updates
 const profileUpdateMiddleware = (req, res, next) => {
   // Check if the request contains multipart form data
@@ -111,9 +114,13 @@ router.put('/profile', auth, profileUpdateMiddleware, userController.updateProfi
 router.put('/change-password', auth, userController.changePassword);
 router.delete('/account', auth, userController.deleteAccount);
 router.get('/users', auth, userController.getAllUsers);
+router.get('/all', auth, userController.getAllUsers); // Alternative route to get all users
 
 router.get('/verify', userController.verify);
 router.post('/refresh', userController.refresh);
+
+// Add special dashboard route
+router.get('/dashboard/users', auth, userController.getDashboardUsers);
 
 // Add advisor application routes
 router.post(
