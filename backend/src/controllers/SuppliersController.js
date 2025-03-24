@@ -106,8 +106,8 @@ const createSupplier = async (req, res) => {
     }
 
     // Handle file uploads
-    let company_logo = null;
-    let company_banner = null;
+    let company_logo = "/uploads/company/profile.jpg";
+    let company_banner = "/uploads/company/defaultBanner.jpg";
 
     // Ensure the upload directory exists
     const uploadDir = path.join(__dirname, "../../uploads/company");
