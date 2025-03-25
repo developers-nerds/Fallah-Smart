@@ -158,7 +158,7 @@ const Login = () => {
       
       // Add a delay before navigation for a smoother experience
       setTimeout(() => {
-        navigation.navigate('StockTab');
+        navigation.navigate('WelcomeOnboarding');
   
         // After a short delay, force-trigger stock notifications
         setTimeout(async () => {
