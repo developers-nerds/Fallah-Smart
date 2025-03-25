@@ -13,6 +13,7 @@ import {
 import { theme } from '../../theme/theme';
 import { normalize, scaleSize, isSmallDevice, responsivePadding } from '../../utils/responsive';
 
+
 // Types
 export interface Company {
   id: string;
