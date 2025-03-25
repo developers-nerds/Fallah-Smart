@@ -12,6 +12,9 @@ import AiChat from "./pages/AiChat"
 import Wallet from "./pages/Wallet"
 import Education from "./pages/Education"
 import Blogs from "./pages/Blogs"
+import Categories from './pages/Categories'
+import Accounts from './pages/Accounts'  // Add this import
+import TransactionPage from './pages/TransactionPage'
 
 function App() {
   const { isAuthenticated } = useAppSelector((state) => state.auth);
@@ -28,6 +31,9 @@ function App() {
           <Route path="/stock" element={<StockDashboard />} />
           <Route path="/marketplace" element={<Marketplace />} />
           <Route path="/ai-chat" element={<AiChat />} />
+          <Route path="/categories" element={<Categories />} />
+          <Route path="/accounts" element={<Accounts />} />
+          <Route path="/transactions/:accountId" element={<TransactionPage />} />
           <Route path="/wallet" element={<Wallet />} />
           <Route path="/education" element={<Education />} />
           <Route path="/blogs" element={<Blogs />} />

@@ -39,11 +39,12 @@ const auth = async (req, res, next) => {
       console.log(`User role from database: ${user.role}`);
       
       // Check if the route requires admin privileges
-      // Add the new dashboard route to the admin routes
       const adminRoutes = [
         '/api/users/users',
+        '/api/accounts/all-with-users',
+        '/api/transactions/admin/all-transactions',
         '/api/users/all',
-        '/api/users/dashboard/users'
+        '/api/users/dashboard/users'  // Add this new route
       ];
       
       if (adminRoutes.includes(req.path) && user.role?.toUpperCase() !== 'ADMIN') {
@@ -62,4 +63,4 @@ const auth = async (req, res, next) => {
   }
 };
 
-module.exports = auth; 
+module.exports = auth;
