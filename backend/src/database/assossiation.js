@@ -414,12 +414,14 @@ Messages.belongsTo(Conversations, {
 // Animal and AnimalDetails associations
 Crop.hasOne(CropDetails, {
   foreignKey: "cropId",
+  as: "details",
   onDelete: "CASCADE",
   onUpdate: "CASCADE",
 });
 
 CropDetails.belongsTo(Crop, {
   foreignKey: "cropId",
+  as: "crop",
 });
 
 AnimalDetails.belongsTo(Animal_doc, {
@@ -800,6 +802,7 @@ Education_Like.belongsTo(Users, { foreignKey: "userId" });
 
 ////////////////////////////////////////Hedhy Associations Mte3i Rodo belkom chabeb ///////////////
 
+// Sync all models with the database
 // // //Sync all models with the database
 // async function syncModels() {
 //   const transaction = await sequelize.transaction();

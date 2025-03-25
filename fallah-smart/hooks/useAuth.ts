@@ -18,10 +18,10 @@ export const useAuth = () => {
         storage.getTokens(),
       ]);
 
-      if (user && tokens.accessToken) {
+      if (user && tokens.access) {
         setUser(user);
         setIsAuthenticated(true);
-        axios.defaults.headers.common['Authorization'] = `Bearer ${tokens.accessToken}`;
+        axios.defaults.headers.common['Authorization'] = `Bearer ${tokens.access}`;
       }
     } catch (error) {
       console.error('Auth check failed:', error);

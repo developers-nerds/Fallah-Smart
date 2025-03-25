@@ -233,4 +233,93 @@ export interface StockEquipment {
   userId: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface StockFeed {
+  id: string;
+  name: string;
+  quantity: number;
+  unit: string;
+  minQuantityAlert: number;
+  price: number;
+  animalType: string;
+  dailyConsumptionRate: number;
+  expiryDate: string;
+  supplier?: string;
+  manufacturer?: string;
+  batchNumber?: string;
+  purchaseDate?: string;
+  location?: string;
+  nutritionalInfo?: string;
+  recommendedUsage?: string;
+  targetAnimals?: string;
+  notes?: string;
+  type?: string;
+  userId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StockHarvest {
+  id?: string;
+  cropName: string;
+  type: string;
+  quantity: number;
+  unit: string;
+  price: number;
+  minQuantityAlert?: number;
+  harvestDate: Date | string;
+  storageLocation?: string;
+  quality?: string;
+  batchNumber?: string;
+  expiryDate?: Date | string;
+  moisture?: number;
+  storageConditions?: string;
+  certifications?: string;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CategoryData {
+  items: StockItem[];
+  count: number;
+  value: number;
+  trends: number[];
+  types?: Record<string, number>;
+  totalWeight?: number;
+  averageAge?: number;
+  healthStatus?: {
+    healthy: number;
+    sick: number;
+    quarantine: number;
+  };
+  totalVolume?: number;
+  averagePrice?: number;
+  expiryStatus?: {
+    valid: number;
+    expiringSoon: number;
+    expired: number;
+  };
+  categories?: Record<string, number>;
+}
+
+export interface StockData {
+  animals: CategoryData;
+  pesticides: CategoryData;
+  seeds: CategoryData;
+  fertilizer: CategoryData;
+  equipment: CategoryData;
+  other: CategoryData;
+}
+
+export interface Insight {
+  type: 'critical' | 'warning' | 'info';
+  message: string;
+  icon: string;
+  color?: string;
+  explanation: string;
+  confidence: number;
+  recommendations: string[];
+  severity: 'high' | 'medium' | 'low';
 } 

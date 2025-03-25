@@ -22,6 +22,7 @@ import { theme } from '../../theme/theme';
 import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { FontAwesome } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 
@@ -73,6 +74,7 @@ const pickImage = async () => {
 const API_URL = process.env.EXPO_PUBLIC_API_URL || `${process.env.EXPO_PUBLIC_API}/api`;
 
 const Profile = () => {
+  const navigation = useNavigation();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -463,6 +465,11 @@ const Profile = () => {
     }
   };
 
+  // Add function to navigate to notification settings
+  const navigateToNotificationSettings = () => {
+    navigation.navigate('NotificationSettings');
+  };
+
   if (loading && !profile) {
     return (
       <View style={styles.loadingContainer}>
@@ -641,6 +648,28 @@ const Profile = () => {
             <MaterialCommunityIcons name="account-edit" size={20} color="#FFFFFF" />
             <Text style={styles.editButtonText}>تعديل الملف الشخصي</Text>
           </TouchableOpacity>
+        </View>
+        
+        {/* Add this somewhere appropriate in the UI, for example: */}
+        <View style={styles.settingsSection}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.neutral.textPrimary }]}>
+            الإعدادات
+          </Text>
+          
+          <TouchableOpacity 
+            style={[styles.settingItem, { backgroundColor: theme.colors.neutral.surface }]} 
+            onPress={navigateToNotificationSettings}
+          >
+            <View style={styles.settingItemContent}>
+              <MaterialCommunityIcons name="bell-outline" size={24} color={theme.colors.primary.base} />
+              <Text style={[styles.settingItemText, { color: theme.colors.neutral.textPrimary }]}>
+                إعدادات الإشعارات
+              </Text>
+            </View>
+            <MaterialIcons name="chevron-right" size={24} color={theme.colors.neutral.textSecondary} />
+          </TouchableOpacity>
+          
+          {/* Other settings items */}
         </View>
       </ScrollView>
       
@@ -1269,6 +1298,44 @@ const styles = StyleSheet.create({
     fontSize: 48,
     fontFamily: theme.fonts.bold,
     color: theme.colors.neutral.textPrimary,
+  },
+  settingsSection: {
+    marginTop: 24,
+    marginBottom: 16,
+    width: '100%',
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    textAlign: 'right',
+    paddingHorizontal: 16,
+  },
+  settingItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    marginHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  settingItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  settingItemText: {
+    fontSize: 16,
+    fontWeight: '500',
   },
 });
 

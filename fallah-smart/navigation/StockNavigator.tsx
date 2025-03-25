@@ -21,7 +21,7 @@ import PesticideListScreen from '../screens/Stock/Pesticides/PesticideList';
 import { PesticideProvider } from '../context/PesticideContext';
 import Blogs from '../screens/blogs/blogs';
 import PostDetail from '../screens/blogs/PostDetail';
-import StockStatisticsScreen from '../screens/Stock/StockStatisticsScreen';
+import StockStatisticsScreen from '../screens/Stock/StockStatics';
 import { StockStackParamList } from './types';
 import { ToolProvider } from '../context/ToolContext';
 import { EquipmentProvider } from '../context/EquipmentContext';
@@ -30,6 +30,7 @@ import { FeedProvider } from '../context/FeedContext';
 import { HarvestProvider } from '../context/HarvestContext';
 import { FertilizerProvider } from '../context/FertilizerContext';
 import { AnimalProvider } from '../context/AnimalContext';
+import WelcomeOnboarding from '../screens/Onboarding/WelcomeOnboarding';
 
 // Import Tool screens
 import ToolListScreen from '../screens/Stock/Tools/ToolList';
@@ -63,6 +64,7 @@ import AddFertilizerScreen from '../screens/Stock/Fertilizers/AddFertilizer';
 
 import AdvisorApplicationScreen from '../screens/Advisor/AdvisorApplicationScreen';
 import { useTranslation } from 'react-i18next';
+import NotificationSettingsScreen from '../screens/Settings/NotificationSettings';
 import { SupplierRegistrationForm } from '../screens/form/form';
 import MarketplaceScreen from '../screens/Marketplace/marketplace';
 import AddProduct from '../screens/Marketplace/AddProduct';
@@ -107,6 +109,11 @@ export const StockNavigator = () => {
                         name="Register"
                         component={Register}
                         options={{ headerShown: true }}
+                      />
+                      <Stack.Screen
+                        name="WelcomeOnboarding"
+                        component={WelcomeOnboarding}
+                        options={{ headerShown: false }}
                       />
                       <Stack.Screen
                         name="StockTab"
@@ -282,6 +289,11 @@ export const StockNavigator = () => {
                         name="Statistics"
                         component={StockStatisticsScreen}
                         options={{ title: 'إحصائيات المخزون', headerShown: true }}
+                      />
+                      <Stack.Screen 
+                        name="NotificationSettings" 
+                        component={NotificationSettingsScreen}
+                        options={{ title: 'إعدادات الإشعارات', headerShown: true }}
                       />
                       <Stack.Screen
                         name="Marketplace"
