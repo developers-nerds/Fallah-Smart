@@ -29,6 +29,7 @@ import Marketplace from '../Marketplace/marketplace';
 import ScanHistory from '../scan/components/ScanHistory';
 import ScanDetailsScreen from '../scan/components/ScanDetailsScreen';
 import ScanHistoryScreen from '../scan/components/ScanHistoryScreen';
+import WeatherScreen from '../weather/WeatherScreen';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
 
 const Drawer = createDrawerNavigator();
@@ -55,6 +56,7 @@ const arabicTranslations = {
     feelsLike: 'الشعور كأنه',
     forecast: 'توقعات الطقس لـ 5 أيام',
     activateGPS: 'يرجى تفعيل نظام تحديد المواقع لتلقي معلومات الطقس',
+    screen: 'الطقس والزراعة',
   },
   healCrop: {
     title: 'عالج محصولك',
@@ -554,6 +556,16 @@ const HomeScreen = () => {
       <Drawer.Screen name="Scan" component={ScanScreen} options={{ title: arabicTranslations.scan }} />
       <Drawer.Screen name="Stock" component={StockScreen} options={{ title: arabicTranslations.stock }} />
       <Drawer.Screen name="Wallet" component={WalletScreen} options={{ title: arabicTranslations.wallet }} />
+      <Drawer.Screen
+        name="Weather"
+        component={WeatherScreen}
+        options={{ 
+          title: arabicTranslations.weather.screen,
+          drawerIcon: ({ color }) => (
+            <MaterialCommunityIcons name="weather-partly-cloudy" size={22} color={color} />
+          )
+        }} 
+      />
       <Drawer.Screen
         name="Dictionary"
         component={DictionaryNavigator}

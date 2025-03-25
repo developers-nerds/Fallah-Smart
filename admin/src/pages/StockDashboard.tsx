@@ -116,16 +116,16 @@ interface UserStock {
   };
 }
 
-// Farm-themed colors
-const FARM_COLORS = [
+// Colors for charts
+const STOCK_COLORS = [
   '#4F7942', // Green
-  '#8FBC8F', // Dark Sea Green
-  '#2E8B57', // Sea Green
-  '#3CB371', // Medium Sea Green
-  '#90EE90', // Light Green
-  '#006400', // Dark Green
-  '#556B2F', // Olive Green
-  '#093731', // Primary Dark Green
+  '#0088FE', // Blue
+  '#FF8042', // Orange
+  '#FFBB28', // Yellow
+  '#8884d8', // Purple
+  '#00C49F', // Teal
+  '#093731',  // Dark Green (primary)
+  '#82ca9d'   // Light Green
 ];
 
 const StockDashboard: React.FC = () => {
@@ -199,14 +199,14 @@ const StockDashboard: React.FC = () => {
     if (!dashboardData) return [];
 
     return [
-      { name: 'Animals', value: dashboardData.totalItems.animals, icon: <PetsIcon /> },
-      { name: 'Pesticides', value: dashboardData.totalItems.pesticides, icon: <ScienceIcon /> },
-      { name: 'Equipment', value: dashboardData.totalItems.equipment, icon: <AgricultureIcon /> },
-      { name: 'Feeds', value: dashboardData.totalItems.feeds, icon: <GrassIcon /> },
-      { name: 'Fertilizers', value: dashboardData.totalItems.fertilizers, icon: <FloristIcon /> },
-      { name: 'Harvests', value: dashboardData.totalItems.harvests, icon: <NatureIcon /> },
-      { name: 'Seeds', value: dashboardData.totalItems.seeds, icon: <SpaIcon /> },
-      { name: 'Tools', value: dashboardData.totalItems.tools, icon: <BuildIcon /> },
+      { name: 'Animals', value: dashboardData.totalItems.animals, icon: <PetsIcon />, color: STOCK_COLORS[4] },
+      { name: 'Pesticides', value: dashboardData.totalItems.pesticides, icon: <ScienceIcon />, color: STOCK_COLORS[3] },
+      { name: 'Equipment', value: dashboardData.totalItems.equipment, icon: <AgricultureIcon />, color: STOCK_COLORS[5] },
+      { name: 'Feeds', value: dashboardData.totalItems.feeds, icon: <GrassIcon />, color: STOCK_COLORS[0] },
+      { name: 'Fertilizers', value: dashboardData.totalItems.fertilizers, icon: <FloristIcon />, color: STOCK_COLORS[1] },
+      { name: 'Harvests', value: dashboardData.totalItems.harvests, icon: <NatureIcon />, color: STOCK_COLORS[6] },
+      { name: 'Seeds', value: dashboardData.totalItems.seeds, icon: <SpaIcon />, color: STOCK_COLORS[2] },
+      { name: 'Tools', value: dashboardData.totalItems.tools, icon: <BuildIcon />, color: STOCK_COLORS[7] },
     ].filter(item => item.value > 0);
   };
 
@@ -214,13 +214,13 @@ const StockDashboard: React.FC = () => {
     if (!dashboardData) return [];
 
     return [
-      { name: 'Pesticides', value: dashboardData.totalValue.pesticides },
-      { name: 'Equipment', value: dashboardData.totalValue.equipment },
-      { name: 'Feeds', value: dashboardData.totalValue.feeds },
-      { name: 'Fertilizers', value: dashboardData.totalValue.fertilizers },
-      { name: 'Harvests', value: dashboardData.totalValue.harvests },
-      { name: 'Seeds', value: dashboardData.totalValue.seeds },
-      { name: 'Tools', value: dashboardData.totalValue.tools },
+      { name: 'Pesticides', value: dashboardData.totalValue.pesticides, color: STOCK_COLORS[3] },
+      { name: 'Equipment', value: dashboardData.totalValue.equipment, color: STOCK_COLORS[5] },
+      { name: 'Feeds', value: dashboardData.totalValue.feeds, color: STOCK_COLORS[0] },
+      { name: 'Fertilizers', value: dashboardData.totalValue.fertilizers, color: STOCK_COLORS[1] },
+      { name: 'Harvests', value: dashboardData.totalValue.harvests, color: STOCK_COLORS[6] },
+      { name: 'Seeds', value: dashboardData.totalValue.seeds, color: STOCK_COLORS[2] },
+      { name: 'Tools', value: dashboardData.totalValue.tools, color: STOCK_COLORS[7] },
     ].filter(item => item.value > 0);
   };
 
@@ -233,7 +233,7 @@ const StockDashboard: React.FC = () => {
         height: '80vh',
         backgroundColor: '#f5f8f4'
       }}>
-        <CircularProgress sx={{ color: '#093731' }} />
+        <CircularProgress sx={{ color: STOCK_COLORS[6] }} />
       </Box>
     );
   }
@@ -283,7 +283,7 @@ const StockDashboard: React.FC = () => {
       }}>
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           <Typography variant="h4" sx={{ 
-            color: '#093731',
+            color: STOCK_COLORS[6],
             fontWeight: 600,
             mr: 2
           }}>
@@ -293,7 +293,7 @@ const StockDashboard: React.FC = () => {
             onClick={handleRefresh} 
             disabled={refreshing}
             sx={{ 
-              color: '#4F7942',
+              color: STOCK_COLORS[0],
               backgroundColor: 'rgba(79, 121, 66, 0.1)',
               '&:hover': {
                 backgroundColor: 'rgba(79, 121, 66, 0.2)',
@@ -308,13 +308,13 @@ const StockDashboard: React.FC = () => {
           minWidth: 200,
           '& .MuiOutlinedInput-root': {
             '& fieldset': {
-              borderColor: 'rgba(9, 55, 49, 0.3)',
+              borderColor: `rgba(${parseInt(STOCK_COLORS[6].substring(1, 3), 16)}, ${parseInt(STOCK_COLORS[6].substring(3, 5), 16)}, ${parseInt(STOCK_COLORS[6].substring(5, 7), 16)}, 0.3)`,
             },
             '&:hover fieldset': {
-              borderColor: 'rgba(9, 55, 49, 0.5)',
+              borderColor: `rgba(${parseInt(STOCK_COLORS[6].substring(1, 3), 16)}, ${parseInt(STOCK_COLORS[6].substring(3, 5), 16)}, ${parseInt(STOCK_COLORS[6].substring(5, 7), 16)}, 0.5)`,
             },
             '&.Mui-focused fieldset': {
-              borderColor: '#093731',
+              borderColor: STOCK_COLORS[6],
             },
           },
         }}>
@@ -342,13 +342,13 @@ const StockDashboard: React.FC = () => {
         sx={{ 
           mb: 3,
           '& .MuiTab-root': {
-            color: 'rgba(9, 55, 49, 0.7)',
+            color: `rgba(${parseInt(STOCK_COLORS[6].substring(1, 3), 16)}, ${parseInt(STOCK_COLORS[6].substring(3, 5), 16)}, ${parseInt(STOCK_COLORS[6].substring(5, 7), 16)}, 0.7)`,
             '&.Mui-selected': {
-              color: '#093731',
+              color: STOCK_COLORS[6],
             },
           },
           '& .MuiTabs-indicator': {
-            backgroundColor: '#093731',
+            backgroundColor: STOCK_COLORS[6],
           },
           backgroundColor: 'white',
           borderRadius: 1,
@@ -357,8 +357,8 @@ const StockDashboard: React.FC = () => {
         }}
       >
         <Tab icon={<HomeIcon />} label="DASHBOARD" />
-        <Tab icon={<PeopleIcon />} label="USERS" />
-        <Tab icon={<ChartIcon />} label="STATISTICS" />
+        <Tab icon={<PeopleIcon sx={{ color: STOCK_COLORS[6], mr: 1 }} />} label="USERS" />
+        <Tab icon={<ChartIcon sx={{ color: STOCK_COLORS[6], mr: 1 }} />} label="STATISTICS" />
       </Tabs>
 
       {tabValue === 0 && dashboardData && (
@@ -380,7 +380,7 @@ const StockDashboard: React.FC = () => {
                     position: 'absolute',
                     top: 8,
                     right: 8,
-                    backgroundColor: '#093731',
+                    backgroundColor: STOCK_COLORS[0],
                     borderRadius: '50%',
                     width: 40,
                     height: 40,
@@ -391,10 +391,10 @@ const StockDashboard: React.FC = () => {
                   }}>
                     <BuildIcon sx={{ color: 'white' }} />
                   </Box>
-                  <Typography variant="h6" sx={{ color: '#1A2F2B', fontWeight: 600, mb: 1 }}>
+                  <Typography variant="h6" sx={{ color: STOCK_COLORS[6], fontWeight: 600, mb: 1 }}>
                     Total Items
                   </Typography>
-                  <Typography variant="h3" sx={{ color: '#093731', fontWeight: 700 }}>
+                  <Typography variant="h3" sx={{ color: STOCK_COLORS[6], fontWeight: 700 }}>
                     {dashboardData.totalItems.total.toLocaleString()}
                   </Typography>
                   <Typography variant="body2" sx={{ color: 'rgba(0,0,0,0.6)', mt: 1 }}>
@@ -419,7 +419,7 @@ const StockDashboard: React.FC = () => {
                     position: 'absolute',
                     top: 8,
                     right: 8,
-                    backgroundColor: '#4F7942',
+                    backgroundColor: STOCK_COLORS[1],
                     borderRadius: '50%',
                     width: 40,
                     height: 40,
@@ -430,11 +430,11 @@ const StockDashboard: React.FC = () => {
                   }}>
                     <MoneyIcon sx={{ color: 'white' }} />
                   </Box>
-                  <Typography variant="h6" sx={{ color: '#1A2F2B', fontWeight: 600, mb: 1 }}>
-                    Total Value
+                  <Typography variant="h6" sx={{ color: STOCK_COLORS[6], fontWeight: 600, mb: 1 }}>
+                    Total Value TND
                   </Typography>
-                  <Typography variant="h3" sx={{ color: '#4F7942', fontWeight: 700 }}>
-                    ${dashboardData.totalValue.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <Typography variant="h3" sx={{ color: STOCK_COLORS[0], fontWeight: 700 }}>
+                    {dashboardData.totalValue.total.toLocaleString(undefined, { minimumFractionDigits: 3, maximumFractionDigits: 3 })}
                   </Typography>
                   <Typography variant="body2" sx={{ color: 'rgba(0,0,0,0.6)', mt: 1 }}>
                     Estimated inventory value
@@ -458,7 +458,7 @@ const StockDashboard: React.FC = () => {
                     position: 'absolute',
                     top: 8,
                     right: 8,
-                    backgroundColor: '#ED6C02',
+                    backgroundColor: STOCK_COLORS[2],
                     borderRadius: '50%',
                     width: 40,
                     height: 40,
@@ -469,10 +469,10 @@ const StockDashboard: React.FC = () => {
                   }}>
                     <WarningIcon sx={{ color: 'white' }} />
                   </Box>
-                  <Typography variant="h6" sx={{ color: '#1A2F2B', fontWeight: 600, mb: 1 }}>
+                  <Typography variant="h6" sx={{ color: STOCK_COLORS[6], fontWeight: 600, mb: 1 }}>
                     Low Stock Items
                   </Typography>
-                  <Typography variant="h3" sx={{ color: '#ED6C02', fontWeight: 700 }}>
+                  <Typography variant="h3" sx={{ color: STOCK_COLORS[2], fontWeight: 700 }}>
                     {dashboardData.lowStock.total.toLocaleString()}
                   </Typography>
                   <Typography variant="body2" sx={{ color: 'rgba(0,0,0,0.6)', mt: 1 }}>
@@ -497,7 +497,7 @@ const StockDashboard: React.FC = () => {
                     position: 'absolute',
                     top: 8,
                     right: 8,
-                    backgroundColor: '#D32F2F',
+                    backgroundColor: STOCK_COLORS[3],
                     borderRadius: '50%',
                     width: 40,
                     height: 40,
@@ -508,10 +508,10 @@ const StockDashboard: React.FC = () => {
                   }}>
                     <ExpireIcon sx={{ color: 'white' }} />
                   </Box>
-                  <Typography variant="h6" sx={{ color: '#1A2F2B', fontWeight: 600, mb: 1 }}>
+                  <Typography variant="h6" sx={{ color: STOCK_COLORS[6], fontWeight: 600, mb: 1 }}>
                     Expiring Items
                   </Typography>
-                  <Typography variant="h3" sx={{ color: '#D32F2F', fontWeight: 700 }}>
+                  <Typography variant="h3" sx={{ color: STOCK_COLORS[3], fontWeight: 700 }}>
                     {dashboardData.expiring.total.toLocaleString()}
                   </Typography>
                   <Typography variant="body2" sx={{ color: 'rgba(0,0,0,0.6)', mt: 1 }}>
@@ -531,7 +531,7 @@ const StockDashboard: React.FC = () => {
                 overflow: 'hidden'
               }}>
                 <CardContent>
-                  <Typography variant="h6" sx={{ color: '#1A2F2B', fontWeight: 600, mb: 2 }}>
+                  <Typography variant="h6" sx={{ color: STOCK_COLORS[6], fontWeight: 600, mb: 2 }}>
                     Stock Distribution
                   </Typography>
                   <Divider sx={{ mb: 2 }} />
@@ -550,7 +550,7 @@ const StockDashboard: React.FC = () => {
                           dataKey="value"
                         >
                           {getStockDistributionData().map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={FARM_COLORS[index % FARM_COLORS.length]} />
+                            <Cell key={`cell-${index}`} fill={entry.color} />
                           ))}
                         </Pie>
                         <Tooltip 
@@ -559,7 +559,7 @@ const StockDashboard: React.FC = () => {
                             backgroundColor: 'rgba(255,255,255,0.9)',
                             borderRadius: 8,
                             boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                            border: 'none'
+                            border: `1px solid ${STOCK_COLORS[0]}20`
                           }}
                         />
                         <Legend layout="vertical" align="right" verticalAlign="middle" />
@@ -576,7 +576,7 @@ const StockDashboard: React.FC = () => {
                 height: '100%'
               }}>
                 <CardContent>
-                  <Typography variant="h6" sx={{ color: '#1A2F2B', fontWeight: 600, mb: 2 }}>
+                  <Typography variant="h6" sx={{ color: STOCK_COLORS[6], fontWeight: 600, mb: 2 }}>
                     Value Distribution
                   </Typography>
                   <Divider sx={{ mb: 2 }} />
@@ -586,19 +586,23 @@ const StockDashboard: React.FC = () => {
                         data={getValueDistributionData()}
                         margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                       >
-                        <XAxis dataKey="name" />
-                        <YAxis />
+                        <XAxis dataKey="name" tick={{ fill: STOCK_COLORS[6] }} />
+                        <YAxis stroke={STOCK_COLORS[0]} />
                         <Tooltip 
-                          formatter={(value) => [`$${value.toLocaleString()}`, 'Value']} 
+                          formatter={(value) => [`TND ${value.toLocaleString()}`, 'Value']} 
                           contentStyle={{ 
                             backgroundColor: 'rgba(255,255,255,0.9)',
                             borderRadius: 8,
                             boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                            border: 'none'
+                            border: `1px solid ${STOCK_COLORS[0]}20`
                           }}
                         />
                         <Legend />
-                        <Bar dataKey="value" fill="#4F7942" name="Value ($)" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="value" name="Value (TND)" radius={[4, 4, 0, 0]}>
+                          {getValueDistributionData().map((entry, index) => (
+                            <Cell key={`value-cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Bar>
                       </BarChart>
                     </ResponsiveContainer>
                   </Box>
@@ -613,8 +617,8 @@ const StockDashboard: React.FC = () => {
               }}>
                 <CardContent>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <WarningIcon sx={{ color: '#ED6C02', mr: 1 }} />
-                    <Typography variant="h6" sx={{ color: '#1A2F2B', fontWeight: 600 }}>
+                    <WarningIcon sx={{ color: STOCK_COLORS[2], mr: 1 }} />
+                    <Typography variant="h6" sx={{ color: STOCK_COLORS[6], fontWeight: 600 }}>
                       Low Stock Items
                     </Typography>
                   </Box>
@@ -656,7 +660,7 @@ const StockDashboard: React.FC = () => {
                             }}>
                               <TableCell>{key.charAt(0).toUpperCase() + key.slice(1)}</TableCell>
                               <TableCell align="right" sx={{ 
-                                color: value > 10 ? '#ED6C02' : '#D32F2F',
+                                color: value > 10 ? STOCK_COLORS[2] : STOCK_COLORS[3],
                                 fontWeight: 500
                               }}>
                                 {value}
@@ -677,8 +681,8 @@ const StockDashboard: React.FC = () => {
               }}>
                 <CardContent>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <ExpireIcon sx={{ color: '#D32F2F', mr: 1 }} />
-                    <Typography variant="h6" sx={{ color: '#1A2F2B', fontWeight: 600 }}>
+                    <ExpireIcon sx={{ color: STOCK_COLORS[3], mr: 1 }} />
+                    <Typography variant="h6" sx={{ color: STOCK_COLORS[6], fontWeight: 600 }}>
                       Expiring Items
                     </Typography>
                   </Box>
@@ -720,7 +724,7 @@ const StockDashboard: React.FC = () => {
                             }}>
                               <TableCell>{key.charAt(0).toUpperCase() + key.slice(1)}</TableCell>
                               <TableCell align="right" sx={{ 
-                                color: '#D32F2F',
+                                color: STOCK_COLORS[3],
                                 fontWeight: 500
                               }}>
                                 {value}
@@ -740,7 +744,7 @@ const StockDashboard: React.FC = () => {
       {tabValue === 1 && (
         <Card sx={{ borderRadius: 2, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
           <Box sx={{ p: 2, display: 'flex', alignItems: 'center', backgroundColor: '#f5f8f4' }}>
-            <PeopleIcon sx={{ color: '#093731', mr: 1 }} />
+            <PeopleIcon sx={{ color: STOCK_COLORS[6], mr: 1 }} />
             <Typography variant="h6" sx={{ color: '#1A2F2B', fontWeight: 600 }}>
               User Inventory Management
             </Typography>
@@ -777,7 +781,7 @@ const StockDashboard: React.FC = () => {
                           alt={userData.user.name}
                           sx={{ 
                             mr: 2,
-                            border: '2px solid #4F7942'
+                            border: `2px solid ${STOCK_COLORS[0]}`
                           }}
                         />
                         <Typography sx={{ fontWeight: 500, color: '#1A2F2B' }}>
@@ -805,7 +809,7 @@ const StockDashboard: React.FC = () => {
                           setTabValue(0);
                         }}
                         sx={{
-                          backgroundColor: '#093731',
+                          backgroundColor: STOCK_COLORS[6],
                           '&:hover': {
                             backgroundColor: '#0b4e43'
                           },
@@ -834,8 +838,8 @@ const StockDashboard: React.FC = () => {
               overflow: 'hidden'
             }}>
               <Box sx={{ p: 2, backgroundColor: '#f5f8f4', display: 'flex', alignItems: 'center' }}>
-                <ChartIcon sx={{ color: '#093731', mr: 1 }} />
-                <Typography variant="h6" sx={{ color: '#1A2F2B', fontWeight: 600 }}>
+                <ChartIcon sx={{ color: STOCK_COLORS[6], mr: 1 }} />
+                <Typography variant="h6" sx={{ color: STOCK_COLORS[6], fontWeight: 600 }}>
                   Category Breakdown
                 </Typography>
               </Box>
@@ -845,31 +849,49 @@ const StockDashboard: React.FC = () => {
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={[
-                        { name: 'Animals', items: dashboardData.totalItems.animals, value: dashboardData.totalValue.animals },
-                        { name: 'Pesticides', items: dashboardData.totalItems.pesticides, value: dashboardData.totalValue.pesticides },
-                        { name: 'Equipment', items: dashboardData.totalItems.equipment, value: dashboardData.totalValue.equipment },
-                        { name: 'Feeds', items: dashboardData.totalItems.feeds, value: dashboardData.totalValue.feeds },
-                        { name: 'Fertilizers', items: dashboardData.totalItems.fertilizers, value: dashboardData.totalValue.fertilizers },
-                        { name: 'Harvests', items: dashboardData.totalItems.harvests, value: dashboardData.totalValue.harvests },
-                        { name: 'Seeds', items: dashboardData.totalItems.seeds, value: dashboardData.totalValue.seeds },
-                        { name: 'Tools', items: dashboardData.totalItems.tools, value: dashboardData.totalValue.tools },
+                        { name: 'Animals', items: dashboardData.totalItems.animals, value: dashboardData.totalValue.animals, itemsColor: STOCK_COLORS[4], valueColor: STOCK_COLORS[4] },
+                        { name: 'Pesticides', items: dashboardData.totalItems.pesticides, value: dashboardData.totalValue.pesticides, itemsColor: STOCK_COLORS[3], valueColor: STOCK_COLORS[3] },
+                        { name: 'Equipment', items: dashboardData.totalItems.equipment, value: dashboardData.totalValue.equipment, itemsColor: STOCK_COLORS[5], valueColor: STOCK_COLORS[5] },
+                        { name: 'Feeds', items: dashboardData.totalItems.feeds, value: dashboardData.totalValue.feeds, itemsColor: STOCK_COLORS[0], valueColor: STOCK_COLORS[0] },
+                        { name: 'Fertilizers', items: dashboardData.totalItems.fertilizers, value: dashboardData.totalValue.fertilizers, itemsColor: STOCK_COLORS[1], valueColor: STOCK_COLORS[1] },
+                        { name: 'Harvests', items: dashboardData.totalItems.harvests, value: dashboardData.totalValue.harvests, itemsColor: STOCK_COLORS[6], valueColor: STOCK_COLORS[6] },
+                        { name: 'Seeds', items: dashboardData.totalItems.seeds, value: dashboardData.totalValue.seeds, itemsColor: STOCK_COLORS[2], valueColor: STOCK_COLORS[2] },
+                        { name: 'Tools', items: dashboardData.totalItems.tools, value: dashboardData.totalValue.tools, itemsColor: STOCK_COLORS[7], valueColor: STOCK_COLORS[7] },
                       ]}
                       margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                     >
-                      <XAxis dataKey="name" />
-                      <YAxis yAxisId="left" orientation="left" stroke="#4F7942" />
-                      <YAxis yAxisId="right" orientation="right" stroke="#093731" />
+                      <XAxis dataKey="name" tick={{ fill: STOCK_COLORS[6] }} />
+                      <YAxis yAxisId="left" orientation="left" stroke={STOCK_COLORS[0]} />
+                      <YAxis yAxisId="right" orientation="right" stroke={STOCK_COLORS[6]} />
                       <Tooltip 
                         contentStyle={{ 
                           backgroundColor: 'rgba(255,255,255,0.9)',
                           borderRadius: 8,
                           boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                          border: 'none'
+                          border: `1px solid ${STOCK_COLORS[0]}20`
+                        }}
+                        formatter={(value, name) => {
+                          if (name === "Value (TND)") {
+                            return [`TND ${value.toLocaleString()}`, name];
+                          }
+                          return [value, name];
                         }}
                       />
                       <Legend />
-                      <Bar yAxisId="left" dataKey="items" fill="#4F7942" name="Number of Items" radius={[4, 4, 0, 0]} />
-                      <Bar yAxisId="right" dataKey="value" fill="#093731" name="Value ($)" radius={[4, 4, 0, 0]} />
+                      <Bar yAxisId="left" dataKey="items" name="Number of Items" radius={[4, 4, 0, 0]}>
+                        {dashboardData && Object.keys(dashboardData.totalItems)
+                          .filter(key => key !== 'total')
+                          .map((key, index) => (
+                            <Cell key={`items-cell-${index}`} fill={STOCK_COLORS[index % 7]} />
+                          ))}
+                      </Bar>
+                      <Bar yAxisId="right" dataKey="value" name="Value (TND)" radius={[4, 4, 0, 0]}>
+                        {dashboardData && Object.keys(dashboardData.totalValue)
+                          .filter(key => key !== 'total')
+                          .map((key, index) => (
+                            <Cell key={`value-cell-${index}`} fill={STOCK_COLORS[(index + 3) % 7]} />
+                          ))}
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </Box>
