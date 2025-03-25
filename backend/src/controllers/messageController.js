@@ -102,7 +102,114 @@ const getConversationMessages = async (req, res) => {
   }
 };
 
+/**
+ * Get message statistics for admin dashboard
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+const getMessageStats = async (req, res) => {
+  try {
+    // Check if this is an admin request - you may need to add admin role check
+    // if (!req.user.isAdmin) return res.status(403).json({ success: false, message: "Unauthorized" });
+
+    const { Users } = require("../database/assossiation");
+    const sequelize = Messages.sequelize;
+    const { Op } = require("sequelize");
+
+    // Set the total tokens amount
+    const totalTokens = 1000;
+
+    // Get today's date at midnight
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Count today's messages
+    const todayMessagesCount = await Messages.count({
+      where: {
+        createdAt: {
+          [Op.gte]: today,
+        },
+      },
+    });
+
+    // Calculate used and remaining tokens
+    const usedTokens = todayMessagesCount / 2;
+    const remainingTokens = totalTokens - usedTokens;
+
+    // Get recent conversations
+    const recentConversations = await Conversations.findAll({
+      include: [
+        {
+          model: Users,
+          as: "user",
+          attributes: ["email", "username"],
+        },
+      ],
+      order: [["updatedAt", "DESC"]],
+      limit: 5,
+    });
+
+    // Get message counts for these conversations
+    const conversationIds = recentConversations.map((conv) => conv.id);
+    const messageCounts = await Messages.findAll({
+      attributes: [
+        "conversationId",
+        [sequelize.fn("COUNT", sequelize.col("id")), "messageCount"],
+        [sequelize.fn("MAX", sequelize.col("createdAt")), "lastMessageTime"],
+      ],
+      where: {
+        conversationId: conversationIds,
+      },
+      group: ["conversationId"],
+    });
+
+    // Create a map of conversation ID to message count and time
+    const messageData = {};
+    messageCounts.forEach((count) => {
+      const convId = count.conversationId;
+      messageData[convId] = {
+        count: parseInt(count.getDataValue("messageCount")),
+        time: count.getDataValue("lastMessageTime"),
+      };
+    });
+
+    // Format the response data
+    const formattedConversations = recentConversations.map((conv) => {
+      const convId = conv.id;
+      const data = messageData[convId] || { count: 0, time: null };
+
+      return {
+        id: convId,
+        user: conv.user ? conv.user.email : "Unknown",
+        time: data.time ? new Date(data.time).toLocaleTimeString() : "-",
+        tokens: data.count, // Using message count as token count
+        messages: data.count,
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        tokenUsage: {
+          used: usedTokens,
+          remaining: remainingTokens,
+          total: totalTokens,
+        },
+        recentConversations: formattedConversations,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching message stats:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch message statistics",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   createMessage,
   getConversationMessages,
+  getMessageStats,
 };

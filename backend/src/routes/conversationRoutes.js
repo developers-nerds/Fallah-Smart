@@ -4,6 +4,8 @@ const {
   createConversation,
   getUserConversations,
   deleteConversations,
+  getAllConversationsForAdmin,
+  getConversationStats,
 } = require("../controllers/conversationController");
 const auth = require("../middleware/auth");
 
@@ -27,5 +29,19 @@ router.get("/get", auth, getUserConversations);
  * @access  Private
  */
 router.delete("/delete", auth, deleteConversations);
+
+/**
+ * @route   GET /api/conversations/admin/all
+ * @desc    Get all conversations for admin dashboard
+ * @access  Private (Admin only)
+ */
+router.get("/admin/all", auth, getAllConversationsForAdmin);
+
+/**
+ * @route   GET /api/conversations/admin/stats
+ * @desc    Get conversation statistics for admin dashboard
+ * @access  Private (Admin only)
+ */
+router.get("/admin/stats", auth, getConversationStats);
 
 module.exports = router;

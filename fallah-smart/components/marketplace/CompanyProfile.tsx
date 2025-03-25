@@ -21,7 +21,7 @@ import { storage } from '../../utils/storage';
 import { Product } from './MarketplaceFeed';
 import { Auction } from './AuctionHouse';
 import { SupplierRegistrationForm } from '../../screens/form/form';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { StockStackParamList } from '../../navigation/types';
 import {
@@ -58,6 +58,7 @@ interface ApiResponse {
   ordersNumber: number;
   auctionsNumber: number;
   supplier?: Supplier;
+  isVerified: boolean;
 }
 
 interface CompanyStats {
@@ -382,6 +383,7 @@ export const CompanyProfile: React.FC = () => {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const navigation = useNavigation<NavigationProp>();
   const [baseUrl, setBaseUrl] = useState<string>('');
+  const [isVerified, setIsVerified] = useState(false);
 
   useEffect(() => {
     fetchSupplierData();
@@ -390,6 +392,18 @@ export const CompanyProfile: React.FC = () => {
       setBaseUrl(BaseUrl.replace('/api', ''));
     }
   }, []);
+
+  // Use useFocusEffect to run side effects when the screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('CompanyProfile screen is focused, refreshing data...');
+      fetchSupplierData();
+
+      return () => {
+        // Optional cleanup if needed
+      };
+    }, [])
+  );
 
   const fetchSupplierData = async () => {
     try {
@@ -402,7 +416,7 @@ export const CompanyProfile: React.FC = () => {
       }
 
       console.log('Using token from storage:', access);
-      
+
       const response = await fetch(`${BaseUrl}/suppliers/me`, {
         headers: {
           Authorization: `Bearer ${access}`,
@@ -417,6 +431,7 @@ export const CompanyProfile: React.FC = () => {
       const data: ApiResponse = await response.json();
       console.log('Received supplier data:', data);
       setSupplierData(data);
+      setIsVerified(data.isVerified);
 
       if (data.supplier) {
         console.log('Company logo URL:', data.supplier.company_logo);
@@ -657,6 +672,25 @@ export const CompanyProfile: React.FC = () => {
         {activeTab === 'overview' && renderOverviewTab()}
         {/* Other tabs will be implemented similarly */}
       </ScrollView>
+
+      {/* Add verification bar */}
+      {!isVerified && (
+        <View style={styles.verificationBar}>
+          <Text style={styles.verificationText}>
+            Your account is not verified. Please verify your account to unlock all features.
+          </Text>
+          <TouchableOpacity
+            style={styles.verifyButton}
+            onPress={() =>
+              navigation.navigate('SupplierRegistrationForm', {
+                showVerificationOnly: true,
+                supplierEmail: supplier.company_email,
+              })
+            }>
+            <Text style={styles.verifyButtonText}>Verify Now</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -1103,5 +1137,32 @@ const styles = StyleSheet.create({
     color: theme.colors.neutral.textSecondary,
     fontSize: normalize(14),
     fontFamily: theme.fonts.medium,
+  },
+  verificationBar: {
+    backgroundColor: '#FFC107',
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  verificationText: {
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.neutral.textPrimary,
+    flex: 1,
+    marginRight: theme.spacing.sm,
+  },
+  verifyButton: {
+    backgroundColor: theme.colors.neutral.surface,
+    paddingVertical: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.small,
+    ...theme.shadows.small,
+  },
+  verifyButtonText: {
+    fontSize: theme.fontSizes.caption,
+    fontFamily: theme.fonts.bold,
+    color: theme.colors.primary.base,
   },
 });
