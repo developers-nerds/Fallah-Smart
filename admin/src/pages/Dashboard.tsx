@@ -58,6 +58,50 @@ interface UserProgress {
   Education_Quiz?: Quiz;
 }
 
+// Add these interfaces for stock data after the existing interfaces
+interface StockSummary {
+  totalItems: {
+    animals: number;
+    pesticides: number;
+    equipment: number;
+    feeds: number;
+    fertilizers: number;
+    harvests: number;
+    seeds: number;
+    tools: number;
+    total: number;
+  };
+  totalValue: {
+    animals: number;
+    pesticides: number;
+    equipment: number;
+    feeds: number;
+    fertilizers: number;
+    harvests: number;
+    seeds: number;
+    tools: number;
+    total: number;
+  };
+  lowStock: {
+    animals: number;
+    pesticides: number;
+    equipment: number;
+    feeds: number;
+    fertilizers: number;
+    seeds: number;
+    tools: number;
+    total: number;
+  };
+  expiring: {
+    pesticides: number;
+    feeds: number;
+    fertilizers: number;
+    seeds: number;
+    harvests: number;
+    total: number;
+  };
+}
+
 // Market price data
 const marketPriceData = [
   { day: 'Mon', tomatoes: 2.5, potatoes: 1.2, cucumbers: 1.8, onions: 1.4 },
@@ -95,10 +139,13 @@ function Dashboard() {
   const [userProgress, setUserProgress] = useState<UserProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingEducation, setLoadingEducation] = useState(true);
+  const [loadingStock, setLoadingStock] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [educationError, setEducationError] = useState<string | null>(null);
+  const [stockError, setStockError] = useState<string | null>(null);
   const [categoryData, setCategoryData] = useState<CategoryData[]>([]);
   const [educationData, setEducationData] = useState<EducationData[]>([]);
+  const [stockData, setStockData] = useState<StockSummary | null>(null);
   const [blogStats, setBlogStats] = useState({
     total: 0,
     categories: 0,
@@ -115,12 +162,22 @@ function Dashboard() {
   });
 
   // Colors for charts
-  const COLORS = ['#4F7942', '#8FBC8F', '#2E8B57', '#3CB371', '#90EE90', '#006400'];
-  const EDUCATION_COLORS = ['#FFC107', '#16A3A9', '#DC3545', '#FD7E14'];
+  const STOCK_COLORS = [
+    '#4F7942', // Green
+    '#0088FE', // Blue
+    '#FF8042', // Orange
+    '#FFBB28', // Yellow
+    '#8884d8', // Purple
+    '#00C49F', // Teal
+    '#093731',  // Dark Green (primary)
+    '#82ca9d'   // Light Green
+  ];
 
   // Fetch blogs on component mount
   useEffect(() => {
     fetchBlogs();
+    fetchEducationData();
+    fetchStockData();
   }, [accessToken]);
 
   const fetchBlogs = async () => {
@@ -193,58 +250,12 @@ function Dashboard() {
     });
   };
 
-  // Colors for charts
-  const COLORS = ['#4F7942', '#8FBC8F', '#2E8B57', '#3CB371', '#90EE90', '#006400'];
-
   // Format date for display
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric'
     });
-  };
-  const { accessToken } = useAppSelector((state) => state.auth);
-  const [blogs, setBlogs] = useState<Blog[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [categoryData, setCategoryData] = useState<CategoryData[]>([]);
-  const [blogStats, setBlogStats] = useState({
-    total: 0,
-    categories: 0,
-    authors: 0,
-    newest: '',
-    mostPopular: ''
-  });
-
-  // Fetch blogs on component mount
-  useEffect(() => {
-    fetchBlogs();
-    fetchEducationData();
-  }, [accessToken]);
-
-  const fetchBlogs = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const response = await axios.get(`http://localhost:5000/api/blog/posts`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        }
-      });
-      
-      // Set blogs data
-      setBlogs(response.data);
-      
-      // Process data for chart and stats
-      processData(response.data);
-      
-    } catch (err: any) {
-      console.error("Error fetching blogs for dashboard:", err);
-      setError(err.response?.data?.message || "Failed to load blog analytics");
-    } finally {
-      setLoading(false);
-    }
   };
 
   // Fetch education data (quizzes and users)
@@ -320,51 +331,6 @@ function Dashboard() {
     }
   };
 
-  // Process blog data for charts and stats
-  const processData = (blogData: Blog[]) => {
-    // Category distribution
-    const categories: { [key: string]: number } = {};
-    const authors = new Set<string>();
-    
-    blogData.forEach(blog => {
-      // Count by category
-      const category = blog.category || 'Uncategorized';
-      categories[category] = (categories[category] || 0) + 1;
-      
-      // Track unique authors
-      if (blog.author) {
-        authors.add(`${blog.author.firstName} ${blog.author.lastName}`);
-      }
-    });
-    
-    // Convert to arrays for Recharts
-    const categoryChartData: CategoryData[] = Object.keys(categories).map(category => ({
-      name: category,
-      value: categories[category]
-    })).sort((a, b) => b.value - a.value); // Sort by count descending
-    
-    // Find most popular category
-    const mostPopular = categoryChartData.length > 0 ? categoryChartData[0].name : 'None';
-    
-    // Find newest blog post
-    let newest = 'None';
-    if (blogData.length > 0) {
-      const sortedBlogs = [...blogData].sort((a, b) => 
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
-      newest = sortedBlogs[0].title;
-    }
-    
-    setCategoryData(categoryChartData);
-    setBlogStats({
-      total: blogData.length,
-      categories: Object.keys(categories).length,
-      authors: authors.size,
-      newest: newest,
-      mostPopular: mostPopular
-    });
-  };
-
   // Process education data for charts and stats
   const processEducationData = (quizData: Quiz[], userData: any[], progressData: UserProgress[]) => {
     // Count animal and crop lessons
@@ -406,12 +372,27 @@ function Dashboard() {
     setEducationData(educationChartData);
   };
 
-  // Format date for display
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric'
-    });
+  // Fetch stock data
+  const fetchStockData = async () => {
+    try {
+      setLoadingStock(true);
+      setStockError(null);
+      
+      const response = await axios.get(`http://localhost:5000/api/stock-dashboard/summary`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      });
+      
+      // Set stock data
+      setStockData(response.data);
+      
+    } catch (err: any) {
+      console.error("Error fetching stock data for dashboard:", err);
+      setStockError(err.response?.data?.message || "Failed to load stock analytics");
+    } finally {
+      setLoadingStock(false);
+    }
   };
 
   return (
@@ -447,7 +428,7 @@ function Dashboard() {
                         dataKey="value"
                       >
                         {categoryData.slice(0, 5).map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          <Cell key={`cell-${index}`} fill={STOCK_COLORS[index % STOCK_COLORS.length]} />
                         ))}
                       </Pie>
                       <Tooltip 
@@ -481,89 +462,8 @@ function Dashboard() {
             )}
           </div>
           {!loading && !error && blogs.length > 0 && (
-            <div className="mt-1">
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] text-gray-500">Latest post:</span>
+            <div className="mt-1 text-right">
                 <a href="/blogs" className="text-[10px] text-blue-500 hover:underline">View all</a>
-              </div>
-              <div className="text-xs font-medium text-gray-800 truncate" title={blogStats.newest}>
-                {blogStats.newest}
-              </div>
-            </div>
-          )}
-      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-        <div className="rounded-lg bg-white p-3 shadow-sm">
-          <h2 className="text-lg font-semibold text-[#1A2F2B] mb-1">Blog Insights</h2>
-          <div className="h-40">
-            {loading ? (
-              <div className="flex h-full w-full items-center justify-center">
-                <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-t-2 border-[#4F7942]"></div>
-              </div>
-            ) : error ? (
-              <div className="flex h-full w-full items-center justify-center text-red-500 text-xs">
-                {error}
-              </div>
-            ) : blogs.length === 0 ? (
-              <div className="flex h-full w-full items-center justify-center text-gray-500 text-xs">
-                No blog data available
-              </div>
-            ) : (
-              <div className="flex h-full">
-                <div className="w-1/2 h-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={categoryData.slice(0, 5)} 
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={20}
-                        outerRadius={35}
-                        paddingAngle={3}
-                        dataKey="value"
-                      >
-                        {categoryData.slice(0, 5).map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip 
-                        formatter={(value) => [`${value} posts`, 'Count']}
-                        contentStyle={{ fontSize: '10px', padding: '2px 4px' }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="w-1/2 flex flex-col justify-between py-1">
-                  <div className="flex items-center justify-between border-b border-gray-100 pb-1">
-                    <span className="text-xs text-gray-500">Posts</span>
-                    <span className="text-xs font-bold text-[#4F7942]">{blogStats.total}</span>
-                  </div>
-                  <div className="flex items-center justify-between border-b border-gray-100 py-1">
-                    <span className="text-xs text-gray-500">Categories</span>
-                    <span className="text-xs font-bold text-[#4F7942]">{blogStats.categories}</span>
-                  </div>
-                  <div className="flex items-center justify-between border-b border-gray-100 py-1">
-                    <span className="text-xs text-gray-500">Authors</span>
-                    <span className="text-xs font-bold text-[#4F7942]">{blogStats.authors}</span>
-                  </div>
-                  <div className="flex items-center justify-between py-1">
-                    <span className="text-xs text-gray-500">Top</span>
-                    <span className="text-xs font-medium text-gray-700 truncate max-w-[70%] text-right" title={blogStats.mostPopular}>
-                      {blogStats.mostPopular}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-          {!loading && !error && blogs.length > 0 && (
-            <div className="mt-1">
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] text-gray-500">Latest post:</span>
-                <a href="/blogs" className="text-[10px] text-blue-500 hover:underline">View all</a>
-              </div>
-              <div className="text-xs font-medium text-gray-800 truncate" title={blogStats.newest}>
-                {blogStats.newest}
-              </div>
             </div>
           )}
         </div>
@@ -571,46 +471,58 @@ function Dashboard() {
         <div className="rounded-lg bg-white p-3 shadow-sm">
           <h2 className="text-lg font-semibold text-[#1A2F2B]">Stock Overview</h2>
           <div className="mt-2 h-40">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={[
-                    { name: 'Animals', value: 245 },
-                    { name: 'Pesticides', value: 130 },
-                    { name: 'Equipment', value: 87 },
-                    { name: 'Feeds', value: 210 },
-                    { name: 'Fertilizers', value: 155 },
-                    { name: 'Seeds', value: 95 },
-                    { name: 'Tools', value: 72 }
-                  ]}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={25}
-                  outerRadius={40}
-                  paddingAngle={2}
-                  dataKey="value"
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                  labelLine={false}
-                >
-                  {[
-                    '#4F7942', // Green
-                    '#0088FE', // Blue
-                    '#FF8042', // Orange
-                    '#FFBB28', // Yellow
-                    '#8884d8', // Purple
-                    '#00C49F', // Teal
-                    '#093731'  // Dark Green (primary)
-                  ].map((color, index) => (
-                    <Cell key={`cell-${index}`} fill={color} />
-                  ))}
-                </Pie>
-                <Tooltip 
-                  formatter={(value) => [`${value} items`, 'Count']}
-                  contentStyle={{ fontSize: '10px', padding: '2px 4px' }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+            {loadingStock ? (
+              <div className="flex h-full w-full items-center justify-center">
+                <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-t-2 border-[#4F7942]"></div>
+              </div>
+            ) : stockError ? (
+              <div className="flex h-full w-full items-center justify-center text-red-500 text-xs">
+                {stockError}
+              </div>
+            ) : !stockData ? (
+              <div className="flex h-full w-full items-center justify-center text-gray-500 text-xs">
+                No stock data available
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: 'Animals', value: stockData.totalItems.animals },
+                      { name: 'Pesticides', value: stockData.totalItems.pesticides },
+                      { name: 'Equipment', value: stockData.totalItems.equipment },
+                      { name: 'Feeds', value: stockData.totalItems.feeds },
+                      { name: 'Fertilizers', value: stockData.totalItems.fertilizers },
+                      { name: 'Seeds', value: stockData.totalItems.seeds },
+                      { name: 'Tools', value: stockData.totalItems.tools },
+                      { name: 'Harvests', value: stockData.totalItems.harvests }
+                    ].filter(item => item.value > 0)}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={25}
+                    outerRadius={40}
+                    paddingAngle={2}
+                    dataKey="value"
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    labelLine={false}
+                  >
+                    {STOCK_COLORS.map((color, index) => (
+                      <Cell key={`cell-${index}`} fill={color} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    formatter={(value) => [`${value} items`, 'Count']}
+                    contentStyle={{ fontSize: '10px', padding: '2px 4px' }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </div>
+          {!loadingStock && !stockError && stockData && (
+            <div className="mt-1 text-right">
+              <a href="/stock" className="text-[10px] text-blue-500 hover:underline">View all</a>
+            </div>
+          )}
         </div>
         <div className="rounded-lg bg-white p-3 shadow-sm">
           <h2 className="text-lg font-semibold text-[#1A2F2B]">Market Prices</h2>
@@ -634,10 +546,10 @@ function Dashboard() {
                   formatter={(value) => [`$${value}`, 'Price']}
                 />
                 <Legend wrapperStyle={{ fontSize: '10px' }} />
-                <Line type="monotone" dataKey="tomatoes" stroke="#ff6b6b" dot={{ r: 1 }} strokeWidth={2} />
-                <Line type="monotone" dataKey="potatoes" stroke="#4F7942" dot={{ r: 1 }} strokeWidth={2} />
-                <Line type="monotone" dataKey="cucumbers" stroke="#4ecdc4" dot={{ r: 1 }} strokeWidth={2} />
-                <Line type="monotone" dataKey="onions" stroke="#a78bfa" dot={{ r: 1 }} strokeWidth={2} />
+                <Line type="monotone" dataKey="tomatoes" stroke={STOCK_COLORS[0]} dot={{ r: 1 }} strokeWidth={2} />
+                <Line type="monotone" dataKey="potatoes" stroke={STOCK_COLORS[1]} dot={{ r: 1 }} strokeWidth={2} />
+                <Line type="monotone" dataKey="cucumbers" stroke={STOCK_COLORS[2]} dot={{ r: 1 }} strokeWidth={2} />
+                <Line type="monotone" dataKey="onions" stroke={STOCK_COLORS[3]} dot={{ r: 1 }} strokeWidth={2} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -656,7 +568,15 @@ function Dashboard() {
                 </svg>
               </span>
             </div>
-            <p className="mt-2 text-2xl font-bold text-[#093731]">1,345</p>
+            <p className="mt-2 text-2xl font-bold text-[#093731]">
+              {loadingStock ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-t-2 border-[#4F7942]"></div>
+              ) : stockData ? (
+                stockData.totalItems.total.toLocaleString()
+              ) : (
+                "N/A"
+              )}
+            </p>
             <p className="text-xs text-gray-500">Across all stock categories</p>
           </div>
           
@@ -669,7 +589,15 @@ function Dashboard() {
                 </svg>
               </span>
             </div>
-            <p className="mt-2 text-2xl font-bold text-[#093731]">$24,789.50</p>
+            <p className="mt-2 text-2xl font-bold text-[#093731]">
+              {loadingStock ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-t-2 border-[#4F7942]"></div>
+              ) : stockData ? (
+                `$${stockData.totalValue.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+              ) : (
+                "N/A"
+              )}
+            </p>
             <p className="text-xs text-gray-500">Estimated inventory value</p>
           </div>
           
@@ -682,7 +610,15 @@ function Dashboard() {
                 </svg>
               </span>
             </div>
-            <p className="mt-2 text-2xl font-bold text-amber-600">42</p>
+            <p className="mt-2 text-2xl font-bold text-amber-600">
+              {loadingStock ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-t-2 border-[#4F7942]"></div>
+              ) : stockData ? (
+                stockData.lowStock.total.toLocaleString()
+              ) : (
+                "N/A"
+              )}
+            </p>
             <p className="text-xs text-gray-500">Items below minimum threshold</p>
           </div>
           
@@ -695,7 +631,15 @@ function Dashboard() {
                 </svg>
               </span>
             </div>
-            <p className="mt-2 text-2xl font-bold text-red-600">18</p>
+            <p className="mt-2 text-2xl font-bold text-red-600">
+              {loadingStock ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-t-2 border-[#4F7942]"></div>
+              ) : stockData ? (
+                stockData.expiring.total.toLocaleString()
+              ) : (
+                "N/A"
+              )}
+            </p>
             <p className="text-xs text-gray-500">Items expiring within 30 days</p>
           </div>
         </div>
@@ -741,14 +685,14 @@ function Dashboard() {
                 >
                   <defs>
                     <linearGradient id="tempGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#FFB86C" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#FFB86C" stopOpacity={0.2}/>
+                      <stop offset="5%" stopColor={STOCK_COLORS[0]} stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor={STOCK_COLORS[0]} stopOpacity={0.2}/>
                     </linearGradient>
                   </defs>
                   <Area 
                     type="monotone" 
                     dataKey="temp" 
-                    stroke="#f9a03f" 
+                    stroke={STOCK_COLORS[0]} 
                     fill="url(#tempGradient)" 
                     strokeWidth={2}
                     isAnimationActive={false}
@@ -861,10 +805,9 @@ function Dashboard() {
                         startAngle={90}
                         endAngle={-270}
                       >
-                        <Cell fill="#16A3A9" /> {/* Teal for Animal Lessons */}
-                        <Cell fill="#FFC107" /> {/* Yellow/Gold for Crop Lessons */}
-                        <Cell fill="#FD7E14" /> {/* Orange for Total Quizzes */}
-                        <Cell fill="#DC3545" /> {/* Red for Total Users */}
+                        {educationData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={STOCK_COLORS[index % STOCK_COLORS.length]} />
+                        ))}
                       </Pie>
                       <Tooltip 
                         formatter={(value) => [`${value} lessons`, 'Count']}
@@ -876,19 +819,19 @@ function Dashboard() {
                 <div className="w-1/2 flex flex-col justify-center space-y-4 py-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Total Quizzes</span>
-                    <span className="text-lg font-semibold text-[#FD7E14]">{educationStats.totalQuizzes}</span>
+                    <span className="text-lg font-semibold" style={{ color: STOCK_COLORS[0] }}>{educationStats.totalQuizzes}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Animal Lessons</span>
-                    <span className="text-lg font-semibold text-[#16A3A9]">{educationStats.animalLessons}</span>
+                    <span className="text-lg font-semibold" style={{ color: STOCK_COLORS[1] }}>{educationStats.animalLessons}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Crop Lessons</span>
-                    <span className="text-lg font-semibold text-[#FFC107]">{educationStats.cropLessons}</span>
+                    <span className="text-lg font-semibold" style={{ color: STOCK_COLORS[2] }}>{educationStats.cropLessons}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Total Users</span>
-                    <span className="text-lg font-semibold text-[#DC3545]">{educationStats.activeUsers}</span>
+                    <span className="text-lg font-semibold" style={{ color: STOCK_COLORS[3] }}>{educationStats.activeUsers}</span>
                   </div>
                 </div>
               </div>

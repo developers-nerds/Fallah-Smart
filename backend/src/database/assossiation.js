@@ -261,14 +261,14 @@ Users.hasMany(AuctionBids, {
 // Update User and Accounts association to Many-to-One with unique alias
 Users.hasMany(Accounts, {
   foreignKey: "userId",
-  as: "userAccounts", // Changed from "accounts"
+  as: "accounts", // Changed from "accounts"
   onDelete: "CASCADE",
   onUpdate: "CASCADE",
 });
 
 Accounts.belongsTo(Users, {
   foreignKey: "userId",
-  as: "accountOwner", // Changed from "user"
+  as: "User", // Changed from "user"
 });
 
 // Add Category and Transactions association
@@ -802,7 +802,7 @@ Education_Like.belongsTo(Users, { foreignKey: 'userId' });
 // async function syncModels() {
 //   try {
 //     // Use { force: true } for production to safely update schema
-//     await sequelize.sync({ alter: true });
+//     await sequelize.sync({ force: true });
 //     console.log("Database models synchronized successfully");
 //   } catch (error) {
 //     console.error("Error synchronizing database models:", error);

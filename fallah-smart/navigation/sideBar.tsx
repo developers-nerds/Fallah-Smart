@@ -4,6 +4,7 @@ import {
   DrawerContentScrollView,
   DrawerItem,
   DrawerContentComponentProps,
+  DrawerNavigationProp,
 } from '@react-navigation/drawer';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
@@ -38,6 +39,7 @@ export type DrawerParamList = {
   محفظتي: undefined;
   Dictionary: undefined;
   Marketplace: undefined;
+  Weather: undefined;
 };
 
 type SideBarProps = {
@@ -201,6 +203,17 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
         active={currentRoute === 'محفظتي'}
         onPress={() => {
           props.navigation.navigate('Wallet');
+          props.navigation.closeDrawer();
+        }}
+        navigation={props.navigation}
+      />
+
+      <MenuItem
+        icon="weather-partly-cloudy"
+        label="الطقس والزراعة"
+        active={currentRoute === 'Weather'}
+        onPress={() => {
+          props.navigation.navigate('Weather');
           props.navigation.closeDrawer();
         }}
         navigation={props.navigation}
