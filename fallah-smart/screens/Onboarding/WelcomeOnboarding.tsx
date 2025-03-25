@@ -205,11 +205,6 @@ const WelcomeOnboarding = () => {
         <Text style={styles.subtitleText}>اكتشف كيف يمكن لتطبيقنا مساعدتك</Text>
       </View>
       
-      {/* Skip button */}
-      <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
-        <Text style={styles.skipText}>تخطي</Text>
-      </TouchableOpacity>
-
       {/* Slides */}
       <FlatList
         ref={flatListRef}
@@ -238,6 +233,13 @@ const WelcomeOnboarding = () => {
 
       {/* Navigation buttons */}
       <View style={styles.buttonsContainer}>
+        <TouchableOpacity 
+          style={[styles.button, styles.skipButtonBottom]} 
+          onPress={handleSkip}
+        >
+          <Text style={styles.skipButtonBottomText}>تخطي</Text>
+        </TouchableOpacity>
+        
         <TouchableOpacity 
           style={[styles.button, styles.nextButton]} 
           onPress={handleNext}
@@ -277,18 +279,6 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.regular,
     color: theme.colors.neutral.textSecondary,
     textAlign: 'center',
-  },
-  skipButton: {
-    position: 'absolute',
-    top: 20,
-    right: 20,
-    zIndex: 10,
-    padding: 10,
-  },
-  skipText: {
-    fontSize: 16,
-    fontFamily: theme.fonts.medium,
-    color: theme.colors.primary.base,
   },
   flatList: {
     flex: 1,
@@ -355,7 +345,7 @@ const styles = StyleSheet.create({
   },
   buttonsContainer: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     marginBottom: 30,
     paddingHorizontal: 20,
   },
@@ -364,12 +354,23 @@ const styles = StyleSheet.create({
     height: 50,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 30,
+    paddingHorizontal: 20,
     flexDirection: 'row',
   },
   nextButton: {
     backgroundColor: theme.colors.primary.base,
-    width: '80%',
+    width: '65%',
+  },
+  skipButtonBottom: {
+    borderWidth: 1,
+    borderColor: theme.colors.primary.base,
+    backgroundColor: 'transparent',
+    width: '30%',
+  },
+  skipButtonBottomText: {
+    color: theme.colors.primary.base,
+    fontSize: theme.fontSizes.button,
+    fontFamily: theme.fonts.medium,
   },
   nextButtonText: {
     color: theme.colors.neutral.surface,
