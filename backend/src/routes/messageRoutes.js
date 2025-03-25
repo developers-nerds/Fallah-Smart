@@ -3,7 +3,9 @@ const router = express.Router();
 const {
   createMessage,
   getConversationMessages,
+  getMessageStats,
 } = require("../controllers/messageController");
+const auth = require("../middleware/auth");
 
 /**
  * @route   POST /api/messages/create
@@ -18,5 +20,12 @@ router.post("/create", createMessage);
  * @access  Public
  */
 router.get("/:conversationId", getConversationMessages);
+
+/**
+ * @route   GET /api/messages/stats/admin
+ * @desc    Get message statistics for admin dashboard
+ * @access  Private (Admin only)
+ */
+router.get("/stats/admin", auth, getMessageStats);
 
 module.exports = router;

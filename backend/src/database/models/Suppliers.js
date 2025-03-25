@@ -34,6 +34,11 @@ module.exports = (sequelize, DataTypes) => {
       company_banner: {
         type: DataTypes.STRING(100),
       },
+      is_verified: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+      },
       open_time: {
         type: DataTypes.TIME,
         allowNull: true,
