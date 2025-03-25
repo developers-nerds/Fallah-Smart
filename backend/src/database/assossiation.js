@@ -196,7 +196,6 @@ CropOrders.belongsTo(CropListings, {
   as: "cropListing",
 });
 
-
 // 5. Auctions one-to-many with AuctionBids
 Auctions.hasMany(AuctionBids, {
   foreignKey: "auctionId",
@@ -415,12 +414,14 @@ Messages.belongsTo(Conversations, {
 // Animal and AnimalDetails associations
 Crop.hasOne(CropDetails, {
   foreignKey: "cropId",
+  as: "details",
   onDelete: "CASCADE",
   onUpdate: "CASCADE",
 });
 
 CropDetails.belongsTo(Crop, {
   foreignKey: "cropId",
+  as: "crop",
 });
 
 AnimalDetails.belongsTo(Animal_doc, {
@@ -786,30 +787,54 @@ Users.hasMany(Education_QuestionAndAnswer, { foreignKey: "userId" });
 // Replies and Users
 Education_Reply.belongsTo(Users, { foreignKey: "userId" });
 Users.hasMany(Education_Reply, { foreignKey: "userId" });
-Education_Reply.belongsTo(Users, { foreignKey: 'userId' });
-Users.hasMany(Education_Reply, { foreignKey: 'userId' });
+Education_Reply.belongsTo(Users, { foreignKey: "userId" });
+Users.hasMany(Education_Reply, { foreignKey: "userId" });
 
 // Education Likes - import model
-const Education_Like = require("./models/Education_Likes")(sequelize, DataTypes);
+const Education_Like = require("./models/Education_Likes")(
+  sequelize,
+  DataTypes
+);
 
 // Users and Likes
-Users.hasMany(Education_Like, { foreignKey: 'userId' });
-Education_Like.belongsTo(Users, { foreignKey: 'userId' });
+Users.hasMany(Education_Like, { foreignKey: "userId" });
+Education_Like.belongsTo(Users, { foreignKey: "userId" });
 
 ////////////////////////////////////////Hedhy Associations Mte3i Rodo belkom chabeb ///////////////
 
 // Sync all models with the database
+// // //Sync all models with the database
 // async function syncModels() {
+//   const transaction = await sequelize.transaction();
+
 //   try {
-//     // Use { force: true } for production to safely update schema
-//     await sequelize.sync({ force: true });
+//     console.log("Starting database synchronization...");
+
+//     // First sync with force: true to recreate all tables with correct structure
+//     console.log("Step 1: Dropping and recreating all tables...");
+//     await sequelize.sync({ force: true, transaction });
+//     console.log("Tables dropped and recreated successfully");
+
+//     // Then sync with alter: true to ensure any missing changes are applied
+//     console.log("Step 2: Applying any remaining alterations...");
+//     await sequelize.sync({ alter: true, transaction });
+
+//     // Commit the transaction if everything succeeded
+//     await transaction.commit();
 //     console.log("Database models synchronized successfully");
 //   } catch (error) {
+//     // Roll back the transaction if anything fails
+//     await transaction.rollback();
 //     console.error("Error synchronizing database models:", error);
+//     throw error; // Rethrow to ensure the error is visible
 //   }
 // }
 
-// syncModels();
+// // Execute the function
+// syncModels().catch((err) => {
+//   console.error("Failed to sync models:", err);
+//   process.exit(1);
+// });
 
 // Export models AFTER defining associations
 module.exports = {
@@ -878,5 +903,3 @@ Auctions.belongsTo(Suppliers, {
   foreignKey: "supplierId",
   as: "supplier",
 });
-
-

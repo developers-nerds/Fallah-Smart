@@ -24,7 +24,10 @@ import { normalize, scaleSize, isSmallDevice, responsivePadding } from '../../ut
 import { storage } from '../../utils/storage';
 
 // Define the navigation prop type
-type MarketplaceScreenNavigationProp = NativeStackNavigationProp<StockStackParamList, 'Marketplace'>;
+type MarketplaceScreenNavigationProp = NativeStackNavigationProp<
+  StockStackParamList,
+  'Marketplace'
+>;
 
 // Mock data for auctions (keeping this until you implement real auction fetching)
 const auctionData = [
@@ -200,7 +203,7 @@ const Marketplace = () => {
       checkIfSupplier().then(() => {
         fetchProducts();
       });
-      
+
       return () => {
         // Optional cleanup if needed
       };
@@ -211,7 +214,7 @@ const Marketplace = () => {
     try {
       setLoading(true);
       setError(null); // Clear any previous errors
-      
+
       // First check if baseUrl is defined
       if (!baseUrl) {
         console.error('API URL is undefined. Check your .env file');
@@ -219,23 +222,23 @@ const Marketplace = () => {
         setLoading(false);
         return;
       }
-      
+
       const url = `${baseUrl}/crops/listings`;
       console.log(`Fetching marketplace listings from: ${url}`);
-      
+
       // Use axios for consistent API handling
       const response = await axios.get(url);
       console.log('Response status:', response.status);
-      
+
       // Axios automatically throws for non-200 responses and parses JSON
       const data = response.data;
       console.log('Fetched products data:', data);
-      
+
       // Debug supplier information
       if (data.cropListings && data.cropListings.length > 0) {
         console.log('First listing supplier data:', data.cropListings[0].supplier);
       }
-      
+
       // If no listings are found, handle that gracefully
       if (!data.cropListings || data.cropListings.length === 0) {
         console.log('No products found');
@@ -243,7 +246,7 @@ const Marketplace = () => {
         setLoading(false);
         return;
       }
-      
+
       // Transform API data to match the Product interface
       const formattedProducts: Product[] = data.cropListings.map((listing: any) => {
         // Debug each supplier
@@ -252,11 +255,13 @@ const Marketplace = () => {
         } else {
           console.log('Supplier found for listing:', listing.id, listing.supplier.company_name);
         }
-        
+
         return {
           id: listing.id.toString(),
           companyName: listing.supplier?.company_name || 'Unknown Supplier',
-          avatar: listing.supplier?.company_logo || 'https://developers.elementor.com/docs/assets/img/elementor-placeholder-image.png',
+          avatar:
+            listing.supplier?.company_logo ||
+            'https://developers.elementor.com/docs/assets/img/elementor-placeholder-image.png',
           image: 'https://developers.elementor.com/docs/assets/img/elementor-placeholder-image.png', // Default image for now
           description: listing.description || listing.crop_name, // Use crop_name if description is missing
           price: `${listing.currency} ${listing.price} / ${listing.unit}`,
@@ -266,13 +271,13 @@ const Marketplace = () => {
           deliveryTime: '2-5 days', // Default value
           certification: 'Standard Quality', // Default value
           specifications: {
-            'Category': listing.sub_category || 'General',
+            Category: listing.sub_category || 'General',
             'Listing Type': listing.listing_type || 'Fixed Price',
-            'Status': listing.status || 'Active'
-          }
+            Status: listing.status || 'Active',
+          },
         };
       });
-      
+
       console.log(`Processed ${formattedProducts.length} products for display`);
       setProducts(formattedProducts);
     } catch (error) {
@@ -301,25 +306,24 @@ const Marketplace = () => {
       }
 
       console.log('Checking supplier status with token');
-      
+
       const url = `${baseUrl}/suppliers/me`;
       try {
         const response = await axios.get(url, {
           headers: {
-            Authorization: `Bearer ${access}`
-          }
+            Authorization: `Bearer ${access}`,
+          },
         });
 
         console.log('Supplier check response:', response.status);
         console.log('Supplier data:', response.data);
-        
+
         // Only set isSupplier to true if we have both a supplier account AND a valid userId
-        const hasValidSupplier = response.data.hasAccount && 
-                               response.data.supplier && 
-                               response.data.supplier.id;
-        
+        const hasValidSupplier =
+          response.data.hasAccount && response.data.supplier && response.data.supplier.id;
+
         console.log('Has valid supplier profile:', hasValidSupplier);
-        
+
         // Update UI state based on the check
         if (hasValidSupplier !== isSupplier) {
           console.log('Updating supplier status from', isSupplier, 'to', hasValidSupplier);
@@ -341,13 +345,13 @@ const Marketplace = () => {
   const handleAddProduct = () => {
     try {
       console.log('Attempting to navigate to AddProduct screen');
-      
+
       // Check if we're a supplier first
       if (!isSupplier) {
         Alert.alert('Permission Error', 'You must be registered as a supplier to add products');
         return;
       }
-      
+
       // Navigate to AddProduct screen
       navigation.navigate('AddProduct');
       console.log('Navigation to AddProduct requested');
@@ -375,7 +379,7 @@ const Marketplace = () => {
             </View>
           );
         }
-        
+
         if (error) {
           return (
             <View style={styles.errorContainer}>
@@ -383,7 +387,7 @@ const Marketplace = () => {
             </View>
           );
         }
-        
+
         return <MarketplaceFeed data={products} />;
       case 'auction':
         return <AuctionHouse data={auctionData} />;
@@ -429,11 +433,10 @@ const Marketplace = () => {
       <View style={styles.contentContainer}>{renderTabContent()}</View>
 
       {isSupplier && activeTab === 'feed' && (
-        <TouchableOpacity 
-          style={styles.addButton} 
+        <TouchableOpacity
+          style={styles.addButton}
           onPress={handleAddProduct}
-          testID="add-product-button"
-        >
+          testID="add-product-button">
           <MaterialCommunityIcons name="plus" size={24} color="white" />
         </TouchableOpacity>
       )}
@@ -518,36 +521,6 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.medium,
     textAlign: 'center',
   },
-  refreshContainer: {
-    padding: responsivePadding(theme.spacing.md),
-    backgroundColor: theme.colors.neutral.surface,
-    borderRadius: theme.borderRadius.medium,
-    marginHorizontal: responsivePadding(theme.spacing.md),
-    marginTop: responsivePadding(theme.spacing.md),
-    ...theme.shadows.small,
-  },
-  refreshText: {
-    fontFamily: theme.fonts.medium,
-    fontSize: normalize(isSmallDevice ? 13 : 14),
-    color: theme.colors.neutral.textSecondary,
-    marginBottom: responsivePadding(theme.spacing.sm),
-    textAlign: 'center',
-  },
-  refreshButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: responsivePadding(theme.spacing.sm),
-    borderRadius: theme.borderRadius.medium,
-    backgroundColor: theme.colors.primary.base,
-    alignSelf: 'center',
-  },
-  refreshButtonText: {
-    fontFamily: theme.fonts.medium,
-    fontSize: normalize(isSmallDevice ? 13 : 14),
-    color: 'white',
-    marginLeft: responsivePadding(theme.spacing.xs),
-  }
 });
 
 export default Marketplace;

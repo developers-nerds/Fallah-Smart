@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { WeatherData, WeatherInsight, ForecastDay } from '../../screens/weather/WeatherScreen';
 import { theme } from '../../theme/theme';
@@ -100,208 +100,220 @@ const WeatherAlerts: React.FC<WeatherAlertsProps> = ({ weatherData, weatherInsig
   );
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>تنبيهات الطقس</Text>
-        <Text style={styles.subtitle}>
-          تنبيهات هامة عن الظروف الجوية التي قد تؤثر على المحاصيل
-        </Text>
-      </View>
-
-      {/* Current weather summary */}
-      <View style={styles.weatherSummary}>
-        <Text style={styles.weatherSummaryTitle}>ملخص الطقس الحالي</Text>
-        <View style={styles.weatherConditions}>
-          <View style={styles.weatherCondition}>
-            <MaterialCommunityIcons
-              name="thermometer"
-              size={22}
-              color={theme.colors.primary.dark}
-            />
-            <Text style={styles.weatherValue}>
-              {Math.round(weatherData.current.temp_c)}°C
-            </Text>
-          </View>
-
-          <View style={styles.weatherCondition}>
-            <MaterialCommunityIcons
-              name="water-percent"
-              size={22}
-              color={theme.colors.primary.dark}
-            />
-            <Text style={styles.weatherValue}>
-              {weatherData.current.humidity}%
-            </Text>
-          </View>
-
-          <View style={styles.weatherCondition}>
-            <MaterialCommunityIcons
-              name="weather-windy"
-              size={22}
-              color={theme.colors.primary.dark}
-            />
-            <Text style={styles.weatherValue}>
-              {Math.round(weatherData.current.wind_kph)} كم/س
-            </Text>
-          </View>
+    <View style={styles.mainContainer}>
+      <ScrollView 
+        style={styles.container}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <Text style={styles.title}>تنبيهات الطقس</Text>
+          <Text style={styles.subtitle}>
+            تنبيهات هامة عن الظروف الجوية التي قد تؤثر على المحاصيل
+          </Text>
         </View>
-      </View>
 
-      {/* Notification preferences */}
-      <View style={styles.notificationPreferences}>
-        <Text style={styles.sectionTitle}>إعدادات التنبيهات</Text>
-        <View style={styles.preferencesContainer}>
-          {Object.entries(notificationsEnabled).map(([type, enabled]) => (
-            <View key={type} style={styles.preferenceItem}>
-              <View style={styles.preferenceLeft}>
-                <MaterialCommunityIcons
-                  name={getAlertIcon(type) as any}
-                  size={24}
-                  color={getAlertColor(type)}
-                />
-                <Text style={styles.preferenceName}>
-                  {type === 'heat' ? 'حرارة مرتفعة' :
-                   type === 'rain' ? 'أمطار غزيرة' :
-                   type === 'frost' ? 'صقيع' :
-                   type === 'wind' ? 'رياح قوية' :
-                   type === 'drought' ? 'جفاف' : ''}
-                </Text>
-              </View>
-              <Switch
-                value={enabled}
-                onValueChange={() => toggleNotification(type)}
-                trackColor={{ false: '#e0e0e0', true: theme.colors.primary.light }}
-                thumbColor={enabled ? theme.colors.primary.base : '#f4f3f4'}
+        {/* Current weather summary */}
+        <View style={styles.weatherSummary}>
+          <Text style={styles.weatherSummaryTitle}>ملخص الطقس الحالي</Text>
+          <View style={styles.weatherConditions}>
+            <View style={styles.weatherCondition}>
+              <MaterialCommunityIcons
+                name="thermometer"
+                size={22}
+                color={theme.colors.primary.dark}
               />
+              <Text style={styles.weatherValue}>
+                {Math.round(weatherData.current.temp_c)}°C
+              </Text>
             </View>
-          ))}
-        </View>
-      </View>
 
-      {/* Active alerts */}
-      <View style={styles.alertsContainer}>
-        <Text style={styles.sectionTitle}>التنبيهات النشطة</Text>
-        
-        {filteredInsights.length === 0 ? (
-          <View style={styles.emptyAlerts}>
-            <MaterialCommunityIcons
-              name="weather-sunny"
-              size={48}
-              color="#AAAAAA"
-            />
-            <Text style={styles.emptyAlertsText}>
-              لا توجد تنبيهات نشطة في الوقت الحالي
-            </Text>
+            <View style={styles.weatherCondition}>
+              <MaterialCommunityIcons
+                name="water-percent"
+                size={22}
+                color={theme.colors.primary.dark}
+              />
+              <Text style={styles.weatherValue}>
+                {weatherData.current.humidity}%
+              </Text>
+            </View>
+
+            <View style={styles.weatherCondition}>
+              <MaterialCommunityIcons
+                name="weather-windy"
+                size={22}
+                color={theme.colors.primary.dark}
+              />
+              <Text style={styles.weatherValue}>
+                {Math.round(weatherData.current.wind_kph)} كم/س
+              </Text>
+            </View>
           </View>
-        ) : (
-          filteredInsights.map((insight, index) => (
-            <View 
-              key={`${insight.type}-${index}`}
-              style={[
-                styles.alertCard,
-                { backgroundColor: getSeverityBackgroundColor(insight.severity) }
-              ]}
-            >
-              <View style={styles.alertHeader}>
-                <View style={styles.alertTitle}>
+        </View>
+
+        {/* Notification preferences */}
+        <View style={styles.notificationPreferences}>
+          <Text style={styles.sectionTitle}>إعدادات التنبيهات</Text>
+          <View style={styles.preferencesContainer}>
+            {Object.entries(notificationsEnabled).map(([type, enabled]) => (
+              <View key={type} style={styles.preferenceItem}>
+                <View style={styles.preferenceLeft}>
                   <MaterialCommunityIcons
-                    name={getAlertIcon(insight.type) as any}
+                    name={getAlertIcon(type) as any}
                     size={24}
-                    color={getAlertColor(insight.type)}
+                    color={getAlertColor(type)}
                   />
-                  <Text style={styles.alertTitleText}>{insight.title}</Text>
-                </View>
-                <View style={[
-                  styles.severityBadge,
-                  { borderColor: getAlertColor(insight.type) }
-                ]}>
-                  <Text style={[
-                    styles.severityText,
-                    { color: getAlertColor(insight.type) }
-                  ]}>
-                    {getSeverityLabel(insight.severity)}
+                  <Text style={styles.preferenceName}>
+                    {type === 'heat' ? 'حرارة مرتفعة' :
+                     type === 'rain' ? 'أمطار غزيرة' :
+                     type === 'frost' ? 'صقيع' :
+                     type === 'wind' ? 'رياح قوية' :
+                     type === 'drought' ? 'جفاف' : ''}
                   </Text>
                 </View>
-              </View>
-              
-              <Text style={styles.alertDescription}>{insight.description}</Text>
-              
-              <View style={styles.recommendationContainer}>
-                <Text style={styles.recommendationTitle}>التوصية:</Text>
-                <Text style={styles.recommendationText}>{insight.recommendation}</Text>
-              </View>
-              
-              <View style={styles.timeContainer}>
-                <MaterialCommunityIcons
-                  name="clock-outline"
-                  size={16}
-                  color={theme.colors.neutral.gray.base}
+                <Switch
+                  value={enabled}
+                  onValueChange={() => toggleNotification(type)}
+                  trackColor={{ false: '#e0e0e0', true: theme.colors.primary.light }}
+                  thumbColor={enabled ? theme.colors.primary.base : '#f4f3f4'}
                 />
-                <Text style={styles.timeText}>{insight.timeFrame}</Text>
               </View>
+            ))}
+          </View>
+        </View>
+
+        {/* Active alerts */}
+        <View style={styles.alertsContainer}>
+          <Text style={styles.sectionTitle}>التنبيهات النشطة</Text>
+          
+          {filteredInsights.length === 0 ? (
+            <View style={styles.emptyAlerts}>
+              <MaterialCommunityIcons
+                name="weather-sunny"
+                size={48}
+                color="#AAAAAA"
+              />
+              <Text style={styles.emptyAlertsText}>
+                لا توجد تنبيهات نشطة في الوقت الحالي
+              </Text>
             </View>
-          ))
-        )}
-      </View>
-      
-      {/* Forecast warnings */}
-      <View style={styles.forecastContainer}>
-        <Text style={styles.sectionTitle}>تنبيهات الأيام القادمة</Text>
-        <View style={styles.forecastCards}>
-          {weatherData.forecast.forecastday.slice(0, 3).map((day: ForecastDay, index: number) => {
-            // Determine if there are any warnings for this day
-            const hasWarning = day.day.maxtemp_c > 35 || day.day.mintemp_c < 5 || day.day.avgtemp_c > 30;
-            const warningType = day.day.maxtemp_c > 35 ? 'heat' : 
-                                day.day.mintemp_c < 5 ? 'frost' :
-                                day.day.avgtemp_c > 30 ? 'wind' : '';
-            
-            return (
-              <View key={index} style={styles.forecastCard}>
-                <Text style={styles.forecastDay}>{day.date}</Text>
-                <View style={styles.forecastIcon}>
-                  <MaterialCommunityIcons
-                    name={day.day.condition.text?.includes('rain') ? 'weather-pouring' :
-                          day.day.condition.text?.includes('cloud') ? 'weather-partly-cloudy' :
-                          'weather-sunny'}
-                    size={32}
-                    color={theme.colors.primary.base}
-                  />
-                </View>
-                <Text style={styles.forecastTemp}>{Math.round(day.day.avgtemp_c)}°C</Text>
-                
-                {hasWarning && (
-                  <View style={[
-                    styles.forecastWarning,
-                    { backgroundColor: getAlertColor(warningType) + '20' }
-                  ]}>
+          ) : (
+            filteredInsights.map((insight, index) => (
+              <View 
+                key={`${insight.type}-${index}`}
+                style={[
+                  styles.alertCard,
+                  { backgroundColor: getSeverityBackgroundColor(insight.severity) }
+                ]}
+              >
+                <View style={styles.alertHeader}>
+                  <View style={styles.alertTitle}>
                     <MaterialCommunityIcons
-                      name={getAlertIcon(warningType) as any}
-                      size={16}
-                      color={getAlertColor(warningType)}
+                      name={getAlertIcon(insight.type) as any}
+                      size={24}
+                      color={getAlertColor(insight.type)}
                     />
+                    <Text style={styles.alertTitleText}>{insight.title}</Text>
+                  </View>
+                  <View style={[
+                    styles.severityBadge,
+                    { borderColor: getAlertColor(insight.type) }
+                  ]}>
                     <Text style={[
-                      styles.forecastWarningText,
-                      { color: getAlertColor(warningType) }
+                      styles.severityText,
+                      { color: getAlertColor(insight.type) }
                     ]}>
-                      {warningType === 'heat' ? 'حرارة عالية' :
-                       warningType === 'frost' ? 'صقيع محتمل' :
-                       warningType === 'wind' ? 'رياح قوية' : ''}
+                      {getSeverityLabel(insight.severity)}
                     </Text>
                   </View>
-                )}
+                </View>
+                
+                <Text style={styles.alertDescription}>{insight.description}</Text>
+                
+                <View style={styles.recommendationContainer}>
+                  <Text style={styles.recommendationTitle}>التوصية:</Text>
+                  <Text style={styles.recommendationText}>{insight.recommendation}</Text>
+                </View>
+                
+                <View style={styles.timeContainer}>
+                  <MaterialCommunityIcons
+                    name="clock-outline"
+                    size={16}
+                    color={theme.colors.neutral.gray.base}
+                  />
+                  <Text style={styles.timeText}>{insight.timeFrame}</Text>
+                </View>
               </View>
-            );
-          })}
+            ))
+          )}
         </View>
-      </View>
-    </ScrollView>
+        
+        {/* Forecast warnings */}
+        <View style={styles.forecastContainer}>
+          <Text style={styles.sectionTitle}>تنبيهات الأيام القادمة</Text>
+          <View style={styles.forecastCards}>
+            {weatherData.forecast.forecastday.slice(0, 3).map((day: ForecastDay, index: number) => {
+              // Determine if there are any warnings for this day
+              const hasWarning = day.day.maxtemp_c > 35 || day.day.mintemp_c < 5 || day.day.avgtemp_c > 30;
+              const warningType = day.day.maxtemp_c > 35 ? 'heat' : 
+                                  day.day.mintemp_c < 5 ? 'frost' :
+                                  day.day.avgtemp_c > 30 ? 'wind' : '';
+              
+              return (
+                <View key={index} style={styles.forecastCard}>
+                  <Text style={styles.forecastDay}>{day.date}</Text>
+                  <View style={styles.forecastIcon}>
+                    <MaterialCommunityIcons
+                      name={day.day.condition.text?.includes('rain') ? 'weather-pouring' :
+                            day.day.condition.text?.includes('cloud') ? 'weather-partly-cloudy' :
+                            'weather-sunny'}
+                      size={32}
+                      color={theme.colors.primary.base}
+                    />
+                  </View>
+                  <Text style={styles.forecastTemp}>{Math.round(day.day.avgtemp_c)}°C</Text>
+                  
+                  {hasWarning && (
+                    <View style={[
+                      styles.forecastWarning,
+                      { backgroundColor: getAlertColor(warningType) + '20' }
+                    ]}>
+                      <MaterialCommunityIcons
+                        name={getAlertIcon(warningType) as any}
+                        size={16}
+                        color={getAlertColor(warningType)}
+                      />
+                      <Text style={[
+                        styles.forecastWarningText,
+                        { color: getAlertColor(warningType) }
+                      ]}>
+                        {warningType === 'heat' ? 'حرارة عالية' :
+                         warningType === 'frost' ? 'صقيع محتمل' :
+                         warningType === 'wind' ? 'رياح قوية' : ''}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  mainContainer: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  container: {
+    flex: 1,
+  },
+  contentContainer: {
+    paddingBottom: 20,
   },
   header: {
     padding: 16,
@@ -386,6 +398,17 @@ const styles = StyleSheet.create({
     marginTop: 0,
     padding: 16,
     borderRadius: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   emptyAlerts: {
     padding: 24,
