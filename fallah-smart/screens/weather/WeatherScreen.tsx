@@ -133,157 +133,102 @@ const generateWeatherInsights = (data: WeatherData): WeatherInsight[] => {
   const maxTemp = Math.max(...data.forecast.forecastday.slice(0, 3).map(day => day.day.maxtemp_c));
   const minTemp = Math.min(...data.forecast.forecastday.slice(0, 3).map(day => day.day.mintemp_c));
   const precip = data.current.precip_mm;
-  const pressure = data.current.pressure_mb;
-  const uv = data.current.uv;
 
-  // Extreme heat alert with detailed impact analysis
+  // Extreme heat alert
   if (maxTemp > 35) {
     insights.push({
       type: 'critical',
-      title: 'موجة حرارة شديدة قادمة',
-      description: `درجة الحرارة ستصل إلى ${maxTemp}°C. هذا يمكن أن يؤثر على المحاصيل بعدة طرق:
-      - جفاف التربة وزيادة التبخر
-      - إجهاد المحاصيل وتوقف النمو
-      - زيادة خطر الإصابة بالآفات`,
+      title: 'موجة حرارة قادمة',
+      description: 'سيكون الطقس حاراً جداً خلال الأيام القادمة مما قد يؤثر سلباً على المحاصيل. قم بتوفير الظل والري الكافي.',
       icon: 'weather-sunny-alert',
       relevance: 95,
       severity: 'high',
-      recommendation: `للحماية من الحرارة الشديدة:
-      1. ري المحاصيل في الصباح الباكر أو المساء
-      2. استخدام التغطية العضوية للتربة
-      3. تركيب شبكات تظليل للمحاصيل الحساسة
-      4. مراقبة علامات الإجهاد الحراري`,
-      timeFrame: 'خلال 72 ساعة القادمة'
-    });
-  }
-
-  // Frost alert with crop protection details
-  if (minTemp < 5) {
-    insights.push({
-      type: 'warning',
-      title: 'تحذير من الصقيع',
-      description: `درجة الحرارة ستنخفض إلى ${minTemp}°C. المحاصيل المعرضة للخطر:
-      - الخضروات الورقية
-      - النباتات المزهرة
-      - الشتلات الصغيرة
-      - المحاصيل الاستوائية`,
-      icon: 'snowflake-alert',
-      relevance: 90,
-      severity: 'high',
-      recommendation: `إجراءات الحماية من الصقيع:
-      1. تغطية المحاصيل بأغطية خاصة
-      2. ري المحاصيل قبل انخفاض الحرارة
-      3. استخدام مراوح الهواء إن وجدت
-      4. إزالة الأغطية صباحاً لتجنب ارتفاع الحرارة`,
-      timeFrame: 'الليلة وغداً صباحاً'
-    });
-  }
-
-  // Strong wind alert with specific risks
-  if (windSpeed > 30) {
-    insights.push({
-      type: 'warning',
-      title: 'رياح قوية متوقعة',
-      description: `سرعة الرياح ${windSpeed} كم/س. المخاطر المحتملة:
-      - تلف المحاصيل وكسر الفروع
-      - جفاف التربة وزيادة التبخر
-      - تلف المعدات والهياكل الزراعية
-      - صعوبة الري بالرش`,
-      icon: 'weather-windy',
-      relevance: 85,
-      severity: 'high',
-      recommendation: `إجراءات الحماية من الرياح:
-      1. تثبيت المحاصيل المتسلقة
-      2. تأمين معدات الري والتظليل
-      3. تأجيل عمليات الرش والتسميد
-      4. زيادة الري لتعويض التبخر`,
-      timeFrame: 'خلال 24 ساعة'
-    });
-  }
-
-  // Heavy rain alert with flood prevention
-  if (rainChance > 70) {
-    insights.push({
-      type: 'warning',
-      title: 'أمطار غزيرة متوقعة',
-      description: `احتمال هطول الأمطار ${rainChance}%. التأثيرات المحتملة:
-      - تشبع التربة وتجمع المياه
-      - خطر تعفن الجذور
-      - انجراف التربة والمغذيات
-      - تأخر عمليات الزراعة`,
-      icon: 'weather-pouring',
-      relevance: 80,
-      severity: 'high',
-      recommendation: `إجراءات التعامل مع الأمطار:
-      1. تحسين نظام الصرف في الحقول
-      2. حماية التربة من الانجراف
-      3. تأجيل الري والتسميد
-      4. مراقبة مستويات المياه في الحقول`,
-      timeFrame: 'خلال 48 ساعة'
-    });
-  }
-
-  // UV index warning
-  if (uv > 8) {
-    insights.push({
-      type: 'warning',
-      title: 'مؤشر أشعة UV مرتفع',
-      description: `مؤشر الأشعة فوق البنفسجية ${uv}. التأثيرات:
-      - حروق المحاصيل وجفاف الأوراق
-      - إجهاد النباتات
-      - تأثر جودة الثمار
-      - زيادة احتياجات الري`,
-      icon: 'white-balance-sunny',
-      relevance: 75,
-      severity: 'medium',
-      recommendation: `إجراءات الحماية من الأشعة:
-      1. استخدام شبكات التظليل
-      2. زيادة معدل الري
-      3. تجنب الزراعة في وقت الذروة
-      4. حماية العاملين في المزرعة`,
-      timeFrame: 'خلال ساعات النهار'
-    });
-  }
-
-  // Drought conditions with water management
-  if (rainChance < 10 && maxTemp > 30 && humidity < 40) {
-    insights.push({
-      type: 'warning',
-      title: 'ظروف جفاف محتملة',
-      description: `مؤشرات الجفاف:
-      - درجة حرارة مرتفعة: ${maxTemp}°C
-      - رطوبة منخفضة: ${humidity}%
-      - فرصة أمطار ضئيلة: ${rainChance}%`,
-      icon: 'water-off',
-      relevance: 75,
-      severity: 'medium',
-      recommendation: `إدارة المياه في ظروف الجفاف:
-      1. تطبيق نظام ري بالتنقيط
-      2. استخدام تقنيات توفير المياه
-      3. تغطية التربة لتقليل التبخر
-      4. اختيار محاصيل مقاومة للجفاف`,
+      recommendation: 'ري المحاصيل في الصباح الباكر أو المساء لتقليل التبخر.',
       timeFrame: 'الأيام القادمة'
     });
   }
 
-  // Optimal planting conditions
-  if (currentTemp > 18 && currentTemp < 28 && humidity > 50 && humidity < 80) {
+  // Frost alert for cold temperatures
+  if (minTemp < 5) {
+    insights.push({
+      type: 'warning',
+      title: 'خطر الصقيع',
+      description: 'درجات حرارة منخفضة متوقعة قد تسبب صقيعاً. قم بحماية المحاصيل الحساسة.',
+      icon: 'snowflake-alert',
+      relevance: 90,
+      severity: 'high',
+      recommendation: 'استخدم الأغطية الواقية من الصقيع ليلاً وقم بإزالتها صباحاً.',
+      timeFrame: 'الأيام القادمة'
+    });
+  }
+
+  // Strong wind alert
+  if (windSpeed > 30) {
+    insights.push({
+      type: 'warning',
+      title: 'رياح قوية',
+      description: 'رياح قوية متوقعة. أمّن المحاصيل والهياكل والمعدات المعرضة للضرر.',
+      icon: 'weather-windy',
+      relevance: 85,
+      severity: 'high',
+      recommendation: 'أمّن المحاصيل والهياكل والمعدات المعرضة للضرر.',
+      timeFrame: 'الأيام القادمة'
+    });
+  }
+
+  // Heavy rain alert
+  if (rainChance > 70) {
+    insights.push({
+      type: 'warning',
+      title: 'توقع هطول أمطار غزيرة',
+      description: 'احتمالية عالية لهطول أمطار غزيرة. تأكد من تصريف المياه الجيد في الحقول.',
+      icon: 'weather-pouring',
+      relevance: 80,
+      severity: 'high',
+      recommendation: 'تأكد من تصريف المياه الجيد في الحقول.',
+      timeFrame: 'الأيام القادمة'
+    });
+  }
+
+  // Drought conditions
+  if (rainChance < 10 && maxTemp > 30 && data.current.humidity < 40) {
+    insights.push({
+      type: 'warning',
+      title: 'ظروف جفاف محتملة',
+      description: 'طقس حار وجاف متوقع. زد من معدل الري واستخدم تقنيات توفير المياه.',
+      icon: 'water-off',
+      relevance: 75,
+      severity: 'medium',
+      recommendation: 'زد من معدل الري واستخدم تقنيات توفير المياه.',
+      timeFrame: 'الأيام القادمة'
+    });
+  }
+
+  // Optimal conditions for field work
+  if (maxTemp > 15 && maxTemp < 30 && windSpeed < 20 && rainChance < 30) {
+    insights.push({
+      type: 'success',
+      title: 'ظروف مثالية للعمل الميداني',
+      description: 'طقس معتدل مع رياح خفيفة واحتمالية منخفضة للأمطار. وقت مثالي للعمل في الحقول.',
+      icon: 'check-circle',
+      relevance: 70,
+      severity: 'low',
+      recommendation: 'استغل الظروف الجيدة لزراعة المحاصيل الموسمية.',
+      timeFrame: 'الأيام القادمة'
+    });
+  }
+
+  // Optimal conditions for planting
+  if (data.current.temp_c > 18 && data.current.temp_c < 28 && data.current.humidity > 50 && data.current.humidity < 80) {
     insights.push({
       type: 'success',
       title: 'ظروف مثالية للزراعة',
-      description: `الظروف الحالية مثالية:
-      - درجة حرارة معتدلة: ${currentTemp}°C
-      - رطوبة مناسبة: ${humidity}%
-      - ضغط جوي مستقر: ${pressure} mb`,
+      description: 'درجة الحرارة والرطوبة في المستويات المثلى للزراعة. فرصة جيدة لزراعة محاصيل جديدة.',
       icon: 'seed',
-      relevance: 70,
+      relevance: 65,
       severity: 'low',
-      recommendation: `استغلال الظروف المثالية:
-      1. بدء زراعة المحاصيل الموسمية
-      2. نقل الشتلات للحقول المفتوحة
-      3. إجراء عمليات التسميد
-      4. تجهيز التربة للزراعة`,
-      timeFrame: 'اليوم وغداً'
+      recommendation: 'استغل الظروف الجيدة لزراعة المحاصيل الموسمية.',
+      timeFrame: 'الأيام القادمة'
     });
   }
 
@@ -295,94 +240,59 @@ const generateFarmingRecommendations = (data: WeatherData): FarmingRecommendatio
   const recommendations: FarmingRecommendation[] = [];
   const currentTemp = data.current.temp_c;
   const forecast = data.forecast.forecastday;
-  const humidity = data.current.humidity;
-  const windSpeed = data.current.wind_kph;
-  const pressure = data.current.pressure_mb;
-  const uv = data.current.uv;
   
-  // Smart irrigation recommendations
+  // Irrigation recommendations
   if (currentTemp > 30) {
     recommendations.push({
       category: 'irrigation',
-      title: 'تعديل نظام الري للحرارة المرتفعة',
-      description: `مع ارتفاع درجة الحرارة إلى ${currentTemp}°C، يجب تعديل نظام الري:
-      • زيادة كمية المياه لتعويض التبخر
-      • تعديل أوقات الري لتجنب ساعات الذروة
-      • مراقبة رطوبة التربة بانتظام
-      • التأكد من كفاءة نظام الري`,
+      title: 'زيادة معدل الري',
+      description: 'نظراً لارتفاع درجات الحرارة، قم بزيادة معدل الري للمحاصيل.',
       priority: 'high',
-      action: `خطة الري المقترحة:
-      1. الري في الصباح الباكر (قبل 6 صباحاً)
-      2. الري في المساء (بعد 6 مساءً)
-      3. زيادة عدد مرات الري مع تقليل الكمية
-      4. فحص وصيانة نظام الري للتأكد من كفاءته`,
+      action: 'ري المحاصيل في الصباح الباكر أو المساء لتقليل التبخر.',
       benefitScore: 90,
       icon: 'water'
     });
   }
-
-  // Advanced soil management
-  if (forecast[0].day.daily_chance_of_rain > 60) {
+  
+  if (forecast[0].day.daily_chance_of_rain > 70) {
     recommendations.push({
-      category: 'soil',
-      title: 'إدارة التربة قبل الأمطار',
-      description: `مع توقع هطول أمطار بنسبة ${forecast[0].day.daily_chance_of_rain}%:
-      • تحسين تصريف المياه في الحقول
-      • حماية التربة من الانجراف
-      • الحفاظ على المغذيات
-      • منع تجمع المياه حول النباتات`,
-      priority: 'high',
-      action: `إجراءات تحضير التربة:
-      1. تنظيف قنوات التصريف وفحص كفاءتها
-      2. إضافة مواد عضوية لتحسين بنية التربة
-      3. عمل حواجز لمنع انجراف التربة
-      4. رفع مستوى التربة حول النباتات الحساسة`,
-      benefitScore: 85,
-      icon: 'shovel'
+      category: 'irrigation',
+      title: 'تقليل الري',
+      description: 'احتمالية عالية لهطول الأمطار. يمكن تقليل معدل الري.',
+      priority: 'medium',
+      action: 'قم بتأجيل الري حتى بعد هطول الأمطار المتوقعة.',
+      benefitScore: 75,
+      icon: 'water-off'
     });
   }
-
-  // Crop protection strategies
-  if (currentTemp > 35 || windSpeed > 30) {
+  
+  // Protection recommendations
+  if (currentTemp > 35) {
     recommendations.push({
       category: 'protection',
-      title: 'حماية المحاصيل من الظروف القاسية',
-      description: `الظروف الحالية تتطلب حماية خاصة:
-      • درجة الحرارة: ${currentTemp}°C
-      • سرعة الرياح: ${windSpeed} كم/س
-      • الرطوبة: ${humidity}%
-      • مؤشر UV: ${uv}`,
+      title: 'حماية المحاصيل من الحرارة',
+      description: 'وفر الظل للمحاصيل الحساسة للحرارة باستخدام شباك التظليل.',
       priority: 'high',
-      action: `إجراءات الحماية المطلوبة:
-      1. تركيب شبكات تظليل (50-70% تظليل)
-      2. إنشاء مصدات رياح مؤقتة
-      3. رش المحاصيل برذاذ ماء في الصباح الباكر
-      4. تقوية دعامات النباتات المتسلقة`,
-      benefitScore: 95,
-      icon: 'shield'
+      action: 'قم بتركيب شباك تظليل فوق المحاصيل الحساسة.',
+      benefitScore: 85,
+      icon: 'weather-sunny-off'
     });
   }
-
-  // Equipment maintenance
-  recommendations.push({
-    category: 'equipment',
-    title: 'صيانة وتجهيز المعدات الزراعية',
-    description: `تحضير المعدات للظروف المتوقعة:
-    • معدات الري والتسميد
-    • أدوات الحماية والتظليل
-    • معدات الحصاد والتخزين
-    • أجهزة القياس والمراقبة`,
-    priority: 'medium',
-    action: `قائمة الصيانة المطلوبة:
-    1. فحص وتنظيف فلاتر نظام الري
-    2. صيانة مضخات المياه ومعدات الرش
-    3. تجهيز معدات التظليل والحماية
-    4. معايرة أجهزة قياس رطوبة التربة`,
-    benefitScore: 75,
-    icon: 'tools'
-  });
-
-  // Planting recommendations based on conditions
+  
+  const minTemp = Math.min(...forecast.slice(0, 3).map(f => f.day.mintemp_c));
+  if (minTemp < 5) {
+    recommendations.push({
+      category: 'protection',
+      title: 'حماية المحاصيل من الصقيع',
+      description: 'قم بتغطية المحاصيل الحساسة ليلاً لحمايتها من الصقيع المتوقع.',
+      priority: 'high',
+      action: 'استخدم الأغطية الواقية من الصقيع ليلاً وقم بإزالتها صباحاً.',
+      benefitScore: 95,
+      icon: 'snowflake-alert'
+    });
+  }
+  
+  // Planting recommendations
   const isGoodPlantingCondition = forecast.some(f => 
     f.day.avgtemp_c > 18 && f.day.avgtemp_c < 28 && f.day.daily_chance_of_rain < 40
   );
@@ -390,23 +300,40 @@ const generateFarmingRecommendations = (data: WeatherData): FarmingRecommendatio
   if (isGoodPlantingCondition) {
     recommendations.push({
       category: 'planting',
-      title: 'خطة الزراعة المثالية',
-      description: `الظروف مناسبة للزراعة:
-      • درجة الحرارة معتدلة
-      • رطوبة التربة مناسبة
-      • ضغط جوي مستقر
-      • فرصة نجاح عالية`,
+      title: 'وقت مناسب للزراعة',
+      description: 'ظروف الطقس مناسبة لزراعة محاصيل جديدة خلال الأيام القادمة.',
       priority: 'medium',
-      action: `خطوات الزراعة الموصى بها:
-      1. تجهيز التربة وإضافة الأسمدة العضوية
-      2. اختيار الأصناف المناسبة للموسم
-      3. تحديد المسافات المثالية بين النباتات
-      4. تجهيز نظام الري بالتنقيط`,
+      action: 'استغل الظروف الجيدة لزراعة المحاصيل الموسمية.',
       benefitScore: 80,
       icon: 'seed'
     });
   }
-
+  
+  // Soil management
+  if (forecast.some(f => f.day.daily_chance_of_rain > 60)) {
+    recommendations.push({
+      category: 'soil',
+      title: 'تحسين تصريف التربة',
+      description: 'تأكد من وجود نظام تصريف جيد استعداداً للأمطار المتوقعة.',
+      priority: 'medium',
+      action: 'تفقد قنوات التصريف وصيانتها قبل هطول الأمطار.',
+      benefitScore: 75,
+      icon: 'water-percent'
+    });
+  }
+  
+  if (currentTemp > 28 && data.current.humidity < 50) {
+    recommendations.push({
+      category: 'soil',
+      title: 'الحفاظ على رطوبة التربة',
+      description: 'قم بتغطية التربة باستخدام مواد عضوية للمساعدة في الاحتفاظ بالرطوبة.',
+      priority: 'medium',
+      action: 'استخدم التغطية العضوية (mulch) حول النباتات.',
+      benefitScore: 70,
+      icon: 'grass'
+    });
+  }
+  
   return recommendations.sort((a, b) => b.benefitScore - a.benefitScore);
 };
 
@@ -787,73 +714,57 @@ const WeatherScreen = () => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
       
-      <ScrollView
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[theme.colors.primary.base]}
-            tintColor={theme.colors.primary.base}
-            title={arabicTranslations.refresh}
-            titleColor={theme.colors.neutral.gray.base}
+      <View style={styles.headerContainer}>
+        <Text style={styles.screenTitle}>{arabicTranslations.title}</Text>
+      </View>
+      
+      {renderWeatherHeader()}
+      
+      {/* AI Insights Section */}
+      {renderInsights()}
+      
+      <View style={styles.tabContainer}>
+        <Tab.Navigator
+          screenOptions={{
+            tabBarStyle: styles.tabBar,
+            tabBarLabelStyle: styles.tabLabel,
+            tabBarIndicatorStyle: { backgroundColor: theme.colors.primary.base },
+            tabBarActiveTintColor: theme.colors.primary.base,
+            tabBarInactiveTintColor: theme.colors.neutral.gray.base,
+          }}
+        >
+          <Tab.Screen 
+            name="Alerts" 
+            component={AlertsTab} 
+            options={{ 
+              tabBarLabel: arabicTranslations.tabs.alerts,
+              tabBarIcon: ({ color }) => (
+                <MaterialCommunityIcons name="alert-circle" color={color} size={20} />
+              )
+            }} 
           />
-        }
-        style={styles.scrollContainer}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.headerContainer}>
-          <Text style={styles.screenTitle}>{arabicTranslations.title}</Text>
-        </View>
-        
-        {renderWeatherHeader()}
-        
-        {/* AI Insights Section */}
-        {renderInsights()}
-        
-        <View style={styles.tabContainer}>
-          <Tab.Navigator
-            screenOptions={{
-              tabBarStyle: styles.tabBar,
-              tabBarLabelStyle: styles.tabLabel,
-              tabBarIndicatorStyle: { backgroundColor: theme.colors.primary.base },
-              tabBarActiveTintColor: theme.colors.primary.base,
-              tabBarInactiveTintColor: theme.colors.neutral.gray.base,
-            }}
-          >
-            <Tab.Screen 
-              name="Alerts" 
-              component={AlertsTab} 
-              options={{ 
-                tabBarLabel: arabicTranslations.tabs.alerts,
-                tabBarIcon: ({ color }) => (
-                  <MaterialCommunityIcons name="alert-circle" color={color} size={20} />
-                )
-              }} 
-            />
-            <Tab.Screen 
-              name="Recommendations" 
-              component={RecommendationsTab} 
-              options={{ 
-                tabBarLabel: arabicTranslations.tabs.recommendations,
-                tabBarIcon: ({ color }) => (
-                  <MaterialCommunityIcons name="lightbulb-on" color={color} size={20} />
-                )
-              }} 
-            />
-            <Tab.Screen 
-              name="Calendar" 
-              component={CalendarTab} 
-              options={{ 
-                tabBarLabel: arabicTranslations.tabs.calendar,
-                tabBarIcon: ({ color }) => (
-                  <MaterialCommunityIcons name="calendar-month" color={color} size={20} />
-                )
-              }} 
-            />
-          </Tab.Navigator>
-        </View>
-      </ScrollView>
+          <Tab.Screen 
+            name="Recommendations" 
+            component={RecommendationsTab} 
+            options={{ 
+              tabBarLabel: arabicTranslations.tabs.recommendations,
+              tabBarIcon: ({ color }) => (
+                <MaterialCommunityIcons name="lightbulb-on" color={color} size={20} />
+              )
+            }} 
+          />
+          <Tab.Screen 
+            name="Calendar" 
+            component={CalendarTab} 
+            options={{ 
+              tabBarLabel: arabicTranslations.tabs.calendar,
+              tabBarIcon: ({ color }) => (
+                <MaterialCommunityIcons name="calendar-month" color={color} size={20} />
+              )
+            }} 
+          />
+        </Tab.Navigator>
+      </View>
     </SafeAreaView>
   );
 };
@@ -862,12 +773,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
-  },
-  scrollContainer: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
   },
   headerContainer: {
     paddingHorizontal: 16,
@@ -1008,19 +913,21 @@ const styles = StyleSheet.create({
   tabContainer: {
     flex: 1,
     backgroundColor: '#fff',
-    minHeight: 500, // Add minimum height to make tabs visible
   },
   tabBar: {
     backgroundColor: '#fff',
-    elevation: 0,
-    shadowOpacity: 0,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    borderBottomWidth: 0,
   },
   tabLabel: {
     fontSize: 12,
     fontWeight: 'bold',
     textTransform: 'none',
+    marginTop: 4,
   },
   loadingContainer: {
     flex: 1,

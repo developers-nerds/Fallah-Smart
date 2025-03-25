@@ -29,6 +29,7 @@ const suppliersRoutes = require("./routes/suppliersRoutes");
 const aiRoutes = require("./routes/aiRoutes");
 
 
+const verificationRoutes = require("./routes/verificationRoutes");
 // New stock management routes
 const stockFeedRoutes = require("./routes/stockFeedRoutes");
 const stockSeedsRoutes = require("./routes/stockSeedsRoutes");
@@ -59,7 +60,7 @@ const host = process.env.HOST || 'localhost';
 
 // CORS configuration
 const corsOptions = {
-  origin: function(origin, callback) {
+  origin: function (origin, callback) {
     // Allow requests from these origins
     const allowedOrigins = [
       'http://localhost:5174',  
@@ -68,19 +69,19 @@ const corsOptions = {
       'http://localhost:8081',     // Possible alternative port
       'http://localhost:5000'      // Same origin
     ];
-    
+
     // Allow requests with no origin (like mobile apps, curl, postman)
     if (!origin || allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(new Error("Not allowed by CORS"));
     }
   },
-  credentials: true,               // Allow credentials (cookies, auth headers)
+  credentials: true, // Allow credentials (cookies, auth headers)
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ["Content-Type", "Authorization"],
   preflightContinue: false,
-  optionsSuccessStatus: 204
+  optionsSuccessStatus: 204,
 };
 
 // Apply CORS with options
@@ -164,7 +165,8 @@ app.use("/api/education/questionsAndAnswers", Education_QuestionsAndAnswersRoute
 // Notification routes
 app.use('/api/stock/notifications', notificationRoutes);
 // Import the Education Chat routes
-const EducationChatRoute = require('./routes/Educationchat');
+const EducationChatRoute = require("./routes/Educationchat");
+app.use("/api/verification", verificationRoutes);
 
 // Use the Education Chat routes
 app.use("/api/education/chat", EducationChatRoute);
@@ -172,13 +174,12 @@ app.use("/api/education/chat", EducationChatRoute);
 // Import all routes
 // const Education_QuestionRoute = require('./routes/Education_QuestionAndAnswerRoute');
 // const Education_RepliesRoute = require('./routes/Education_RepliesRoute');
-const Education_LikesRoute = require('./routes/Education_LikesRoute');
+const Education_LikesRoute = require("./routes/Education_LikesRoute");
 
 // Use all routes
 // app.use('/api/education/qna', Education_QuestionRoute);
 // app.use('/api/education/replies', Education_RepliesRoute);
-app.use('/api/education/likes', Education_LikesRoute); 
-
+app.use("/api/education/likes", Education_LikesRoute);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

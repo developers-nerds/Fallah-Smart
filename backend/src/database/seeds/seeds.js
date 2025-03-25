@@ -43,43 +43,35 @@ async function seedAll() {
     // Initialize database first (create tables)
     await initializeDatabase();
     
-    // Then proceed with seeding
+    // Then proceed with seeding in correct order
     await seedUsers();
     console.log("🌱 Seeding users...");
+    
     await seedCategories();
     console.log("🌱 Seeding categories...");
+    
     // First seed crops
     await seedCrops(); 
     console.log("🌱 Seeding crops...");
+    
     // Then seed crop details that depend on crops
     await seedCropDetails();
     console.log("🌱 Seeding crop details...");
-    // await seedNotifications();
-    console.log("🌱 Seeding notifications...");
-    // await seedStockHistory();
-    // await seedStocks();
-    // await seedUserAnimals();
+    
     await seedAnimalDocs();
     console.log("🌱 Seeding animal docs...");
+    
     await seedUserAnimalDetails();
     console.log("🌱 Seeding user animal details...");
     
-    // await seedPesticides();
     await seedPosts();
     console.log("🌱 Seeding posts...");
+    
     await seedComments();
     console.log("🌱 Seeding comments...");
+    
     await seedLikes();
     console.log("🌱 Seeding likes...");
-    // await seedScans();
-    // await seedMedia();
-    console.log("🌱 Seeding media...");
-    // await seedConversations(); 
-    // await seedAccounts();
-    // await seedTransactions();
-    // await seedRecurringTransactions();
-    // await seedBackupSync();
-    // await seedMessages();
 
     ///////////////////SEEDS FOR EDUCATION//////////////////////
     await seedEducationQuizzes();

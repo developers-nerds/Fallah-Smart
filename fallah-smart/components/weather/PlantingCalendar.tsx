@@ -493,484 +493,496 @@ const PlantingCalendar: React.FC<PlantingCalendarProps> = ({ weatherData }) => {
   const insights = generatePlantingInsights(weatherData, selectedMonth);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: TAB_BAR_HEIGHT + 20 }}>
-      <View style={styles.header}>
-        <Text style={styles.title}>تقويم الزراعة والحصاد</Text>
-        <Text style={styles.subtitle}>
-          دليل الزراعة والحصاد المناسب لمناخ تونس
-        </Text>
-      </View>
-
-      {/* Season banner */}
-      <View style={[styles.seasonBanner, { backgroundColor: currentSeason.color }]}>
-        <Text style={styles.seasonName}>{currentSeason.label}</Text>
-        <Text style={styles.seasonDescription}>
-          {`موسم ${currentSeason.label} - ${getMonthName(selectedMonth)}`}
-        </Text>
-      </View>
-
-      {/* AI Insights Banner */}
-      <View style={styles.aiInsightsBanner}>
-        <View style={styles.aiHeader}>
-          <MaterialCommunityIcons
-            name="brain"
-            size={48}
-            color="#fff"
-          />
-          <View style={styles.aiHeaderText}>
-            <Text style={styles.aiTitle}>تحليل ذكي للظروف الزراعية</Text>
-            <Text style={styles.aiSubtitle}>
-              تحليل الظروف الجوية وتأثيرها على المحاصيل
-            </Text>
-          </View>
+    <View style={styles.mainContainer}>
+      <ScrollView 
+        style={styles.container}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <Text style={styles.title}>تقويم الزراعة والحصاد</Text>
+          <Text style={styles.subtitle}>
+            دليل الزراعة والحصاد المناسب لمناخ تونس
+          </Text>
         </View>
-        
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.insightsContainer}
-        >
-          {insights.map((insight, index) => (
-            <View 
-              key={index}
-              style={[
-                styles.insightCard,
-                { 
-                  backgroundColor: insight.type === 'warning' ? '#FFF3E0' : '#E8F5E9',
-                  borderColor: insight.type === 'warning' ? '#FF9800' : '#4CAF50'
-                }
-              ]}
-            >
-              <MaterialCommunityIcons
-                name={insight.icon as any}
-                size={24}
-                color={insight.type === 'warning' ? '#FF9800' : '#4CAF50'}
-              />
-              <Text style={styles.insightTitle}>{insight.title}</Text>
-              <Text style={styles.insightDescription}>{insight.description}</Text>
-              <View style={styles.insightImpactContainer}>
-                <Text style={styles.insightImpactLabel}>مستوى التأثير:</Text>
-                <View style={styles.insightImpactBar}>
-                  <View 
-                    style={[
-                      styles.insightImpactProgress, 
-                      { 
-                        width: `${insight.impactScore}%`,
-                        backgroundColor: insight.type === 'warning' ? '#FF9800' : '#4CAF50' 
-                      }
-                    ]} 
-                  />
-                </View>
-                <Text style={styles.insightImpactValue}>{insight.impactScore}%</Text>
-              </View>
-            </View>
-          ))}
-        </ScrollView>
-      </View>
 
-      {/* NOUVEAU - Calendrier mensuel */}
-      <View style={styles.calendarSection}>
-        <View style={styles.calendarHeader}>
-          <Text style={styles.sectionTitle}>تقويم الشهر</Text>
-          <View style={styles.monthYearSelector}>
-            <TouchableOpacity 
-              style={styles.monthNavButton}
-              onPress={() => {
-                if (selectedMonth === 1) {
-                  setSelectedMonth(12);
-                  setSelectedYear(selectedYear - 1);
-                } else {
-                  setSelectedMonth(selectedMonth - 1);
-                }
-              }}
-            >
-              <MaterialCommunityIcons name="chevron-left" size={24} color={theme.colors.primary.dark} />
-            </TouchableOpacity>
-            
-            <Text style={styles.monthYearText}>
-              {MONTHS.find(m => m.id === selectedMonth)?.name} {selectedYear}
-            </Text>
-            
-            <TouchableOpacity 
-              style={styles.monthNavButton}
-              onPress={() => {
-                if (selectedMonth === 12) {
-                  setSelectedMonth(1);
-                  setSelectedYear(selectedYear + 1);
-                } else {
-                  setSelectedMonth(selectedMonth + 1);
-                }
-              }}
-            >
-              <MaterialCommunityIcons name="chevron-right" size={24} color={theme.colors.primary.dark} />
-            </TouchableOpacity>
-          </View>
+        {/* Season banner */}
+        <View style={[styles.seasonBanner, { backgroundColor: currentSeason.color }]}>
+          <Text style={styles.seasonName}>{currentSeason.label}</Text>
+          <Text style={styles.seasonDescription}>
+            {`موسم ${currentSeason.label} - ${getMonthName(selectedMonth)}`}
+          </Text>
         </View>
-        
-        {/* Jours de la semaine */}
-        <View style={styles.weekdaysRow}>
-          <Text style={styles.weekdayText}>أحد</Text>
-          <Text style={styles.weekdayText}>إثنين</Text>
-          <Text style={styles.weekdayText}>ثلاثاء</Text>
-          <Text style={styles.weekdayText}>أربعاء</Text>
-          <Text style={styles.weekdayText}>خميس</Text>
-          <Text style={styles.weekdayText}>جمعة</Text>
-          <Text style={styles.weekdayText}>سبت</Text>
-        </View>
-        
-        {/* Grille du calendrier */}
-        <View style={styles.calendarGrid}>
-          {calendarDays.map((day, index) => (
-            <TouchableOpacity 
-              key={`day-${index}`}
-              style={[
-                styles.calendarDay,
-                !day.isCurrentMonth && styles.calendarDayInactive,
-                selectedDay === day.day && styles.calendarDaySelected
-              ]}
-              onPress={() => day.isCurrentMonth && setSelectedDay(day.day)}
-              disabled={!day.isCurrentMonth}
-            >
-              <Text style={[
-                styles.calendarDayText,
-                !day.isCurrentMonth && styles.calendarDayTextInactive,
-                selectedDay === day.day && styles.calendarDayTextSelected
-              ]}>
-                {day.day}
+
+        {/* AI Insights Banner */}
+        <View style={styles.aiInsightsBanner}>
+          <View style={styles.aiHeader}>
+            <MaterialCommunityIcons
+              name="brain"
+              size={48}
+              color="#fff"
+            />
+            <View style={styles.aiHeaderText}>
+              <Text style={styles.aiTitle}>تحليل ذكي للظروف الزراعية</Text>
+              <Text style={styles.aiSubtitle}>
+                تحليل الظروف الجوية وتأثيرها على المحاصيل
               </Text>
-              
-              {/* Indicateurs de plantation et récolte */}
-              {day.isCurrentMonth && (
-                <View style={styles.dayIndicators}>
-                  {day.hasPlanting && (
-                    <View style={[styles.dayIndicator, { backgroundColor: '#4CAF50' }]} />
-                  )}
-                  {day.hasHarvesting && (
-                    <View style={[styles.dayIndicator, { backgroundColor: '#FF9800' }]} />
-                  )}
-                </View>
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
-        
-        {/* Légende du calendrier */}
-        <View style={styles.calendarLegend}>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendIndicator, { backgroundColor: '#4CAF50' }]} />
-            <Text style={styles.legendText}>مناسب للزراعة</Text>
+            </View>
           </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendIndicator, { backgroundColor: '#FF9800' }]} />
-            <Text style={styles.legendText}>مناسب للحصاد</Text>
-          </View>
-        </View>
-      </View>
-      
-      {/* Month selector */}
-      <View style={styles.monthSelector}>
-        <Text style={styles.sectionTitle}>اختر الشهر</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.monthsContainer}
-        >
-          {monthButtons}
-        </ScrollView>
-      </View>
-
-      {/* Category filter */}
-      <View style={styles.categorySelector}>
-        <Text style={styles.sectionTitle}>تصفية حسب النوع</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoriesContainer}
-        >
-          {CROP_CATEGORIES.map(category => (
-            <TouchableOpacity
-              key={category.id}
-              style={[
-                styles.categoryButton,
-                selectedCategory === category.id && styles.selectedCategoryButton
-              ]}
-              onPress={() => setSelectedCategory(category.id)}
-            >
-              <MaterialCommunityIcons
-                name={category.icon as any}
-                size={18}
-                color={selectedCategory === category.id ? '#fff' : theme.colors.primary.dark}
-              />
-              <Text
+          
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.insightsContainer}
+          >
+            {insights.map((insight, index) => (
+              <View 
+                key={index}
                 style={[
-                  styles.categoryText,
-                  selectedCategory === category.id && styles.selectedCategoryText
+                  styles.insightCard,
+                  { 
+                    backgroundColor: insight.type === 'warning' ? '#FFF3E0' : '#E8F5E9',
+                    borderColor: insight.type === 'warning' ? '#FF9800' : '#4CAF50'
+                  }
                 ]}
               >
-                {category.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-
-      {/* Weather conditions */}
-      <View style={styles.weatherSummary}>
-        <Text style={styles.sectionTitle}>أحوال الطقس الحالية</Text>
-        <View style={styles.weatherConditions}>
-          <View style={styles.weatherCondition}>
-            <MaterialCommunityIcons
-              name="thermometer"
-              size={22}
-              color={theme.colors.primary.dark}
-            />
-            <Text style={styles.weatherValue}>
-              {Math.round(weatherData.current.temp_c)}°C
-            </Text>
-          </View>
-
-          <View style={styles.weatherCondition}>
-            <MaterialCommunityIcons
-              name="water-percent"
-              size={22}
-              color={theme.colors.primary.dark}
-            />
-            <Text style={styles.weatherValue}>
-              {weatherData.current.humidity}%
-            </Text>
-          </View>
-
-          <View style={styles.weatherCondition}>
-            <MaterialCommunityIcons
-              name="weather-windy"
-              size={22}
-              color={theme.colors.primary.dark}
-            />
-            <Text style={styles.weatherValue}>
-              {Math.round(weatherData.current.wind_kph)} كم/س
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Recommandations basées sur le jour sélectionné */}
-      {selectedDay && (
-        <View style={styles.dayRecommendations}>
-          <Text style={styles.dayRecommendationsTitle}>
-            توصيات ليوم {selectedDay} {MONTHS.find(m => m.id === selectedMonth)?.name}
-          </Text>
-          
-          <View style={styles.recommendationCards}>
-            <View style={styles.recommendationCard}>
-              <MaterialCommunityIcons name="seed" size={24} color="#4CAF50" />
-              <Text style={styles.recommendationTitle}>مناسب لزراعة</Text>
-              <Text style={styles.recommendationText}>الطماطم، الفلفل، البطاطس</Text>
-            </View>
-            
-            <View style={styles.recommendationCard}>
-              <MaterialCommunityIcons name="basket" size={24} color="#FF9800" />
-              <Text style={styles.recommendationTitle}>مناسب لحصاد</Text>
-              <Text style={styles.recommendationText}>البصل، الجزر، الخيار</Text>
-            </View>
-          </View>
-        </View>
-      )}
-      
-      {/* AI Crop Analysis */}
-      {selectedCropDetails && cropAnalysis && (
-        <View style={styles.cropAnalysisContainer}>
-          <View style={styles.compatibilityScore}>
-            <View style={styles.scoreHeader}>
-              <Text style={styles.scoreHeaderText}>ملاءمة المحصول للظروف الحالية</Text>
-            </View>
-            <View style={styles.scoreContent}>
-              <View style={styles.overallScoreContainer}>
-                <View style={[
-                  styles.scoreCircle, 
-                  { borderColor: cropAnalysis.overallScore > 80 ? '#4CAF50' : 
-                                 cropAnalysis.overallScore > 60 ? '#FF9800' : '#F44336' }
-                ]}>
-                  <Text style={[
-                    styles.scoreText, 
-                    { color: cropAnalysis.overallScore > 80 ? '#4CAF50' : 
-                            cropAnalysis.overallScore > 60 ? '#FF9800' : '#F44336' }
-                  ]}>
-                    {cropAnalysis.overallScore}%
-                  </Text>
+                <MaterialCommunityIcons
+                  name={insight.icon as any}
+                  size={24}
+                  color={insight.type === 'warning' ? '#FF9800' : '#4CAF50'}
+                />
+                <Text style={styles.insightTitle}>{insight.title}</Text>
+                <Text style={styles.insightDescription}>{insight.description}</Text>
+                <View style={styles.insightImpactContainer}>
+                  <Text style={styles.insightImpactLabel}>مستوى التأثير:</Text>
+                  <View style={styles.insightImpactBar}>
+                    <View 
+                      style={[
+                        styles.insightImpactProgress, 
+                        { 
+                          width: `${insight.impactScore}%`,
+                          backgroundColor: insight.type === 'warning' ? '#FF9800' : '#4CAF50' 
+                        }
+                      ]} 
+                    />
+                  </View>
+                  <Text style={styles.insightImpactValue}>{insight.impactScore}%</Text>
                 </View>
-                <Text style={styles.scoreLabel}>ملاءمة إجمالية</Text>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* NOUVEAU - Calendrier mensuel */}
+        <View style={styles.calendarSection}>
+          <View style={styles.calendarHeader}>
+            <Text style={styles.sectionTitle}>تقويم الشهر</Text>
+            <View style={styles.monthYearSelector}>
+              <TouchableOpacity 
+                style={styles.monthNavButton}
+                onPress={() => {
+                  if (selectedMonth === 1) {
+                    setSelectedMonth(12);
+                    setSelectedYear(selectedYear - 1);
+                  } else {
+                    setSelectedMonth(selectedMonth - 1);
+                  }
+                }}
+              >
+                <MaterialCommunityIcons name="chevron-left" size={24} color={theme.colors.primary.dark} />
+              </TouchableOpacity>
+              
+              <Text style={styles.monthYearText}>
+                {MONTHS.find(m => m.id === selectedMonth)?.name} {selectedYear}
+              </Text>
+              
+              <TouchableOpacity 
+                style={styles.monthNavButton}
+                onPress={() => {
+                  if (selectedMonth === 12) {
+                    setSelectedMonth(1);
+                    setSelectedYear(selectedYear + 1);
+                  } else {
+                    setSelectedMonth(selectedMonth + 1);
+                  }
+                }}
+              >
+                <MaterialCommunityIcons name="chevron-right" size={24} color={theme.colors.primary.dark} />
+              </TouchableOpacity>
+            </View>
+          </View>
+          
+          {/* Jours de la semaine */}
+          <View style={styles.weekdaysRow}>
+            <Text style={styles.weekdayText}>أحد</Text>
+            <Text style={styles.weekdayText}>إثنين</Text>
+            <Text style={styles.weekdayText}>ثلاثاء</Text>
+            <Text style={styles.weekdayText}>أربعاء</Text>
+            <Text style={styles.weekdayText}>خميس</Text>
+            <Text style={styles.weekdayText}>جمعة</Text>
+            <Text style={styles.weekdayText}>سبت</Text>
+          </View>
+          
+          {/* Grille du calendrier */}
+          <View style={styles.calendarGrid}>
+            {calendarDays.map((day, index) => (
+              <TouchableOpacity 
+                key={`day-${index}`}
+                style={[
+                  styles.calendarDay,
+                  !day.isCurrentMonth && styles.calendarDayInactive,
+                  selectedDay === day.day && styles.calendarDaySelected
+                ]}
+                onPress={() => day.isCurrentMonth && setSelectedDay(day.day as number)}
+                disabled={!day.isCurrentMonth}
+              >
+                <Text style={[
+                  styles.calendarDayText,
+                  !day.isCurrentMonth && styles.calendarDayTextInactive,
+                  selectedDay === day.day && styles.calendarDayTextSelected
+                ]}>
+                  {day.day}
+                </Text>
+                
+                {/* Indicateurs de plantation et récolte */}
+                {day.isCurrentMonth && (
+                  <View style={styles.dayIndicators}>
+                    {day.hasPlanting && (
+                      <View style={[styles.dayIndicator, { backgroundColor: '#4CAF50' }]} />
+                    )}
+                    {day.hasHarvesting && (
+                      <View style={[styles.dayIndicator, { backgroundColor: '#FF9800' }]} />
+                    )}
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+          
+          {/* Légende du calendrier */}
+          <View style={styles.calendarLegend}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendIndicator, { backgroundColor: '#4CAF50' }]} />
+              <Text style={styles.legendText}>مناسب للزراعة</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendIndicator, { backgroundColor: '#FF9800' }]} />
+              <Text style={styles.legendText}>مناسب للحصاد</Text>
+            </View>
+          </View>
+        </View>
+        
+        {/* Month selector */}
+        <View style={styles.monthSelector}>
+          <Text style={styles.sectionTitle}>اختر الشهر</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.monthsContainer}
+          >
+            {monthButtons}
+          </ScrollView>
+        </View>
+
+        {/* Category filter */}
+        <View style={styles.categorySelector}>
+          <Text style={styles.sectionTitle}>تصفية حسب النوع</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoriesContainer}
+          >
+            {CROP_CATEGORIES.map(category => (
+              <TouchableOpacity
+                key={category.id}
+                style={[
+                  styles.categoryButton,
+                  selectedCategory === category.id && styles.selectedCategoryButton
+                ]}
+                onPress={() => setSelectedCategory(category.id)}
+              >
+                <MaterialCommunityIcons
+                  name={category.icon as any}
+                  size={18}
+                  color={selectedCategory === category.id ? '#fff' : theme.colors.primary.dark}
+                />
+                <Text
+                  style={[
+                    styles.categoryText,
+                    selectedCategory === category.id && styles.selectedCategoryText
+                  ]}
+                >
+                  {category.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Weather conditions */}
+        <View style={styles.weatherSummary}>
+          <Text style={styles.sectionTitle}>أحوال الطقس الحالية</Text>
+          <View style={styles.weatherConditions}>
+            <View style={styles.weatherCondition}>
+              <MaterialCommunityIcons
+                name="thermometer"
+                size={22}
+                color={theme.colors.primary.dark}
+              />
+              <Text style={styles.weatherValue}>
+                {Math.round(weatherData.current.temp_c)}°C
+              </Text>
+            </View>
+
+            <View style={styles.weatherCondition}>
+              <MaterialCommunityIcons
+                name="water-percent"
+                size={22}
+                color={theme.colors.primary.dark}
+              />
+              <Text style={styles.weatherValue}>
+                {weatherData.current.humidity}%
+              </Text>
+            </View>
+
+            <View style={styles.weatherCondition}>
+              <MaterialCommunityIcons
+                name="weather-windy"
+                size={22}
+                color={theme.colors.primary.dark}
+              />
+              <Text style={styles.weatherValue}>
+                {Math.round(weatherData.current.wind_kph)} كم/س
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Recommandations basées sur le jour sélectionné */}
+        {selectedDay && (
+          <View style={styles.dayRecommendations}>
+            <Text style={styles.dayRecommendationsTitle}>
+              توصيات ليوم {selectedDay} {MONTHS.find(m => m.id === selectedMonth)?.name}
+            </Text>
+            
+            <View style={styles.recommendationCards}>
+              <View style={styles.recommendationCard}>
+                <MaterialCommunityIcons name="seed" size={24} color="#4CAF50" />
+                <Text style={styles.recommendationTitle}>مناسب لزراعة</Text>
+                <Text style={styles.recommendationText}>الطماطم، الفلفل، البطاطس</Text>
               </View>
               
-              <View style={styles.subScoresContainer}>
-                <View style={styles.subScoreItem}>
-                  <Text style={styles.subScoreLabel}>ملاءمة درجة الحرارة</Text>
-                  <View style={styles.subScoreProgressContainer}>
-                    <View style={styles.subScoreProgressBg}>
-                      <View style={[
-                        styles.subScoreProgress, 
-                        { 
-                          width: `${cropAnalysis.temperatureScore}%`,
-                          backgroundColor: cropAnalysis.temperatureScore > 80 ? '#4CAF50' : 
-                                          cropAnalysis.temperatureScore > 60 ? '#FF9800' : '#F44336'
-                        }
-                      ]} />
-                    </View>
-                    <Text style={styles.subScoreValue}>{cropAnalysis.temperatureScore}%</Text>
+              <View style={styles.recommendationCard}>
+                <MaterialCommunityIcons name="basket" size={24} color="#FF9800" />
+                <Text style={styles.recommendationTitle}>مناسب لحصاد</Text>
+                <Text style={styles.recommendationText}>البصل، الجزر، الخيار</Text>
+              </View>
+            </View>
+          </View>
+        )}
+        
+        {/* AI Crop Analysis */}
+        {selectedCropDetails && cropAnalysis && (
+          <View style={styles.cropAnalysisContainer}>
+            <View style={styles.compatibilityScore}>
+              <View style={styles.scoreHeader}>
+                <Text style={styles.scoreHeaderText}>ملاءمة المحصول للظروف الحالية</Text>
+              </View>
+              <View style={styles.scoreContent}>
+                <View style={styles.overallScoreContainer}>
+                  <View style={[
+                    styles.scoreCircle, 
+                    { borderColor: cropAnalysis.overallScore > 80 ? '#4CAF50' : 
+                                   cropAnalysis.overallScore > 60 ? '#FF9800' : '#F44336' }
+                  ]}>
+                    <Text style={[
+                      styles.scoreText, 
+                      { color: cropAnalysis.overallScore > 80 ? '#4CAF50' : 
+                              cropAnalysis.overallScore > 60 ? '#FF9800' : '#F44336' }
+                    ]}>
+                      {cropAnalysis.overallScore}%
+                    </Text>
                   </View>
+                  <Text style={styles.scoreLabel}>ملاءمة إجمالية</Text>
                 </View>
                 
-                <View style={styles.subScoreItem}>
-                  <Text style={styles.subScoreLabel}>ملاءمة الموسم</Text>
-                  <View style={styles.subScoreProgressContainer}>
-                    <View style={styles.subScoreProgressBg}>
-                      <View style={[
-                        styles.subScoreProgress, 
-                        { 
-                          width: `${cropAnalysis.seasonScore}%`,
-                          backgroundColor: cropAnalysis.seasonScore > 80 ? '#4CAF50' : 
-                                          cropAnalysis.seasonScore > 60 ? '#FF9800' : '#F44336'
-                        }
-                      ]} />
+                <View style={styles.subScoresContainer}>
+                  <View style={styles.subScoreItem}>
+                    <Text style={styles.subScoreLabel}>ملاءمة درجة الحرارة</Text>
+                    <View style={styles.subScoreProgressContainer}>
+                      <View style={styles.subScoreProgressBg}>
+                        <View style={[
+                          styles.subScoreProgress, 
+                          { 
+                            width: `${cropAnalysis.temperatureScore}%`,
+                            backgroundColor: cropAnalysis.temperatureScore > 80 ? '#4CAF50' : 
+                                            cropAnalysis.temperatureScore > 60 ? '#FF9800' : '#F44336'
+                          }
+                        ]} />
+                      </View>
+                      <Text style={styles.subScoreValue}>{cropAnalysis.temperatureScore}%</Text>
                     </View>
-                    <Text style={styles.subScoreValue}>{cropAnalysis.seasonScore}%</Text>
+                  </View>
+                  
+                  <View style={styles.subScoreItem}>
+                    <Text style={styles.subScoreLabel}>ملاءمة الموسم</Text>
+                    <View style={styles.subScoreProgressContainer}>
+                      <View style={styles.subScoreProgressBg}>
+                        <View style={[
+                          styles.subScoreProgress, 
+                          { 
+                            width: `${cropAnalysis.seasonScore}%`,
+                            backgroundColor: cropAnalysis.seasonScore > 80 ? '#4CAF50' : 
+                                            cropAnalysis.seasonScore > 60 ? '#FF9800' : '#F44336'
+                          }
+                        ]} />
+                      </View>
+                      <Text style={styles.subScoreValue}>{cropAnalysis.seasonScore}%</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+              
+              {/* Growth and Risks Sections */}
+              <View style={styles.cropInsightsContainer}>
+                <View style={styles.insightsCard}>
+                  <View style={styles.growthMetrics}>
+                    <View style={styles.growthRateContainer}>
+                      <MaterialCommunityIcons 
+                        name="sprout" 
+                        size={24} 
+                        color={cropAnalysis.growthRate === 'سريع' ? '#4CAF50' : 
+                               cropAnalysis.growthRate === 'متوسط' ? '#FF9800' : '#F44336'} 
+                      />
+                      <Text style={styles.growthRateText}>
+                        معدل النمو المتوقع: <Text style={styles.growthRateValue}>{cropAnalysis.growthRate}</Text>
+                      </Text>
+                    </View>
+                    
+                    {cropAnalysis.risks.length > 0 && (
+                      <View style={styles.risksContainer}>
+                        <Text style={styles.risksTitle}>المخاطر المحتملة:</Text>
+                        {cropAnalysis.risks.map((risk: string, index: number) => (
+                          <View key={`risk-${index}`} style={styles.riskItem}>
+                            <MaterialCommunityIcons name="alert-circle" size={16} color="#F44336" />
+                            <Text style={styles.riskText}>{risk}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                  
+                  <View style={styles.recommendationsCard}>
+                    <Text style={styles.recommendationsTitle}>توصيات الذكاء الاصطناعي</Text>
+                    {cropAnalysis.recommendations.map((recommendation: any, index: number) => (
+                      <View key={`rec-${index}`} style={styles.recommendationItem}>
+                        <View style={[
+                          styles.recommendationIcon,
+                          { 
+                            backgroundColor: recommendation.type === 'optimal' ? '#E8F5E9' :
+                                            recommendation.type === 'warning' ? '#FFF3E0' : '#E3F2FD'
+                          }
+                        ]}>
+                          <MaterialCommunityIcons 
+                            name={recommendation.icon as any} 
+                            size={20} 
+                            color={recommendation.type === 'optimal' ? '#4CAF50' :
+                                  recommendation.type === 'warning' ? '#FF9800' : '#2196F3'} 
+                          />
+                        </View>
+                        <Text style={styles.recommendationText}>{recommendation.text}</Text>
+                      </View>
+                    ))}
                   </View>
                 </View>
               </View>
             </View>
             
-            {/* Growth and Risks Sections */}
-            <View style={styles.cropInsightsContainer}>
-              <View style={styles.insightsCard}>
-                <View style={styles.growthMetrics}>
-                  <View style={styles.growthRateContainer}>
-                    <MaterialCommunityIcons 
-                      name="sprout" 
-                      size={24} 
-                      color={cropAnalysis.growthRate === 'سريع' ? '#4CAF50' : 
-                             cropAnalysis.growthRate === 'متوسط' ? '#FF9800' : '#F44336'} 
-                    />
-                    <Text style={styles.growthRateText}>
-                      معدل النمو المتوقع: <Text style={styles.growthRateValue}>{cropAnalysis.growthRate}</Text>
-                    </Text>
-                  </View>
-                  
-                  {cropAnalysis.risks.length > 0 && (
-                    <View style={styles.risksContainer}>
-                      <Text style={styles.risksTitle}>المخاطر المحتملة:</Text>
-                      {cropAnalysis.risks.map((risk: string, index: number) => (
-                        <View key={`risk-${index}`} style={styles.riskItem}>
-                          <MaterialCommunityIcons name="alert-circle" size={16} color="#F44336" />
-                          <Text style={styles.riskText}>{risk}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  )}
-                </View>
-                
-                <View style={styles.recommendationsCard}>
-                  <Text style={styles.recommendationsTitle}>توصيات الذكاء الاصطناعي</Text>
-                  {cropAnalysis.recommendations.map((recommendation: any, index: number) => (
-                    <View key={`rec-${index}`} style={styles.recommendationItem}>
-                      <View style={[
-                        styles.recommendationIcon,
-                        { 
-                          backgroundColor: recommendation.type === 'optimal' ? '#E8F5E9' :
-                                          recommendation.type === 'warning' ? '#FFF3E0' : '#E3F2FD'
-                        }
-                      ]}>
-                        <MaterialCommunityIcons 
-                          name={recommendation.icon as any} 
-                          size={20} 
-                          color={recommendation.type === 'optimal' ? '#4CAF50' :
-                                recommendation.type === 'warning' ? '#FF9800' : '#2196F3'} 
-                        />
-                      </View>
-                      <Text style={styles.recommendationText}>{recommendation.text}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            </View>
-          </View>
-          
-          <View style={[
-            styles.temperatureAlert,
-            { 
-              backgroundColor: isTemperatureIdealForCrop(selectedCropDetails) ? 
-                '#E8F5E9' : '#FEE7E6' 
-            }
-          ]}>
-            <MaterialCommunityIcons
-              name={isTemperatureIdealForCrop(selectedCropDetails) ? 
-                "check-circle" : "alert-circle"}
-              size={20}
-              color={isTemperatureIdealForCrop(selectedCropDetails) ? 
-                '#4CAF50' : '#F44336'}
-            />
-            <Text style={[
-              styles.temperatureAlertText,
+            <View style={[
+              styles.temperatureAlert,
               { 
-                color: isTemperatureIdealForCrop(selectedCropDetails) ? 
-                  '#4CAF50' : '#F44336' 
+                backgroundColor: isTemperatureIdealForCrop(selectedCropDetails) ? 
+                  '#E8F5E9' : '#FEE7E6' 
               }
             ]}>
-              {isTemperatureIdealForCrop(selectedCropDetails) ?
-                `درجة الحرارة الحالية مناسبة لـ${selectedCropDetails.name}` :
-                `درجة الحرارة الحالية غير مثالية لـ${selectedCropDetails.name}`}
-            </Text>
+              <MaterialCommunityIcons
+                name={isTemperatureIdealForCrop(selectedCropDetails) ? 
+                  "check-circle" : "alert-circle"}
+                size={20}
+                color={isTemperatureIdealForCrop(selectedCropDetails) ? 
+                  '#4CAF50' : '#F44336'}
+              />
+              <Text style={[
+                styles.temperatureAlertText,
+                { 
+                  color: isTemperatureIdealForCrop(selectedCropDetails) ? 
+                    '#4CAF50' : '#F44336' 
+                }
+              ]}>
+                {isTemperatureIdealForCrop(selectedCropDetails) ?
+                  `درجة الحرارة الحالية مناسبة لـ${selectedCropDetails.name}` :
+                  `درجة الحرارة الحالية غير مثالية لـ${selectedCropDetails.name}`}
+              </Text>
+            </View>
+            
+            <View style={styles.cropNotes}>
+              <Text style={styles.cropNotesLabel}>ملاحظات:</Text>
+              <Text style={styles.cropNotesText}>{selectedCropDetails.notes}</Text>
+            </View>
           </View>
-          
-          <View style={styles.cropNotes}>
-            <Text style={styles.cropNotesLabel}>ملاحظات:</Text>
-            <Text style={styles.cropNotesText}>{selectedCropDetails.notes}</Text>
-          </View>
-        </View>
-      )}
-      
-      {/* Seasonal Tips */}
-      <View style={styles.seasonalTips}>
-        <Text style={styles.sectionTitle}>نصائح موسمية</Text>
+        )}
         
-        <View style={styles.tipCard}>
-          <View style={styles.tipIcon}>
-            <MaterialCommunityIcons
-              name={currentSeason.id === 'summer' ? "weather-sunny" : 
-                    currentSeason.id === 'winter' ? "snowflake" :
-                    currentSeason.id === 'spring' ? "flower" : "leaf-maple"}
-              size={28}
-              color="#fff"
-              style={{ backgroundColor: currentSeason.color, padding: 12, borderRadius: 24 }}
-            />
-          </View>
-          <View style={styles.tipContent}>
-            <Text style={styles.tipTitle}>
-              {currentSeason.id === 'summer' ? "نصائح لموسم الصيف" : 
-               currentSeason.id === 'winter' ? "نصائح لموسم الشتاء" :
-               currentSeason.id === 'spring' ? "نصائح لموسم الربيع" : "نصائح لموسم الخريف"}
-            </Text>
-            <Text style={styles.tipText}>
-              {currentSeason.id === 'summer' ? 
-                "تأكد من توفير الري الكافي للمحاصيل. حماية النباتات من أشعة الشمس المباشرة في ساعات الذروة. تجنب الري في منتصف النهار لتقليل التبخر." : 
-               currentSeason.id === 'winter' ? 
-                "حماية المحاصيل الحساسة من الصقيع. تقليل كمية المياه للمحاصيل التي لا تحتاج إلى الكثير من الماء في الشتاء. الاستفادة من هطول الأمطار الموسمية." :
-               currentSeason.id === 'spring' ? 
-                "وقت مثالي لبدء معظم المحاصيل. مراقبة الآفات التي تظهر مع ارتفاع درجات الحرارة. الاستعداد للتقلبات المفاجئة في درجات الحرارة." : 
-                "موسم مناسب لزراعة المحاصيل الشتوية. الاستفادة من بقايا المحاصيل كسماد عضوي. مراقبة هطول الأمطار والاستعداد للتغيرات الموسمية."}
-            </Text>
+        {/* Seasonal Tips */}
+        <View style={styles.seasonalTips}>
+          <Text style={styles.sectionTitle}>نصائح موسمية</Text>
+          
+          <View style={styles.tipCard}>
+            <View style={styles.tipIcon}>
+              <MaterialCommunityIcons
+                name={currentSeason.id === 'summer' ? "weather-sunny" : 
+                      currentSeason.id === 'winter' ? "snowflake" :
+                      currentSeason.id === 'spring' ? "flower" : "leaf-maple"}
+                size={28}
+                color="#fff"
+                style={{ backgroundColor: currentSeason.color, padding: 12, borderRadius: 24 }}
+              />
+            </View>
+            <View style={styles.tipContent}>
+              <Text style={styles.tipTitle}>
+                {currentSeason.id === 'summer' ? "نصائح لموسم الصيف" : 
+                 currentSeason.id === 'winter' ? "نصائح لموسم الشتاء" :
+                 currentSeason.id === 'spring' ? "نصائح لموسم الربيع" : "نصائح لموسم الخريف"}
+              </Text>
+              <Text style={styles.tipText}>
+                {currentSeason.id === 'summer' ? 
+                  "تأكد من توفير الري الكافي للمحاصيل. حماية النباتات من أشعة الشمس المباشرة في ساعات الذروة. تجنب الري في منتصف النهار لتقليل التبخر." : 
+                 currentSeason.id === 'winter' ? 
+                  "حماية المحاصيل الحساسة من الصقيع. تقليل كمية المياه للمحاصيل التي لا تحتاج إلى الكثير من الماء في الشتاء. الاستفادة من هطول الأمطار الموسمية." :
+                 currentSeason.id === 'spring' ? 
+                  "وقت مثالي لبدء معظم المحاصيل. مراقبة الآفات التي تظهر مع ارتفاع درجات الحرارة. الاستعداد للتقلبات المفاجئة في درجات الحرارة." : 
+                  "موسم مناسب لزراعة المحاصيل الشتوية. الاستفادة من بقايا المحاصيل كسماد عضوي. مراقبة هطول الأمطار والاستعداد للتغيرات الموسمية."}
+              </Text>
+            </View>
           </View>
         </View>
-      </View>
-      
-      {/* Espace supplémentaire en bas pour éviter que le contenu soit caché par le TabBar */}
-      <View style={{ height: 20 }} />
-    </ScrollView>
+        
+        {/* Espace supplémentaire en bas pour éviter que le contenu soit caché par le TabBar */}
+        <View style={{ height: 20 }} />
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  mainContainer: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  container: {
+    flex: 1,
+  },
+  contentContainer: {
+    paddingBottom: 20,
   },
   header: {
     padding: 16,
@@ -1573,10 +1585,10 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   recommendationText: {
-    flex: 1,
-    fontSize: 14,
-    color: theme.colors.neutral.gray.dark,
-    textAlign: 'right',
+    fontSize: 12,
+    color: theme.colors.neutral.gray.base,
+    textAlign: 'center',
+    marginTop: 4,
   },
   calendarSection: {
     backgroundColor: '#fff',
@@ -1719,10 +1731,22 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     textAlign: 'center',
   },
-  recommendationText: {
-    fontSize: 12,
-    color: theme.colors.neutral.gray.base,
-    textAlign: 'center',
+  calendarContainer: {
+    backgroundColor: '#fff',
+    margin: 16,
+    padding: 16,
+    borderRadius: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
 });
 

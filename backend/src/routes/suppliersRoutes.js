@@ -5,6 +5,7 @@ const upload = require("../middleware/upload");
 const {
   getSupplierByUserId,
   createSupplier,
+  updateVerificationStatus,
 } = require("../controllers/SuppliersController");
 
 // Get supplier data for authenticated user
@@ -20,5 +21,8 @@ router.post(
   ]),
   createSupplier
 );
+
+// Update supplier verification status
+router.patch("/verify", auth, updateVerificationStatus);
 
 module.exports = router;

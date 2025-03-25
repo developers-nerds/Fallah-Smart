@@ -2,6 +2,19 @@ module.exports = (connection, DataTypes) => {
   const CropDetails = connection.define(
     "CropDetails",
     {
+      id: {
+        type: DataTypes.INTEGER,
+        primaryKey: true,
+        autoIncrement: true,
+      },
+      cropId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+          model: 'crops',
+          key: 'id'
+        }
+      },
       plantingGuide: {
         type: DataTypes.TEXT,
         allowNull: true,

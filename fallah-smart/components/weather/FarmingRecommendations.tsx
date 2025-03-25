@@ -250,417 +250,422 @@ const FarmingRecommendations: React.FC<FarmingRecommendationsProps> = ({ weather
   }, [weatherData]);
   
   return (
-    <ScrollView 
-      style={styles.container} 
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={{ paddingBottom: TAB_BAR_HEIGHT + 20 }}
-    >
-      <View style={styles.header}>
-        <Text style={styles.title} accessibilityRole="header">توصيات ذكية للمزارعين</Text>
-        <Text style={styles.subtitle} accessibilityRole="text">
-          تحليل متقدم للظروف الجوية وتأثيرها على المحاصيل
-        </Text>
-      </View>
-      
-      {/* Mettre l'analyse IA en évidence - Bannière plus grande et visible */}
-      <View style={styles.aiHighlightSection}>
-        <Animated.View 
-          style={[styles.aiBanner]}
-          accessibilityRole="alert"
-        >
-          <View style={styles.aiBannerContent}>
-            <MaterialCommunityIcons
-              name="brain" 
-              size={48}
-              color="#fff"
-            />
-            <View style={styles.aiBannerTextContainer}>
-              <Text style={styles.aiBannerTitle}>تحليل ذكي للطقس</Text>
-              <Text style={styles.aiBannerText}>
-                تم تحليل البيانات باستخدام الذكاء الاصطناعي لتقديم توصيات دقيقة تناسب ظروف مزرعتك
-              </Text>
-            </View>
-          </View>
-          <View style={styles.aiAccuracyContainer}>
-            <Text style={styles.aiAccuracyLabel}>دقة التحليل</Text>
-            <View style={styles.aiAccuracyBar}>
-              <View style={[styles.aiAccuracyProgress, { width: `${aiAnalysis ? aiAnalysis.aiConfidence : 95}%` }]} />
-            </View>
-            <Text style={styles.aiAccuracyValue}>{aiAnalysis ? aiAnalysis.aiConfidence : 95}%</Text>
-          </View>
-        </Animated.View>
-      </View>
-      
-      {/* Section d'analyse IA améliorée - plus visible et toujours affichée */}
-      {aiAnalysis && (
-        <View style={styles.aiAnalysisContainerHighlighted}>
-          <View style={styles.aiAnalysisHeader}>
-            <Text style={styles.aiAnalysisTitle}>التحليل الزراعي الذكي</Text>
-          <TouchableOpacity
-              style={styles.aiDetailButton}
-              onPress={() => setShowAiDetail(!showAiDetail)}
-            >
-              <Text style={styles.aiDetailButtonText}>
-                {showAiDetail ? 'إخفاء التفاصيل' : 'عرض التفاصيل'}
-              </Text>
-              <MaterialCommunityIcons 
-                name={showAiDetail ? 'chevron-up' : 'chevron-down'} 
-                size={20} 
-                color={theme.colors.primary.base} 
-              />
-            </TouchableOpacity>
-          </View>
-          
-          {/* Résumé visuel de l'analyse IA - toujours visible */}
-          <View style={styles.aiSummaryContainer}>
-            <View style={styles.aiSummaryItem}>
-              <View 
-            style={[
-                  styles.aiSummaryCircle, 
-                  { 
-                    backgroundColor: aiAnalysis.soilMoistureIndex > 70 ? '#E3F2FD' : 
-                                   aiAnalysis.soilMoistureIndex > 50 ? '#E8F5E9' : '#FFF3E0',
-                    borderColor: aiAnalysis.soilMoistureIndex > 70 ? '#2196F3' : 
-                              aiAnalysis.soilMoistureIndex > 50 ? '#4CAF50' : '#FF9800'
-                  }
-                ]}
+    <View style={styles.mainContainer}>
+      <ScrollView 
+        style={styles.container}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <Text style={styles.title}>توصيات ذكية للمزارعين</Text>
+          <Text style={styles.subtitle}>
+            تحليل متقدم للظروف الجوية وتأثيرها على المحاصيل
+          </Text>
+        </View>
+        
+        {/* Mettre l'analyse IA en évidence - Bannière plus grande et visible */}
+        <View style={styles.aiHighlightSection}>
+          <Animated.View 
+            style={[styles.aiBanner]}
+            accessibilityRole="alert"
           >
-            <MaterialCommunityIcons
-                  name="water-percent" 
-                  size={24} 
-                  color={aiAnalysis.soilMoistureIndex > 70 ? '#2196F3' : 
-                        aiAnalysis.soilMoistureIndex > 50 ? '#4CAF50' : '#FF9800'} 
-                />
+            <View style={styles.aiBannerContent}>
+              <MaterialCommunityIcons
+                name="brain" 
+                size={48}
+                color="#fff"
+              />
+              <View style={styles.aiBannerTextContainer}>
+                <Text style={styles.aiBannerTitle}>تحليل ذكي للطقس</Text>
+                <Text style={styles.aiBannerText}>
+                  تم تحليل البيانات باستخدام الذكاء الاصطناعي لتقديم توصيات دقيقة تناسب ظروف مزرعتك
+                </Text>
               </View>
-              <Text style={styles.aiSummaryTitle}>رطوبة التربة</Text>
-              <Text style={styles.aiSummaryValue}>{aiAnalysis.soilMoistureIndex}%</Text>
+            </View>
+            <View style={styles.aiAccuracyContainer}>
+              <Text style={styles.aiAccuracyLabel}>دقة التحليل</Text>
+              <View style={styles.aiAccuracyBar}>
+                <View style={[styles.aiAccuracyProgress, { width: `${aiAnalysis ? aiAnalysis.aiConfidence : 95}%` }]} />
+              </View>
+              <Text style={styles.aiAccuracyValue}>{aiAnalysis ? aiAnalysis.aiConfidence : 95}%</Text>
+            </View>
+          </Animated.View>
+        </View>
+        
+        {/* Section d'analyse IA améliorée - plus visible et toujours affichée */}
+        {aiAnalysis && (
+          <View style={styles.aiAnalysisContainerHighlighted}>
+            <View style={styles.aiAnalysisHeader}>
+              <Text style={styles.aiAnalysisTitle}>التحليل الزراعي الذكي</Text>
+            <TouchableOpacity
+                style={styles.aiDetailButton}
+                onPress={() => setShowAiDetail(!showAiDetail)}
+              >
+                <Text style={styles.aiDetailButtonText}>
+                  {showAiDetail ? 'إخفاء التفاصيل' : 'عرض التفاصيل'}
+                </Text>
+                <MaterialCommunityIcons 
+                  name={showAiDetail ? 'chevron-up' : 'chevron-down'} 
+                  size={20} 
+                  color={theme.colors.primary.base} 
+                />
+              </TouchableOpacity>
             </View>
             
-            <View style={styles.aiSummaryItem}>
-              <View 
+            {/* Résumé visuel de l'analyse IA - toujours visible */}
+            <View style={styles.aiSummaryContainer}>
+              <View style={styles.aiSummaryItem}>
+                <View 
               style={[
-                  styles.aiSummaryCircle, 
-                  { 
-                    backgroundColor: aiAnalysis.growthIndex > 80 ? '#E8F5E9' : 
-                                   aiAnalysis.growthIndex > 60 ? '#F1F8E9' : '#FFF3E0',
-                    borderColor: aiAnalysis.growthIndex > 80 ? '#4CAF50' : 
-                              aiAnalysis.growthIndex > 60 ? '#8BC34A' : '#FF9800'
-                  }
-                ]}
-              >
-                <MaterialCommunityIcons 
-                  name="sprout" 
-                  size={24} 
-                  color={aiAnalysis.growthIndex > 80 ? '#4CAF50' : 
-                        aiAnalysis.growthIndex > 60 ? '#8BC34A' : '#FF9800'} 
-                />
-              </View>
-              <Text style={styles.aiSummaryTitle}>مؤشر النمو</Text>
-              <Text style={styles.aiSummaryValue}>{aiAnalysis.growthIndex}%</Text>
-            </View>
-            
-            <View style={styles.aiSummaryItem}>
-              <View 
-                style={[
-                  styles.aiSummaryCircle, 
-                  { 
-                    backgroundColor: aiAnalysis.stabilityIndex > 70 ? '#E8F5E9' : 
-                                   aiAnalysis.stabilityIndex > 50 ? '#FFF3E0' : '#FFEBEE',
-                    borderColor: aiAnalysis.stabilityIndex > 70 ? '#4CAF50' : 
-                              aiAnalysis.stabilityIndex > 50 ? '#FF9800' : '#F44336'
-                  }
-                ]}
-              >
-                <MaterialCommunityIcons 
-                  name="chart-line" 
-                  size={24} 
-                  color={aiAnalysis.stabilityIndex > 70 ? '#4CAF50' : 
-                        aiAnalysis.stabilityIndex > 50 ? '#FF9800' : '#F44336'} 
-                />
-              </View>
-              <Text style={styles.aiSummaryTitle}>استقرار الطقس</Text>
-              <Text style={styles.aiSummaryValue}>{aiAnalysis.stabilityIndex}%</Text>
-            </View>
-            
-            <View style={styles.aiSummaryItem}>
-              <View 
-                style={[
-                  styles.aiSummaryCircle, 
-                  { 
-                    backgroundColor: aiAnalysis.pestRiskIndex > 70 ? '#FFEBEE' : 
-                                   aiAnalysis.pestRiskIndex > 50 ? '#FFF3E0' : '#E8F5E9',
-                    borderColor: aiAnalysis.pestRiskIndex > 70 ? '#F44336' : 
-                              aiAnalysis.pestRiskIndex > 50 ? '#FF9800' : '#4CAF50'
-                  }
-                ]}
-              >
-                <MaterialCommunityIcons 
-                  name="bug" 
-                  size={24} 
-                  color={aiAnalysis.pestRiskIndex > 70 ? '#F44336' : 
-                        aiAnalysis.pestRiskIndex > 50 ? '#FF9800' : '#4CAF50'} 
-                />
-              </View>
-              <Text style={styles.aiSummaryTitle}>مخاطر الآفات</Text>
-              <Text style={styles.aiSummaryValue}>{aiAnalysis.pestRiskIndex}%</Text>
-            </View>
-          </View>
-          
-          {/* Détails de l'analyse - s'affichent/se masquent selon l'état */}
-          {showAiDetail && (
-            <View style={styles.aiMetricsContainer}>
-              {aiAnalysis.analysisDetails.map((detail, index) => (
-                <View key={`metric-${index}`} style={styles.aiMetricCard}>
-                  <View style={[styles.aiMetricIconContainer, { backgroundColor: `${detail.color}20` }]}>
-                    <MaterialCommunityIcons 
-                      name={detail.icon as any} 
+                    styles.aiSummaryCircle, 
+                    { 
+                      backgroundColor: aiAnalysis.soilMoistureIndex > 70 ? '#E3F2FD' : 
+                                     aiAnalysis.soilMoistureIndex > 50 ? '#E8F5E9' : '#FFF3E0',
+                      borderColor: aiAnalysis.soilMoistureIndex > 70 ? '#2196F3' : 
+                                aiAnalysis.soilMoistureIndex > 50 ? '#4CAF50' : '#FF9800'
+                    }
+                  ]}
+            >
+                <MaterialCommunityIcons
+                      name="water-percent" 
                       size={24} 
-                      color={detail.color} 
+                      color={aiAnalysis.soilMoistureIndex > 70 ? '#2196F3' : 
+                            aiAnalysis.soilMoistureIndex > 50 ? '#4CAF50' : '#FF9800'} 
                     />
-                  </View>
-                  <Text style={styles.aiMetricTitle}>{detail.title}</Text>
-                  <View style={styles.aiMetricValueContainer}>
-                    <View style={styles.aiMetricBar}>
-                      <View 
-                        style={[
-                          styles.aiMetricProgress, 
-                          { 
-                            width: `${detail.value}%`,
-                            backgroundColor: detail.color 
-                          }
-                        ]} 
+                </View>
+                <Text style={styles.aiSummaryTitle}>رطوبة التربة</Text>
+                <Text style={styles.aiSummaryValue}>{aiAnalysis.soilMoistureIndex}%</Text>
+              </View>
+              
+              <View style={styles.aiSummaryItem}>
+                <View 
+                style={[
+                    styles.aiSummaryCircle, 
+                    { 
+                      backgroundColor: aiAnalysis.growthIndex > 80 ? '#E8F5E9' : 
+                                     aiAnalysis.growthIndex > 60 ? '#F1F8E9' : '#FFF3E0',
+                      borderColor: aiAnalysis.growthIndex > 80 ? '#4CAF50' : 
+                                aiAnalysis.growthIndex > 60 ? '#8BC34A' : '#FF9800'
+                    }
+                  ]}
+                >
+                  <MaterialCommunityIcons 
+                    name="sprout" 
+                    size={24} 
+                    color={aiAnalysis.growthIndex > 80 ? '#4CAF50' : 
+                          aiAnalysis.growthIndex > 60 ? '#8BC34A' : '#FF9800'} 
+                  />
+                </View>
+                <Text style={styles.aiSummaryTitle}>مؤشر النمو</Text>
+                <Text style={styles.aiSummaryValue}>{aiAnalysis.growthIndex}%</Text>
+              </View>
+              
+              <View style={styles.aiSummaryItem}>
+                <View 
+                  style={[
+                    styles.aiSummaryCircle, 
+                    { 
+                      backgroundColor: aiAnalysis.stabilityIndex > 70 ? '#E8F5E9' : 
+                                     aiAnalysis.stabilityIndex > 50 ? '#FFF3E0' : '#FFEBEE',
+                      borderColor: aiAnalysis.stabilityIndex > 70 ? '#4CAF50' : 
+                                aiAnalysis.stabilityIndex > 50 ? '#FF9800' : '#F44336'
+                    }
+                  ]}
+                >
+                  <MaterialCommunityIcons 
+                    name="chart-line" 
+                    size={24} 
+                    color={aiAnalysis.stabilityIndex > 70 ? '#4CAF50' : 
+                          aiAnalysis.stabilityIndex > 50 ? '#FF9800' : '#F44336'} 
+                  />
+                </View>
+                <Text style={styles.aiSummaryTitle}>استقرار الطقس</Text>
+                <Text style={styles.aiSummaryValue}>{aiAnalysis.stabilityIndex}%</Text>
+              </View>
+              
+              <View style={styles.aiSummaryItem}>
+                <View 
+                  style={[
+                    styles.aiSummaryCircle, 
+                    { 
+                      backgroundColor: aiAnalysis.pestRiskIndex > 70 ? '#FFEBEE' : 
+                                     aiAnalysis.pestRiskIndex > 50 ? '#FFF3E0' : '#E8F5E9',
+                      borderColor: aiAnalysis.pestRiskIndex > 70 ? '#F44336' : 
+                                aiAnalysis.pestRiskIndex > 50 ? '#FF9800' : '#4CAF50'
+                    }
+                  ]}
+                >
+                  <MaterialCommunityIcons 
+                    name="bug" 
+                    size={24} 
+                    color={aiAnalysis.pestRiskIndex > 70 ? '#F44336' : 
+                          aiAnalysis.pestRiskIndex > 50 ? '#FF9800' : '#4CAF50'} 
+                  />
+                </View>
+                <Text style={styles.aiSummaryTitle}>مخاطر الآفات</Text>
+                <Text style={styles.aiSummaryValue}>{aiAnalysis.pestRiskIndex}%</Text>
+              </View>
+            </View>
+            
+            {/* Détails de l'analyse - s'affichent/se masquent selon l'état */}
+            {showAiDetail && (
+              <View style={styles.aiMetricsContainer}>
+                {aiAnalysis.analysisDetails.map((detail, index) => (
+                  <View key={`metric-${index}`} style={styles.aiMetricCard}>
+                    <View style={[styles.aiMetricIconContainer, { backgroundColor: `${detail.color}20` }]}>
+                      <MaterialCommunityIcons 
+                        name={detail.icon as any} 
+                        size={24} 
+                        color={detail.color} 
                       />
                     </View>
-                    <Text style={[styles.aiMetricValue, { color: detail.color }]}>{detail.value}%</Text>
+                    <Text style={styles.aiMetricTitle}>{detail.title}</Text>
+                    <View style={styles.aiMetricValueContainer}>
+                      <View style={styles.aiMetricBar}>
+                        <View 
+                          style={[
+                            styles.aiMetricProgress, 
+                            { 
+                              width: `${detail.value}%`,
+                              backgroundColor: detail.color 
+                            }
+                          ]} 
+                        />
+                      </View>
+                      <Text style={[styles.aiMetricValue, { color: detail.color }]}>{detail.value}%</Text>
+                    </View>
+                    
+                    <Text style={styles.aiMetricDescription}>{detail.description}</Text>
                   </View>
-                  
-                  <Text style={styles.aiMetricDescription}>{detail.description}</Text>
+                ))}
+                
+                <View style={styles.aiAnalysisFooter}>
+                  <Text style={styles.aiAnalysisTimestamp}>
+                    آخر تحديث: {new Date(aiAnalysis.timestamp).toLocaleTimeString('ar-TN')}
+                  </Text>
+                  <Text style={styles.aiAnalysisNote}>
+                    * يتم تحديث التحليل كل ساعة بناءً على أحدث بيانات الطقس
+                  </Text>
                 </View>
-              ))}
-              
-              <View style={styles.aiAnalysisFooter}>
-                <Text style={styles.aiAnalysisTimestamp}>
-                  آخر تحديث: {new Date(aiAnalysis.timestamp).toLocaleTimeString('ar-TN')}
-                </Text>
-                <Text style={styles.aiAnalysisNote}>
-                  * يتم تحديث التحليل كل ساعة بناءً على أحدث بيانات الطقس
-                </Text>
               </View>
-            </View>
-          )}
-        </View>
-      )}
-      
-      {/* Weather Summary Card */}
-      <View style={styles.weatherSummaryCard}>
-        <Text style={styles.weatherSummaryTitle}>ملخص الظروف الجوية</Text>
-        <View style={styles.weatherGrid}>
-          <View style={styles.weatherItem}>
-          <MaterialCommunityIcons
-            name="thermometer"
-              size={24}
-            color={theme.colors.primary.dark}
-          />
-            <Text style={styles.weatherValue}>{Math.round(weatherData.current.temp_c)}°C</Text>
-            <Text style={styles.weatherLabel}>درجة الحرارة</Text>
-        </View>
-        
-          <View style={styles.weatherItem}>
-          <MaterialCommunityIcons
-            name="water-percent"
-              size={24}
-            color={theme.colors.primary.dark}
-          />
-            <Text style={styles.weatherValue}>{weatherData.current.humidity}%</Text>
-            <Text style={styles.weatherLabel}>الرطوبة</Text>
-        </View>
-        
-          <View style={styles.weatherItem}>
-          <MaterialCommunityIcons
-            name="weather-windy"
-              size={24}
-            color={theme.colors.primary.dark}
-          />
-            <Text style={styles.weatherValue}>{Math.round(weatherData.current.wind_kph)} كم/س</Text>
-            <Text style={styles.weatherLabel}>سرعة الرياح</Text>
+            )}
           </View>
-          
-          <View style={styles.weatherItem}>
+        )}
+        
+        {/* Weather Summary Card */}
+        <View style={styles.weatherSummaryCard}>
+          <Text style={styles.weatherSummaryTitle}>ملخص الظروف الجوية</Text>
+          <View style={styles.weatherGrid}>
+            <View style={styles.weatherItem}>
             <MaterialCommunityIcons
-              name="weather-sunny"
-              size={24}
+              name="thermometer"
+                size={24}
               color={theme.colors.primary.dark}
             />
-            <Text style={styles.weatherValue}>{weatherData.current.uv}</Text>
-            <Text style={styles.weatherLabel}>مؤشر UV</Text>
+              <Text style={styles.weatherValue}>{Math.round(weatherData.current.temp_c)}°C</Text>
+              <Text style={styles.weatherLabel}>درجة الحرارة</Text>
+          </View>
+          
+            <View style={styles.weatherItem}>
+            <MaterialCommunityIcons
+              name="water-percent"
+                size={24}
+              color={theme.colors.primary.dark}
+            />
+              <Text style={styles.weatherValue}>{weatherData.current.humidity}%</Text>
+              <Text style={styles.weatherLabel}>الرطوبة</Text>
+          </View>
+          
+            <View style={styles.weatherItem}>
+            <MaterialCommunityIcons
+              name="weather-windy"
+                size={24}
+              color={theme.colors.primary.dark}
+            />
+              <Text style={styles.weatherValue}>{Math.round(weatherData.current.wind_kph)} كم/س</Text>
+              <Text style={styles.weatherLabel}>سرعة الرياح</Text>
+            </View>
+            
+            <View style={styles.weatherItem}>
+              <MaterialCommunityIcons
+                name="weather-sunny"
+                size={24}
+                color={theme.colors.primary.dark}
+              />
+              <Text style={styles.weatherValue}>{weatherData.current.uv}</Text>
+              <Text style={styles.weatherLabel}>مؤشر UV</Text>
+            </View>
           </View>
         </View>
-      </View>
-      
-      {/* Categories */}
-      <View style={styles.categoriesSection}>
-        <Text style={styles.sectionTitle}>تصفية التوصيات</Text>
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoriesContainer}
+        
+        {/* Categories */}
+        <View style={styles.categoriesSection}>
+          <Text style={styles.sectionTitle}>تصفية التوصيات</Text>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoriesContainer}
+          >
+            {CATEGORIES.map((category) => (
+              <TouchableOpacity
+                key={category.id}
+          style={[
+                  styles.categoryButton,
+                  selectedCategory === category.id && styles.selectedCategoryButton
+          ]}
+                onPress={() => setSelectedCategory(category.id)}
         >
-          {CATEGORIES.map((category) => (
-            <TouchableOpacity
-              key={category.id}
-        style={[
-                styles.categoryButton,
-                selectedCategory === category.id && styles.selectedCategoryButton
-        ]}
-              onPress={() => setSelectedCategory(category.id)}
-      >
-        <MaterialCommunityIcons 
-                name={category.icon as any}
-          size={24} 
-                color={selectedCategory === category.id ? '#fff' : theme.colors.primary.dark}
+          <MaterialCommunityIcons 
+                  name={category.icon as any}
+            size={24} 
+                  color={selectedCategory === category.id ? '#fff' : theme.colors.primary.dark}
+                />
+                <Text style={[
+                  styles.categoryText,
+                  selectedCategory === category.id && styles.selectedCategoryText
+                ]}>
+                  {category.label}
+          </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+        
+        {/* Recommendations */}
+        <View style={styles.recommendationsContainer}>
+          {filteredRecommendations.length === 0 ? (
+            <Animated.View style={styles.emptyContainer}>
+              <MaterialCommunityIcons
+                name="emoticon-happy-outline"
+                size={64}
+                color="#AAAAAA"
               />
-              <Text style={[
-                styles.categoryText,
-                selectedCategory === category.id && styles.selectedCategoryText
-              ]}>
-                {category.label}
-        </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-      
-      {/* Recommendations */}
-      <View style={styles.recommendationsContainer}>
-        {filteredRecommendations.length === 0 ? (
-          <Animated.View style={styles.emptyContainer}>
-            <MaterialCommunityIcons
-              name="emoticon-happy-outline"
-              size={64}
-              color="#AAAAAA"
-            />
-            <Text style={styles.emptyText}>
-              لا توجد توصيات لهذه الفئة في الوقت الحالي
-            </Text>
-          </Animated.View>
-        ) : (
-          filteredRecommendations.map((recommendation, index) => {
-            const categoryColor = getCategoryColor(recommendation.category);
-            const isExpanded = expandedRecommendations.has(recommendation.title);
-            const priorityColor = getPriorityColor(recommendation.priority);
-            
-            return (
-              <Animated.View 
-                key={`${recommendation.category}-${index}`}
-                style={[
-                  styles.recommendationCard,
-                  { borderLeftColor: categoryColor }
-                ]}
-              >
-                <TouchableOpacity
-                  style={styles.recommendationHeader}
-                  onPress={() => toggleRecommendation(recommendation.title)}
+              <Text style={styles.emptyText}>
+                لا توجد توصيات لهذه الفئة في الوقت الحالي
+              </Text>
+            </Animated.View>
+          ) : (
+            filteredRecommendations.map((recommendation, index) => {
+              const categoryColor = getCategoryColor(recommendation.category);
+              const isExpanded = expandedRecommendations.has(recommendation.title);
+              const priorityColor = getPriorityColor(recommendation.priority);
+              
+              return (
+                <Animated.View 
+                  key={`${recommendation.category}-${index}`}
+                  style={[
+                    styles.recommendationCard,
+                    { borderLeftColor: categoryColor }
+                  ]}
                 >
-                  <View style={styles.recommendationHeaderContent}>
-                    <MaterialCommunityIcons
-                      name={recommendation.icon as any}
-                      size={32}
-                      color={categoryColor}
-                    />
-                    <View style={styles.recommendationTitleContainer}>
-                      <Text style={styles.recommendationTitle}>
-                      {recommendation.title}
-                    </Text>
-                      <View style={styles.recommendationMeta}>
-                        <View style={[
-                          styles.priorityTag,
-                          { backgroundColor: `${priorityColor}20`, borderColor: priorityColor }
-                        ]}>
-                          <MaterialCommunityIcons
-                            name={recommendation.priority === 'high' ? 'alert-circle' : 
-                                 recommendation.priority === 'medium' ? 'alert' : 'information'}
-                            size={16}
-                            color={priorityColor}
-                          />
-                      <Text style={[styles.priorityText, { color: priorityColor }]}>
-                        {getPriorityLabel(recommendation.priority)}
+                  <TouchableOpacity
+                    style={styles.recommendationHeader}
+                    onPress={() => toggleRecommendation(recommendation.title)}
+                  >
+                    <View style={styles.recommendationHeaderContent}>
+                      <MaterialCommunityIcons
+                        name={recommendation.icon as any}
+                        size={32}
+                        color={categoryColor}
+                      />
+                      <View style={styles.recommendationTitleContainer}>
+                        <Text style={styles.recommendationTitle}>
+                        {recommendation.title}
                       </Text>
-                    </View>
-                        <View style={styles.categoryTag}>
-                          <MaterialCommunityIcons
-                            name={getCategoryIcon(recommendation.category)}
-                            size={16}
-                            color={categoryColor}
-                          />
-                          <Text style={[styles.categoryTagText, { color: categoryColor }]}>
-                            {CATEGORIES.find(cat => cat.id === recommendation.category)?.label}
-                          </Text>
+                        <View style={styles.recommendationMeta}>
+                          <View style={[
+                            styles.priorityTag,
+                            { backgroundColor: `${priorityColor}20`, borderColor: priorityColor }
+                          ]}>
+                            <MaterialCommunityIcons
+                              name={recommendation.priority === 'high' ? 'alert-circle' : 
+                                   recommendation.priority === 'medium' ? 'alert' : 'information'}
+                              size={16}
+                              color={priorityColor}
+                            />
+                        <Text style={[styles.priorityText, { color: priorityColor }]}>
+                          {getPriorityLabel(recommendation.priority)}
+                        </Text>
+                      </View>
+                          <View style={styles.categoryTag}>
+                            <MaterialCommunityIcons
+                              name={getCategoryIcon(recommendation.category)}
+                              size={16}
+                              color={categoryColor}
+                            />
+                            <Text style={[styles.categoryTagText, { color: categoryColor }]}>
+                              {CATEGORIES.find(cat => cat.id === recommendation.category)?.label}
+                            </Text>
+                          </View>
                         </View>
                       </View>
-                    </View>
-                    <MaterialCommunityIcons
-                      name={isExpanded ? "chevron-up" : "chevron-down"}
-                      size={24}
-                      color={theme.colors.neutral.gray.base}
-                    />
-                  </View>
-                </TouchableOpacity>
-                
-                <Animated.View style={[
-                  styles.recommendationContent,
-                  isExpanded ? styles.expandedContent : styles.collapsedContent
-                ]}>
-                  <View style={styles.descriptionSection}>
-                    <Text style={styles.sectionLabel}>التفاصيل</Text>
-                    <Text style={styles.descriptionText}>
-                    {recommendation.description}
-                  </Text>
-                  </View>
-
-                  <View style={styles.actionSection}>
-                    <Text style={styles.sectionLabel}>الإجراءات المطلوبة</Text>
-                    <Text style={styles.actionText}>
-                      {recommendation.action}
-                    </Text>
-                  </View>
-                  
-                  <View style={styles.benefitSection}>
-                    <Text style={styles.sectionLabel}>نسبة الفائدة المتوقعة</Text>
-                    <View style={styles.benefitScoreContainer}>
-                      <View style={styles.benefitBar}>
-                      <View 
-                        style={[
-                            styles.benefitProgress,
-                          { 
-                            width: `${recommendation.benefitScore}%`,
-                            backgroundColor: recommendation.benefitScore > 80 ? '#4CAF50' :
-                                            recommendation.benefitScore > 60 ? '#8BC34A' :
-                                            recommendation.benefitScore > 40 ? '#FFEB3B' :
-                                            recommendation.benefitScore > 20 ? '#FF9800' : '#F44336'
-                          }
-                        ]} 
+                      <MaterialCommunityIcons
+                        name={isExpanded ? "chevron-up" : "chevron-down"}
+                        size={24}
+                        color={theme.colors.neutral.gray.base}
                       />
                     </View>
-                      <Text style={styles.benefitScore}>{recommendation.benefitScore}%</Text>
+                  </TouchableOpacity>
+                  
+                  <Animated.View style={[
+                    styles.recommendationContent,
+                    isExpanded ? styles.expandedContent : styles.collapsedContent
+                  ]}>
+                    <View style={styles.descriptionSection}>
+                      <Text style={styles.sectionLabel}>التفاصيل</Text>
+                      <Text style={styles.descriptionText}>
+                      {recommendation.description}
+                    </Text>
                     </View>
-                  </View>
+
+                    <View style={styles.actionSection}>
+                      <Text style={styles.sectionLabel}>الإجراءات المطلوبة</Text>
+                      <Text style={styles.actionText}>
+                        {recommendation.action}
+                      </Text>
+                    </View>
+                    
+                    <View style={styles.benefitSection}>
+                      <Text style={styles.sectionLabel}>نسبة الفائدة المتوقعة</Text>
+                      <View style={styles.benefitScoreContainer}>
+                        <View style={styles.benefitBar}>
+                        <View 
+                          style={[
+                              styles.benefitProgress,
+                            { 
+                              width: `${recommendation.benefitScore}%`,
+                              backgroundColor: recommendation.benefitScore > 80 ? '#4CAF50' :
+                                              recommendation.benefitScore > 60 ? '#8BC34A' :
+                                              recommendation.benefitScore > 40 ? '#FFEB3B' :
+                                              recommendation.benefitScore > 20 ? '#FF9800' : '#F44336'
+                            }
+                          ]} 
+                        />
+                        </View>
+                        <Text style={styles.benefitScore}>{recommendation.benefitScore}%</Text>
+                      </View>
+                    </View>
+                  </Animated.View>
                 </Animated.View>
-              </Animated.View>
-            );
-          })
-        )}
-      </View>
-      
-      {/* Espace supplémentaire en bas pour éviter que le contenu soit caché par le TabBar */}
-      <View style={{ height: 20 }} />
-    </ScrollView>
+              );
+            })
+          )}
+        </View>
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  mainContainer: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  container: {
+    flex: 1,
+  },
+  contentContainer: {
+    paddingBottom: 20,
   },
   header: {
     padding: 20,
@@ -995,7 +1000,7 @@ const styles = StyleSheet.create({
   },
   recommendationsContainer: {
     padding: 16,
-    paddingBottom: 100,
+    paddingBottom: 20,
   },
   recommendationCard: {
     backgroundColor: '#fff',
@@ -1011,7 +1016,7 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
       },
       android: {
-        elevation: 4,
+        elevation: 6,
       },
     }),
   },
