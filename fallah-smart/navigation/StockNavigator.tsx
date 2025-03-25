@@ -30,6 +30,7 @@ import { FeedProvider } from '../context/FeedContext';
 import { HarvestProvider } from '../context/HarvestContext';
 import { FertilizerProvider } from '../context/FertilizerContext';
 import { AnimalProvider } from '../context/AnimalContext';
+import WelcomeOnboarding from '../screens/Onboarding/WelcomeOnboarding';
 
 // Import Tool screens
 import ToolListScreen from '../screens/Stock/Tools/ToolList';
@@ -108,6 +109,11 @@ export const StockNavigator = () => {
                         name="Register"
                         component={Register}
                         options={{ headerShown: true }}
+                      />
+                      <Stack.Screen
+                        name="WelcomeOnboarding"
+                        component={WelcomeOnboarding}
+                        options={{ headerShown: false }}
                       />
                       <Stack.Screen
                         name="StockTab"
