@@ -17,13 +17,43 @@ import axios from 'axios';
 import { theme } from '../../theme/theme';
 import { storage } from '../../utils/storage';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { FontAwesome } from '@expo/vector-icons';
 
 type RootStackParamList = {
   Login: undefined; // Define the Login route
   // Add other routes here if needed
 };
-import { FontAwesome } from '@expo/vector-icons';
 
+const arabicTranslations = {
+  createAccount: 'إنشاء حساب',
+  signUpToStart: 'سجل للبدء',
+  username: 'اسم المستخدم',
+  firstName: 'الاسم ',
+  lastName: ' اللقب ',
+  email: 'البريد الإلكتروني',
+  phoneNumber: 'رقم الهاتف',
+  gender: 'الجنس',
+  male: 'ذكر',
+  female: 'أنثى',
+  password: 'كلمة المرور',
+  confirmPassword: 'تأكيد كلمة المرور',
+  register: 'تسجيل',
+  alreadyHaveAccount: 'لديك حساب بالفعل؟',
+  login: 'تسجيل الدخول',
+  passwordRequirements: {
+    title: 'يجب أن تحتوي كلمة المرور على:',
+    minLength: '8 أحرف على الأقل',
+    uppercase: 'حرف كبير واحد على الأقل',
+    lowercase: 'حرف صغير واحد على الأقل',
+    number: 'رقم واحد على الأقل',
+    special: 'رمز خاص واحد على الأقل'
+  },
+  validation: {
+    passwordsMatch: 'كلمات المرور غير متطابقة',
+    error: 'خطأ في التسجيل',
+    success: 'تم التسجيل بنجاح!'
+  }
+};
 
 const Register = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -111,10 +141,10 @@ const Register = () => {
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text style={[styles.title, { color: theme.colors.neutral.textPrimary }]}>
-            Create Account
+            {arabicTranslations.createAccount}
           </Text>
           <Text style={[styles.subtitle, { color: theme.colors.neutral.textSecondary }]}>
-            Sign up to get started
+            {arabicTranslations.signUpToStart}
           </Text>
         </View>
 
@@ -127,8 +157,8 @@ const Register = () => {
               style={styles.inputIcon} 
             />
             <TextInput
-              style={[styles.input, { color: theme.colors.neutral.textPrimary }]}
-              placeholder="Username"
+              style={[styles.input, { color: theme.colors.neutral.textPrimary, textAlign: 'right' }]}
+              placeholder={arabicTranslations.username}
               placeholderTextColor={theme.colors.neutral.textSecondary}
               value={formData.username}
               onChangeText={(text) => setFormData({ ...formData, username: text })}
@@ -144,8 +174,8 @@ const Register = () => {
               style={styles.inputIcon} 
             />
             <TextInput
-              style={[styles.input, { color: theme.colors.neutral.textPrimary }]}
-              placeholder="First Name"
+              style={[styles.input, { color: theme.colors.neutral.textPrimary, textAlign: 'right' }]}
+              placeholder={arabicTranslations.firstName}
               placeholderTextColor={theme.colors.neutral.textSecondary}
               value={formData.firstName}
               onChangeText={(text) => setFormData({ ...formData, firstName: text })}
@@ -160,8 +190,8 @@ const Register = () => {
               style={styles.inputIcon} 
             />
             <TextInput
-              style={[styles.input, { color: theme.colors.neutral.textPrimary }]}
-              placeholder="Last Name"
+              style={[styles.input, { color: theme.colors.neutral.textPrimary, textAlign: 'right' }]}
+              placeholder={arabicTranslations.lastName}
               placeholderTextColor={theme.colors.neutral.textSecondary}
               value={formData.lastName}
               onChangeText={(text) => setFormData({ ...formData, lastName: text })}
@@ -176,8 +206,8 @@ const Register = () => {
               style={styles.inputIcon} 
             />
             <TextInput
-              style={[styles.input, { color: theme.colors.neutral.textPrimary }]}
-              placeholder="Email"
+              style={[styles.input, { color: theme.colors.neutral.textPrimary, textAlign: 'right' }]}
+              placeholder={arabicTranslations.email}
               placeholderTextColor={theme.colors.neutral.textSecondary}
               value={formData.email}
               onChangeText={(text) => setFormData({ ...formData, email: text })}
@@ -194,8 +224,8 @@ const Register = () => {
               style={styles.inputIcon} 
             />
             <TextInput
-              style={[styles.input, { color: theme.colors.neutral.textPrimary }]}
-              placeholder="Phone Number"
+              style={[styles.input, { color: theme.colors.neutral.textPrimary, textAlign: 'right' }]}
+              placeholder={arabicTranslations.phoneNumber}
               placeholderTextColor={theme.colors.neutral.textSecondary}
               value={formData.phoneNumber}
               onChangeText={(text) => setFormData({ ...formData, phoneNumber: text })}
@@ -206,7 +236,7 @@ const Register = () => {
 
           <View style={styles.genderContainer}>
             <Text style={[styles.genderLabel, { color: theme.colors.neutral.textPrimary }]}>
-              Gender
+              {arabicTranslations.gender}
             </Text>
             <View style={styles.genderOptions}>
               <TouchableOpacity 
@@ -228,7 +258,7 @@ const Register = () => {
                   styles.genderText, 
                   { color: formData.gender === 'male' ? theme.colors.primary.base : theme.colors.neutral.textPrimary }
                 ]}>
-                  Male
+                  {arabicTranslations.male}
                 </Text>
               </TouchableOpacity>
               
@@ -251,7 +281,7 @@ const Register = () => {
                   styles.genderText, 
                   { color: formData.gender === 'female' ? theme.colors.primary.base : theme.colors.neutral.textPrimary }
                 ]}>
-                  Female
+                  {arabicTranslations.female}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -265,8 +295,8 @@ const Register = () => {
               style={styles.inputIcon} 
             />
             <TextInput
-              style={[styles.input, { color: theme.colors.neutral.textPrimary }]}
-              placeholder="Password"
+              style={[styles.input, { color: theme.colors.neutral.textPrimary, textAlign: 'right' }]}
+              placeholder={arabicTranslations.password}
               placeholderTextColor={theme.colors.neutral.textSecondary}
               value={formData.password}
               onChangeText={(text) => {
@@ -297,8 +327,8 @@ const Register = () => {
               style={styles.inputIcon} 
             />
             <TextInput
-              style={[styles.input, { color: theme.colors.neutral.textPrimary }]}
-              placeholder="Confirm Password"
+              style={[styles.input, { color: theme.colors.neutral.textPrimary, textAlign: 'right' }]}
+              placeholder={arabicTranslations.confirmPassword}
               placeholderTextColor={theme.colors.neutral.textSecondary}
               value={formData.confirmPassword}
               onChangeText={(text) => setFormData({ ...formData, confirmPassword: text })}
@@ -308,14 +338,14 @@ const Register = () => {
 
           {showPasswordRequirements && (
             <View style={styles.passwordRequirements}>
-              <Text style={styles.requirementsTitle}>Password must have:</Text>
+              <Text style={styles.requirementsTitle}>{arabicTranslations.passwordRequirements.title}</Text>
               <View style={styles.requirementRow}>
                 <FontAwesome 
                   name={passwordValidation.minLength ? "check-circle" : "circle-o"} 
                   size={14} 
                   color={passwordValidation.minLength ? theme.colors.success : theme.colors.neutral.gray.medium} 
                 />
-                <Text style={styles.requirementText}>At least 8 characters</Text>
+                <Text style={styles.requirementText}>{arabicTranslations.passwordRequirements.minLength}</Text>
               </View>
               <View style={styles.requirementRow}>
                 <FontAwesome 
@@ -323,7 +353,7 @@ const Register = () => {
                   size={14} 
                   color={passwordValidation.hasUppercase ? theme.colors.success : theme.colors.neutral.gray.medium} 
                 />
-                <Text style={styles.requirementText}>At least one uppercase letter</Text>
+                <Text style={styles.requirementText}>{arabicTranslations.passwordRequirements.uppercase}</Text>
               </View>
               <View style={styles.requirementRow}>
                 <FontAwesome 
@@ -331,7 +361,7 @@ const Register = () => {
                   size={14} 
                   color={passwordValidation.hasLowercase ? theme.colors.success : theme.colors.neutral.gray.medium} 
                 />
-                <Text style={styles.requirementText}>At least one lowercase letter</Text>
+                <Text style={styles.requirementText}>{arabicTranslations.passwordRequirements.lowercase}</Text>
               </View>
               <View style={styles.requirementRow}>
                 <FontAwesome 
@@ -339,7 +369,7 @@ const Register = () => {
                   size={14} 
                   color={passwordValidation.hasNumber ? theme.colors.success : theme.colors.neutral.gray.medium} 
                 />
-                <Text style={styles.requirementText}>At least one number</Text>
+                <Text style={styles.requirementText}>{arabicTranslations.passwordRequirements.number}</Text>
               </View>
               <View style={styles.requirementRow}>
                 <FontAwesome 
@@ -347,7 +377,7 @@ const Register = () => {
                   size={14} 
                   color={passwordValidation.hasSpecial ? theme.colors.success : theme.colors.neutral.gray.medium} 
                 />
-                <Text style={styles.requirementText}>At least one special character</Text>
+                <Text style={styles.requirementText}>{arabicTranslations.passwordRequirements.special}</Text>
               </View>
             </View>
           )}
@@ -364,16 +394,16 @@ const Register = () => {
             {isLoading ? (
               <ActivityIndicator color={theme.colors.neutral.surface} />
             ) : (
-              <Text style={styles.registerButtonText}>Register</Text>
+              <Text style={styles.registerButtonText}>{arabicTranslations.register}</Text>
             )}
           </TouchableOpacity>
 
           <View style={styles.loginContainer}>
             <Text style={[styles.loginText, { color: theme.colors.neutral.textSecondary }]}>
-              Already have an account?{' '}
+              {arabicTranslations.alreadyHaveAccount}{' '}
             </Text>
             <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-              <Text style={[styles.loginLink, { color: theme.colors.primary.base }]}>Login</Text>
+              <Text style={[styles.loginLink, { color: theme.colors.primary.base }]}>{arabicTranslations.login}</Text>
             </TouchableOpacity>
           </View>
         </View>

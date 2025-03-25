@@ -457,8 +457,8 @@ const PlantingCalendar: React.FC<PlantingCalendarProps> = ({ weatherData }) => {
       >
         <Text
           style={[
-            styles.monthName,
-            isSelected && styles.selectedMonthName
+            styles.monthText,
+            isSelected && styles.selectedMonthText
           ]}
         >
           {month.shortName}
@@ -613,33 +613,33 @@ const PlantingCalendar: React.FC<PlantingCalendarProps> = ({ weatherData }) => {
           </View>
           
           {/* Jours de la semaine */}
-          <View style={styles.weekdaysRow}>
-            <Text style={styles.weekdayText}>أحد</Text>
-            <Text style={styles.weekdayText}>إثنين</Text>
-            <Text style={styles.weekdayText}>ثلاثاء</Text>
-            <Text style={styles.weekdayText}>أربعاء</Text>
-            <Text style={styles.weekdayText}>خميس</Text>
-            <Text style={styles.weekdayText}>جمعة</Text>
-            <Text style={styles.weekdayText}>سبت</Text>
+          <View style={styles.weekDaysContainer}>
+            <Text style={styles.weekDay}>أحد</Text>
+            <Text style={styles.weekDay}>إثنين</Text>
+            <Text style={styles.weekDay}>ثلاثاء</Text>
+            <Text style={styles.weekDay}>أربعاء</Text>
+            <Text style={styles.weekDay}>خميس</Text>
+            <Text style={styles.weekDay}>جمعة</Text>
+            <Text style={styles.weekDay}>سبت</Text>
           </View>
           
           {/* Grille du calendrier */}
-          <View style={styles.calendarGrid}>
+          <View style={styles.daysGrid}>
             {calendarDays.map((day, index) => (
               <TouchableOpacity 
                 key={`day-${index}`}
                 style={[
-                  styles.calendarDay,
-                  !day.isCurrentMonth && styles.calendarDayInactive,
-                  selectedDay === day.day && styles.calendarDaySelected
+                  styles.dayCell,
+                  !day.isCurrentMonth && styles.dayCellInactive,
+                  selectedDay === day.day && styles.selectedDay
                 ]}
                 onPress={() => day.isCurrentMonth && setSelectedDay(day.day as number)}
                 disabled={!day.isCurrentMonth}
               >
                 <Text style={[
-                  styles.calendarDayText,
-                  !day.isCurrentMonth && styles.calendarDayTextInactive,
-                  selectedDay === day.day && styles.calendarDayTextSelected
+                  styles.dayText,
+                  !day.isCurrentMonth && styles.dayTextInactive,
+                  selectedDay === day.day && styles.selectedDayText
                 ]}>
                   {day.day}
                 </Text>
@@ -783,151 +783,39 @@ const PlantingCalendar: React.FC<PlantingCalendarProps> = ({ weatherData }) => {
         
         {/* AI Crop Analysis */}
         {selectedCropDetails && cropAnalysis && (
-          <View style={styles.cropAnalysisContainer}>
-            <View style={styles.compatibilityScore}>
-              <View style={styles.scoreHeader}>
-                <Text style={styles.scoreHeaderText}>ملاءمة المحصول للظروف الحالية</Text>
-              </View>
-              <View style={styles.scoreContent}>
-                <View style={styles.overallScoreContainer}>
-                  <View style={[
-                    styles.scoreCircle, 
-                    { borderColor: cropAnalysis.overallScore > 80 ? '#4CAF50' : 
-                                   cropAnalysis.overallScore > 60 ? '#FF9800' : '#F44336' }
-                  ]}>
-                    <Text style={[
-                      styles.scoreText, 
-                      { color: cropAnalysis.overallScore > 80 ? '#4CAF50' : 
-                              cropAnalysis.overallScore > 60 ? '#FF9800' : '#F44336' }
-                    ]}>
-                      {cropAnalysis.overallScore}%
-                    </Text>
-                  </View>
-                  <Text style={styles.scoreLabel}>ملاءمة إجمالية</Text>
-                </View>
-                
-                <View style={styles.subScoresContainer}>
-                  <View style={styles.subScoreItem}>
-                    <Text style={styles.subScoreLabel}>ملاءمة درجة الحرارة</Text>
-                    <View style={styles.subScoreProgressContainer}>
-                      <View style={styles.subScoreProgressBg}>
-                        <View style={[
-                          styles.subScoreProgress, 
-                          { 
-                            width: `${cropAnalysis.temperatureScore}%`,
-                            backgroundColor: cropAnalysis.temperatureScore > 80 ? '#4CAF50' : 
-                                            cropAnalysis.temperatureScore > 60 ? '#FF9800' : '#F44336'
-                          }
-                        ]} />
-                      </View>
-                      <Text style={styles.subScoreValue}>{cropAnalysis.temperatureScore}%</Text>
-                    </View>
-                  </View>
-                  
-                  <View style={styles.subScoreItem}>
-                    <Text style={styles.subScoreLabel}>ملاءمة الموسم</Text>
-                    <View style={styles.subScoreProgressContainer}>
-                      <View style={styles.subScoreProgressBg}>
-                        <View style={[
-                          styles.subScoreProgress, 
-                          { 
-                            width: `${cropAnalysis.seasonScore}%`,
-                            backgroundColor: cropAnalysis.seasonScore > 80 ? '#4CAF50' : 
-                                            cropAnalysis.seasonScore > 60 ? '#FF9800' : '#F44336'
-                          }
-                        ]} />
-                      </View>
-                      <Text style={styles.subScoreValue}>{cropAnalysis.seasonScore}%</Text>
-                    </View>
-                  </View>
-                </View>
-              </View>
-              
-              {/* Growth and Risks Sections */}
-              <View style={styles.cropInsightsContainer}>
-                <View style={styles.insightsCard}>
-                  <View style={styles.growthMetrics}>
-                    <View style={styles.growthRateContainer}>
-                      <MaterialCommunityIcons 
-                        name="sprout" 
-                        size={24} 
-                        color={cropAnalysis.growthRate === 'سريع' ? '#4CAF50' : 
-                               cropAnalysis.growthRate === 'متوسط' ? '#FF9800' : '#F44336'} 
-                      />
-                      <Text style={styles.growthRateText}>
-                        معدل النمو المتوقع: <Text style={styles.growthRateValue}>{cropAnalysis.growthRate}</Text>
-                      </Text>
-                    </View>
-                    
-                    {cropAnalysis.risks.length > 0 && (
-                      <View style={styles.risksContainer}>
-                        <Text style={styles.risksTitle}>المخاطر المحتملة:</Text>
-                        {cropAnalysis.risks.map((risk: string, index: number) => (
-                          <View key={`risk-${index}`} style={styles.riskItem}>
-                            <MaterialCommunityIcons name="alert-circle" size={16} color="#F44336" />
-                            <Text style={styles.riskText}>{risk}</Text>
-                          </View>
-                        ))}
-                      </View>
-                    )}
-                  </View>
-                  
-                  <View style={styles.recommendationsCard}>
-                    <Text style={styles.recommendationsTitle}>توصيات الذكاء الاصطناعي</Text>
-                    {cropAnalysis.recommendations.map((recommendation: any, index: number) => (
-                      <View key={`rec-${index}`} style={styles.recommendationItem}>
-                        <View style={[
-                          styles.recommendationIcon,
-                          { 
-                            backgroundColor: recommendation.type === 'optimal' ? '#E8F5E9' :
-                                            recommendation.type === 'warning' ? '#FFF3E0' : '#E3F2FD'
-                          }
-                        ]}>
-                          <MaterialCommunityIcons 
-                            name={recommendation.icon as any} 
-                            size={20} 
-                            color={recommendation.type === 'optimal' ? '#4CAF50' :
-                                  recommendation.type === 'warning' ? '#FF9800' : '#2196F3'} 
-                          />
-                        </View>
-                        <Text style={styles.recommendationText}>{recommendation.text}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
+          <View style={styles.cropAnalysis}>
+            <Text style={styles.analysisTitle}>تحليل المحصول</Text>
+            <View style={styles.scoreContainer}>
+              <View style={styles.scoreItem}>
+                <Text style={styles.scoreValue}>{cropAnalysis.overallScore}%</Text>
+                <Text style={styles.scoreLabel}>ملاءمة إجمالية</Text>
               </View>
             </View>
-            
-            <View style={[
-              styles.temperatureAlert,
-              { 
-                backgroundColor: isTemperatureIdealForCrop(selectedCropDetails) ? 
-                  '#E8F5E9' : '#FEE7E6' 
-              }
-            ]}>
-              <MaterialCommunityIcons
-                name={isTemperatureIdealForCrop(selectedCropDetails) ? 
-                  "check-circle" : "alert-circle"}
-                size={20}
-                color={isTemperatureIdealForCrop(selectedCropDetails) ? 
-                  '#4CAF50' : '#F44336'}
-              />
-              <Text style={[
-                styles.temperatureAlertText,
-                { 
-                  color: isTemperatureIdealForCrop(selectedCropDetails) ? 
-                    '#4CAF50' : '#F44336' 
-                }
-              ]}>
-                {isTemperatureIdealForCrop(selectedCropDetails) ?
-                  `درجة الحرارة الحالية مناسبة لـ${selectedCropDetails.name}` :
-                  `درجة الحرارة الحالية غير مثالية لـ${selectedCropDetails.name}`}
-              </Text>
+            <View style={styles.recommendationsList}>
+              {cropAnalysis.recommendations.map((recommendation, index) => (
+                <View key={`rec-${index}`} style={styles.recommendationItem}>
+                  <MaterialCommunityIcons 
+                    name={recommendation.icon as any} 
+                    size={24} 
+                    color={recommendation.type === 'optimal' ? '#4CAF50' : '#FF9800'} 
+                    style={styles.recommendationIcon}
+                  />
+                  <Text style={styles.recommendationText}>{recommendation.text}</Text>
+                </View>
+              ))}
             </View>
-            
-            <View style={styles.cropNotes}>
-              <Text style={styles.cropNotesLabel}>ملاحظات:</Text>
-              <Text style={styles.cropNotesText}>{selectedCropDetails.notes}</Text>
+            <View style={styles.risksList}>
+              {cropAnalysis.risks.map((risk, index) => (
+                <View key={`risk-${index}`} style={styles.riskItem}>
+                  <MaterialCommunityIcons 
+                    name="alert-circle" 
+                    size={20} 
+                    color="#FF9800" 
+                    style={styles.riskIcon}
+                  />
+                  <Text style={styles.riskText}>{risk}</Text>
+                </View>
+              ))}
             </View>
           </View>
         )}
@@ -987,17 +875,19 @@ const styles = StyleSheet.create({
   header: {
     padding: 16,
     backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
   title: {
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: 'bold',
     color: theme.colors.primary.dark,
     textAlign: 'right',
+    marginBottom: 8,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 16,
     color: theme.colors.neutral.gray.base,
-    marginTop: 4,
     textAlign: 'right',
   },
   seasonBanner: {
@@ -1036,21 +926,19 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   monthButton: {
-    padding: 12,
-    marginHorizontal: 4,
-    borderRadius: 8,
-    minWidth: 60,
-    alignItems: 'center',
+    padding: 8,
+  },
+  monthText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: theme.colors.primary.dark,
+    marginHorizontal: 16,
   },
   selectedMonthButton: {
     borderWidth: 2,
     borderColor: '#fff',
   },
-  monthName: {
-    fontWeight: 'bold',
-    color: theme.colors.neutral.gray.dark,
-  },
-  selectedMonthName: {
+  selectedMonthText: {
     color: '#fff',
   },
   categorySelector: {
@@ -1395,200 +1283,84 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: 'right',
   },
-  cropAnalysisContainer: {
-    backgroundColor: '#f8f9fa',
-    padding: 16,
-    borderRadius: 12,
-    marginTop: 16,
-    marginHorizontal: 16,
-  },
-  compatibilityScore: {
+  cropAnalysis: {
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    marginTop: 16,
   },
-  scoreHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  scoreHeaderText: {
+  analysisTitle: {
     fontSize: 16,
     fontWeight: 'bold',
     color: theme.colors.primary.dark,
+    marginBottom: 12,
+    textAlign: 'right',
   },
-  scoreContent: {
+  scoreContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
+    marginBottom: 16,
   },
-  overallScoreContainer: {
+  scoreItem: {
     alignItems: 'center',
-    marginRight: 16,
   },
-  scoreCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  scoreText: {
+  scoreValue: {
     fontSize: 24,
     fontWeight: 'bold',
+    color: theme.colors.primary.dark,
   },
   scoreLabel: {
     fontSize: 12,
     color: theme.colors.neutral.gray.base,
-    textAlign: 'center',
+    marginTop: 4,
   },
-  subScoresContainer: {
-    flex: 1,
-  },
-  subScoreItem: {
-    marginBottom: 12,
-  },
-  subScoreLabel: {
-    fontSize: 12,
-    color: theme.colors.neutral.gray.base,
-    marginBottom: 4,
-    textAlign: 'right',
-  },
-  subScoreProgressContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  subScoreProgressBg: {
-    height: 6,
-    backgroundColor: '#e0e0e0',
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginBottom: 2,
-  },
-  subScoreProgress: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  subScoreValue: {
-    fontSize: 12,
-    color: theme.colors.neutral.gray.dark,
-    textAlign: 'right',
-  },
-  cropInsightsContainer: {
+  recommendationsList: {
     marginTop: 16,
-  },
-  insightsCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
-  },
-  growthMetrics: {
-    marginBottom: 16,
-  },
-  growthRateContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    marginBottom: 16,
-  },
-  growthRateText: {
-    fontSize: 14,
-    color: theme.colors.neutral.gray.dark,
-    marginRight: 8,
-    textAlign: 'right',
-  },
-  growthRateValue: {
-    fontWeight: 'bold',
-  },
-  risksContainer: {
-    marginTop: 8,
-  },
-  risksTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: theme.colors.neutral.gray.dark,
-    marginBottom: 8,
-    textAlign: 'right',
-  },
-  riskItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-    justifyContent: 'flex-end',
-  },
-  riskText: {
-    fontSize: 14,
-    color: theme.colors.neutral.gray.dark,
-    marginRight: 8,
-    textAlign: 'right',
-  },
-  recommendationsCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
-  },
-  recommendationsTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: theme.colors.primary.dark,
-    marginBottom: 12,
-    textAlign: 'right',
   },
   recommendationItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
-    justifyContent: 'flex-end',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
   },
   recommendationIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 12,
+    marginRight: 12,
   },
   recommendationText: {
-    fontSize: 12,
+    flex: 1,
+    fontSize: 14,
+    color: theme.colors.neutral.gray.dark,
+    textAlign: 'right',
+  },
+  risksList: {
+    marginTop: 16,
+  },
+  riskItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  riskIcon: {
+    marginRight: 8,
+  },
+  riskText: {
+    flex: 1,
+    fontSize: 14,
+    color: theme.colors.neutral.gray.dark,
+    textAlign: 'right',
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+  },
+  emptyStateText: {
+    fontSize: 16,
     color: theme.colors.neutral.gray.base,
     textAlign: 'center',
-    marginTop: 4,
+    marginTop: 16,
   },
   calendarSection: {
     backgroundColor: '#fff',
@@ -1598,7 +1370,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   calendarHeader: {
-    flexDirection: 'column',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
   },
@@ -1617,53 +1390,54 @@ const styles = StyleSheet.create({
     color: theme.colors.primary.dark,
     marginHorizontal: 16,
   },
-  weekdaysRow: {
+  weekDaysContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     marginBottom: 8,
-    paddingBottom: 8,
+    paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
-  weekdayText: {
+  weekDay: {
     flex: 1,
     textAlign: 'center',
     fontSize: 14,
-    color: theme.colors.neutral.gray.base,
     fontWeight: 'bold',
+    color: theme.colors.neutral.gray.base,
   },
-  calendarGrid: {
+  daysGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
   },
-  calendarDay: {
-    width: '14%', // 7 jours par semaine
+  dayCell: {
+    width: '14.28%',
     aspectRatio: 1,
-    alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    alignItems: 'center',
     borderRadius: 8,
-    backgroundColor: '#f8f9fa',
   },
-  calendarDayInactive: {
+  dayCellInactive: {
     backgroundColor: 'transparent',
   },
-  calendarDaySelected: {
-    backgroundColor: `${theme.colors.primary.base}20`,
-    borderWidth: 2,
-    borderColor: theme.colors.primary.base,
-  },
-  calendarDayText: {
+  dayText: {
     fontSize: 16,
-    fontWeight: 'bold',
     color: theme.colors.neutral.gray.dark,
   },
-  calendarDayTextInactive: {
+  dayTextInactive: {
     color: theme.colors.neutral.gray.light,
   },
-  calendarDayTextSelected: {
-    color: theme.colors.primary.dark,
+  selectedDay: {
+    backgroundColor: theme.colors.primary.light,
+  },
+  selectedDayText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  currentDay: {
+    backgroundColor: theme.colors.primary.base,
+  },
+  currentDayText: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
   dayIndicators: {
     flexDirection: 'row',
