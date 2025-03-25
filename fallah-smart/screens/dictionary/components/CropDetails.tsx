@@ -15,6 +15,7 @@ import axios from 'axios';
 import { theme } from '../../../theme/theme';
 import { Crop, CropDetails as ICropDetails } from '../types';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Speech from 'expo-speech';
 
 type RootStackParamList = {
   Dictionary: undefined;
@@ -35,6 +36,7 @@ const CropDetails: React.FC<Props> = ({ route }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [expandedSections, setExpandedSections] = useState<{[key: string]: boolean}>({});
+  const [speaking, setSpeaking] = useState<{[key: string]: boolean}>({});
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scrollY = useRef(new Animated.Value(0)).current;
   const API_URL = process.env.EXPO_PUBLIC_API_URL;
@@ -52,12 +54,19 @@ const CropDetails: React.FC<Props> = ({ route }) => {
       }).start();
     }
   }, [loading, crop]);
+  
+  // Clean up speech when component unmounts
+  useEffect(() => {
+    return () => {
+      Speech.stop();
+    };
+  }, []);
 
   const fetchCropDetails = async () => {
     try {
       setLoading(true);
       const [cropResponse, detailsResponse] = await Promise.all([
-        axios.get(`${API_URL}/crops/${id}`),
+        axios.get(`${API_URL}/crop/${id}`),
         axios.get(`${API_URL}/cropsDetails/${id}`)
       ]);
       setCrop(cropResponse.data);
@@ -105,7 +114,7 @@ const CropDetails: React.FC<Props> = ({ route }) => {
   };
 
   const isSectionExpanded = (section: string) => {
-    return expandedSections[section] !== false; // Default to expanded
+    return expandedSections[section] === true; // Default to closed
   };
 
   // Dynamic header styles based on scroll position
@@ -126,6 +135,48 @@ const CropDetails: React.FC<Props> = ({ route }) => {
     outputRange: [1, 0.8],
     extrapolate: 'clamp'
   });
+
+  const handleSpeech = (content: string, sectionKey: string) => {
+    // If this section is already speaking, stop it and return
+    if (speaking[sectionKey]) {
+      Speech.stop();
+      setSpeaking(prev => ({
+        ...prev,
+        [sectionKey]: false
+      }));
+      return;
+    }
+    
+    // Stop any current speech first
+    Speech.stop();
+    
+    // Reset all speaking states to false
+    const newSpeakingState = Object.keys(speaking).reduce((acc, key) => {
+      acc[key] = false;
+      return acc;
+    }, {} as {[key: string]: boolean});
+    
+    // Set only the current section to speaking
+    newSpeakingState[sectionKey] = true;
+    setSpeaking(newSpeakingState);
+    
+    // Speak the content
+    Speech.speak(content || 'غير متوفر', {
+      language: 'ar',
+      onDone: () => {
+        setSpeaking(prev => ({
+          ...prev,
+          [sectionKey]: false
+        }));
+      },
+      onError: () => {
+        setSpeaking(prev => ({
+          ...prev,
+          [sectionKey]: false
+        }));
+      }
+    });
+  };
 
   if (loading) {
     return (
@@ -166,7 +217,19 @@ const CropDetails: React.FC<Props> = ({ route }) => {
       
       {isSectionExpanded(section) && (
         <View style={styles.sectionContentContainer}>
-          <Text style={styles.sectionContent}>{content || 'غير متوفر'}</Text>
+          <View style={styles.sectionContentHeader}>
+            <Text style={styles.sectionContent}>{content || 'غير متوفر'}</Text>
+            <TouchableOpacity 
+              style={styles.speechButton}
+              onPress={() => handleSpeech(content, section)}
+            >
+              <MaterialCommunityIcons 
+                name={speaking[section] ? "volume-high" : "volume-medium"} 
+                size={24} 
+                color={speaking[section] ? theme.colors.primary.dark : theme.colors.primary.base} 
+              />
+            </TouchableOpacity>
+          </View>
         </View>
       )}
     </Animated.View>
@@ -203,13 +266,6 @@ const CropDetails: React.FC<Props> = ({ route }) => {
           >
             <MaterialCommunityIcons name="share-variant" size={20} color={theme.colors.primary.base} />
             <Text style={styles.actionButtonText}>مشاركة</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.actionButton}
-          >
-            <MaterialCommunityIcons name="star-outline" size={20} color={theme.colors.primary.base} />
-            <Text style={styles.actionButtonText}>المفضلة</Text>
           </TouchableOpacity>
         </View>
 
@@ -347,12 +403,24 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: theme.colors.neutral.border,
   },
+  sectionContentHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingTop: theme.spacing.md,
+  },
+  speechButton: {
+    padding: theme.spacing.xs,
+    borderRadius: theme.borderRadius.small,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    marginLeft: theme.spacing.sm,
+  },
   sectionContent: {
     fontSize: theme.fontSizes.body,
     color: theme.colors.neutral.textPrimary,
     lineHeight: 24,
     textAlign: 'right',
-    paddingTop: theme.spacing.md,
+    flex: 1,
   },
   shareButton: {
     flexDirection: 'row',

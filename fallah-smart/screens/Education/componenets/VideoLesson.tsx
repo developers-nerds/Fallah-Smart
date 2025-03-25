@@ -8,7 +8,7 @@ import Chat from './Chat';
 import QuestionAndAnswer from './QuestionAndAnswer';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getUserIdFromToken, saveVideoProgress } from '../utils/userProgress';
+// import { getUserIdFromToken } from '../utils/userProgress';
 
 // API base URL
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
@@ -185,35 +185,33 @@ const VideoLesson = () => {
   }, [selectedVideoId, videoData, additionalVideos]);
 
   // Mark video as watched when user spends more than 30 seconds on it
-  useEffect(() => {
-    if (!videoData) return;
+  // useEffect(() => {
+  //   if (!videoData) return;
     
-    const timer = setTimeout(async () => {
-      try {
-        // Get user ID using the improved function
-        const userId = await getUserIdFromToken();
-        if (!userId) {
-          console.log('User not authenticated, video progress will not be saved');
-          return;
-        }
+  //   const timer = setTimeout(async () => {
+  //     try {
+  //       // Get user ID using the improved function
+  //       const userId = await getUserIdFromToken();
+  //       if (!userId) {
+  //         console.log('User not authenticated, video progress will not be saved');
+  //         return;
+  //       }
         
-        console.log(`Marking video ID ${videoData.id} as watched for user ${userId}`);
+  //       // console.log(`Marking video ID ${videoData.id} as watched for user ${userId}`);
         
-        // Save video progress using the utility function
-        const saveSuccess = await saveVideoProgress(userId, videoData.id, true);
+  //       // Save video progress using the utility function
+  //       // const saveSuccess = await saveVideoProgress(userId, videoData.id, true);
         
-        if (saveSuccess) {
-          console.log("Video marked as watched successfully");
-        } else {
-          console.error("Failed to mark video as watched");
-        }
-      } catch (err) {
-        console.error("Error updating video progress:", err);
-      }
-    }, 30000); // 30 seconds
+  //       // if (saveSuccess) {
+  //       //   console.log("Video marked as watched successfully");
+  //       // } 
+  //     } catch (err) {
+  //       console.error("Error updating video progress:", err);
+  //     }
+  //   }, 3000); // 30 seconds
     
-    return () => clearTimeout(timer);
-  }, [videoData]);
+  //   return () => clearTimeout(timer);
+  // }, [videoData]);
 
   if (loading) {
     return (
@@ -350,6 +348,7 @@ const VideoLesson = () => {
       </View>
 
       {/* Help Button */}
+      
       <TouchableOpacity 
         onPress={() => setIsChatVisible(!isChatVisible)} 
         style={[
@@ -357,7 +356,7 @@ const VideoLesson = () => {
           isChatVisible && styles.helpButtonActive
         ]}
       >
-        <Text style={styles.helpButtonText}>مساعدة</Text>
+        <Text style={styles.helpButtonText}>الفلاح الذكي</Text>
       </TouchableOpacity>
 
       {/* Chat Overlay */}
@@ -369,13 +368,13 @@ const VideoLesson = () => {
           <View style={styles.chatOverlayContainer}>
             <View style={styles.chatOverlay}>
               <View style={styles.chatHeader}>
-                <Text style={styles.chatTitle}>المساعد الذكي</Text>
                 <TouchableOpacity 
                   onPress={() => setIsChatVisible(false)}
                   style={styles.closeChatButton}
                 >
                   <Ionicons name="close" size={24} color={theme.colors.neutral.textPrimary} />
                 </TouchableOpacity>
+                <Text style={styles.chatTitle}>الفلاح الذكي</Text>
               </View>
               <View style={styles.chatWrapper}>
                 <Chat visible={true} />
@@ -528,7 +527,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.5)',
-    zIndex: 2,
+    zIndex: 99,
   },
   helpButton: {
     position: 'absolute',
@@ -539,6 +538,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 30,
     ...theme.shadows.medium,
+    zIndex: 10,
   },
   helpButtonText: {
     color: theme.colors.neutral.surface,
@@ -555,7 +555,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    zIndex: 3,
+    zIndex: 100,
     justifyContent: 'center',
     alignItems: 'center',
     padding: theme.spacing.md,
@@ -578,11 +578,11 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 16,
   },
   chatTitle: {
-    flex: 1,
     color: theme.colors.neutral.surface,
     fontSize: 18,
     fontWeight: '600',
     textAlign: 'right',
+    marginRight: theme.spacing.sm,
   },
   closeChatButton: {
     width: 32,
