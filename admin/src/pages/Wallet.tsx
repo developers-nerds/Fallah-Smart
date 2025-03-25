@@ -4,12 +4,24 @@ import { Link } from 'react-router-dom'
 import { FiFolder, FiUsers, FiDollarSign } from 'react-icons/fi'
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell, ResponsiveContainer
 } from 'recharts'
 
 const CATEGORIES_URL = `${import.meta.env.VITE_API_URL}/categories`
 const ACCOUNTS_URL = `${import.meta.env.VITE_API_URL}/accounts/all-with-users`
 const TRANSACTIONS_URL = `${import.meta.env.VITE_API_URL}/transactions/admin/all`
+
+// Colors for charts
+const STOCK_COLORS = [
+  '#4F7942', // Green
+  '#0088FE', // Blue
+  '#FF8042', // Orange
+  '#FFBB28', // Yellow
+  '#8884d8', // Purple
+  '#00C49F', // Teal
+  '#093731',  // Dark Green (primary)
+  '#82ca9d'   // Light Green
+];
 
 interface Transaction {
   id: number
@@ -79,16 +91,16 @@ function Wallet() {
       setAccounts(accountsData)
 
       // Calculate total balance from all accounts
-      const totalAccountBalance = accountsData.reduce((sum, account) => sum + account.balance, 0)
+      const totalAccountBalance = accountsData.reduce((sum: number, account: Account) => sum + account.balance, 0)
       setTotalBalance(totalAccountBalance)
 
       // Calculate income and expense totals
       const income = transactionsData
-        .filter(t => t.type === 'income')
-        .reduce((sum, t) => sum + t.amount, 0)
+        .filter((t: Transaction) => t.type === 'income')
+        .reduce((sum: number, t: Transaction) => sum + t.amount, 0)
       const expense = transactionsData
-        .filter(t => t.type === 'expense')
-        .reduce((sum, t) => sum + t.amount, 0)
+        .filter((t: Transaction) => t.type === 'expense')
+        .reduce((sum: number, t: Transaction) => sum + t.amount, 0)
       
       setTotalIncome(income)
       setTotalExpense(expense)
@@ -185,14 +197,14 @@ function Wallet() {
         <div className="bg-white rounded-xl p-6 shadow-md">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-semibold text-[#1A2F2B]">Total Balance</h3>
+              <h3 className="text-lg font-semibold text-[#1A2F2B]">Total Balance TND</h3>
               {isLoading ? (
                 <p className="text-gray-500">Loading...</p>
               ) : error ? (
                 <p className="text-red-500">Error loading balance</p>
               ) : (
                 <p className="text-2xl font-bold text-[#1A2F2B]">
-                  {totalBalance.toFixed(2)} DT
+                  {totalBalance.toLocaleString(undefined, { minimumFractionDigits: 3, maximumFractionDigits: 3 })}
                 </p>
               )}
             </div>
@@ -207,19 +219,29 @@ function Wallet() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Monthly Income vs Expense */}
         <div className="bg-white rounded-xl p-6 shadow-md">
-          <h3 className="text-lg font-semibold mb-4">Monthly Overview</h3>
+          <h3 className="text-lg font-semibold mb-4 text-[#093731]">Monthly Overview</h3>
           {isLoading ? (
             <p>Loading chart data...</p>
           ) : monthlyData.length > 0 ? (
-            <BarChart width={500} height={300} data={monthlyData} margin={{ right: 30 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="income" fill="#4CAF50" name="Income" />
-              <Bar dataKey="expense" fill="#F44336" name="Expense" />
-            </BarChart>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={monthlyData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" tick={{ fill: STOCK_COLORS[6] }} />
+                <YAxis stroke={STOCK_COLORS[0]} />
+                <Tooltip 
+                  formatter={(value) => [`TND ${value.toLocaleString()}`, 'Amount']}
+                  contentStyle={{ 
+                    backgroundColor: 'rgba(255,255,255,0.9)',
+                    borderRadius: 8,
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                    border: `1px solid ${STOCK_COLORS[0]}20`
+                  }}
+                />
+                <Legend />
+                <Bar dataKey="income" fill={STOCK_COLORS[0]} name="Income" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="expense" fill={STOCK_COLORS[2]} name="Expense" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           ) : (
             <p>No transaction data available</p>
           )}
@@ -227,27 +249,40 @@ function Wallet() {
 
         {/* Category Distribution */}
         <div className="bg-white rounded-xl p-6 shadow-md">
-          <h3 className="text-lg font-semibold mb-4">Category Distribution</h3>
+          <h3 className="text-lg font-semibold mb-4 text-[#093731]">Category Distribution</h3>
           {isLoading ? (
             <p>Loading chart data...</p>
           ) : categoryData.length > 0 ? (
-            <PieChart width={500} height={300}>
-              <Pie
-                data={categoryData}
-                dataKey="amount"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={100}
-                label
-              >
-                {categoryData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color || `#${Math.floor(Math.random()*16777215).toString(16)}`} />
-                ))}
-              </Pie>
-              <Tooltip />
-              <Legend />
-            </PieChart>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={categoryData}
+                  dataKey="amount"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={100}
+                  innerRadius={30}
+                  paddingAngle={2}
+                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  labelLine={false}
+                >
+                  {categoryData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={STOCK_COLORS[index % STOCK_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  formatter={(value) => [`TND ${value.toLocaleString()}`, 'Amount']}
+                  contentStyle={{ 
+                    backgroundColor: 'rgba(255,255,255,0.9)',
+                    borderRadius: 8,
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                    border: `1px solid ${STOCK_COLORS[0]}20`
+                  }}
+                />
+                <Legend layout="vertical" align="right" verticalAlign="middle" />
+              </PieChart>
+            </ResponsiveContainer>
           ) : (
             <p>No category data available</p>
           )}

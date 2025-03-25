@@ -1,31 +1,31 @@
-  import axios from 'axios';
+import axios from 'axios';
 
 // Get environment variables without exposing IP addresses in code
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 const BASE_URL = process.env.EXPO_PUBLIC_API;
-const BLOG_URL = process.env.EXPO_PUBLIC_BlOG;
+const BLOG_URL = process.env.EXPO_PUBLIC_BLOG;
 
-// Check if environment variables are properly loaded
-if (!API_URL || !BASE_URL || !BLOG_URL) {
-  // Instead of console.warn, we'll throw an error during development
-  // In production, this could be handled differently
-  if (__DEV__) {
-    throw new Error(
-      'API environment variables are missing. Please check your .env file and ensure all required variables are defined.'
-    );
-  }
+// Only check if API_URL is loaded - this is the critical one
+if (!API_URL) {
+  // Log warning instead of throwing error
+  console.warn(
+    'EXPO_PUBLIC_API_URL environment variable is missing. API calls may fail. Please check your .env file.'
+  );
 }
 
-// Export API configuration for use in other files
-export const API_CONFIG = {
-  BASE_URL,
-  API_URL,
-  BLOG_URL
+// Add fallbacks for other variables if missing
+const config = {
+  BASE_URL: BASE_URL || API_URL?.replace('/api', '') || 'http://192.168.1.3:5000',
+  API_URL: API_URL || 'http://192.168.1.3:5000/api',
+  BLOG_URL: BLOG_URL || '192.168.1.3'
 };
+
+// Export API configuration for use in other files
+export const API_CONFIG = config;
 
 // Create axios instance with proper defaults
 const axiosInstance = axios.create({
-  baseURL: API_URL,
+  baseURL: config.API_URL,
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
@@ -46,6 +46,6 @@ export default axiosInstance;
 
 // Weather API configuration
 export const WEATHER_CONFIG = {
-  API_KEY: process.env.EXPO_PUBLIC_WEATHER_API_KEY,
-  API_URL: process.env.EXPO_PUBLIC_WEATHER_API_URL
+  API_KEY: process.env.EXPO_PUBLIC_WEATHER_API_KEY || '49b109a541db459ab2885035250603',
+  API_URL: process.env.EXPO_PUBLIC_WEATHER_API_URL || 'http://api.weatherapi.com/v1/forecast.json'
 };

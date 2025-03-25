@@ -107,10 +107,7 @@ module.exports = (sequelize, DataTypes) => {
       as: 'user',
       onDelete: 'CASCADE'
     });
-    Pesticide.hasMany(models.StockHistory, {
-      foreignKey: 'pesticideId',
-      as: 'history'
-    });
+    
   };
 
   return Pesticide;

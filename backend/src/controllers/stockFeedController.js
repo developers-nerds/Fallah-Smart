@@ -1,12 +1,11 @@
-const { StockFeed, StockHistory } = require('../database/models');
+const { StockFeed } = require('../database/models');
 
 const stockFeedController = {
   // Get all feed items for a user
   getAllFeeds: async (req, res) => {
     try {
       const feeds = await StockFeed.findAll({
-        where: { userId: req.user.id },
-        include: [{ model: StockHistory, as: 'history' }]
+        where: { userId: req.user.id }
       });
       res.json(feeds);
     } catch (error) {
@@ -22,8 +21,7 @@ const stockFeedController = {
         where: { 
           id: req.params.id,
           userId: req.user.id 
-        },
-        include: [{ model: StockHistory, as: 'history' }]
+        }
       });
 
       if (!feed) {
@@ -65,22 +63,7 @@ const stockFeedController = {
         supplier
       });
 
-      // Create initial stock history entry
-      await StockHistory.create({
-        stockFeedId: feed.id,
-        type: 'initial',
-        quantity: quantity,
-        previousQuantity: 0,
-        newQuantity: quantity,
-        notes: 'Initial stock entry'
-      });
-
-      const createdFeed = await StockFeed.findOne({
-        where: { id: feed.id },
-        include: [{ model: StockHistory, as: 'history' }]
-      });
-
-      res.status(201).json(createdFeed);
+      res.status(201).json(feed);
     } catch (error) {
       console.error('Error creating feed:', error);
       res.status(500).json({ error: 'Failed to create feed' });
@@ -101,26 +84,9 @@ const stockFeedController = {
         return res.status(404).json({ error: 'Feed not found' });
       }
 
-      const previousQuantity = feed.quantity;
       await feed.update(req.body);
-
-      // If quantity changed, create history entry
-      if (previousQuantity !== req.body.quantity) {
-        await StockHistory.create({
-          stockFeedId: feed.id,
-          type: 'update',
-          quantity: req.body.quantity - previousQuantity,
-          previousQuantity,
-          newQuantity: req.body.quantity,
-          notes: req.body.notes || 'Stock update'
-        });
-      }
-
-      const updatedFeed = await StockFeed.findOne({
-        where: { id: req.params.id },
-        include: [{ model: StockHistory, as: 'history' }]
-      });
-
+      
+      const updatedFeed = await StockFeed.findByPk(feed.id);
       res.json(updatedFeed);
     } catch (error) {
       console.error('Error updating feed:', error);
@@ -154,7 +120,7 @@ const stockFeedController = {
   updateFeedQuantity: async (req, res) => {
     try {
       const { id } = req.params;
-      const { quantity, type, notes } = req.body;
+      const { quantity, type } = req.body;
 
       const feed = await StockFeed.findOne({
         where: {
@@ -180,22 +146,8 @@ const stockFeedController = {
       }
 
       await feed.update({ quantity: newQuantity });
-
-      // Create history entry
-      await StockHistory.create({
-        stockFeedId: feed.id,
-        type: type === 'add' ? 'addition' : 'reduction',
-        quantity: type === 'add' ? quantity : -quantity,
-        previousQuantity,
-        newQuantity,
-        notes: notes || `Stock ${type === 'add' ? 'addition' : 'reduction'}`
-      });
-
-      const updatedFeed = await StockFeed.findOne({
-        where: { id },
-        include: [{ model: StockHistory, as: 'history' }]
-      });
-
+      
+      const updatedFeed = await StockFeed.findByPk(feed.id);
       res.json(updatedFeed);
     } catch (error) {
       console.error('Error updating feed quantity:', error);

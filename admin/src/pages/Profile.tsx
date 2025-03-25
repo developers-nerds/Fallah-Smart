@@ -4,6 +4,18 @@ import { useAppSelector, useAppDispatch } from '../redux/store';
 import { User, setUser } from '../redux/auth';
 import { AlertCircle, Check, User as UserIcon, Upload, Camera } from 'lucide-react';
 
+// Colors for charts
+const STOCK_COLORS = [
+  '#4F7942', // Green
+  '#0088FE', // Blue
+  '#FF8042', // Orange
+  '#FFBB28', // Yellow
+  '#8884d8', // Purple
+  '#00C49F', // Teal
+  '#093731', // Dark Green (primary)
+  '#82ca9d'  // Light Green
+];
+
 const API_URL = import.meta.env.VITE_API;
 const BASE_URL = import.meta.env.VITE_API_blog;
 

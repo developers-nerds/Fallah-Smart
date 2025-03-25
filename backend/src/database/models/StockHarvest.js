@@ -78,14 +78,6 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: 'userId',
       as: 'user'
     });
-    StockHarvest.hasMany(models.StockHistory, {
-      foreignKey: 'stockHarvestId',
-      as: 'history'
-    });
-    StockHarvest.belongsTo(models.Crop, {
-      foreignKey: 'cropId',
-      as: 'crop'
-    });
   };
 
   return StockHarvest;

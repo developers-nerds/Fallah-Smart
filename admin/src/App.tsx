@@ -1,10 +1,12 @@
-import { Route, Routes, Navigate } from 'react-router-dom';
+import React from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { useAppSelector } from './redux/store';
 import LoginForm from './components/LoginForm';
-import PrivateRoute from './components/PrivateRoute';
 import Dashboard from './pages/Dashboard';
+import StockDashboard from './pages/StockDashboard';
+import PrivateRoute from './components/PrivateRoute';
 import Profile from './pages/Profile';
 import ProtectedLayout from './components/ProtectedLayout';
-import Stock from "./pages/Stock"
 import Marketplace from "./pages/Marketplace"
 import AiChat from "./pages/AiChat"
 import Wallet from "./pages/Wallet"
@@ -13,24 +15,20 @@ import Blogs from "./pages/Blogs"
 import Categories from './pages/Categories'
 import Accounts from './pages/Accounts'  // Add this import
 import TransactionPage from './pages/TransactionPage'
-import { useAppSelector } from './redux/store';
 
 function App() {
   const { isAuthenticated } = useAppSelector((state) => state.auth);
   
   return (
     <Routes>
-      {/* Public routes */}
-      <Route path="/" element={
-        isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginForm />
-      } />
-
+      <Route path="/" element={isAuthenticated ? <Navigate to="/dashboard" /> : <LoginForm />} />
+      
       {/* Protected routes */}
       <Route element={<PrivateRoute />}>
         <Route element={<ProtectedLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/profile" element={<Profile />} />
-          <Route path="/stock" element={<Stock />} />
+          <Route path="/stock" element={<StockDashboard />} />
           <Route path="/marketplace" element={<Marketplace />} />
           <Route path="/ai-chat" element={<AiChat />} />
           <Route path="/categories" element={<Categories />} />
@@ -42,10 +40,8 @@ function App() {
         </Route>
       </Route>
       
-      {/* Catch all - redirect to dashboard if authenticated, login otherwise */}
-      <Route path="*" element={
-        isAuthenticated ? <Navigate to="/dashboard" replace /> : <Navigate to="/" replace />
-      } />
+      {/* Fallback route */}
+      <Route path="*" element={<Navigate to="/" />} />
     </Routes>
   );
 }
