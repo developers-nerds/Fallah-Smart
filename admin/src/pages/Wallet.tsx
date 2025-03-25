@@ -1,228 +1,259 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
-import { FiPlus, FiEdit2, FiTrash2 } from 'react-icons/fi'
-import Icon from '@mdi/react'
-import * as mdiIcons from '@mdi/js'
+import { Link } from 'react-router-dom'
+import { FiFolder, FiUsers, FiDollarSign } from 'react-icons/fi'
+import {
+  LineChart, Line, BarChart, Bar, PieChart, Pie,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell
+} from 'recharts'
 
-// Replace the hardcoded API_URL with the environment variable
-const API_URL = import.meta.env.VITE_API_URL
+const CATEGORIES_URL = `${import.meta.env.VITE_API_URL}/categories`
+const ACCOUNTS_URL = `${import.meta.env.VITE_API_URL}/accounts/all-with-users`
+const TRANSACTIONS_URL = `${import.meta.env.VITE_API_URL}/transactions/admin/all`
+
+interface Transaction {
+  id: number
+  amount: number
+  type: string
+  date: string
+  category: {
+    name: string
+    color: string
+  }
+}
+
+interface Account {
+  id: number
+  balance: number
+  currency: string
+}
 
 function Wallet() {
-  const [categories, setCategories] = useState<Category[]>([])
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null)
-  const [formData, setFormData] = useState({
-    name: '',
-    type: 'Income',
-    icon: '',
-    color: '#000000'
-  })
+  const [categoryCount, setCategoryCount] = useState(0)
+  const [accountCount, setAccountCount] = useState(0)
+  const [accounts, setAccounts] = useState<Account[]>([])
+  const [transactions, setTransactions] = useState<Transaction[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [totalIncome, setTotalIncome] = useState(0)
+  const [totalExpense, setTotalExpense] = useState(0)
+  const [totalBalance, setTotalBalance] = useState(0)
 
   useEffect(() => {
-    fetchCategories()
+    Promise.all([
+      fetchCategoryCount(), 
+      fetchAccountCount(),
+      fetchAllTransactions()
+    ]).finally(() => setIsLoading(false))
   }, [])
 
-  const fetchCategories = async () => {
-    setIsLoading(true)
+  const fetchCategoryCount = async () => {
     try {
-      const response = await axios.get(API_URL)
-      console.log('Categories response:', response.data)
-      setCategories(response.data)
+      const response = await axios.get(CATEGORIES_URL)
+      setCategoryCount(response.data.length)
     } catch (error) {
-      console.error('Error details:', error)
+      console.error('Error fetching categories:', error)
       setError('Failed to fetch categories')
-    } finally {
-      setIsLoading(false)
     }
   }
 
-  const handleEdit = (category: Category) => {
-    setEditingCategory(category)
-    setFormData({
-      name: category.name,
-      type: category.type,
-      icon: category.icon,
-      color: category.color
-    })
-    setIsModalOpen(true)
-  }
-
-  const handleDelete = async (id: number) => {
-    if (window.confirm('Are you sure you want to delete this category?')) {
-      try {
-        await axios.delete(`${API_URL}/${id}`)
-        setCategories(categories.filter(category => category.id !== id))
-      } catch (error) {
-        console.error('Error deleting category:', error)
-        setError('Failed to delete category')
-      }
-    }
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const fetchAccountCount = async () => {
     try {
-      if (editingCategory) {
-        // Update existing category
-        const response = await axios.put(`${API_URL}/${editingCategory.id}`, formData)
-        setCategories(categories.map(cat => 
-          cat.id === editingCategory.id ? response.data : cat
-        ))
-      } else {
-        // Create new category
-        const response = await axios.post(API_URL, formData)
-        setCategories([...categories, response.data])
-      }
-      // Reset form and close modal
-      setIsModalOpen(false)
-      setEditingCategory(null)
-      setFormData({ name: '', type: 'Income', icon: '', color: '#000000' })
+      const response = await axios.get(ACCOUNTS_URL)
+      setAccountCount(response.data.length)
     } catch (error) {
-      console.error('Error saving category:', error)
-      setError('Failed to save category')
+      console.error('Error fetching accounts:', error)
+      setError('Failed to fetch accounts')
     }
   }
 
-  // Add this helper function at the component level, before the return statement
-  const getMdiIcon = (iconName: string) => {
-    const mdiName = `mdi${iconName.charAt(0).toUpperCase()}${iconName.slice(1)}`;
-    return (mdiIcons as any)[mdiName];
-  };
+  const fetchAllTransactions = async () => {
+    try {
+      const response = await axios.get(TRANSACTIONS_URL)
+      
+      // Extract transactions and accounts from the response
+      const transactionsData = response.data.data.transactions || []
+      const accountsData = response.data.data.accounts || []
+      
+      setTransactions(transactionsData)
+      setAccounts(accountsData)
+
+      // Calculate total balance from all accounts
+      const totalAccountBalance = accountsData.reduce((sum, account) => sum + account.balance, 0)
+      setTotalBalance(totalAccountBalance)
+
+      // Calculate income and expense totals
+      const income = transactionsData
+        .filter(t => t.type === 'income')
+        .reduce((sum, t) => sum + t.amount, 0)
+      const expense = transactionsData
+        .filter(t => t.type === 'expense')
+        .reduce((sum, t) => sum + t.amount, 0)
+      
+      setTotalIncome(income)
+      setTotalExpense(expense)
+    } catch (error) {
+      console.error('Error fetching transactions:', error)
+      setError('Failed to fetch transactions')
+    }
+  }
+
+  // Prepare data for charts
+  const categoryData = transactions.reduce((acc, transaction) => {
+    const existingCategory = acc.find(cat => cat.name === transaction.category.name)
+    if (existingCategory) {
+      existingCategory.amount += transaction.amount
+    } else {
+      acc.push({
+        name: transaction.category.name,
+        amount: transaction.amount,
+        color: transaction.category.color
+      })
+    }
+    return acc
+  }, [] as any[])
+
+  const monthlyData = transactions.reduce((acc, transaction) => {
+    const month = new Date(transaction.date).toLocaleString('default', { month: 'short' })
+    const existingMonth = acc.find(m => m.month === month)
+    if (existingMonth) {
+      if (transaction.type === 'income') existingMonth.income += transaction.amount
+      else existingMonth.expense += transaction.amount
+    } else {
+      acc.push({
+        month,
+        income: transaction.type === 'income' ? transaction.amount : 0,
+        expense: transaction.type === 'expense' ? transaction.amount : 0
+      })
+    }
+    return acc
+  }, [] as any[])
+
+  // Sort monthly data chronologically
+  monthlyData.sort((a, b) => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    return months.indexOf(a.month) - months.indexOf(b.month)
+  })
 
   return (
-    <>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-[#1A2F2B]">Wallet</h1>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="bg-[#1A2F2B] text-white px-4 py-2 rounded-lg flex items-center gap-2"
-        >
-          <FiPlus /> Add Category
-        </button>
-      </div>
-
-      {isLoading && <div>Loading categories...</div>}
-      {error && <div className="text-red-500">Error: {error}</div>}
-      {!isLoading && !error && categories.length === 0 && (
-        <div>No categories found</div>
-      )}
-      {!isLoading && !error && categories.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {categories.map((category) => (
-            <div
-              key={category.id}
-              className="bg-white rounded-xl p-4 shadow-md"
-              style={{ borderLeft: `4px solid ${category.color}` }}
-            >
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                  <Icon 
-                    path={getMdiIcon(category.icon) || mdiIcons.mdiShape} 
-                    size={1}
-                    color={category.color}
-                  />
-                  <div>
-                    <h3 className="font-semibold">{category.name}</h3>
-                    <span className="text-sm text-gray-500">{category.type}</span>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleEdit(category)}
-                    className="p-2 hover:bg-gray-100 rounded-full"
-                  >
-                    <FiEdit2 className="text-gray-600" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(category.id)}
-                    className="p-2 hover:bg-gray-100 rounded-full"
-                  >
-                    <FiTrash2 className="text-red-600" />
-                  </button>
-                </div>
+    <div className="p-6">
+      <h1 className="text-2xl font-bold text-[#1A2F2B] mb-6">Wallet Overview</h1>
+      
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <Link to="/categories" className="block">
+          <div className="bg-white rounded-xl p-6 shadow-md hover:shadow-lg transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-[#1A2F2B]">Categories</h3>
+                {isLoading ? (
+                  <p className="text-gray-500">Loading...</p>
+                ) : error ? (
+                  <p className="text-red-500">Error loading categories</p>
+                ) : (
+                  <p className="text-2xl font-bold text-[#1A2F2B]">{categoryCount}</p>
+                )}
+              </div>
+              <div className="bg-[#1A2F2B] bg-opacity-10 p-3 rounded-full">
+                <FiFolder className="text-[#1A2F2B] text-xl" />
               </div>
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        </Link>
 
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <h2 className="text-xl font-semibold mb-4">
-              {editingCategory ? 'Edit Category' : 'Add Category'}
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
+        <Link to="/accounts" className="block">
+          <div className="bg-white rounded-xl p-6 shadow-md hover:shadow-lg transition-shadow">
+            <div className="flex items-center justify-between">
               <div>
-                <label className="block mb-1">Name</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full border rounded-lg p-2"
-                  required
-                />
+                <h3 className="text-lg font-semibold text-[#1A2F2B]">Accounts</h3>
+                {isLoading ? (
+                  <p className="text-gray-500">Loading...</p>
+                ) : error ? (
+                  <p className="text-red-500">Error loading accounts</p>
+                ) : (
+                  <p className="text-2xl font-bold text-[#1A2F2B]">{accountCount}</p>
+                )}
               </div>
-              <div>
-                <label className="block mb-1">Type</label>
-                <select
-                  value={formData.type}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                  className="w-full border rounded-lg p-2"
-                >
-                  <option value="Income">Income</option>
-                  <option value="Expense">Expense</option>
-                  <option value="crops">Crops</option>
-                  <option value="animals">Animals</option>
-                </select>
-             
-                <label className="block mb-1">Icon</label>
-                <input
-                  type="text"
-                  value={formData.icon}
-                  onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
-                  className="w-full border rounded-lg p-2"
-                  placeholder="Enter icon name (e.g., 'account', 'cash', 'pig')"
-                />
-                <small className="text-gray-500 mt-1 block">
-                  Use Material Design Icons names without the 'mdi-' prefix
-                </small>
+              <div className="bg-[#1A2F2B] bg-opacity-10 p-3 rounded-full">
+                <FiUsers className="text-[#1A2F2B] text-xl" />
               </div>
-              <div>
-                <label className="block mb-1">Color</label>
-                <input
-                  type="color"
-                  value={formData.color}
-                  onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                  className="w-full h-10 border rounded-lg p-1"
-                />
-              </div>
-              <div className="flex gap-2 justify-end mt-6">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsModalOpen(false)
-                    setEditingCategory(null)
-                    setFormData({ name: '', type: 'Income', icon: '', color: '#000000' })
-                  }}
-                  className="px-4 py-2 border rounded-lg"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-[#1A2F2B] text-white rounded-lg"
-                >
-                  {editingCategory ? 'Update' : 'Add'}
-                </button>
-              </div>
-            </form>
+            </div>
+          </div>
+        </Link>
+
+        {/* Total Balance Card */}
+        <div className="bg-white rounded-xl p-6 shadow-md">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-[#1A2F2B]">Total Balance</h3>
+              {isLoading ? (
+                <p className="text-gray-500">Loading...</p>
+              ) : error ? (
+                <p className="text-red-500">Error loading balance</p>
+              ) : (
+                <p className="text-2xl font-bold text-[#1A2F2B]">
+                  {totalBalance.toFixed(2)} DT
+                </p>
+              )}
+            </div>
+            <div className="bg-[#1A2F2B] bg-opacity-10 p-3 rounded-full">
+              <FiDollarSign className="text-[#1A2F2B] text-xl" />
+            </div>
           </div>
         </div>
-      )}
-    </>
+      </div>
+
+      {/* Charts Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Monthly Income vs Expense */}
+        <div className="bg-white rounded-xl p-6 shadow-md">
+          <h3 className="text-lg font-semibold mb-4">Monthly Overview</h3>
+          {isLoading ? (
+            <p>Loading chart data...</p>
+          ) : monthlyData.length > 0 ? (
+            <BarChart width={500} height={300} data={monthlyData} margin={{ right: 30 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="month" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="income" fill="#4CAF50" name="Income" />
+              <Bar dataKey="expense" fill="#F44336" name="Expense" />
+            </BarChart>
+          ) : (
+            <p>No transaction data available</p>
+          )}
+        </div>
+
+        {/* Category Distribution */}
+        <div className="bg-white rounded-xl p-6 shadow-md">
+          <h3 className="text-lg font-semibold mb-4">Category Distribution</h3>
+          {isLoading ? (
+            <p>Loading chart data...</p>
+          ) : categoryData.length > 0 ? (
+            <PieChart width={500} height={300}>
+              <Pie
+                data={categoryData}
+                dataKey="amount"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                outerRadius={100}
+                label
+              >
+                {categoryData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color || `#${Math.floor(Math.random()*16777215).toString(16)}`} />
+                ))}
+              </Pie>
+              <Tooltip />
+              <Legend />
+            </PieChart>
+          ) : (
+            <p>No category data available</p>
+          )}
+        </div>
+      </div>
+    </div>
   )
 }
 
