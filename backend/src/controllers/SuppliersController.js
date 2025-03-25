@@ -6,6 +6,7 @@ const {
 } = require("../database/assossiation");
 const path = require("path");
 const fs = require("fs");
+const validator = require("validator");
 
 const getSupplierByUserId = async (req, res) => {
   try {
@@ -36,6 +37,7 @@ const getSupplierByUserId = async (req, res) => {
       auctionsNumber: auctionsNumber.length,
       hasAccount: true,
       supplier,
+      isVerified: supplier.is_verified,
     });
   } catch (error) {
     console.error("Error in getSupplierByUserId:", error);
@@ -68,16 +70,26 @@ const createSupplier = async (req, res) => {
     });
 
     // Validate required fields
-    if (
-      !company_name ||
-      !about_us ||
-      !company_address ||
-      !company_phone ||
-      !company_email
-    ) {
+    if (!company_name || !company_address || !company_phone || !company_email) {
       return res.status(400).json({
         success: false,
         message: "Missing required fields",
+      });
+    }
+
+    // Validate company name and email format
+    if (!validator.isLength(company_name, { min: 2 })) {
+      return res.status(400).json({
+        success: false,
+        message: "Company name must be at least 2 characters long",
+      });
+    }
+
+    // Email validation
+    if (!validator.isEmail(company_email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide a valid email address",
       });
     }
 
@@ -94,8 +106,8 @@ const createSupplier = async (req, res) => {
     }
 
     // Handle file uploads
-    let company_logo = null;
-    let company_banner = null;
+    let company_logo = "/uploads/company/profile.jpg";
+    let company_banner = "/uploads/company/defaultBanner.jpg";
 
     // Ensure the upload directory exists
     const uploadDir = path.join(__dirname, "../../uploads/company");
@@ -182,7 +194,43 @@ const createSupplier = async (req, res) => {
   }
 };
 
+const updateVerificationStatus = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Find the supplier associated with the logged-in user
+    const supplier = await Suppliers.findOne({
+      where: { userId: userId },
+    });
+
+    if (!supplier) {
+      return res.status(404).json({
+        success: false,
+        message: "Supplier account not found",
+      });
+    }
+
+    // Update the verification status
+    await supplier.update({ is_verified: true });
+
+    // Return success response
+    return res.status(200).json({
+      success: true,
+      message: "Supplier verification status updated successfully",
+      isVerified: true,
+    });
+  } catch (error) {
+    console.error("Error in updateVerificationStatus:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   getSupplierByUserId,
   createSupplier,
+  updateVerificationStatus,
 };
