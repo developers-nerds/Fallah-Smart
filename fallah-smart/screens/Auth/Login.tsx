@@ -26,6 +26,25 @@ import NotificationHelper from '../../utils/NotificationHelper';
 // Define the navigation type for this screen
 type LoginNavigationProps = NativeStackNavigationProp<StockStackParamList, 'Login'>;
 
+const arabicTranslations = {
+  welcomeBack: 'مرحباً بعودتك!',
+  signInToContinue: 'سجل دخول للمتابعة',
+  email: 'البريد الإلكتروني',
+  password: 'كلمة المرور',
+  login: 'تسجيل الدخول',
+  or: 'أو',
+  dontHaveAccount: 'ليس لديك حساب؟',
+  register: 'تسجيل',
+  validationError: 'خطأ في التحقق',
+  enterBothFields: 'الرجاء إدخال البريد الإلكتروني وكلمة المرور',
+  loginError: 'خطأ في تسجيل الدخول',
+  loading: 'جاري تسجيل الدخول...',
+  savingUserData: 'جاري حفظ بيانات المستخدم...',
+  loginSuccess: 'تم تسجيل الدخول بنجاح!',
+  welcomeBackNotification: 'تم تسجيل الدخول بنجاح! مرحباً بعودتك.',
+  errorOccurred: 'حدث خطأ أثناء تسجيل الدخول'
+};
+
 const Login = () => {
   const navigation = useNavigation<LoginNavigationProps>();
   const [email, setEmail] = useState('');
@@ -195,8 +214,8 @@ const Login = () => {
           color={theme.colors.primary.base}
           style={styles.logo}
         />
-        <Text style={[styles.title, { color: theme.colors.neutral.textPrimary }]}>Welcome Back!</Text>
-        <Text style={[styles.subtitle, { color: theme.colors.neutral.textSecondary }]}>Sign in to continue</Text>
+        <Text style={[styles.title, { color: theme.colors.neutral.textPrimary }]}>{arabicTranslations.welcomeBack}</Text>
+        <Text style={[styles.subtitle, { color: theme.colors.neutral.textSecondary }]}>{arabicTranslations.signInToContinue}</Text>
       </View>
 
       <View style={styles.formContainer}>
@@ -208,8 +227,8 @@ const Login = () => {
             style={styles.inputIcon} 
           />
           <TextInput
-            style={[styles.input, { color: theme.colors.neutral.textPrimary }]}
-            placeholder="Email"
+            style={[styles.input, { color: theme.colors.neutral.textPrimary, textAlign: 'right' }]}
+            placeholder={arabicTranslations.email}
             placeholderTextColor={theme.colors.neutral.textSecondary}
             value={email}
             onChangeText={setEmail}
@@ -227,8 +246,8 @@ const Login = () => {
             style={styles.inputIcon} 
           />
           <TextInput
-            style={[styles.input, { color: theme.colors.neutral.textPrimary }]}
-            placeholder="Password"
+            style={[styles.input, { color: theme.colors.neutral.textPrimary, textAlign: 'right' }]}
+            placeholder={arabicTranslations.password}
             placeholderTextColor={theme.colors.neutral.textSecondary}
             value={password}
             onChangeText={setPassword}
@@ -262,23 +281,23 @@ const Login = () => {
           {isLoading ? (
             <ActivityIndicator color={theme.colors.neutral.surface} />
           ) : (
-            <Text style={styles.loginButtonText}>Login</Text>
+            <Text style={styles.loginButtonText}>{arabicTranslations.login}</Text>
           )}
         </TouchableOpacity>
 
         <View style={styles.dividerContainer}>
           <View style={[styles.divider, { backgroundColor: theme.colors.neutral.border }]} />
-          <Text style={[styles.dividerText, { color: theme.colors.neutral.textSecondary }]}>OR</Text>
+          <Text style={[styles.dividerText, { color: theme.colors.neutral.textSecondary }]}>{arabicTranslations.or}</Text>
           <View style={[styles.divider, { backgroundColor: theme.colors.neutral.border }]} />
         </View>
 
         <View style={styles.registerContainer}>
           <Text style={[styles.registerText, { color: theme.colors.neutral.textSecondary }]}>
-            Don't have an account?{' '}
+            {arabicTranslations.dontHaveAccount}{' '}
           </Text>
           <TouchableOpacity onPress={handleRegisterPress}>
             <Text style={[styles.registerLink, { color: theme.colors.primary.base }]}>
-              Register
+              {arabicTranslations.register}
             </Text>
           </TouchableOpacity>
         </View>
