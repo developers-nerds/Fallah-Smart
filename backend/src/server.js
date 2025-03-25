@@ -18,6 +18,7 @@ const conversationRoutes = require("./routes/conversationRoutes");
 const messageRoutes = require("./routes/messageRoutes");
 const accountRoutes = require("./routes/accountRoutes");
 const cropRoutes = require("./routes/cropRoutes");
+const crop=require("./routes/crops")
 const cropDetailsRoutes = require("./routes/cropsDetails");
 const animalRoutes = require("./routes/animalRoutes");
 const animalDetailsRoutes = require("./routes/animalsDetails");
@@ -54,7 +55,7 @@ const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests from these origins
     const allowedOrigins = [
-      'http://localhost:5173',     // Vite dev server
+      'http://localhost:5174',     // Vite dev server
       'http://localhost:3000',     // React dev server
       'http://localhost:8081',     // Possible alternative port
       'http://localhost:5000'      // Same origin
@@ -123,6 +124,7 @@ app.use("/api/conversations", conversationRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/accounts", accountRoutes);
 app.use("/api/crops", cropRoutes);
+app.use("/api/crop", crop);
 app.use("/api/cropsDetails", cropDetailsRoutes);
 app.use("/api/animalDetails", animalDetailsRoutes);
 app.use("/api/animal", animal);
