@@ -29,6 +29,7 @@ import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { FAB } from '../../../components/FAB';
 import { API_URL } from '../../../config/api';
 import { withRetry } from '../../../services/api';
+import { useFocusEffect } from '@react-navigation/native';
 
 // Force RTL layout
 I18nManager.allowRTL(true);
@@ -113,13 +114,40 @@ const FertilizerListScreen: React.FC<FertilizerListScreenProps> = ({ navigation 
     }
   };
 
-  // Fetch fertilizers on component mount
+  // Add useFocusEffect to refresh fertilizers when the screen is focused (coming back from add/edit)
+  useFocusEffect(
+    useCallback(() => {
+      console.log('FertilizerList screen focused - refreshing data');
+      // This will run when the screen comes into focus
+      const loadFertilizers = async () => {
+        try {
+          setLocalLoading(true);
+          const fertilizersData = await fetchFertilizersDirectly();
+          setFertilizers(fertilizersData);
+          setLocalLoading(false);
+        } catch (err) {
+          console.error('Error refreshing fertilizers on focus:', err);
+          setLocalLoading(false);
+        }
+      };
+      
+      loadFertilizers();
+
+      return () => {
+        // Clean up if needed when screen goes out of focus
+      };
+    }, [])
+  );
+
+  // Update the existing useEffect to avoid duplication of logic
   useEffect(() => {
     console.log('FertilizerListScreen mounted - fetching fertilizers directly');
     
     let isMounted = true;
     
     const loadData = async () => {
+      if (!isMounted) return;
+      
       try {
         setLocalLoading(true);
         setLocalError(null);

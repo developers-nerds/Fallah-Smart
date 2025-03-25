@@ -30,6 +30,7 @@ import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { FAB } from '../../../components/FAB';
 import { API_URL } from '../../../config/api';
 import { withRetry } from '../../../services/api';
+import { useFocusEffect } from '@react-navigation/native';
 
 // Force RTL layout
 I18nManager.allowRTL(true);
@@ -95,7 +96,32 @@ const SeedListScreen: React.FC<SeedListScreenProps> = ({ navigation }) => {
     }
   };
 
-  // Fetch seeds on component mount using the improved pattern to prevent infinite loops
+  // Add useFocusEffect to refresh seeds when the screen is focused (coming back from add/edit)
+  useFocusEffect(
+    useCallback(() => {
+      console.log('SeedList screen focused - refreshing data');
+      // This will run when the screen comes into focus
+      const loadSeeds = async () => {
+        try {
+          setLocalLoading(true);
+          const seedsData = await fetchSeedsDirectly();
+          setSeeds(seedsData);
+          setLocalLoading(false);
+        } catch (err) {
+          console.error('Error refreshing seeds on focus:', err);
+          setLocalLoading(false);
+        }
+      };
+      
+      loadSeeds();
+
+      return () => {
+        // Clean up if needed when screen goes out of focus
+      };
+    }, [])
+  );
+
+  // Update the existing useEffect to avoid duplication of logic
   useEffect(() => {
     console.log('SeedListScreen mounted - fetching seeds directly');
     
@@ -103,6 +129,8 @@ const SeedListScreen: React.FC<SeedListScreenProps> = ({ navigation }) => {
     let isMounted = true;
     
     const loadData = async () => {
+      if (!isMounted) return;
+      
       try {
         setLocalLoading(true);
         setLocalError(null);
