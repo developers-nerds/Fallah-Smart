@@ -34,6 +34,7 @@ export const theme = {
         base: '#846A6A',     // Warm gray (from provided colors)
         light: '#F0E9E9',    // Light warm gray
         dark: '#5C4A4A',     // Dark warm gray
+        darker: '#3C3030',   // Darker warm gray
       },
     },
     error: '#DB2763',     // Using accent pink for errors

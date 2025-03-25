@@ -199,29 +199,29 @@ export const saveUserProgress = async (
 };
 
 // Save video progress
-export const saveVideoProgress = async (
-  userId: number,
-  videoId: number,
-  completed: boolean = true
-): Promise<boolean> => {
-  try {
-    const token = await getAuthToken();
-    await axios.post(
-      `${API_URL}/education/userProgress`,
-      { 
-        userId, 
-        videoId, 
-        score: 100, // Videos are always 100% when watched
-        completed 
-      },
-      token ? { headers: { Authorization: `Bearer ${token}` } } : {}
-    );
-    return true;
-  } catch (error) {
-    console.error(`Error saving video progress:`, error);
-    return false;
-  }
-};
+// export const saveVideoProgress = async (
+//   userId: number,
+//   videoId: number,
+//   completed: boolean = true
+// ): Promise<boolean> => {
+//   try {
+//     const token = await getAuthToken();
+//     await axios.post(
+//       `${API_URL}/education/userProgress`,
+//       { 
+//         userId, 
+//         videoId, 
+//         score: 100, // Videos are always 100% when watched
+//         completed 
+//       },
+//       token ? { headers: { Authorization: `Bearer ${token}` } } : {}
+//     );
+//     return true;
+//   } catch (error) {
+//     console.error(`Error saving video progress:`, error);
+//     return false;
+//   }
+// };
 
 // Calculate total progress
 export const calculateTotalProgress = (
