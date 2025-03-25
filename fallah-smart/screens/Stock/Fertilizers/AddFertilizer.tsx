@@ -166,6 +166,7 @@ export const AddFertilizerScreen = ({ navigation, route }: AddFertilizerScreenPr
     supplier: '',
     safetyGuidelines: '',
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { fertilizerId } = route.params || {};
 
@@ -237,64 +238,88 @@ export const AddFertilizerScreen = ({ navigation, route }: AddFertilizerScreenPr
 
   const handleSubmit = async (values: FormData) => {
     try {
-      console.log('Form values:', values);
-      console.log('Current user:', user);
+      setIsSubmitting(true);
+      console.log('Starting form submission with values:', values);
       
+      // Format data for API submission
       const fertilizerData = {
-        name: values.name.trim(),
+        name: values.name,
         type: values.type,
         quantity: parseFloat(values.quantity),
         unit: values.unit,
         price: parseFloat(values.price),
         minQuantityAlert: parseFloat(values.minQuantityAlert),
-        expiryDate: values.expiryDate || null,
-        npkRatio: values.npkRatio?.trim() || null,
-        applicationRate: values.applicationRate ? parseFloat(values.applicationRate) : null,
-        supplier: values.supplier?.trim() || null,
-        safetyGuidelines: values.safetyGuidelines?.trim() || null,
-        userId: user?.id ? parseInt(String(user.id), 10) : 1,
+        expiryDate: values.expiryDate ? new Date(values.expiryDate).toISOString() : undefined,
+        npkRatio: values.npkRatio,
+        applicationRate: values.applicationRate ? parseFloat(values.applicationRate) : undefined,
+        supplier: values.supplier,
+        safetyGuidelines: values.safetyGuidelines,
       };
 
       console.log('Fertilizer data to be sent:', fertilizerData);
-
-      try {
-        const tokens = await storage.getTokens();
-        console.log('Auth tokens:', tokens ? 'Available' : 'Not Available');
-        
-        const API_URL = process.env.EXPO_PUBLIC_API_URL;
-        if (!API_URL) {
-          throw new Error('API_URL is not defined');
-        }
-        
-        const endpoint = `${API_URL}/stock/fertilizer`;
-        console.log('Full API URL:', endpoint);
-
-        const response = await axios.post(endpoint, fertilizerData, {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': tokens?.access ? `Bearer ${tokens.access}` : ''
-          },
-          timeout: 10000
-        });
-        
-        console.log('API call successful:', response.data);
-        Alert.alert('نجاح', 'تمت إضافة السماد بنجاح');
-        navigation.goBack();
-      } catch (error: any) {
-        console.error('API call failed:', error);
-        if (error.response) {
-          console.error('API response status:', error.response.status);
-          console.error('API response data:', error.response.data);
-        }
-        Alert.alert(
-          'خطأ',
-          `فشل في حفظ السماد: ${error?.response?.data?.message || error?.message || 'خطأ في الاتصال'}`
-        );
-        throw error;
+      
+      // Get token for authentication
+      const tokens = await storage.getTokens();
+      console.log('Auth tokens available:', !!tokens?.access);
+      
+      if (!tokens?.access) {
+        Alert.alert('خطأ', 'الرجاء تسجيل الدخول أولا');
+        return;
       }
+      
+      const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+      console.log('API URL:', apiUrl);
+      
+      if (!apiUrl) {
+        Alert.alert('خطأ', 'API URL غير متوفر');
+        return;
+      }
+
+      let response;
+      if (fertilizerId) {
+        console.log(`Updating fertilizer with ID: ${fertilizerId}`);
+        response = await axios.put(
+          `${apiUrl}/stock/fertilizer/${fertilizerId}`,
+          fertilizerData,
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${tokens.access}`
+            }
+          }
+        );
+      } else {
+        console.log('Creating new fertilizer');
+        response = await axios.post(
+          `${apiUrl}/stock/fertilizer`,
+          fertilizerData,
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${tokens.access}`
+            }
+          }
+        );
+      }
+        
+      console.log('Fertilizer saved successfully:', response.data);
+      Alert.alert('نجاح', 'تم حفظ السماد بنجاح', [
+        { 
+          text: 'حسنا', 
+          onPress: () => navigation.goBack() 
+        }
+      ]);
     } catch (error) {
-      console.error('Error submitting fertilizer:', error);
-      Alert.alert('خطأ', 'فشل في حفظ السماد');
+      console.error('Error saving fertilizer:', error);
+      if (axios.isAxiosError(error)) {
+        console.error('API error status:', error.response?.status);
+        console.error('API error data:', error.response?.data);
+        Alert.alert('خطأ', `فشل في حفظ السماد: ${error.response?.data?.message || error.message}`);
+      } else {
+        Alert.alert('خطأ', 'فشل في حفظ السماد');
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -735,7 +760,7 @@ export const AddFertilizerScreen = ({ navigation, route }: AddFertilizerScreenPr
         onPress={currentPage === formPages.length - 1 ? handleSubmit : nextPage}
         disabled={!validateCurrentPage(values)}
       >
-        {loading ? (
+        {isSubmitting ? (
           <ActivityIndicator color="white" size="small" />
         ) : (
           <>
@@ -764,7 +789,7 @@ export const AddFertilizerScreen = ({ navigation, route }: AddFertilizerScreenPr
             }
           ]}
           onPress={prevPage}
-          disabled={loading}
+          disabled={isSubmitting}
         >
           <Text style={[styles.buttonText, { color: theme.colors.primary.base }]}>
             {' ←السابق'}
