@@ -225,15 +225,11 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: 'stockEquipmentId',
       as: 'documents'
     });
-    
-    // Re-add the notifications association with error handling
-    if (models.StockNotification) {
-      StockEquipment.hasMany(models.StockNotification, {
-        foreignKey: 'equipmentId',
-        as: 'notifications',
-        constraints: false // This prevents SQL errors if the column doesn't exist yet
-      });
-    }
+    // For maintenance scheduling
+    StockEquipment.hasMany(models.StockNotification, {
+      foreignKey: 'equipmentId',
+      as: 'notifications'
+    });
   };
 
   return StockEquipment;
