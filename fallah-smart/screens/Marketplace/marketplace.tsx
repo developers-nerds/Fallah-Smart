@@ -392,15 +392,11 @@ const Marketplace = () => {
       case 'auction':
         return <AuctionHouse data={auctionData} />;
       case 'company':
-<<<<<<< HEAD
-        return <CompanyProfile />;
-=======
         return (
           <View style={{ flex: 1 }}>
             <CompanyProfile />
           </View>
         );
->>>>>>> 905226a30d962ec151dca3871d3a9f49960570be
       default:
         return <MarketplaceFeed data={products} />;
     }
