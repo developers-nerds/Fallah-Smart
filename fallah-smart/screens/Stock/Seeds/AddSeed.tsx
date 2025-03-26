@@ -127,6 +127,7 @@ export const AddSeedScreen = ({ navigation, route }: AddSeedScreenProps) => {
     certificationInfo: '',
     notes: '',
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { seedId, mode } = route.params || {};
   
@@ -216,26 +217,27 @@ export const AddSeedScreen = ({ navigation, route }: AddSeedScreenProps) => {
 
   const handleSubmit = async (values: FormData) => {
     try {
-      console.log('Form values:', values);
-      console.log('Current user:', user);
+      setIsSubmitting(true);
+      console.log('Starting form submission with values:', values);
       
       // Make sure all required fields are present
       if (!values.cropType) {
         values.cropType = 'عام'; // Set a default value if empty
       }
       
-      const seedData: Omit<StockSeed, 'id' | 'createdAt' | 'updatedAt'> = {
+      // Format data for API submission
+      const seedData = {
         name: values.name,
         type: values.type,
         quantity: parseFloat(values.quantity),
         unit: values.unit,
         price: parseFloat(values.price),
         minQuantityAlert: parseFloat(values.minQuantityAlert),
-        expiryDate: values.expiryDate,
+        expiryDate: values.expiryDate ? new Date(values.expiryDate).toISOString() : undefined,
         variety: values.variety,
         manufacturer: values.manufacturer,
         batchNumber: values.batchNumber,
-        purchaseDate: values.purchaseDate,
+        purchaseDate: values.purchaseDate ? new Date(values.purchaseDate).toISOString() : undefined,
         location: values.location,
         notes: values.notes,
         supplier: values.supplier,
@@ -243,85 +245,76 @@ export const AddSeedScreen = ({ navigation, route }: AddSeedScreenProps) => {
         germinationTime: values.germinationTime,
         growingSeason: values.growingSeason,
         cropType: values.cropType || 'عام',
-        plantingSeasonStart: values.plantingSeasonStart,
-        plantingSeasonEnd: values.plantingSeasonEnd,
+        plantingSeasonStart: values.plantingSeasonStart ? new Date(values.plantingSeasonStart).toISOString() : undefined,
+        plantingSeasonEnd: values.plantingSeasonEnd ? new Date(values.plantingSeasonEnd).toISOString() : undefined,
         germination: values.germination ? parseFloat(values.germination) : undefined,
         certificationInfo: values.certificationInfo,
-        userId: '1', // Keep as string to match the type but will be converted to number in API
       };
 
       console.log('Seed data to be sent:', seedData);
-
-      // Try a direct API request to bypass the context
-      try {
-        // Get tokens for authorization
-        const tokens = await storage.getTokens();
-        console.log('Auth tokens:', tokens ? 'Available' : 'Not Available');
-        
-        // Get API URL from environment or use a fallback
-        const API_URL = process.env.EXPO_PUBLIC_API_URL;
-        if (!API_URL) {
-          console.error('API_URL is not defined in environment variables');
-          throw new Error('API_URL is not defined');
-        }
-        
-        console.log('Using API URL:', API_URL);
-        
-        // Convert userId to number for the API call
-        const directSeedData = {
-          ...seedData,
-          userId: parseInt(seedData.userId, 10)
-        };
-        
-        const endpoint = `${API_URL}/stock/seeds`;
-        console.log('API endpoint:', endpoint);
-        
-        const response = await axios.post(endpoint, directSeedData, {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': tokens?.access ? `Bearer ${tokens.access}` : ''
-          },
-          timeout: 10000
-        });
-        
-        console.log('API call successful:', response.data);
-        Alert.alert('نجاح', 'تمت إضافة البذور بنجاح');
-        navigation.goBack();
+      
+      // Get token for authentication
+      const tokens = await storage.getTokens();
+      console.log('Auth tokens available:', !!tokens?.access);
+      
+      if (!tokens?.access) {
+        Alert.alert('خطأ', 'الرجاء تسجيل الدخول أولا');
         return;
-      } catch (error: any) {
-        console.error('API call failed:', error?.message || 'Unknown error');
-        if (error.response) {
-          console.error('API response status:', error.response.status);
-          console.error('API response data:', error.response.data);
-        } else if (error.request) {
-          console.error('No response received from server');
-        }
-        
-        // Fall back to the context method
-        console.log('Falling back to context method');
+      }
+      
+      const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+      console.log('API URL:', apiUrl);
+      
+      if (!apiUrl) {
+        Alert.alert('خطأ', 'API URL غير متوفر');
+        return;
       }
 
-      // Original context-based attempt
+      let response;
       if (seedId) {
-        console.log('Updating existing seed:', seedId);
-        await updateSeed(seedId, seedData);
-        Alert.alert('نجاح', 'تم تحديث البذور بنجاح');
+        console.log(`Updating seed with ID: ${seedId}`);
+        response = await axios.put(
+          `${apiUrl}/stock/seeds/${seedId}`,
+          seedData,
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${tokens.access}`
+            }
+          }
+        );
       } else {
-        console.log('Adding new seed');
-        await addSeed(seedData);
-        Alert.alert('نجاح', 'تمت إضافة البذور بنجاح');
+        console.log('Creating new seed');
+        response = await axios.post(
+          `${apiUrl}/stock/seeds`,
+          seedData,
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${tokens.access}`
+            }
+          }
+        );
       }
-      navigation.goBack();
+        
+      console.log('Seed saved successfully:', response.data);
+      Alert.alert('نجاح', 'تم حفظ البذور بنجاح', [
+        { 
+          text: 'حسنا', 
+          onPress: () => navigation.goBack() 
+        }
+      ]);
     } catch (error) {
-      console.error('Error submitting seed:', error);
-      
-      // More detailed error logging
-      if (error instanceof Error) {
-        console.error('Error message:', error.message);
-        console.error('Error stack:', error.stack);
+      console.error('Error saving seed:', error);
+      if (axios.isAxiosError(error)) {
+        console.error('API error status:', error.response?.status);
+        console.error('API error data:', error.response?.data);
+        Alert.alert('خطأ', `فشل في حفظ البذور: ${error.response?.data?.message || error.message}`);
+      } else {
+        Alert.alert('خطأ', 'فشل في حفظ البذور');
       }
-      
-      Alert.alert('خطأ', 'فشل في حفظ البذور');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -602,16 +595,18 @@ export const AddSeedScreen = ({ navigation, route }: AddSeedScreenProps) => {
                   backgroundColor: theme.colors.neutral.surface,
                   borderColor: theme.colors.neutral.border,
                   elevation: 2,
-                  shadowOpacity: 0.2,
-                  shadowRadius: 2,
-                  shadowOffset: { width: 0, height: 1 },
+                  shadowColor: theme.colors.neutral.textSecondary,
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 4,
+                  elevation: 2,
                 }
               ]}
               onPress={() => showDatePickerModal(field as DateField)}
             >
               <Text style={{ color: theme.colors.neutral.textPrimary, fontWeight: '500' }}>
-                {new Date(values[field]).toLocaleDateString('en')}
-                </Text>
+                {values[field] ? new Date(values[field]).toLocaleDateString('en-GB') : 'غير محدد'}
+              </Text>
               <Feather name="calendar" size={20} color={theme.colors.primary.base} />
               </TouchableOpacity>
             {touched[field] && errors[field] && (
@@ -940,7 +935,7 @@ export const AddSeedScreen = ({ navigation, route }: AddSeedScreenProps) => {
                 <View style={styles.buttonContainer}>
                   {currentPage > 0 && (
                     <CustomButton
-                      title="السابق"
+                      title="السابق ←"
                       onPress={prevPage}
                       type="secondary"
                       style={{ 
@@ -948,21 +943,27 @@ export const AddSeedScreen = ({ navigation, route }: AddSeedScreenProps) => {
                         borderRadius: 10,
                         borderWidth: 2,
                         borderColor: theme.colors.primary.base,
-              }}
-            />
-          )}
+                        shadowColor: theme.colors.neutral.textSecondary,
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.1,
+                        shadowRadius: 4,
+                        elevation: 2,
+                      }}
+                      disabled={isSubmitting}
+                    />
+                  )}
                   
                   {currentPage < formPages.length - 1 ? (
                     <CustomButton
-                      title="التالي"
+                      title="→ التالي"
                       onPress={nextPage}
                       type="primary"
-                      disabled={!validateCurrentPage(values)}
+                      disabled={!validateCurrentPage(values) || isSubmitting}
                       style={{ 
                         flex: 1,
                         borderRadius: 10,
                         elevation: 5,
-                        shadowColor: "#000",
+                        shadowColor: theme.colors.neutral.textSecondary,
                         shadowOffset: { width: 0, height: 3 },
                         shadowOpacity: 0.3,
                         shadowRadius: 4,
@@ -970,20 +971,20 @@ export const AddSeedScreen = ({ navigation, route }: AddSeedScreenProps) => {
                     />
                   ) : (
                     <CustomButton
-                      title="حفظ"
+                      title="✓ حفظ"
                       onPress={() => handleSubmit()}
                       type="primary"
-                      disabled={!isValid}
+                      disabled={!isValid || isSubmitting}
                       style={{ 
                         flex: 1, 
                         borderRadius: 10,
                         elevation: 5,
-                        shadowColor: "#000",
+                        shadowColor: theme.colors.neutral.textSecondary,
                         shadowOffset: { width: 0, height: 3 },
                         shadowOpacity: 0.3,
                         shadowRadius: 4,
                       }}
-                      loading={loading}
+                      loading={isSubmitting}
                     />
                   )}
                 </View>
