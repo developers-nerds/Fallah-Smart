@@ -11,26 +11,28 @@ import {
   ScrollView,
   StatusBar,
   Platform,
-  Dimensions
+  Dimensions,
+  FlatList,
+  SafeAreaView
 } from 'react-native';
-import { useTheme } from '@react-navigation/native';
+import { useTheme } from '../../../context/ThemeContext';
 import { useEquipment } from '../../../context/EquipmentContext';
 import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { StockStackParamList } from '../../../navigation/types';
-import { FAB, Card, Button, IconButton } from 'react-native-paper';
-import { useNavigation } from '@react-navigation/native';
-import { FlashList } from '@shopify/flash-list';
+import { FAB } from '../../../components/FAB';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { formatDate } from '../../../utils/date';
 import { EQUIPMENT_TYPES, EQUIPMENT_STATUS, OPERATIONAL_STATUS, EquipmentType, EquipmentStatus, OperationalStatus } from './constants';
 import { StockEquipment } from '../../Stock/types';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
-import { TextInput } from '../../../components/TextInput';
+import { SearchBar } from '../../../components/SearchBar';
 import { SwipeableRow } from '../../../components/SwipeableRow';
 import axios from 'axios';
 import { storage } from '../../../utils/storage';
+import { API_URL } from '../../../config/api';
+import { withRetry } from '../../../services/api';
 
 // Force RTL layout
 I18nManager.allowRTL(true);
@@ -47,11 +49,10 @@ type EquipmentListScreenProps = {
 interface EquipmentCardProps {
   equipment: StockEquipment;
   onPress: () => void;
-  onDelete: (id: string) => void;
-  index: number;
+  onDelete: (id: number) => void;
 }
 
-const EquipmentListScreen: React.FC<EquipmentListScreenProps> = ({ navigation }) => {
+export const EquipmentListScreen = ({ navigation }: EquipmentListScreenProps) => {
   const theme = useTheme();
   const { equipment: contextEquipment, fetchEquipment, loading: contextLoading, error: contextError, deleteEquipment } = useEquipment();
   const [refreshing, setRefreshing] = useState(false);
@@ -65,30 +66,10 @@ const EquipmentListScreen: React.FC<EquipmentListScreenProps> = ({ navigation })
   const [localEquipment, setLocalEquipment] = useState<StockEquipment[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Add debugging logs
-  useEffect(() => {
-    console.log('Equipment state updated:', {
-      contextCount: contextEquipment.length,
-      localCount: localEquipment.length,
-      contextLoading,
-      loading,
-      contextError,
-      localError
-    });
-    
-    if (localEquipment.length > 0) {
-      console.log('First local equipment item:', JSON.stringify(localEquipment[0], null, 2));
-    } else if (contextEquipment.length > 0) {
-      console.log('First context equipment item:', JSON.stringify(contextEquipment[0], null, 2));
-    } else {
-      console.log('No equipment items available in either local or context state');
-    }
-  }, [contextEquipment, localEquipment, contextLoading, loading, contextError, localError]);
-
   // Add mock data for testing when no data is available
   const MOCK_EQUIPMENT: StockEquipment[] = [
     {
-      id: 'mock-1',
+      id: 1,
       name: 'جرار زراعي',
       type: 'tractor',
       status: 'operational',
@@ -104,10 +85,10 @@ const EquipmentListScreen: React.FC<EquipmentListScreenProps> = ({ navigation })
       purchasePrice: 250000,
       location: 'المخزن الرئيسي',
       notes: 'جرار جديد للمزرعة',
-      userId: '1'
+      userId: 1
     },
     {
-      id: 'mock-2',
+      id: 2,
       name: 'آلة حصاد',
       type: 'harvester',
       status: 'operational',
@@ -123,10 +104,10 @@ const EquipmentListScreen: React.FC<EquipmentListScreenProps> = ({ navigation })
       purchasePrice: 350000,
       location: 'المخزن الرئيسي',
       notes: 'آلة حصاد للحبوب',
-      userId: '1'
+      userId: 1
     },
     {
-      id: 'mock-3',
+      id: 3,
       name: 'نظام ري بالتنقيط',
       type: 'irrigation_system',
       status: 'maintenance',
@@ -142,10 +123,10 @@ const EquipmentListScreen: React.FC<EquipmentListScreenProps> = ({ navigation })
       purchasePrice: 15000,
       location: 'الحقل الشرقي',
       notes: 'نظام ري بالتنقيط للخضروات',
-      userId: '1'
+      userId: 1
     },
     {
-      id: 'mock-4',
+      id: 4,
       name: 'مضخة مياه',
       type: 'pump',
       status: 'operational',
@@ -161,10 +142,10 @@ const EquipmentListScreen: React.FC<EquipmentListScreenProps> = ({ navigation })
       purchasePrice: 12000,
       location: 'بئر المزرعة',
       notes: 'مضخة مياه للري',
-      userId: '1'
+      userId: 1
     },
     {
-      id: 'mock-5',
+      id: 5,
       name: 'آلة بذر',
       type: 'seeder',
       status: 'operational',
@@ -180,144 +161,130 @@ const EquipmentListScreen: React.FC<EquipmentListScreenProps> = ({ navigation })
       purchasePrice: 180000,
       location: 'المخزن الرئيسي',
       notes: 'آلة بذر دقيقة',
-      userId: '1'
+      userId: 1
     }
   ];
 
-  // Direct API fetch function similar to FertilizerList
+  // Direct API fetch function
   const fetchEquipmentDirectly = useCallback(async () => {
     try {
+      setLoading(true);
       const tokens = await storage.getTokens();
-      console.log('Tokens available:', tokens ? 'Yes' : 'No');
       
-      const DIRECT_API_URL = `${process.env.EXPO_PUBLIC_API_URL}/stock/equipment`;
-      console.log('Fetching equipment directly from:', DIRECT_API_URL);
-      
-      const response = await axios.get(DIRECT_API_URL, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': tokens?.access ? `Bearer ${tokens.access}` : ''
-        },
-        timeout: 10000
-      });
-      
-      console.log('API Response Status:', response.status);
-      console.log('Equipment fetched successfully, count:', response.data?.length || 0);
-      
-      return response.data;
-    } catch (error) {
-      console.error('Direct API fetch error:', error);
-      
-      if (axios.isAxiosError(error)) {
-        console.error('Axios error details:');
-        console.error('- Status:', error.response?.status);
-        console.error('- Response data:', error.response?.data);
-        
-        if (error.response?.status === 401) {
-          console.log('Unauthorized, trying without token...');
-          try {
-            const DIRECT_API_URL = `${process.env.EXPO_PUBLIC_API_URL}/stock/equipment`;
-            const fallbackResponse = await axios.get(DIRECT_API_URL, {
-              headers: { 'Content-Type': 'application/json' },
-              timeout: 10000
-            });
-            
-            console.log('Fallback API call successful, equipment count:', fallbackResponse.data?.length || 0);
-            return fallbackResponse.data;
-          } catch (fallbackError) {
-            console.error('Fallback API call also failed:', fallbackError);
-            throw fallbackError;
-          }
-        }
+      if (!tokens?.access) {
+        console.error('No auth token available');
+        return [];
       }
       
-      throw error;
+      const response = await withRetry(async () => {
+        return axios.get(`${API_URL}/stock/equipment`, {
+          headers: {
+            'Authorization': `Bearer ${tokens.access}`
+          }
+        });
+      }, 2, 1500);
+      
+      if (response && response.data) {
+        return response.data;
+      }
+      
+      return [];
+    } catch (error) {
+      console.error('Error fetching equipment:', error);
+      if (error.message && error.message.includes('فشل الاتصال بالخادم')) {
+        setLocalError(error.message);
+      } else {
+        setLocalError('فشل في جلب المعدات');
+      }
+      return [];
+    } finally {
+      setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    console.log('EquipmentListScreen mounted - fetching equipment');
-    
-    let isMounted = true;
-    
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        setRefreshing(true);
-        setLocalError(null);
-        
-        // Try direct API call first
-        let equipmentData;
+  useFocusEffect(
+    useCallback(() => {
+      console.log('EquipmentListScreen focused - checking for updates');
+      
+      let isMounted = true;
+      
+      const loadData = async () => {
         try {
-          equipmentData = await fetchEquipmentDirectly();
-        } catch (apiError) {
-          console.error('API fetch failed, using mock data:', apiError);
-          equipmentData = MOCK_EQUIPMENT;
-        }
-        
-        if (isMounted && equipmentData) {
-          console.log('Equipment fetched successfully, updating UI');
-          console.log('Fetched equipment data:', JSON.stringify(equipmentData, null, 2));
+          setLoading(true);
+          setRefreshing(true);
+          setLocalError(null);
           
-          // Store the equipment data locally
-          setLocalEquipment(equipmentData || []);
-          
-          // Also update the context
+          // Try direct API call first
+          let equipmentData;
           try {
-            await fetchEquipment();
-            console.log('Context updated with equipment data');
-          } catch (contextError) {
-            console.error('Failed to update context, but we have local data:', contextError);
+            equipmentData = await fetchEquipmentDirectly();
+          } catch (apiError) {
+            console.error('API fetch failed, using mock data:', apiError);
+            equipmentData = MOCK_EQUIPMENT;
           }
-        }
-      } catch (err) {
-        console.error('Error directly loading equipment:', err);
-        
-        // Try context as fallback
-        try {
-          console.log('Falling back to context method...');
-          await fetchEquipment();
           
-          if (isMounted) {
-            console.log('Context method succeeded');
-            // If we have context data but no local data, use the context data
-            if (contextEquipment.length > 0 && localEquipment.length === 0) {
-              setLocalEquipment(contextEquipment);
-            } else if (localEquipment.length === 0) {
-              // If still no data, use mock data
-              console.log('No data from API or context, using mock data');
-              setLocalEquipment(MOCK_EQUIPMENT);
+          if (isMounted && equipmentData) {
+            console.log('Equipment fetched successfully, updating UI');
+            
+            // Store the equipment data locally
+            setLocalEquipment(equipmentData || []);
+            
+            // Also update the context
+            try {
+              await fetchEquipment();
+              console.log('Context updated with equipment data');
+            } catch (contextError) {
+              console.error('Failed to update context, but we have local data:', contextError);
             }
           }
-        } catch (contextErr) {
-          console.error('Context method also failed:', contextErr);
+        } catch (err) {
+          console.error('Error directly loading equipment:', err);
           
-          if (isMounted) {
-            // Use mock data as last resort
-            console.log('All methods failed, using mock data');
-            setLocalEquipment(MOCK_EQUIPMENT);
+          // Try context as fallback
+          try {
+            console.log('Falling back to context method...');
+            await fetchEquipment();
             
-            const errorMsg = err instanceof Error 
-              ? err.message 
-              : 'Failed to load equipment';
-            setLocalError(errorMsg);
+            if (isMounted) {
+              console.log('Context method succeeded');
+              // If we have context data but no local data, use the context data
+              if (contextEquipment.length > 0 && localEquipment.length === 0) {
+                setLocalEquipment(contextEquipment);
+              } else if (localEquipment.length === 0) {
+                // If still no data, use mock data
+                console.log('No data from API or context, using mock data');
+                setLocalEquipment(MOCK_EQUIPMENT);
+              }
+            }
+          } catch (contextErr) {
+            console.error('Context method also failed:', contextErr);
+            
+            if (isMounted) {
+              // Use mock data as last resort
+              console.log('All methods failed, using mock data');
+              setLocalEquipment(MOCK_EQUIPMENT);
+              
+              const errorMsg = err instanceof Error 
+                ? err.message 
+                : 'Failed to load equipment';
+              setLocalError(errorMsg);
+            }
+          }
+        } finally {
+          if (isMounted) {
+            setLoading(false);
+            setRefreshing(false);
           }
         }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-          setRefreshing(false);
-        }
-      }
-    };
-    
-    loadData();
-    
-    return () => {
-      console.log('EquipmentListScreen unmounting - cleaning up');
-      isMounted = false;
-    };
-  }, [fetchEquipment, fetchEquipmentDirectly, contextEquipment]);
+      };
+      
+      loadData();
+      
+      return () => {
+        isMounted = false;
+      };
+    }, [fetchEquipment, fetchEquipmentDirectly, contextEquipment])
+  );
 
   const onRefresh = useCallback(async () => {
     console.log('Refreshing equipment list...');
@@ -358,14 +325,14 @@ const EquipmentListScreen: React.FC<EquipmentListScreenProps> = ({ navigation })
   }, [fetchEquipment, fetchEquipmentDirectly]);
 
   const handleAddEquipment = useCallback(() => {
-    navigation.navigate('AddEquipment');
+    navigation.navigate('AddEquipment', {});
   }, [navigation]);
 
-  const handleViewEquipment = useCallback((id: string) => {
-    navigation.navigate('EquipmentDetail', { equipmentId: id });
+  const handleViewEquipment = useCallback((id: number) => {
+    navigation.navigate('EquipmentDetail', { equipmentId: id.toString() });
   }, [navigation]);
 
-  const handleDeleteEquipment = useCallback((id: string) => {
+  const handleDeleteEquipment = useCallback((id: number) => {
     Alert.alert(
       'تأكيد الحذف',
       'هل أنت متأكد من حذف هذه المعدة؟',
@@ -379,7 +346,7 @@ const EquipmentListScreen: React.FC<EquipmentListScreenProps> = ({ navigation })
           style: 'destructive',
           onPress: async () => {
     try {
-      await deleteEquipment(id);
+              await deleteEquipment(id.toString());
               Alert.alert('نجاح', 'تم حذف المعدة بنجاح');
     } catch (err) {
       console.error('Error deleting equipment:', err);
@@ -430,343 +397,273 @@ const EquipmentListScreen: React.FC<EquipmentListScreenProps> = ({ navigation })
     return filteredEquipment.slice(0, page * ITEMS_PER_PAGE);
   }, [filteredEquipment, page]);
 
-  // Function to handle loading more items
-  const handleLoadMore = useCallback(() => {
-    if (paginatedEquipment.length < filteredEquipment.length) {
-      setPage(prev => prev + 1);
-    }
+  // Check if there are more items to load
+  const hasMore = useMemo(() => {
+    return paginatedEquipment.length < filteredEquipment.length;
   }, [paginatedEquipment.length, filteredEquipment.length]);
 
-  // Function to render equipment type filters
-  const renderTypeFilters = useCallback(() => {
+  // Function to handle loading more items
+  const handleLoadMore = useCallback(() => {
+    if (hasMore) {
+      setPage(prev => prev + 1);
+    }
+  }, [hasMore]);
+
+  // Add EquipmentCard component
+  const EquipmentCard = ({ equipment, onPress, onDelete }: EquipmentCardProps) => {
+    const equipmentType = EQUIPMENT_TYPES[equipment.type as EquipmentType] || { icon: '🔧', name: 'معدة' };
+    const statusInfo = EQUIPMENT_STATUS[equipment.status as EquipmentStatus] || { icon: '❓', name: equipment.status, color: '#9E9E9E' };
+    
+    const needsMaintenance = equipment.nextMaintenanceDate && new Date(equipment.nextMaintenanceDate) <= new Date();
+    const isBroken = equipment.status === 'broken';
+    const isInMaintenance = equipment.status === 'maintenance';
+
     return (
+      <Animated.View 
+        entering={FadeInDown.duration(300).delay(150)}
+        style={[styles.card, { backgroundColor: theme.colors.neutral.surface }]}
+      >
+        <TouchableOpacity 
+          onPress={onPress}
+          style={styles.cardContent}
+        >
+          <View style={styles.cardHeader}>
+            <View style={[
+              styles.iconContainer, 
+              { backgroundColor: theme.colors.primary.surface }
+            ]}>
+              <Text style={styles.equipmentIconText}>
+                {equipmentType.icon}
+              </Text>
+            </View>
+            <View style={styles.headerInfo}>
+              <View style={styles.titleContainer}>
+                <Text style={[styles.equipmentName, { color: theme.colors.neutral.textPrimary }]}>
+                  {equipment.name}
+                </Text>
+                <Text style={[styles.equipmentType, { color: theme.colors.neutral.textSecondary }]}>
+                  {equipmentType.name}
+                </Text>
+              </View>
+            </View>
+            {equipment.quantity > 1 && (
+              <View style={[
+                styles.countBadge, 
+                { backgroundColor: theme.colors.success + '20', borderColor: theme.colors.success }
+              ]}>
+                <Text style={[styles.countText, { color: theme.colors.success }]}>
+                  🔢 {equipment.quantity}
+                </Text>
+              </View>
+            )}
+          </View>
+          <View style={styles.cardFooter}>
+            <View style={[
+              styles.statusBadge, 
+              { backgroundColor: statusInfo.color + '20' }
+            ]}>
+              <Text style={[styles.statusText, { color: statusInfo.color }]}>
+                {statusInfo.icon} {statusInfo.name}
+              </Text>
+            </View>
+            {equipment.purchaseDate && (
+              <View style={styles.purchaseDateContainer}>
+                <Text style={[styles.purchaseDate, { color: theme.colors.neutral.textSecondary }]}>
+                  🗓️ {new Date(equipment.purchaseDate).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                  })}
+                </Text>
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  };
+
+  // Function to render the header
+  const renderHeader = useCallback(() => {
+    return (
+      <View style={styles.searchContainer}>
+        <SearchBar
+          placeholder="البحث عن معدة..."
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          style={styles.searchBar}
+        />
       <ScrollView 
         horizontal 
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.typesContainer}
+          contentContainerStyle={styles.filterContainer}
       >
         <TouchableOpacity
-          key="all"
           style={[
-            styles.typeChip,
-            { 
-              backgroundColor: selectedType === null ? theme.colors.primary : theme.colors.background,
-              borderColor: theme.colors.border,
-            }
+              styles.filterButton,
+              !selectedType && { backgroundColor: theme.colors.primary.base }
           ]}
           onPress={() => setSelectedType(null)}
         >
-          <Text style={styles.typeIcon}>🔧</Text>
           <Text style={[
-            styles.typeText,
-            { color: selectedType === null ? '#FFF' : theme.colors.text }
+              styles.filterButtonText,
+              !selectedType && { color: '#FFF' }
           ]}>
             الكل
           </Text>
         </TouchableOpacity>
-        
-        {Object.entries(EQUIPMENT_TYPES).map(([type, { icon, name }]) => (
-          <Animated.View
-            key={type}
-            entering={FadeInDown.springify().delay(100)}
-          >
+          {Object.entries(EQUIPMENT_TYPES).map(([type, info]) => (
             <TouchableOpacity
+              key={type}
               style={[
-                styles.typeChip,
-                { 
-                  backgroundColor: selectedType === type ? theme.colors.primary : theme.colors.background,
-                  borderColor: theme.colors.border,
-                }
+                styles.filterButton,
+                selectedType === type && { backgroundColor: theme.colors.primary.base }
               ]}
               onPress={() => setSelectedType(type as EquipmentType)}
             >
-              <Text style={styles.typeIcon}>{icon}</Text>
               <Text style={[
-                styles.typeText,
-                { color: selectedType === type ? '#FFF' : theme.colors.text }
+                styles.filterButtonText,
+                selectedType === type && { color: '#FFF' }
               ]}>
-                {name}
+                {info.icon} {info.name}
               </Text>
-              {selectedType === type && (
-              <MaterialCommunityIcons 
-                  name="close-circle" 
-                  size={16} 
-                  color="#FFF"
-                  style={styles.clearIcon}
-                />
-              )}
             </TouchableOpacity>
-          </Animated.View>
         ))}
       </ScrollView>
+      </View>
     );
-  }, [selectedType, theme]);
-
-  // Function to render the header
-  const renderHeader = useCallback(() => (
-    <Animated.View entering={FadeIn.springify()}>
-      <View style={styles.searchContainer}>
-        <TextInput
-          placeholder="البحث عن المعدات..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          style={styles.searchInput}
-              />
-            </View>
-      {renderTypeFilters()}
-    </Animated.View>
-  ), [searchQuery, renderTypeFilters]);
+  }, [searchQuery, selectedType, theme]);
 
   // Function to render an equipment item
-  const renderItem = useCallback(({ item, index }: { item: StockEquipment; index: number }) => {
-    const equipmentType = EQUIPMENT_TYPES[item.type as EquipmentType] || { icon: '🔧', name: 'معدة' };
-    const statusInfo = EQUIPMENT_STATUS[item.status as EquipmentStatus] || { icon: '❓', name: item.status, color: '#9E9E9E' };
-    const operationalInfo = OPERATIONAL_STATUS[item.operationalStatus as OperationalStatus] || { icon: '❓', name: item.operationalStatus, color: '#9E9E9E' };
-
-    const needsMaintenance = item.nextMaintenanceDate && new Date(item.nextMaintenanceDate) <= new Date();
-    const isBroken = item.status === 'broken';
-    const isInMaintenance = item.status === 'maintenance';
-
+  const renderItem = useCallback(({ item }: { item: StockEquipment }) => {
     return (
-      <Animated.View
-        entering={FadeInDown.delay(index * 100).springify()}
-        style={[
-          styles.card,
-          { 
-            backgroundColor: theme.colors.background,
-            ...Platform.select({
-              ios: {
-                shadowColor: theme.colors.text,
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.1,
-                shadowRadius: 8,
-              },
-              android: {
-                elevation: 4,
-              },
-            }),
-          }
-        ]}
-      >
-        <SwipeableRow
-          onDelete={() => handleDeleteEquipment(item.id)}
-          onEdit={() => navigation.navigate('AddEquipment')}
-        >
-          <TouchableOpacity
-            style={styles.cardContent}
+      <EquipmentCard 
+        equipment={item}
             onPress={() => handleViewEquipment(item.id)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.cardHeader}>
-              <View style={[
-                styles.iconContainer, 
-                { 
-                  backgroundColor: isBroken 
-                    ? '#F44336' + '20' 
-                    : isInMaintenance 
-                      ? '#FFC107' + '20' 
-                      : needsMaintenance
-                        ? '#FF9800' + '20'
-                        : '#E8F5E9' 
-                }
-              ]}>
-                <Text style={styles.equipmentIconText}>{equipmentType.icon}</Text>
-                {needsMaintenance && <Text style={styles.statusIndicator}>⚠️</Text>}
-                {isBroken && <Text style={styles.statusIndicator}>❌</Text>}
-          </View>
-
-              <View style={styles.headerInfo}>
-                <Text style={[styles.equipmentName, { color: theme.colors.text }]}>
-                  {item.name}
-                </Text>
-                <View style={styles.subtitleContainer}>
-                  <Text style={[styles.equipmentType, { color: theme.colors.text + '80' }]}>
-                    {equipmentType.name}
-                  </Text>
-            </View>
-              </View>
-            </View>
-
-            <View style={styles.cardFooter}>
-              <View style={styles.quantityContainer}>
-                <Text style={[styles.equipmentQuantity, { color: theme.colors.primary }]}>
-                  {item.quantity} وحدة
-                </Text>
-                {item.purchasePrice && (
-                  <Text style={[styles.equipmentPrice, { color: theme.colors.primary }]}>
-                    {item.purchasePrice} د.ج
-                  </Text>
-                )}
-              </View>
-
-              <View style={[styles.statusBadge, { backgroundColor: statusInfo.color + '20' }]}>
-                <MaterialCommunityIcons 
-                  name={isBroken ? "alert" : isInMaintenance ? "tools" : "check-circle"} 
-                  size={16} 
-                  color={statusInfo.color} 
-                />
-                <Text style={[styles.statusText, { color: statusInfo.color }]}>
-                  {statusInfo.name}
-                </Text>
-            </View>
-
-              {needsMaintenance && !isBroken && !isInMaintenance && (
-                <View style={[styles.statusBadge, { backgroundColor: '#FF9800' + '20' }]}>
-                  <MaterialCommunityIcons 
-                    name="calendar-alert" 
-                    size={16} 
-                    color="#FF9800" 
-                  />
-                  <Text style={[styles.statusText, { color: '#FF9800' }]}>
-                    بحاجة للصيانة
-                  </Text>
-            </View>
-              )}
-
-              {item.operationalStatus && (
-                <View style={[styles.statusBadge, { backgroundColor: operationalInfo.color + '20' }]}>
-                  <Text style={[styles.statusText, { color: operationalInfo.color }]}>
-                    {operationalInfo.name}
-                  </Text>
-              </View>
-            )}
-          </View>
-          </TouchableOpacity>
-        </SwipeableRow>
-      </Animated.View>
+        onDelete={handleDeleteEquipment}
+      />
     );
-  }, [theme, navigation, handleViewEquipment, handleDeleteEquipment]);
+  }, [handleViewEquipment, handleDeleteEquipment]);
 
-  // Render the "See More" button if there are more items to load
-  const renderSeeMoreButton = useCallback(() => {
-    if (paginatedEquipment.length < filteredEquipment.length) {
-      return (
-        <Animated.View 
-          entering={FadeInDown.delay(300).springify()}
-          style={styles.seeMoreButtonContainer}
-        >
-          <TouchableOpacity
-            style={[styles.seeMoreButton, { backgroundColor: theme.colors.primary }]}
-            onPress={handleLoadMore}
-          >
-            <Text style={styles.seeMoreText}>عرض المزيد ({filteredEquipment.length - paginatedEquipment.length} متبقية)</Text>
-            <MaterialCommunityIcons name="chevron-down" size={24} color="#FFF" />
+  // Function to render the footer
+  const renderFooter = useCallback(() => {
+    if (paginatedEquipment.length >= filteredEquipment.length) return null;
+    
+    return (
+      <TouchableOpacity
+        style={[styles.seeMoreButton, { backgroundColor: theme.colors.primary.base }]}
+        onPress={handleLoadMore}
+      >
+        <Text style={styles.seeMoreText}>عرض المزيد</Text>
+        <MaterialCommunityIcons name="chevron-down" size={24} color="#FFF" />
           </TouchableOpacity>
-        </Animated.View>
+    );
+  }, [paginatedEquipment.length, filteredEquipment.length, handleLoadMore, theme]);
+
+  // Function to render empty list component
+  const renderListEmptyComponent = useCallback(() => {
+      return (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyIcon}>🔍</Text>
+        <Text style={[styles.emptyText, { color: theme.colors.neutral.textSecondary }]}>
+          لا توجد معدات
+        </Text>
+          <TouchableOpacity
+          style={[styles.seeMoreButton, { backgroundColor: theme.colors.primary.base }]}
+          onPress={onRefresh}
+          >
+          <Text style={styles.seeMoreText}>تحديث</Text>
+          <MaterialCommunityIcons name="refresh" size={24} color="#FFF" />
+          </TouchableOpacity>
+      </View>
       );
-    }
-    return null;
-  }, [paginatedEquipment.length, filteredEquipment.length, handleLoadMore, theme.colors.primary]);
+  }, [theme, onRefresh]);
 
   if (loading && !localEquipment.length && !contextEquipment.length) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <StatusBar
-          backgroundColor={theme.colors.background}
-          barStyle="dark-content"
-        />
         <View style={[styles.container, styles.centerContent]}>
-          <Animated.View 
-            entering={FadeIn.duration(800)}
-            style={styles.loadingContainer}
-          >
-            <Text style={styles.equipmentIconLarge}>🔧</Text>
-            <ActivityIndicator size="large" color={theme.colors.primary} />
-            <Text style={[styles.loadingText, { color: theme.colors.text + '80' }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary.base} />
+        <Text style={{ marginTop: 10, color: theme.colors.neutral.textSecondary }}>
               جاري تحميل المعدات...
             </Text>
-          </Animated.View>
         </View>
-      </SafeAreaView>
     );
   }
 
   if ((localError || contextError) && !localEquipment.length && !contextEquipment.length) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <StatusBar
-          backgroundColor={theme.colors.background}
-          barStyle="dark-content"
-        />
         <View style={[styles.container, styles.centerContent]}>
-          <Animated.View 
-            entering={FadeIn.duration(800)}
-            style={styles.errorContainer}
-          >
-            <Text style={styles.errorIcon}>⚠️</Text>
-            <Text style={[styles.errorText, { color: 'red' }]}>
+        <MaterialCommunityIcons 
+          name="alert-circle-outline" 
+          size={64} 
+          color={theme.colors.error} 
+        />
+        <Text style={[styles.errorText, { color: theme.colors.error }]}>
               حدث خطأ: {localError || contextError}
             </Text>
-            <Text style={[styles.errorSubText, { color: theme.colors.text + '80' }]}>
-              يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى
-            </Text>
             <TouchableOpacity
-              style={[styles.retryButton, { backgroundColor: theme.colors.primary }]}
+          style={[styles.seeMoreButton, { backgroundColor: theme.colors.primary.base, marginTop: 20 }]}
               onPress={onRefresh}
             >
-              <Text style={styles.retryButtonText}>إعادة المحاولة</Text>
+          <Text style={styles.seeMoreText}>إعادة المحاولة</Text>
               <MaterialCommunityIcons name="refresh" size={24} color="#FFF" />
             </TouchableOpacity>
-          </Animated.View>
       </View>
-      </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
       <StatusBar
-        backgroundColor={theme.colors.background}
+        backgroundColor={theme.colors.neutral.surface}
         barStyle="dark-content"
       />
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: theme.colors.text }]}>
-            المعدات ({filteredEquipment.length})
-        </Text>
-      </View>
-
-      <FlashList
+      <View style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
+        {localEquipment.length > 0 ? (
+          <>
+            <FlatList
           data={paginatedEquipment}
           renderItem={renderItem}
-          keyExtractor={item => String(item.id)}
+              keyExtractor={item => item.id.toString()}
           contentContainerStyle={styles.listContent}
           ListHeaderComponent={renderHeader}
-          ListFooterComponent={renderSeeMoreButton}
-        ListEmptyComponent={
+              ListFooterComponent={renderFooter}
+              ListEmptyComponent={renderListEmptyComponent}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  colors={[theme.colors.primary.base]}
+                  tintColor={theme.colors.primary.base}
+                />
+              }
+            />
+          </>
+        ) : (
           <View style={styles.emptyContainer}>
               <Text style={styles.emptyIcon}>🔧</Text>
-              <Text style={[styles.emptyText, { color: theme.colors.text }]}>
-                لا توجد معدات في المخزون
-              </Text>
-              <Text style={[styles.emptySubText, { color: theme.colors.text + '80' }]}>
-                يمكنك إضافة معدات جديدة عن طريق الضغط على زر الإضافة
+            <Text style={[styles.emptyText, { color: theme.colors.neutral.textSecondary }]}>
+              لم يتم العثور على معدات
               </Text>
               <TouchableOpacity
-                style={[styles.seeMoreButton, { backgroundColor: theme.colors.primary }]}
+              style={[styles.seeMoreButton, { backgroundColor: theme.colors.primary.base, marginTop: 20 }]}
                 onPress={onRefresh}
               >
                 <Text style={styles.seeMoreText}>تحديث</Text>
                 <MaterialCommunityIcons name="refresh" size={24} color="#FFF" />
               </TouchableOpacity>
             </View>
-          }
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={[theme.colors.primary]}
-              tintColor={theme.colors.primary}
-            />
-          }
-          showsVerticalScrollIndicator={false}
-          estimatedItemSize={200}
-      />
-
+        )}
       <FAB
         icon="plus"
         onPress={handleAddEquipment}
-        style={[styles.fab, { backgroundColor: theme.colors.primary }]}
+          style={{
+            position: 'absolute',
+            margin: 16,
+            right: 0,
+            bottom: 0,
+            backgroundColor: theme.colors.primary.base
+          }}
       />
     </View>
     </SafeAreaView>
@@ -781,65 +678,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-  },
   searchContainer: {
     padding: 16,
-    paddingTop: 0,
   },
-  searchInput: {
-    marginBottom: 16,
-  },
-  typesContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    gap: 8,
-  },
-  typeChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    borderWidth: 1,
-    marginRight: 8,
-    gap: 8,
-    ...Platform.select({
-      ios: {
-        shadowColor: 'rgba(0,0,0,0.1)',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.8,
-        shadowRadius: 2,
-      },
-      android: {
-    elevation: 2,
-      },
-    }),
-  },
-  typeText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  typeIcon: {
-    fontSize: 18,
-  },
-  clearIcon: {
-    marginLeft: 4,
+  searchBar: {
+    marginBottom: 0,
   },
   listContent: {
     padding: 16,
     gap: 16,
-    paddingBottom: 80,
   },
   card: {
     borderRadius: 16,
@@ -848,155 +695,90 @@ const styles = StyleSheet.create({
   },
   cardContent: {
     padding: 16,
-    gap: 12,
+    gap: 16,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
-  headerInfo: {
-    flex: 1,
-  },
   iconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    position: 'relative',
   },
   equipmentIconText: {
     fontSize: 32,
   },
-  equipmentName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 4,
+  headerInfo: {
+    flex: 1,
+    gap: 4,
   },
-  subtitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 4,
-    flexWrap: 'wrap',
+  titleContainer: {
+    gap: 2,
+  },
+  equipmentName: {
+    fontSize: 22,
+    fontWeight: '600',
   },
   equipmentType: {
-    fontSize: 14,
+    fontSize: 18,
+  },
+  countBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  countText: {
+    fontSize: 18,
+    fontWeight: '500',
   },
   cardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.1)',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  quantityContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  equipmentQuantity: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  equipmentPrice: {
-    fontSize: 16,
-    fontWeight: 'bold',
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 12,
-    gap: 4,
+    gap: 6,
   },
   statusText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '500',
+  },
+  purchaseDateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  purchaseDate: {
+    fontSize: 16,
   },
   emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
     padding: 32,
     gap: 16,
   },
-  emptyIcon: {
-    fontSize: 80,
-    marginBottom: 16,
-  },
   emptyText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginVertical: 10,
-  },
-  emptySubText: {
     fontSize: 16,
     textAlign: 'center',
-    maxWidth: '80%',
-    lineHeight: 24,
   },
-  loadingContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-  equipmentIconLarge: {
-    fontSize: 80,
-    marginBottom: 24,
-  },
-  loadingText: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginTop: 16,
-  },
-  errorContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-  errorIcon: {
-    fontSize: 80,
-    marginBottom: 24,
+  emptyIcon: {
+    fontSize: 64,
+    marginBottom: 16,
   },
   errorText: {
     fontSize: 16,
+    marginTop: 16,
     textAlign: 'center',
-    marginVertical: 20,
-    maxWidth: '80%',
-  },
-  errorSubText: {
-    fontSize: 16,
-    textAlign: 'center',
-    maxWidth: '80%',
-    lineHeight: 24,
-    marginTop: 8,
-  },
-  retryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 12,
-    marginTop: 24,
-    gap: 8,
-  },
-  retryButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFF',
-  },
-  seeMoreButtonContainer: {
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   seeMoreButton: {
     flexDirection: 'row',
@@ -1004,28 +786,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 16,
     borderRadius: 12,
-    marginTop: 8,
-    marginBottom: 16,
+    marginTop: 16,
     gap: 8,
-    width: '80%',
-    alignSelf: 'center',
   },
   seeMoreText: {
     color: '#FFF',
     fontSize: 16,
     fontWeight: '600',
   },
-  statusIndicator: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    fontSize: 16,
+  filterContainer: {
+    flexDirection: 'row',
+    paddingVertical: 16,
+    paddingHorizontal: 8,
+    gap: 8,
   },
-  fab: {
-    position: 'absolute',
-    margin: 16,
-    right: 0,
-    bottom: 0,
+  filterButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  filterButtonText: {
+    fontSize: 20,
+    fontWeight: '500',
+    color: '#666',
   },
 });
 
