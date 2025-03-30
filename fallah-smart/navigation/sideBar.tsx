@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Pressable, Text, TouchableOpacity, Alert } from 'react-native';
 import {
   DrawerContentScrollView,
   DrawerItem,
   DrawerContentComponentProps,
+  DrawerNavigationProp,
 } from '@react-navigation/drawer';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
@@ -19,6 +20,7 @@ import Animated, {
 import { useNavigation, CommonActions } from '@react-navigation/native';
 import { storage } from '../utils/storage';
 import { theme } from '../theme/theme';
+import { getCurrentUser } from '../screens/Education/utils/userProgress';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -38,6 +40,7 @@ export type DrawerParamList = {
   محفظتي: undefined;
   Dictionary: undefined;
   Marketplace: undefined;
+  Weather: undefined;
 };
 
 type SideBarProps = {
@@ -85,7 +88,7 @@ const MenuItem: React.FC<MenuItemProps> = ({ icon, label, onPress, active, navig
         <MaterialCommunityIcons
           name={icon}
           size={24}
-          color={active ? styles.activeMenuItem.backgroundColor : styles.menuItem.backgroundColor}
+          color={active ? '#ffffff' : '#e0e0e0'}
         />
         <DrawerItem
           label={label}
@@ -93,9 +96,7 @@ const MenuItem: React.FC<MenuItemProps> = ({ icon, label, onPress, active, navig
           labelStyle={[
             styles.menuItemLabel,
             {
-              color: active
-                ? styles.activeMenuItem.backgroundColor
-                : styles.menuItem.backgroundColor,
+              color: active ? '#ffffff' : '#e0e0e0',
             },
           ]}
           style={styles.drawerItem}
@@ -108,6 +109,22 @@ const MenuItem: React.FC<MenuItemProps> = ({ icon, label, onPress, active, navig
 const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
   const theme = useTheme();
   const currentRoute = props.state.routeNames[props.state.index];
+  const [isAdvisor, setIsAdvisor] = useState(false);
+
+  useEffect(() => {
+    checkUserRole();
+  }, []);
+
+  const checkUserRole = async () => {
+    try {
+      const user = await getCurrentUser();
+      if (user && user.role === 'ADVISOR') {
+        setIsAdvisor(true);
+      }
+    } catch (error) {
+      console.error('Error checking user role:', error);
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -142,7 +159,7 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <MaterialCommunityIcons name="menu" size={24} color={theme.colors.neutral.textPrimary} />
+        <MaterialCommunityIcons name="menu" size={24} color="#ffffff" />
       </View>
 
       <MenuItem
@@ -209,6 +226,17 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
       />
 
       <MenuItem
+        icon="weather-partly-cloudy"
+        label="الطقس والزراعة"
+        active={currentRoute === 'Weather'}
+        onPress={() => {
+          props.navigation.navigate('Weather');
+          props.navigation.closeDrawer();
+        }}
+        navigation={props.navigation}
+      />
+
+      <MenuItem
         icon="book-open-variant"
         label="قاموس"
         active={currentRoute === 'Dictionary'}
@@ -229,10 +257,23 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
         navigation={props.navigation}
       />
 
+      {isAdvisor && (
+        <MenuItem
+          icon="account-tie"
+          label="مستشار"
+          active={currentRoute === 'Advisor'}
+          onPress={() => {
+            props.navigation.navigate('Advisor');
+            props.navigation.closeDrawer();
+          }}
+          navigation={props.navigation}
+        />
+      )}
+
       <View style={styles.logoutContainer}>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={24} color={theme.colors.error} />
-          <Text style={[styles.logoutText, { color: theme.colors.error }]}>Logout</Text>
+          <Ionicons name="log-out-outline" size={24} color="#ffffff" />
+          <Text style={[styles.logoutText, { color: "#ffffff" }]}>Logout</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -242,22 +283,22 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.neutral.surface,
+    backgroundColor: '#093731',
     padding: theme.spacing.md,
   },
   header: {
-    paddingVertical: 20,
-    marginBottom: 20,
+    paddingVertical: 10,
+    marginBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderBottomColor: 'rgba(255, 255, 255, 0.2)',
   },
   menuItem: {
-    marginVertical: 4,
+    marginVertical: 3,
     borderRadius: 8,
     overflow: 'hidden',
   },
   activeMenuItem: {
-    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
   },
   menuItemContent: {
     flexDirection: 'row',
@@ -267,13 +308,14 @@ const styles = StyleSheet.create({
   menuItemLabel: {
     fontSize: 16,
     marginLeft: 16,
+    color: '#ffffff',
   },
   drawerItem: {
     flex: 1,
   },
   logoutContainer: {
     borderTopWidth: 1,
-    borderTopColor: '#E6DFD5',
+    borderTopColor: 'rgba(255, 255, 255, 0.2)',
     marginTop: 'auto',
     paddingVertical: 16,
   },
@@ -287,6 +329,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontSize: 16,
     fontFamily: 'Roboto-Medium',
+    color: '#ffffff',
   },
 });
 

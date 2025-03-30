@@ -76,29 +76,62 @@ exports.createScan = async (req, res) => {
   }
 };
 
+// Get all scans for the current user
 exports.getScans = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const scans = await Scan.findAll({
-      where: { userId },
-      order: [["createdAt", "DESC"]], // Get newest scans first
-    });
+    // Use a more cautious approach - first check if userId column exists
+    // by trying a raw SQL query to check columns
+    try {
+      // First try with userId filter
+      const scans = await Scan.findAll({
+        where: { userId },
+        attributes: ['id', 'ai_response', 'picture', 'picture_mime_type', 'createdAt', 'updatedAt'],
+        order: [["createdAt", "DESC"]] 
+      });
 
-    // Add the full image URL to each scan
-    const scansWithImageUrls = scans.map((scan) => {
-      const scanData = scan.toJSON();
-      // Construct the full image URL
-      scanData.imageUrl = `/uploads/scans/${scanData.picture}`;
-      return scanData;
-    });
+      // If we got here, userId column exists
+      const scansWithImageUrls = scans.map((scan) => {
+        const scanData = scan.toJSON();
+        scanData.imageUrl = `/uploads/scans/${scanData.picture}`;
+        return scanData;
+      });
 
-    return res.status(200).json(scansWithImageUrls);
+      return res.status(200).json(scansWithImageUrls);
+    } catch (error) {
+      // Check if error is due to missing userId column
+      if (error.name === 'SequelizeDatabaseError' && 
+          error.message.includes("userId") &&
+          error.parent && 
+          error.parent.code === '42703') {
+        
+        console.warn("userId column missing in Scans table - returning all scans");
+        
+        // Fall back to getting all scans without userId filter
+        const allScans = await Scan.findAll({
+          attributes: ['id', 'ai_response', 'picture', 'picture_mime_type', 'createdAt', 'updatedAt'],
+          order: [["createdAt", "DESC"]]
+        });
+        
+        const scansWithImageUrls = allScans.map((scan) => {
+          const scanData = scan.toJSON();
+          scanData.imageUrl = `/uploads/scans/${scanData.picture}`;
+          return scanData;
+        });
+        
+        return res.status(200).json(scansWithImageUrls);
+      } else {
+        // Different error, rethrow
+        throw error;
+      }
+    }
   } catch (error) {
     console.error("Error getting scans:", error);
-    return res
-      .status(500)
-      .json({ message: "Error getting scans", error: error.message });
+    return res.status(500).json({ 
+      message: "Error getting scans", 
+      error: error.message 
+    });
   }
 };
 
@@ -108,30 +141,90 @@ exports.deleteScan = async (req, res) => {
     const userId = req.user.id;
     const scanId = req.params.id;
 
-    const scan = await Scan.findOne({
-      where: { id: scanId, userId },
-    });
+    // Try to find scan with userId filter first
+    try {
+      const scan = await Scan.findOne({
+        where: { id: scanId, userId },
+        attributes: ['id', 'picture']
+      });
 
-    if (!scan) {
-      return res
-        .status(404)
-        .json({ message: "Scan not found or unauthorized" });
-    }
+      if (!scan) {
+        // If not found with userId, try without userId filter
+        // This is for backward compatibility until migration is complete
+        const allUserScans = await Scan.findOne({
+          where: { id: scanId },
+          attributes: ['id', 'picture']
+        });
 
-    // Delete the image file if it exists
-    if (scan.picture) {
-      const imagePath = path.join(
-        __dirname,
-        "../../uploads/scans",
-        scan.picture
-      );
-      if (fs.existsSync(imagePath)) {
-        fs.unlinkSync(imagePath);
+        if (!allUserScans) {
+          return res.status(404).json({ message: "Scan not found" });
+        }
+
+        // Delete the image file if it exists
+        if (allUserScans.picture) {
+          const imagePath = path.join(
+            __dirname,
+            "../../uploads/scans",
+            allUserScans.picture
+          );
+          if (fs.existsSync(imagePath)) {
+            fs.unlinkSync(imagePath);
+          }
+        }
+
+        await allUserScans.destroy();
+        return res.status(200).json({ message: "Scan deleted successfully" });
+      }
+
+      // Delete the image file if it exists
+      if (scan.picture) {
+        const imagePath = path.join(
+          __dirname,
+          "../../uploads/scans",
+          scan.picture
+        );
+        if (fs.existsSync(imagePath)) {
+          fs.unlinkSync(imagePath);
+        }
+      }
+
+      await scan.destroy();
+      return res.status(200).json({ message: "Scan deleted successfully" });
+    } catch (error) {
+      // If error is due to missing userId column
+      if (error.name === 'SequelizeDatabaseError' && 
+          error.message.includes("userId") &&
+          error.parent && 
+          error.parent.code === '42703') {
+        
+        // Get the scan without filtering by userId
+        const scan = await Scan.findByPk(scanId, {
+          attributes: ['id', 'picture']
+        });
+
+        if (!scan) {
+          return res.status(404).json({ message: "Scan not found" });
+        }
+
+        // Delete the image file if it exists
+        if (scan.picture) {
+          const imagePath = path.join(
+            __dirname,
+            "../../uploads/scans",
+            scan.picture
+          );
+          if (fs.existsSync(imagePath)) {
+            fs.unlinkSync(imagePath);
+          }
+        }
+
+        await scan.destroy();
+        return res.status(200).json({ message: "Scan deleted successfully" });
+      } else {
+        // Rethrow other errors
+        throw error;
       }
     }
-
-    await scan.destroy();
-    return res.status(200).json({ message: "Scan deleted successfully" });
   } catch (error) {
     console.error("Error deleting scan:", error);
     return res

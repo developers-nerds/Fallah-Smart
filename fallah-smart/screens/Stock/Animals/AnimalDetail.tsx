@@ -11,7 +11,9 @@ import {
   ActivityIndicator,
   I18nManager,
   StatusBar,
-  SafeAreaView
+  SafeAreaView,
+  Modal,
+  TextInput
 } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
 import { useStock } from '../../../context/StockContext';
@@ -66,7 +68,7 @@ const ANIMAL_TYPES = {
 
   
   // Guard/Working Animals (حيوانات الحراسة والعمل)
-  dog: { icon: '🐕', name: 'كلب حراسة', category: 'حيوانات الحراسة والعمل' },
+  dog: { icon: '��', name: 'كلب حراسة', category: 'حيوانات الحراسة والعمل' },
   shepherdDog: { icon: '🦮', name: 'كلب راعي', category: 'حيوانات الحراسة والعمل' },
   
   // Insects (حشرات)
@@ -260,10 +262,112 @@ const FIELD_ICONS = {
   notes: '📝',
 };
 
+interface QuantityModalProps {
+  visible: boolean;
+  onClose: () => void;
+  onConfirm: (quantity: number, notes: string) => void;
+  type: 'add' | 'remove';
+  currentQuantity: number;
+  loading: boolean;
+}
+
+const QuantityModal: React.FC<QuantityModalProps> = ({
+  visible,
+  onClose,
+  onConfirm,
+  type,
+  currentQuantity,
+  loading,
+}) => {
+  const [quantity, setQuantity] = useState('');
+  const [notes, setNotes] = useState('');
+  const theme = useTheme();
+
+  const handleConfirm = () => {
+    const parsedQuantity = parseInt(quantity, 10);
+    if (isNaN(parsedQuantity) || parsedQuantity <= 0) {
+      Alert.alert('خطأ', 'الرجاء إدخال كمية صالحة');
+      return;
+    }
+
+    if (type === 'remove' && parsedQuantity > currentQuantity) {
+      Alert.alert('خطأ', 'الكمية المطلوبة أكبر من المتاح');
+      return;
+    }
+
+    onConfirm(parsedQuantity, notes);
+  };
+
+  return (
+    <Modal
+      animationType="fade"
+      transparent={true}
+      visible={visible}
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalContent, { backgroundColor: theme.colors.neutral.surface }]}>
+          <Text style={[styles.modalTitle, { color: theme.colors.neutral.textPrimary }]}>
+            {type === 'add' ? 'إضافة كمية' : 'إزالة كمية'}
+          </Text>
+          
+          <View style={styles.modalInputContainer}>
+            <TextInput
+              style={[styles.modalInput, { color: theme.colors.neutral.textPrimary }]}
+              placeholder="الكمية"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+              keyboardType="numeric"
+              value={quantity}
+              onChangeText={setQuantity}
+            />
+            
+            <TextInput
+              style={[styles.modalInput, { color: theme.colors.neutral.textPrimary }]}
+              placeholder="ملاحظات (اختياري)"
+              placeholderTextColor={theme.colors.neutral.textSecondary}
+              value={notes}
+              onChangeText={setNotes}
+              multiline
+            />
+          </View>
+          
+          <View style={styles.modalButtons}>
+            <TouchableOpacity
+              style={[styles.modalButton, styles.cancelButton]}
+              onPress={onClose}
+            >
+              <Text style={[styles.buttonText, { color: theme.colors.neutral.textPrimary }]}>
+                إلغاء
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[styles.modalButton, styles.confirmButton]}
+              onPress={handleConfirm}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <Text style={[styles.buttonText, { color: '#FFF' }]}>
+                  تأكيد
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
 export const AnimalDetailScreen = ({ navigation, route }: AnimalDetailScreenProps) => {
   const theme = useTheme();
   const { animals, deleteAnimal, addAnimalQuantity, removeAnimalQuantity } = useStock();
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showRemoveModal, setShowRemoveModal] = useState(false);
+  const [quantityLoading, setQuantityLoading] = useState(false);
 
   const animal = animals.find(a => a.id === route.params.animalId);
   const animalInfo = animal ? getAnimalInfo(animal.type) : null;
@@ -297,18 +401,25 @@ export const AnimalDetailScreen = ({ navigation, route }: AnimalDetailScreenProp
     );
   }, [animal?.id, deleteAnimal, navigation]);
 
-  const handleQuantityChange = useCallback(async (action: 'add' | 'remove') => {
+  const handleQuantityChange = async (type: 'add' | 'remove', quantity: number, notes: string) => {
     if (!animal) return;
+    
+    setQuantityLoading(true);
     try {
-      if (action === 'add') {
-        await addAnimalQuantity(animal.id, 1);
+      if (type === 'add') {
+        await addAnimalQuantity(animal.id, quantity, notes);
+        setShowAddModal(false);
       } else {
-        await removeAnimalQuantity(animal.id, 1);
+        await removeAnimalQuantity(animal.id, quantity, notes);
+        setShowRemoveModal(false);
       }
     } catch (error) {
+      console.error('Error updating quantity:', error);
       Alert.alert('خطأ', 'حدث خطأ أثناء تعديل الكمية');
+    } finally {
+      setQuantityLoading(false);
     }
-  }, [animal, addAnimalQuantity, removeAnimalQuantity]);
+  };
 
   const handleEdit = useCallback(() => {
     if (!animal) return;
@@ -455,14 +566,14 @@ export const AnimalDetailScreen = ({ navigation, route }: AnimalDetailScreenProp
                 <View style={styles.quantityControls}>
                   <TouchableOpacity
                     style={[styles.quantityButton, { backgroundColor: theme.colors.primary.base }]}
-                    onPress={() => handleQuantityChange('add')}
+                    onPress={() => setShowAddModal(true)}
                   >
                     <MaterialCommunityIcons name="plus" size={20} color="#FFF" />
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.quantityButton, { backgroundColor: theme.colors.error }]}
-                    onPress={() => handleQuantityChange('remove')}
-                    disabled={animal.count <= 1}
+                    onPress={() => setShowRemoveModal(true)}
+                    disabled={animal.count <= 0}
                   >
                     <MaterialCommunityIcons name="minus" size={20} color="#FFF" />
                   </TouchableOpacity>
@@ -588,6 +699,23 @@ export const AnimalDetailScreen = ({ navigation, route }: AnimalDetailScreenProp
           </View>
         </ScrollView>
       </View>
+      <QuantityModal
+        visible={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onConfirm={(quantity, notes) => handleQuantityChange('add', quantity, notes)}
+        type="add"
+        currentQuantity={animal.count}
+        loading={quantityLoading}
+      />
+
+      <QuantityModal
+        visible={showRemoveModal}
+        onClose={() => setShowRemoveModal(false)}
+        onConfirm={(quantity, notes) => handleQuantityChange('remove', quantity, notes)}
+        type="remove"
+        currentQuantity={animal.count}
+        loading={quantityLoading}
+      />
     </SafeAreaView>
   );
 };
@@ -798,5 +926,58 @@ const styles = StyleSheet.create({
   healthIcon: {
     fontSize: 24,
     color: '#FFF',
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    width: '85%',
+    borderRadius: 16,
+    padding: 24,
+    gap: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  modalInputContainer: {
+    gap: 16,
+  },
+  modalInput: {
+    height: 48,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 16,
+    marginTop: 16,
+  },
+  modalButton: {
+    flex: 1,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+  },
+  cancelButton: {
+    backgroundColor: '#f5f5f5',
+    borderWidth: 1,
+    borderColor: '#ccc',
+  },
+  confirmButton: {
+    backgroundColor: '#4caf50',
+  },
+  buttonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 }); 
