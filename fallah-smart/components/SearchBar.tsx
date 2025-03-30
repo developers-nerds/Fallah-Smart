@@ -1,11 +1,14 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { 
   View, 
   TextInput, 
   StyleSheet, 
   TouchableOpacity,
   ViewStyle,
-  TextStyle
+  TextStyle,
+  Keyboard,
+  NativeSyntheticEvent,
+  TextInputChangeEventData
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
@@ -26,6 +29,23 @@ export const SearchBar = ({
   inputStyle
 }: SearchBarProps) => {
   const theme = useTheme();
+  const inputRef = useRef<TextInput>(null);
+  
+  // Handling text changes without losing focus
+  const handleChangeText = (text: string) => {
+    onChangeText(text);
+    // Ensure input maintains focus
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 10);
+  };
+  
+  // Make sure the input stays focused when value changes externally
+  useEffect(() => {
+    if (inputRef.current && value.length > 0) {
+      inputRef.current.focus();
+    }
+  }, [value]);
 
   return (
     <View style={[
@@ -39,8 +59,9 @@ export const SearchBar = ({
         color={theme.colors.neutral.textSecondary} 
       />
       <TextInput
+        ref={inputRef}
         value={value}
-        onChangeText={onChangeText}
+        onChangeText={handleChangeText}
         placeholder={placeholder}
         placeholderTextColor={theme.colors.neutral.textSecondary}
         style={[
@@ -48,9 +69,26 @@ export const SearchBar = ({
           { color: theme.colors.neutral.textPrimary },
           inputStyle
         ]}
+        autoCorrect={false}
+        returnKeyType="search"
+        keyboardType="default"
+        blurOnSubmit={false}
+        autoCapitalize="none"
+        clearButtonMode="while-editing" // iOS only
+        enablesReturnKeyAutomatically={false}
+        onSubmitEditing={() => Keyboard.dismiss()}
       />
       {value.length > 0 && (
-        <TouchableOpacity onPress={() => onChangeText('')}>
+        <TouchableOpacity 
+          onPress={() => {
+            onChangeText('');
+            // Ensure input regains focus after clearing
+            setTimeout(() => {
+              inputRef.current?.focus();
+            }, 10);
+          }}
+          hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+        >
           <MaterialCommunityIcons 
             name="close-circle" 
             size={20} 

@@ -365,11 +365,12 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [activeDateField, setActiveDateField] = useState<'lastBreedingDate' | 'expectedBirthDate' | 'nextVaccinationDate' | null>(null);
 
-  const { animalId, mode } = route.params || {};
+  const { animalId } = route.params || { animalId: undefined };
+  const isEditMode = !!animalId;
 
   useEffect(() => {
-    if (mode === 'edit' && animalId) {
-      const animal = animals.find(a => a.id === animalId);
+    if (isEditMode && animalId) {
+      const animal = animals.find(a => a.id.toString() === animalId.toString());
       if (animal) {
         setFormData({
           type: animal.type,
@@ -394,7 +395,7 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
         });
       }
     }
-  }, [animalId, mode, animals]);
+  }, [animalId, isEditMode, animals]);
 
   const progressStyle = useAnimatedStyle(() => {
     return {
@@ -459,9 +460,9 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
 
       console.log('Submitting animal data:', JSON.stringify(animalData, null, 2));
 
-      if (mode === 'edit' && animalId) {
+      if (isEditMode && animalId) {
         console.log('Updating animal with ID:', animalId);
-        await updateAnimal(animalId, animalData);
+        await updateAnimal(String(animalId), animalData);
       } else {
         console.log('Creating new animal');
         await createAnimal(animalData);
@@ -470,7 +471,7 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
       navigation.goBack();
     } catch (error) {
       console.error('Error saving animal:', error);
-      Alert.alert('خطأ', mode === 'edit' ? 'فشل في تحديث الحيوان' : 'فشل في إضافة الحيوان');
+      Alert.alert('خطأ', isEditMode ? 'فشل في تحديث الحيوان' : 'فشل في إضافة الحيوان');
     } finally {
       setIsSubmitting(false);
     }
@@ -939,7 +940,12 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
                   backgroundColor: theme.colors.neutral.surface,
                   borderColor: validationErrors.lastBreedingDate 
                     ? theme.colors.error 
-                    : theme.colors.neutral.border
+                    : theme.colors.neutral.border,
+                  shadowColor: theme.colors.neutral.textSecondary,
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 4,
+                  elevation: 2,
                 }
               ]}
               onPress={() => showDatePickerModal('lastBreedingDate')}
@@ -954,7 +960,7 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
                 { color: formData.lastBreedingDate ? theme.colors.neutral.textPrimary : theme.colors.neutral.textSecondary }
               ]}>
                 {formData.lastBreedingDate 
-                  ? new Date(formData.lastBreedingDate).toLocaleDateString('ar-SA')
+                  ? new Date(formData.lastBreedingDate).toLocaleDateString('en-GB')
                   : 'اختر التاريخ'}
               </Text>
             </TouchableOpacity>
@@ -998,11 +1004,7 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
               />
               <Text style={[styles.dateText, { color: theme.colors.neutral.textPrimary }]}>
                 {calculatedDate 
-                  ? new Date(calculatedDate).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: '2-digit',
-                      day: '2-digit'
-                    })
+                  ? new Date(calculatedDate).toLocaleDateString('en-GB')
                   : 'سيتم الحساب تلقائياً بعد تحديد تاريخ التكاثر'}
               </Text>
             </TouchableOpacity>
@@ -1019,14 +1021,17 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
               </Text>
             </View>
             <TouchableOpacity
-              style={[styles.input, { 
-                backgroundColor: theme.colors.neutral.surface,
-                borderColor: theme.colors.neutral.border,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                paddingVertical: 12,
-              }]}
+              style={[
+                styles.input,
+                { 
+                  backgroundColor: theme.colors.neutral.surface,
+                  borderColor: theme.colors.neutral.border,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingVertical: 12,
+                }
+              ]}
               onPress={() => showDatePickerModal('nextVaccinationDate')}
             >
               <MaterialCommunityIcons 
@@ -1046,11 +1051,7 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
                 }
               ]}>
                 {formData.nextVaccinationDate 
-                  ? new Date(formData.nextVaccinationDate).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: '2-digit',
-                      day: '2-digit'
-                    })
+                  ? new Date(formData.nextVaccinationDate).toLocaleDateString('en-GB')
                   : 'اختر موعد التلقيح القادم'}
               </Text>
             </TouchableOpacity>
@@ -1112,11 +1113,7 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
                 { color: formData.birthDate ? theme.colors.neutral.textPrimary : theme.colors.neutral.textSecondary }
               ]}>
                 {formData.birthDate 
-                  ? new Date(formData.birthDate).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: '2-digit',
-                      day: '2-digit'
-                    })
+                  ? new Date(formData.birthDate).toLocaleDateString('en-GB')
                   : 'اختر تاريخ الميلاد'}
               </Text>
             </TouchableOpacity>
@@ -1201,36 +1198,83 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
     }
   };
 
+  const renderStepIndicator = () => {
+    return (
+      <View style={styles.stepIndicatorContainer}>
+        {formPages.map((page, index) => (
+          <View key={index} style={styles.stepItem}>
+            <TouchableOpacity
+              onPress={() => {
+                // Allow jumping to previous steps only
+                if (index <= currentPage) {
+                  setCurrentPage(index);
+                }
+              }}
+              style={[
+                styles.stepCircle,
+                {
+                  backgroundColor: index < currentPage 
+                    ? theme.colors.primary.base 
+                    : index === currentPage 
+                      ? theme.colors.primary.base + '20'
+                      : theme.colors.neutral.surface,
+                  borderColor: index <= currentPage 
+                    ? theme.colors.primary.base 
+                    : theme.colors.neutral.border,
+                }
+              ]}
+            >
+              {index < currentPage ? (
+                <Feather name="check" size={14} color="#FFF" />
+              ) : (
+                <Text style={[
+                  styles.stepNumber, 
+                  { 
+                    color: index === currentPage 
+                      ? theme.colors.primary.base 
+                      : theme.colors.neutral.textSecondary 
+                  }
+                ]}>
+                  {index + 1}
+                </Text>
+              )}
+            </TouchableOpacity>
+            
+            {/* Line between steps - Right to left for Arabic */}
+            {index < formPages.length - 1 && (
+              <View 
+                style={[
+                  styles.stepLine, 
+                  { 
+                    backgroundColor: index < currentPage 
+                      ? theme.colors.primary.base 
+                      : theme.colors.neutral.border 
+                  }
+                ]} 
+              />
+            )}
+          </View>
+        ))}
+      </View>
+    );
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.neutral.background }]}>
       <StatusBar
         backgroundColor={theme.colors.neutral.surface}
         barStyle="dark-content"
       />
-      <View style={[styles.header, { backgroundColor: theme.colors.neutral.surface }]}>
-        <Text style={[styles.headerTitle, { color: theme.colors.neutral.textPrimary }]}>
-          {mode === 'edit' ? 'تعديل الحيوان' : 'إضافة حيوان جديد'}
-        </Text>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Feather name="arrow-right" size={24} color={theme.colors.neutral.textPrimary} />
-        </TouchableOpacity>
-      </View>
+      
+      {renderStepIndicator()}
 
-      <View style={styles.progressContainer}>
-        <View style={[styles.progressBar, { backgroundColor: theme.colors.neutral.border }]}>
-          <Animated.View
-            style={[
-              styles.progressFill,
-              { backgroundColor: theme.colors.primary.base },
-              progressStyle,
-            ]}
-          />
-        </View>
-        <Text style={[styles.progressText, { color: theme.colors.neutral.textSecondary }]}>
-          الخطوة {currentPage + 1} من {formPages.length}
+      {/* Form description */}
+      <View style={styles.formHeaderContainer}>
+        <Text style={styles.formTitle}>
+          {formPages[currentPage].title}
+        </Text>
+        <Text style={styles.formSubtitle}>
+          {formPages[currentPage].subtitle}
         </Text>
       </View>
 
@@ -1252,17 +1296,39 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
       <View style={[styles.footer, { backgroundColor: theme.colors.neutral.surface }]}>
         {currentPage > 0 && (
           <TouchableOpacity
-            style={[styles.navButton, { backgroundColor: theme.colors.neutral.border }]}
+            style={[
+              styles.navButton, 
+              { 
+                backgroundColor: theme.colors.neutral.surface,
+                borderWidth: 1,
+                borderColor: theme.colors.primary.base,
+                shadowColor: theme.colors.neutral.textSecondary,
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 4,
+                elevation: 2,
+              }
+            ]}
             onPress={prevPage}
           >
-            <Feather name="arrow-left" size={24} color={theme.colors.neutral.textPrimary} />
-            <Text style={[styles.navButtonText, { color: theme.colors.neutral.textPrimary }]}>
-              السابق
+            <Feather name="arrow-left" size={24} color={theme.colors.primary.base} />
+            <Text style={[styles.navButtonText, { color: theme.colors.primary.base }]}>
+              السابق ←
             </Text>
           </TouchableOpacity>
         )}
         <TouchableOpacity
-          style={[styles.navButton, { backgroundColor: theme.colors.primary.base }]}
+          style={[
+            styles.navButton, 
+            { 
+              backgroundColor: theme.colors.primary.base,
+              shadowColor: theme.colors.neutral.textSecondary,
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.2,
+              shadowRadius: 4,
+              elevation: 3,
+            }
+          ]}
           onPress={nextPage}
           disabled={isSubmitting}
         >
@@ -1271,7 +1337,7 @@ export const AddAnimalScreen = ({ navigation, route }: AddAnimalScreenProps) => 
           ) : (
             <>
               <Text style={styles.navButtonText}>
-                {currentPage === formPages.length - 1 ? 'حفظ' : 'التالي'}
+                {currentPage === formPages.length - 1 ? ' حفظ' : ' التالي'}
               </Text>
               <Feather name="arrow-right" size={24} color="#FFF" />
             </>
@@ -1753,5 +1819,60 @@ const styles = StyleSheet.create({
   unitText: {
     fontSize: 16,
     marginRight: 8,
+  },
+  stepIndicatorContainer: {
+    flexDirection: 'row-reverse', // RTL for Arabic
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  stepItem: {
+    flexDirection: 'row-reverse', // RTL for Arabic
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+  },
+  stepCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.5,
+    elevation: 2,
+  },
+  stepLine: {
+    height: 2,
+    flex: 1,
+    maxWidth: '80%',
+  },
+  stepNumber: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  formHeaderContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: 'white',
+  },
+  formTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'right',
+    marginBottom: 4,
+  },
+  formSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'right',
   },
 }); 

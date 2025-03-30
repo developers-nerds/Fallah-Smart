@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { StockItem, StockHistory, Animal } from '../screens/Stock/types';
 import { stockApi, animalApi } from '../services/api';
+import { storage } from '../utils/storage';
 
 interface StockContextType {
   stocks: StockItem[];
@@ -37,6 +38,43 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [animals, setAnimals] = useState<Animal[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isLoadingRef = useRef<boolean>(false);
+
+  const fetchStocks = useCallback(async () => {
+    // Prevent concurrent fetches
+    if (isLoadingRef.current) return;
+    
+    try {
+      isLoadingRef.current = true;
+      setLoading(true);
+      console.log('[StockContext] Fetching stocks from API...');
+      
+      const tokens = await storage.getTokens();
+      if (!tokens?.access) {
+        console.error('[StockContext] Failed to fetch stocks: No access token available');
+        throw new Error('No auth token available');
+      }
+      
+      const data = await stockApi.getAllStocks();
+      console.log(`[StockContext] Successfully fetched ${data.length} stocks`);
+      setStocks(data);
+      return data;
+    } catch (err) {
+      console.error('[StockContext] Error fetching stocks:', err);
+      
+      // Handle throttled requests gracefully
+      if (err && typeof err === 'object' && 'throttled' in err) {
+        console.log('[StockContext] Request throttled, using existing data');
+        return stocks; // Return existing data
+      }
+      
+      setError(err instanceof Error ? err.message : 'Failed to fetch stocks');
+      throw err;
+    } finally {
+      setLoading(false);
+      isLoadingRef.current = false;
+    }
+  }, [stocks]);
 
   const refreshStocks = async () => {
     try {
@@ -44,8 +82,25 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setError(null);
       const data = await stockApi.getAllStocks();
       setStocks(data);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch stocks';
+    } catch (err: any) {
+      // Check for throttled responses
+      if (err.throttled) {
+        console.warn('Request throttled, using cached stock data if available');
+        
+        // If we got cached data despite the error, use it
+        if (err.cachedData) {
+          console.log('Using cached stock data');
+          setStocks(err.cachedData);
+          return;
+        }
+      }
+      
+      // For other errors, show user-friendly message
+      const errorMessage = err instanceof Error 
+        ? err.message 
+        : err.throttled 
+          ? 'تم التخنق في الطلبات، يرجى المحاولة مرة أخرى بعد ثوان' // User-friendly throttling message
+          : 'فشل في جلب المخزون';
       setError(errorMessage);
       console.error('Error refreshing stocks:', err);
     } finally {
@@ -97,8 +152,20 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setError(null);
       await stockApi.updateStock(id, stock);
       await refreshStocks();
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to update stock';
+    } catch (err: any) {
+      // Handle throttled responses
+      if (err.throttled && err.cachedData) {
+        console.warn('Update stock request throttled, using cached data');
+        // Just refresh stocks to get the latest state
+        await refreshStocks();
+        return;
+      }
+      
+      const errorMessage = err instanceof Error 
+        ? err.message 
+        : err.throttled 
+          ? 'تم التخنق في الطلبات، تم تطبيق التغييرات ولكن قد لا تظهر فورًا' 
+          : 'فشل في تحديث المخزون';
       setError(errorMessage);
       throw err;
     } finally {
@@ -133,9 +200,21 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setStocks(prev => prev.map(stock => 
         stock.id === id ? updatedStock : stock
       ));
-    } catch (err) {
-      setError('Failed to add stock quantity');
-      console.error('Error adding stock quantity:', err);
+    } catch (err: any) {
+      // Handle throttled responses
+      if (err.throttled && err.cachedData) {
+        console.warn('Add stock quantity request throttled, using cached data');
+        // Just refresh stocks to get the latest state
+        await refreshStocks();
+        return;
+      }
+      
+      const errorMessage = err instanceof Error 
+        ? err.message 
+        : err.throttled 
+          ? 'تم التخنق في الطلبات، تم تطبيق التغييرات ولكن قد لا تظهر فورًا' 
+          : 'فشل في إضافة الكمية';
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);
@@ -154,9 +233,21 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setStocks(prev => prev.map(stock => 
         stock.id === id ? updatedStock : stock
       ));
-    } catch (err) {
-      setError('Failed to remove stock quantity');
-      console.error('Error removing stock quantity:', err);
+    } catch (err: any) {
+      // Handle throttled responses
+      if (err.throttled && err.cachedData) {
+        console.warn('Remove stock quantity request throttled, using cached data');
+        // Just refresh stocks to get the latest state
+        await refreshStocks();
+        return;
+      }
+      
+      const errorMessage = err instanceof Error 
+        ? err.message 
+        : err.throttled 
+          ? 'تم التخنق في الطلبات، تم تطبيق التغييرات ولكن قد لا تظهر فورًا' 
+          : 'فشل في إنقاص الكمية';
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);
@@ -169,8 +260,25 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setError(null);
       const data = await animalApi.getAllAnimals();
       setAnimals(data);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch animals';
+    } catch (err: any) {
+      // Check for throttled responses
+      if (err.throttled) {
+        console.warn('Request throttled, using cached animal data if available');
+        
+        // If we got cached data despite the error, use it
+        if (err.cachedData) {
+          console.log('Using cached animal data');
+          setAnimals(err.cachedData);
+          return;
+        }
+      }
+      
+      // For other errors, show user-friendly message
+      const errorMessage = err instanceof Error 
+        ? err.message 
+        : err.throttled 
+          ? 'تم التخنق في الطلبات، يرجى المحاولة مرة أخرى بعد ثوان' // User-friendly throttling message
+          : 'فشل في جلب الحيوانات';
       setError(errorMessage);
       console.error('Error refreshing animals:', err);
     } finally {
@@ -273,9 +381,17 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       const history = await stockApi.getStockHistory(stockId);
       return history;
-    } catch (error) {
-      console.error('Error fetching stock history:', error);
-      throw error;
+    } catch (err: any) {
+      // Check for throttled responses
+      if (err.throttled && err.cachedData) {
+        console.warn('Stock history request throttled, using cached data');
+        return err.cachedData;
+      }
+      
+      console.error('Error fetching stock history:', err);
+      throw err.throttled 
+        ? new Error('تم التخنق في الطلبات، يرجى المحاولة مرة أخرى بعد ثوان')
+        : err;
     }
   };
 

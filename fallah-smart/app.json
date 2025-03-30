@@ -48,6 +48,7 @@
         "projectId": "fallahsmart-c62d4"
       }
     },
-    "scheme": "fallahsmart"
+    "scheme": "fallahsmart",
+    "newArchEnabled": true
   }
 }

@@ -1,12 +1,11 @@
-const { StockTools, StockHistory, StockNotification } = require('../database/models');
+const { StockTools, StockNotification } = require('../database/models');
 
 const stockToolsController = {
   // Get all tools for a user
   getAllTools: async (req, res) => {
     try {
       const tools = await StockTools.findAll({
-        where: { userId: req.user.id },
-        include: [{ model: StockHistory, as: 'history' }]
+        where: { userId: req.user.id }
       });
       res.json(tools);
     } catch (error) {
@@ -22,8 +21,7 @@ const stockToolsController = {
         where: { 
           id: req.params.id,
           userId: req.user.id 
-        },
-        include: [{ model: StockHistory, as: 'history' }]
+        }
       });
 
       if (!tool) {
@@ -45,16 +43,6 @@ const stockToolsController = {
         userId: req.user.id
       });
 
-      // Create initial stock history entry
-      await StockHistory.create({
-        stockToolsId: tool.id,
-        type: 'initial',
-        quantity: req.body.quantity || 1,
-        previousQuantity: 0,
-        newQuantity: req.body.quantity || 1,
-        notes: 'Initial tool entry'
-      });
-
       // Create low stock notification if quantity is below minQuantityAlert
       if (tool.quantity <= tool.minQuantityAlert) {
         await StockNotification.create({
@@ -69,8 +57,7 @@ const stockToolsController = {
       }
 
       const createdTool = await StockTools.findOne({
-        where: { id: tool.id },
-        include: [{ model: StockHistory, as: 'history' }]
+        where: { id: tool.id }
       });
 
       res.status(201).json(createdTool);
@@ -97,34 +84,21 @@ const stockToolsController = {
       const previousQuantity = tool.quantity;
       await tool.update(req.body);
 
-      // Create history entry for quantity changes
-      if (previousQuantity !== req.body.quantity) {
-        await StockHistory.create({
-          stockToolsId: tool.id,
-          type: 'update',
-          quantity: req.body.quantity - previousQuantity,
-          previousQuantity,
-          newQuantity: req.body.quantity,
-          notes: req.body.notes || 'Stock update'
+      // Check for low stock after update
+      if (req.body.quantity <= tool.minQuantityAlert) {
+        await StockNotification.create({
+          type: 'low_stock',
+          title: `Low Stock Alert - ${tool.name}`,
+          message: `Tool ${tool.name} is running low on stock (${req.body.quantity} remaining)`,
+          priority: 'high',
+          relatedModelType: 'StockTools',
+          relatedModelId: tool.id,
+          userId: req.user.id
         });
-
-        // Check for low stock after update
-        if (req.body.quantity <= tool.minQuantityAlert) {
-          await StockNotification.create({
-            type: 'low_stock',
-            title: `Low Stock Alert - ${tool.name}`,
-            message: `Tool ${tool.name} is running low on stock (${req.body.quantity} remaining)`,
-            priority: 'high',
-            relatedModelType: 'StockTools',
-            relatedModelId: tool.id,
-            userId: req.user.id
-          });
-        }
       }
 
       const updatedTool = await StockTools.findOne({
-        where: { id: req.params.id },
-        include: [{ model: StockHistory, as: 'history' }]
+        where: { id: req.params.id }
       });
 
       res.json(updatedTool);
@@ -187,16 +161,6 @@ const stockToolsController = {
 
       await tool.update({ quantity: newQuantity });
 
-      // Create history entry
-      await StockHistory.create({
-        stockToolsId: tool.id,
-        type: type === 'add' ? 'addition' : 'reduction',
-        quantity: type === 'add' ? quantity : -quantity,
-        previousQuantity,
-        newQuantity,
-        notes: notes || `Stock ${type === 'add' ? 'addition' : 'reduction'}`
-      });
-
       // Check for low stock
       if (newQuantity <= tool.minQuantityAlert) {
         await StockNotification.create({
@@ -211,8 +175,7 @@ const stockToolsController = {
       }
 
       const updatedTool = await StockTools.findOne({
-        where: { id },
-        include: [{ model: StockHistory, as: 'history' }]
+        where: { id }
       });
 
       res.json(updatedTool);
