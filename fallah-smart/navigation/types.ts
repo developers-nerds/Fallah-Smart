@@ -54,4 +54,15 @@ export type DrawerParamList = {
   Wallet: undefined;
   Dictionary: undefined;
   Marketplace: undefined;
+  Weather: undefined;
+  Education: undefined;
+  Advisor: undefined;
+};
+
+export type AdvisorStackParamList = {
+  AdvisorHome: undefined;
+  QuizSelector: { type?: 'animal' | 'crop' };
+  QuestionManagement: { quizId: number };
+  QuestionForm: { quizId: number; questionId?: number };
+  QuizForm: { quizId?: number; type?: 'animal' | 'crop' };
 };

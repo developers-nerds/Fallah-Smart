@@ -50,7 +50,7 @@ exports.getQuestionsByQuizId = async (req, res) => {
 
 // Create a new question
 exports.createQuestion = async (req, res) => {
-  const { question, options, correctAnswer, explanation, quizId } = req.body;
+  let { question, options, correctAnswer, explanation, quizId } = req.body;
   
   // Validate required fields
   if (!question || !options || correctAnswer === undefined || !quizId) {
@@ -74,6 +74,10 @@ exports.createQuestion = async (req, res) => {
       return res.status(404).json({ message: 'Quiz not found' });
     }
     
+    // Set defaults if not provided
+    if (!explanation) explanation = '';
+    
+    // Create without specifying ID to let Sequelize auto-assign it
     const newQuestion = await Education_Question.create({
       question,
       options,
@@ -85,6 +89,32 @@ exports.createQuestion = async (req, res) => {
     return res.status(201).json(newQuestion);
   } catch (error) {
     console.error('Error creating question:', error);
+    
+    // Handle specific database errors
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      try {
+        // Try to reset the sequence
+        await Education_Question.resetSequence();
+        
+        // Try one more time with the sequence reset
+        const newQuestion = await Education_Question.create({
+          question,
+          options,
+          correctAnswer,
+          explanation,
+          quizId
+        });
+        
+        return res.status(201).json(newQuestion);
+      } catch (retryError) {
+        console.error('Error after resetting sequence:', retryError);
+        return res.status(409).json({ 
+          message: 'Conflict with existing question ID. Please try again later.',
+          error: error.message
+        });
+      }
+    }
+    
     return res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 };
