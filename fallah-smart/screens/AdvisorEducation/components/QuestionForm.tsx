@@ -23,7 +23,7 @@ import { isValidQuizId } from '../../Education/utils/quizMapping';
 
 type QuestionFormRouteProp = RouteProp<AdvisorStackParamList, 'QuestionForm'>;
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_URL = process.env.EXPO_PUBLIC_API_URL 
 
 interface QuestionOption {
   text: string;
