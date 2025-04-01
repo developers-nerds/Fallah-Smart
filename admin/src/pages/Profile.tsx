@@ -2,19 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useAppSelector, useAppDispatch } from '../redux/store';
 import { User, setUser } from '../redux/auth';
-import { AlertCircle, Check, User as UserIcon, Upload, Camera } from 'lucide-react';
-
-// Colors for charts
-const STOCK_COLORS = [
-  '#4F7942', // Green
-  '#0088FE', // Blue
-  '#FF8042', // Orange
-  '#FFBB28', // Yellow
-  '#8884d8', // Purple
-  '#00C49F', // Teal
-  '#093731', // Dark Green (primary)
-  '#82ca9d'  // Light Green
-];
+import { AlertCircle, Check, User as UserIcon, Upload, Camera, Edit2 } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 const API_URL = import.meta.env.VITE_API;
 const BASE_URL = import.meta.env.VITE_API_blog;
@@ -47,17 +36,14 @@ const Profile = () => {
   const [uploadedImage, setUploadedImage] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [imageTimestamp, setImageTimestamp] = useState<number>(Date.now());
+  const [isEditing, setIsEditing] = useState(false);
 
   const getImageUrl = (imageUrl: string | null | undefined): string | null => {
     if (!imageUrl) return null;
-    
     const cacheBuster = `?t=${imageTimestamp}`;
-    
-    if (imageUrl.startsWith('http')) {
-      return imageUrl.replace(/http:\/\/\d+\.\d+\.\d+\.\d+:\d+/, BASE_URL) + cacheBuster;
-    }
-    
-    return `${BASE_URL}${imageUrl}${cacheBuster}`;
+    return imageUrl.startsWith('http') 
+      ? imageUrl.replace(/http:\/\/\d+\.\d+\.\d+\.\d+:\d+/, BASE_URL) + cacheBuster
+      : `${BASE_URL}${imageUrl}${cacheBuster}`;
   };
 
   useEffect(() => {
@@ -67,11 +53,7 @@ const Profile = () => {
   const fetchProfile = async () => {
     try {
       setLoading(true);
-      const config = {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        }
-      };
+      const config = { headers: { 'Authorization': `Bearer ${accessToken}` } };
       const response = await axios.get(`${API_URL}/users/profile`, config);
       const userData = response.data;
       
@@ -86,35 +68,25 @@ const Profile = () => {
       
       if (userData.profilePicture) {
         const imageUrl = getImageUrl(userData.profilePicture);
-        if (imageUrl !== null) {
-          setProfileImage(imageUrl);
-        }
+        if (imageUrl) setProfileImage(imageUrl);
       }
-      
-      setLoading(false);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching profile:', error);
       setProfileError('Failed to load profile data');
+    } finally {
       setLoading(false);
     }
   };
 
-  const handleImageClick = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
+  const handleImageClick = () => fileInputRef.current?.click();
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Check file size (limit to 5MB)
       if (file.size > 5 * 1024 * 1024) {
         setProfileError('Image too large. Maximum size is 5MB.');
         return;
       }
-      
-      // Check file type
       if (!file.type.match('image.*')) {
         setProfileError('Only image files are allowed.');
         return;
@@ -122,22 +94,15 @@ const Profile = () => {
       
       setUploadedImage(file);
       setImageTimestamp(Date.now());
-      
-      // Create preview
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfileImage(reader.result as string);
-      };
+      reader.onloadend = () => setProfileImage(reader.result as string);
       reader.readAsDataURL(file);
     }
   };
 
   const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setProfileData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setProfileData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleProfileSubmit = async (e: React.FormEvent) => {
@@ -154,281 +119,210 @@ const Profile = () => {
         }
       };
       
-      // Create form data to handle file upload
       const formData = new FormData();
-      
-      // Add profile data fields
       Object.entries(profileData).forEach(([key, value]) => {
-        if (value && key !== 'email') {  // Skip email field
-          formData.append(key, value);
-        }
+        if (value && key !== 'email') formData.append(key, value);
       });
       
-      // Add image if uploaded - make sure field name matches server expectation
-      if (uploadedImage) {
-        // Use profilePicture as the field name - this should match what the backend expects
-        formData.append('profilePicture', uploadedImage);
-        
-        // Log file details for debugging
-        console.log('Uploading file:', {
-          name: uploadedImage.name,
-          type: uploadedImage.type,
-          size: `${(uploadedImage.size / 1024).toFixed(2)} KB`,
-          field: 'profilePicture' // Log the field name we're using
-        });
-      }
+      if (uploadedImage) formData.append('profilePicture', uploadedImage);
       
-      // Log the form data keys
-      console.log('Form data keys:', Array.from(formData.keys()));
+      const response = await axios.put(`${API_URL}/users/profile`, formData, config);
+      const updatedUserData = response.data.user || response.data;
+      const updatedProfilePicture = updatedUserData.profilePicture 
+        ? getImageUrl(updatedUserData.profilePicture) 
+        : user?.profilePicture;
+
+      dispatch(setUser({
+        ...user!,
+        firstName: profileData.firstName,
+        lastName: profileData.lastName,
+        username: profileData.username,
+        profilePicture: updatedProfilePicture || user?.profilePicture
+      } as User));
       
-      try {
-        const response = await axios.put(
-          `${API_URL}/users/profile`, 
-          formData,
-          config
-        );
-        
-        console.log('Profile update response:', response.data);
-        
-        // Update user data in Redux
-        if (response.data) {
-          // Handle different response formats - some APIs return the user object directly,
-          // while others might nest it under a different property
-          const updatedUserData = response.data.user || response.data;
-          
-          // Use the proper image URL for the Redux state
-          const updatedProfilePicture = updatedUserData.profilePicture 
-            ? getImageUrl(updatedUserData.profilePicture) 
-            : user?.profilePicture;
-          
-          console.log('Setting new profile picture URL:', updatedProfilePicture);
-          
-          dispatch(setUser({
-            ...user!,
-            firstName: profileData.firstName,
-            lastName: profileData.lastName,
-            username: profileData.username,
-            profilePicture: updatedProfilePicture || user?.profilePicture
-          } as User));
-          
-          // Also update the local state for immediate UI update
-          setProfileImage(updatedProfilePicture || null);
-        }
-        
-        setProfileSuccess('Profile updated successfully');
-        setImageTimestamp(Date.now());
-      } catch (error: any) {
-        console.error('Error updating profile:', error);
-        console.error('Error details:', error.response?.data);
-        console.error('Error status:', error.response?.status);
-        
-        // Try to update profile without the image if it fails
-        if (uploadedImage && error.response?.status === 500) {
-          setProfileError('Failed to upload image. Updating profile without image...');
-          
-          // Try text-only update with JSON content type
-          try {
-            const jsonConfig = {
-              headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'Content-Type': 'application/json'
-              }
-            };
-            
-            // Use regular JSON for the update without the image
-            const textOnlyData = {
-              firstName: profileData.firstName,
-              lastName: profileData.lastName,
-              username: profileData.username,
-              phoneNumber: profileData.phoneNumber,
-              gender: profileData.gender
-            };
-            
-            const fallbackResponse = await axios.put(
-              `${API_URL}/users/profile`,
-              textOnlyData,
-              jsonConfig
-            );
-            
-            if (fallbackResponse.data) {
-              dispatch(setUser({
-                ...user!,
-                ...textOnlyData,
-                // Don't update profilePicture since it failed
-              } as User));
-            }
-            
-            setProfileSuccess('Profile updated successfully (without image)');
-            setImageTimestamp(Date.now());
-          } catch (fallbackError: any) {
-            setProfileError(fallbackError.response?.data?.message || 'Failed to update profile');
-          }
-        } else {
-          setProfileError(error.response?.data?.message || 'Failed to update profile');
-        }
-      }
-      
-      setLoading(false);
+      setProfileImage(updatedProfilePicture || null);
+      setProfileSuccess('Profile updated successfully');
+      setImageTimestamp(Date.now());
+      setIsEditing(false);
     } catch (error: any) {
-      console.error('Error in profile update process:', error);
-      setProfileError('An unexpected error occurred');
+      console.error('Error updating profile:', error);
+      setProfileError(error.response?.data?.message || 'Failed to update profile');
+    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Admin Profile</h1>
-      
-      <div className="grid grid-cols-1 gap-8">
-        {/* Profile Information */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold mb-4 flex items-center">
-            <UserIcon className="mr-2 h-5 w-5" />
-            Personal Information
-          </h2>
-          
-          {/* Profile Image */}
-          <div className="flex justify-center mb-6">
-            <div 
-              className="relative w-24 h-24 rounded-full overflow-hidden cursor-pointer border-2 border-gray-300"
-              onClick={handleImageClick}
-            >
-              {profileImage ? (
-                <img 
-                  src={profileImage} 
-                  alt="Profile" 
-                  className="w-full h-full object-cover"
-                  key={Date.now()}
-                />
-              ) : (
-                <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                  <UserIcon className="h-12 w-12 text-gray-500" />
-                </div>
-              )}
-              <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                <Camera className="h-8 w-8 text-white" />
-              </div>
-              <input
-                type="file"
-                ref={fileInputRef}
-                className="hidden"
-                accept="image/*"
-                onChange={handleImageChange}
-              />
-            </div>
-          </div>
-          
-          {profileSuccess && (
-            <div className="mb-4 rounded-md bg-green-50 p-4">
-              <div className="flex">
-                <Check className="h-5 w-5 text-green-400" />
-                <div className="ml-3">
-                  <p className="text-sm text-green-700">{profileSuccess}</p>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {profileError && (
-            <div className="mb-4 rounded-md bg-red-50 p-4">
-              <div className="flex">
-                <AlertCircle className="h-5 w-5 text-red-400" />
-                <div className="ml-3">
-                  <p className="text-sm text-red-700">{profileError}</p>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          <form onSubmit={handleProfileSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  First Name
-                </label>
-                <input
-                  type="text"
-                  name="firstName"
-                  value={profileData.firstName}
-                  onChange={handleProfileChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Last Name
-                </label>
-                <input
-                  type="text"
-                  name="lastName"
-                  value={profileData.lastName}
-                  onChange={handleProfileChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Username
-              </label>
-              <input
-                type="text"
-                name="username"
-                value={profileData.username}
-                onChange={handleProfileChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Phone Number
-              </label>
-              <input
-                type="tel"
-                name="phoneNumber"
-                value={profileData.phoneNumber}
-                onChange={handleProfileChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Gender
-              </label>
-              <select
-                name="gender"
-                value={profileData.gender}
-                onChange={handleProfileChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+      className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-8"
+    >
+      <div className="max-w-4xl mx-auto">
+        <motion.h1 
+          initial={{ y: -20 }}
+          animate={{ y: 0 }}
+          className="text-3xl font-bold text-gray-800 mb-8 flex items-center"
+        >
+          <UserIcon className="mr-3 h-8 w-8 text-indigo-600" />
+          Profile Dashboard
+        </motion.h1>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Profile Card */}
+          <motion.div 
+            className="md:col-span-1 bg-white rounded-xl shadow-lg p-6"
+            whileHover={{ scale: 1.02 }}
+            transition={{ type: "spring", stiffness: 300 }}
+          >
+            <div className="flex flex-col items-center">
+              <div 
+                className="relative w-32 h-32 rounded-full overflow-hidden cursor-pointer border-4 border-indigo-100 mb-4 group"
+                onClick={handleImageClick}
               >
-                <option value="">Select Gender</option>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-                <option value="other">Other</option>
-              </select>
+                {profileImage ? (
+                  <img 
+                    src={profileImage} 
+                    alt="Profile" 
+                    className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-indigo-100 to-gray-200 flex items-center justify-center">
+                    <UserIcon className="h-16 w-16 text-gray-500" />
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-indigo-900 bg-opacity-0 group-hover:bg-opacity-30 flex items-center justify-center transition-all">
+                  <Camera className="h-8 w-8 text-white opacity-0 group-hover:opacity-100" />
+                </div>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                />
+              </div>
+              
+              <h2 className="text-xl font-semibold text-gray-800">
+                {profileData.firstName} {profileData.lastName}
+              </h2>
+              <p className="text-gray-500">@{profileData.username}</p>
             </div>
-            
-            <div>
+          </motion.div>
+
+          {/* Profile Form */}
+          <div className="md:col-span-2 bg-white rounded-xl shadow-lg p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold text-gray-800">Personal Information</h2>
               <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-blue-300"
+                onClick={() => setIsEditing(!isEditing)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
               >
-                {loading ? 'Updating...' : 'Update Profile'}
+                <Edit2 className="h-5 w-5 text-indigo-600" />
               </button>
             </div>
-          </form>
+
+            {profileSuccess && (
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-4 rounded-lg bg-green-50 p-4"
+              >
+                <div className="flex items-center">
+                  <Check className="h-5 w-5 text-green-500 mr-2" />
+                  <p className="text-sm text-green-700">{profileSuccess}</p>
+                </div>
+              </motion.div>
+            )}
+            
+            {profileError && (
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-4 rounded-lg bg-red-50 p-4"
+              >
+                <div className="flex items-center">
+                  <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
+                  <p className="text-sm text-red-700">{profileError}</p>
+                </div>
+              </motion.div>
+            )}
+
+            <form onSubmit={handleProfileSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {[
+                  { label: 'First Name', name: 'firstName', type: 'text' },
+                  { label: 'Last Name', name: 'lastName', type: 'text' },
+                  { label: 'Username', name: 'username', type: 'text' },
+                  { label: 'Phone Number', name: 'phoneNumber', type: 'tel' },
+                ].map((field) => (
+                  <div key={field.name}>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {field.label}
+                    </label>
+                    <input
+                      type={field.type}
+                      name={field.name}
+                      value={profileData[field.name as keyof ProfileFormData]}
+                      onChange={handleProfileChange}
+                      disabled={!isEditing}
+                      className={`w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-200 ${
+                        !isEditing ? 'bg-gray-50 text-gray-600' : 'bg-white'
+                      }`}
+                      required={field.name !== 'phoneNumber'}
+                    />
+                  </div>
+                ))}
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Gender
+                  </label>
+                  <select
+                    name="gender"
+                    value={profileData.gender}
+                    onChange={handleProfileChange}
+                    disabled={!isEditing}
+                    className={`w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-200 ${
+                      !isEditing ? 'bg-gray-50 text-gray-600' : 'bg-white'
+                    }`}
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              {isEditing && (
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:bg-indigo-300 transition-all duration-200"
+                >
+                  {loading ? (
+                    <span className="flex items-center justify-center">
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Updating...
+                    </span>
+                  ) : (
+                    'Save Changes'
+                  )}
+                </motion.button>
+              )}
+            </form>
+          </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 
-export default Profile; 
+export default Profile;

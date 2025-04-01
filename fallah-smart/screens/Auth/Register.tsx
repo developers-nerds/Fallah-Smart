@@ -103,14 +103,12 @@ const Register = () => {
         storage.setUser(user),
         storage.setTokens(tokens.access.token, tokens.refresh.token)
       ]);
-
-      // Set up axios defaults for future requests
       axios.defaults.headers.common['Authorization'] = `Bearer ${tokens.access.token}`;
 
       Alert.alert('Success', 'Registration successful!', [
         { 
           text: 'OK', 
-          onPress: () => navigation.navigate('Login') // Navigate to Login after successful registration
+          onPress: () => navigation.navigate('Login')
         }
       ]);
 
@@ -123,7 +121,7 @@ const Register = () => {
     }
   };
 
-  const validatePassword = (password) => {
+  const validatePassword = (password: string) => {
     setPasswordValidation({
       minLength: password.length >= 8,
       hasUppercase: /[A-Z]/.test(password),

@@ -46,6 +46,7 @@ import {
   PostImageGalleryProps,
   PostDetailState
 } from '../../types/postDetails';
+import { getImageUrl as getImageUrlHelper, handleImageError, PLACEHOLDER_IMAGES } from '../../utils/imageHelper';
 
 // Constants
 const BASE_URL = process.env.EXPO_PUBLIC_API;
@@ -53,38 +54,34 @@ const API_URL = `${BASE_URL}/api/blog`;
 const { width } = Dimensions.get('window');
 const placeholderImage = 'https://via.placeholder.com/100';
 
-// Enhanced getImageUrl function with better URL handling
+// Function to correctly handle image URLs
 const getImageUrl = (imageUrl: string | undefined): string => {
   if (!imageUrl) {
-    console.log("No image URL provided");
+    console.log("[PostDetail] No image URL provided, using placeholder");
     return placeholderImage;
+  }
+
+  console.log("[PostDetail] Original image URL:", imageUrl);
+
+  // If the URL already starts with http, it's a full URL, return as is
+  if (imageUrl.startsWith('http')) {
+    console.log("[PostDetail] Full URL detected, returning as is:", imageUrl);
+    return imageUrl;
+  }
+
+  // For relative paths that start with a slash, ensure we don't add an extra slash
+  const baseUrl = BASE_URL || "";
+  console.log("[PostDetail] BASE_URL value:", baseUrl);
+  
+  let fullUrl;
+  if (imageUrl.startsWith('/')) {
+    fullUrl = `${baseUrl}${imageUrl}`;
+  } else {
+    fullUrl = `${baseUrl}/${imageUrl}`;
   }
   
-  try {
-    // Log for debugging
-    console.log("Processing image URL:", imageUrl);
-    
-    // Handle already complete URLs
-    if (imageUrl.startsWith('http')) {
-      // If it's a local development URL, replace with BASE_URL
-      if (imageUrl.match(/http:\/\/\d+\.\d+\.\d+\.\d+:\d+/)) {
-        return imageUrl.replace(/http:\/\/\d+\.\d+\.\d+\.\d+:\d+/, BASE_URL);
-      }
-      // Otherwise return as is (it's already a complete URL)
-      return imageUrl;
-    }
-    
-    // Handle relative URLs
-    if (imageUrl.startsWith('/')) {
-      return `${BASE_URL}${imageUrl}`;
-    }
-    
-    // Default case - prepend BASE_URL
-    return `${BASE_URL}/${imageUrl}`;
-  } catch (error) {
-    console.error("Error processing image URL:", error);
-    return placeholderImage;
-  }
+  console.log("[PostDetail] Constructed full URL:", fullUrl);
+  return fullUrl;
 };
 
 // Helper function to format full name
@@ -148,6 +145,7 @@ const CommentImageGallery = ({ media }: CommentImageGalleryProps) => {
           source={{ uri: imageUrl }}
           style={styles.commentSingleImage}
           resizeMode="cover"
+          onError={() => {}}
         />
       </View>
     );
@@ -160,6 +158,7 @@ const CommentImageGallery = ({ media }: CommentImageGalleryProps) => {
         source={{ uri: getCommentImageUrl(media[0]) }}
         style={styles.commentSingleImage}
         resizeMode="cover"
+        onError={() => {}}
       />
       {media.length > 1 && (
         <View style={styles.moreImagesIndicator}>
@@ -196,10 +195,20 @@ const PostImageGallery = ({ media }: PostImageGalleryProps) => {
   if (!media || media.length === 0) return null;
   
   const processMediaUrl = (mediaItem: MediaItem): string => {
+    if (!mediaItem) return placeholderImage;
+    
+    // If it's already a string, use getImageUrl to process it
     if (typeof mediaItem === 'string') {
       return getImageUrl(mediaItem);
     }
-    return mediaItem.url ? getImageUrl(mediaItem.url) : placeholderImage;
+    
+    // If it's an object with a url property, process that
+    if (mediaItem.url) {
+      return getImageUrl(mediaItem.url);
+    }
+    
+    // Fallback to placeholder
+    return placeholderImage;
   };
 
   return (
@@ -228,8 +237,8 @@ const PostImageGallery = ({ media }: PostImageGalleryProps) => {
               key={idx}
                 source={{ uri: mediaUrl }}
                 style={styles.galleryImage}
-              resizeMode="cover"
-              onError={(e) => console.error(`Image load error:`, e.nativeEvent.error)}
+                resizeMode="cover"
+                onError={() => {}}
               />
           );
         })}
@@ -323,7 +332,8 @@ const getProfilePictureUrl = (postData: Post): string => {
     hasUserData: !!postData?.user,
     hasAuthorData: !!postData?.author,
     userPic: postData?.user?.profilePicture,
-    authorPic: postData?.author?.profilePicture
+    authorPic: postData?.author?.profilePicture,
+    baseUrl: BASE_URL
   });
   
   // Try to get profile picture from user or author
@@ -332,10 +342,13 @@ const getProfilePictureUrl = (postData: Post): string => {
     postData?.author?.profilePicture;
   
   if (!profilePicture) {
+    console.log("No profile picture found, using placeholder");
     return placeholderImage;
   }
   
-  return getImageUrl(profilePicture);
+  const processedUrl = getImageUrl(profilePicture);
+  console.log("Processed profile picture URL:", processedUrl);
+  return processedUrl;
 };
 
 // Add this improved function to check for advisor role
@@ -402,6 +415,14 @@ const PostDetail = ({ route, navigation }: PostDetailNavigationProps) => {
       
       const response = await axios.get(`${API_URL}/posts/${postId}`, { headers });
       const postData = response.data;
+      
+      // Debug log the complete post data
+      console.log('Post data received:', JSON.stringify(postData));
+      
+      // Debug log comments specifically 
+      if (postData.comments) {
+        console.log('Comments received:', JSON.stringify(postData.comments));
+      }
       
       // Debug log the complete post data to see if roles are included
       console.log('Post author data:', {
@@ -675,6 +696,9 @@ const PostDetail = ({ route, navigation }: PostDetailNavigationProps) => {
 
   // Update the renderComment function
   const renderComment = ({ item }: { item: Comment }) => {
+    // Debug: Log the entire comment object to see its structure
+    console.log('Comment data:', JSON.stringify(item));
+    
     // Get user data from the comment
     const userData = item.user || item.author || {};
     
@@ -696,6 +720,7 @@ const PostDetail = ({ route, navigation }: PostDetailNavigationProps) => {
             <Image
               source={{ uri: getImageUrl(userData.profilePicture) }}
               style={styles.commentAvatar}
+              onError={() => {}}
             />
           ) : (
             <View style={styles.commentAvatarPlaceholder}>
@@ -723,8 +748,10 @@ const PostDetail = ({ route, navigation }: PostDetailNavigationProps) => {
               )}
             </View>
             
-            {/* Comment content */}
-            <Text style={styles.commentText}>{item.text}</Text>
+            {/* Comment content - use only text property */}
+            <Text style={styles.commentText}>
+              {item.text || ''}
+            </Text>
             
             {/* Comment images */}
             {imageUrl && (
@@ -733,6 +760,7 @@ const PostDetail = ({ route, navigation }: PostDetailNavigationProps) => {
                   source={{ uri: imageUrl }}
                   style={styles.commentSingleImage}
                   resizeMode="cover"
+                  onError={() => {}}
                 />
               </View>
             )}
@@ -907,9 +935,7 @@ const PostDetail = ({ route, navigation }: PostDetailNavigationProps) => {
                         <Image
                           source={{ uri: getProfilePictureUrl(post) }}
                           style={styles.authorImage}
-                          onError={(e) => {
-                            console.log("Profile image load error:", e.nativeEvent.error);
-                          }}
+                          onError={() => {}}
                         />
                       ) : (
                         <View style={styles.defaultAvatar}>

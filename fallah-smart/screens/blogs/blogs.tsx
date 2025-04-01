@@ -43,9 +43,12 @@ import {
   ParsedTextPart
 } from '../../types/blog';
 
+// Import the image helper utility at the top with the other imports
+import {  handleImageError, PLACEHOLDER_IMAGES } from '../../utils/imageHelper';
+
 // Update API URL constants
 const BASE_URL = process.env.EXPO_PUBLIC_API;
-const BLOG_URL = process.env.EXPO_PUBLIC_BlOG;
+console.log("blogs.tsx BASE_URL:", BASE_URL);
 const API_URL = `${BASE_URL}/api/blog`;
 
 // Define blog categories with farmer-friendly icons
@@ -88,13 +91,34 @@ const CATEGORIES = [
   }
 ];
 
-// Update the helper functions with proper types
-const getImageUrl = (imageUrl: string | undefined): string | null => {
-  if (!imageUrl) return null;
-  if (imageUrl.startsWith('http')) {
-    return imageUrl.replace(/http:\/\/\d+\.\d+\.\d+\.\d+:\d+/, BASE_URL);
+// Function to correctly handle image URLs
+const getImageUrl = (imageUrl: string | undefined): string => {
+  if (!imageUrl) {
+    console.log("No image URL provided, using placeholder");
+    return PLACEHOLDER_IMAGES.DEFAULT;
   }
-  return `${BASE_URL}${imageUrl}`;
+
+  console.log("Original image URL:", imageUrl);
+
+  // If the URL already starts with http, it's a full URL, return as is
+  if (imageUrl.startsWith('http')) {
+    console.log("Full URL detected, returning as is:", imageUrl);
+    return imageUrl;
+  }
+
+  // For relative paths that start with a slash, ensure we don't add an extra slash
+  const baseUrl = BASE_URL || "";
+  console.log("BASE_URL value:", baseUrl);
+  
+  let fullUrl;
+  if (imageUrl.startsWith('/')) {
+    fullUrl = `${baseUrl}${imageUrl}`;
+  } else {
+    fullUrl = `${baseUrl}/${imageUrl}`;
+  }
+  
+  console.log("Constructed full URL:", fullUrl);
+  return fullUrl;
 };
 
 // Move parseTextForHashtags function to file level (outside any component)
@@ -159,6 +183,12 @@ const PostItem = ({ item, navigation, handlePostLike, handleCommentAdded, timeAg
   // Get the user data from the post
   const userData = item.user || item.author || {};
   
+  // Log the profile picture URL for debugging
+  if (userData.profilePicture) {
+    console.log(`User ${userData.username || userData.id} profile picture:`, userData.profilePicture);
+    console.log(`Processed URL:`, getImageUrl(userData.profilePicture));
+  }
+  
   // Check if this post is from an advisor
   const isAdvisor = userData.role?.toUpperCase() === 'ADVISOR';
   
@@ -191,8 +221,11 @@ const PostItem = ({ item, navigation, handlePostLike, handleCommentAdded, timeAg
           ]}>
             {userData.profilePicture ? (
               <Image 
-                source={{ uri: getImageUrl(userData.profilePicture) || '' }} 
+                source={{ uri: getImageUrl(userData.profilePicture, 'profile') }} 
                 style={styles.authorImage}
+                onError={(e) => {
+                  handleImageError(e.nativeEvent.error, 'Profile image', PLACEHOLDER_IMAGES.PROFILE);
+                }}
               />
             ) : (
               <LinearGradient
@@ -313,10 +346,13 @@ const PostItem = ({ item, navigation, handlePostLike, handleCommentAdded, timeAg
               <Image 
                 key={index} 
                 source={{ 
-                  uri: getImageUrl(media.url) || ''
+                  uri: getImageUrl(media.url, 'post')
                 }} 
                 style={styles.postImage} 
                 resizeMode="cover"
+                onError={(e) => {
+                  handleImageError(e.nativeEvent.error, 'Post image', PLACEHOLDER_IMAGES.POST);
+                }}
               />
             ))}
           </ScrollView>
