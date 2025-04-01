@@ -17,7 +17,8 @@ import { FertilizerProvider } from './context/FertilizerContext';
 import { createStackNavigator } from '@react-navigation/stack';
 import { StockNavigator } from './navigation/StockNavigator';
 import AddTransaction from './screens/Wallet/components/AddTransaction';
-import { EducationNavigator } from "./navigation/EducationNavigator"
+import { EducationNavigator } from "./navigation/EducationNavigator"  
+import AdvisorNavigator from './navigation/AdvisorNavigator';
 import EditTransaction from './screens/Wallet/components/EditTransaction';
 import Wallet from './screens/Wallet/Wallet'; // Import the Wallet screen
 import AdvisorApplication from './screens/AdvisorApplication/AdvisorApplication';
@@ -56,6 +57,7 @@ type RootStackParamList = {
   Wallet: undefined; // Add Wallet to the param list
   Education: undefined;
   AdvisorApplication: undefined;
+  Advisor: undefined; // Add Advisor to the param list
 };
 
 // Define the Transaction interface
@@ -109,6 +111,8 @@ export const RootNavigator: React.FC = () => {
         component={AdvisorApplication}
         options={{ title: 'تطبيق مستشار' }}
       />
+      <Stack.Screen name="Advisor" component={AdvisorNavigator} />
+
     </Stack.Navigator>
   );
 };

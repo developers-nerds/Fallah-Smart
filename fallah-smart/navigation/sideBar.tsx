@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Pressable, Text, TouchableOpacity, Alert } from 'react-native';
 import {
   DrawerContentScrollView,
@@ -20,6 +20,7 @@ import Animated, {
 import { useNavigation, CommonActions } from '@react-navigation/native';
 import { storage } from '../utils/storage';
 import { theme } from '../theme/theme';
+import { getCurrentUser } from '../screens/Education/utils/userProgress';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -108,6 +109,22 @@ const MenuItem: React.FC<MenuItemProps> = ({ icon, label, onPress, active, navig
 const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
   const theme = useTheme();
   const currentRoute = props.state.routeNames[props.state.index];
+  const [isAdvisor, setIsAdvisor] = useState(false);
+
+  useEffect(() => {
+    checkUserRole();
+  }, []);
+
+  const checkUserRole = async () => {
+    try {
+      const user = await getCurrentUser();
+      if (user && user.role === 'ADVISOR') {
+        setIsAdvisor(true);
+      }
+    } catch (error) {
+      console.error('Error checking user role:', error);
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -240,6 +257,19 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
         navigation={props.navigation}
       />
 
+      {isAdvisor && (
+        <MenuItem
+          icon="account-tie"
+          label="مستشار"
+          active={currentRoute === 'Advisor'}
+          onPress={() => {
+            props.navigation.navigate('Advisor');
+            props.navigation.closeDrawer();
+          }}
+          navigation={props.navigation}
+        />
+      )}
+
       <View style={styles.logoutContainer}>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Ionicons name="log-out-outline" size={24} color="#ffffff" />
@@ -257,13 +287,13 @@ const styles = StyleSheet.create({
     padding: theme.spacing.md,
   },
   header: {
-    paddingVertical: 20,
-    marginBottom: 20,
+    paddingVertical: 10,
+    marginBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.2)',
   },
   menuItem: {
-    marginVertical: 4,
+    marginVertical: 3,
     borderRadius: 8,
     overflow: 'hidden',
   },
