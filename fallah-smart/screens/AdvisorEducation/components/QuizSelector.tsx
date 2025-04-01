@@ -15,11 +15,11 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AdvisorStackParamList } from '../../../navigation/types';
 import { theme } from '../../../theme/theme';
 import axios from 'axios';
-import { isValidQuizId, getQuizRange, mapActualToSequentialId } from '../utils/quizMapping';
+import { isValidQuizId, getQuizRange} from '../utils/quizMapping';
 
 type QuizSelectorRouteProp = RouteProp<AdvisorStackParamList, 'QuizSelector'>;
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_URL = process.env.EXPO_PUBLIC_API_URL 
 
 interface Quiz {
   id: number;

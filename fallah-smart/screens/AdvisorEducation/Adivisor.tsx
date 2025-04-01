@@ -18,7 +18,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AdvisorStackParamList } from '../../navigation/types';
 import { mapAnimalIdToQuizId, mapCropIdToQuizId } from './utils/quizMapping';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_URL = process.env.EXPO_PUBLIC_API_URL 
 
 interface Animal {
   id: number;
