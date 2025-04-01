@@ -12,6 +12,8 @@ import { useTheme } from '../context/ThemeContext';
 import TabBar from './TabBar';
 import Login from '../screens/Auth/Login';
 import Register from '../screens/Auth/Register';
+import PhoneLogin from '../screens/Auth/PhoneLogin';
+import CompleteProfile from '../screens/Auth/CompleteProfile';
 import { StockItem, StockFormValues } from '../screens/Stock/types';
 import { View, ActivityIndicator, Text } from 'react-native';
 import { PesticideDetail } from '../screens/Stock/Pesticides/PesticideDetail';
@@ -109,6 +111,16 @@ export const StockNavigator = () => {
                         name="Register"
                         component={Register}
                         options={{ headerShown: true }}
+                      />
+                      <Stack.Screen
+                        name="PhoneLogin"
+                        component={PhoneLogin}
+                        options={{ headerShown: true, title: 'تسجيل الدخول برقم الهاتف' }}
+                      />
+                      <Stack.Screen
+                        name="CompleteProfile"
+                        component={CompleteProfile}
+                        options={{ headerShown: true, title: 'إكمال الملف الشخصي' }}
                       />
                       <Stack.Screen
                         name="WelcomeOnboarding"

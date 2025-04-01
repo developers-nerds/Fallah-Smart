@@ -24,7 +24,7 @@ import { useAuth } from '../../context/AuthContext';
 import NotificationHelper from '../../utils/NotificationHelper';
 
 // Define the navigation type for this screen
-type LoginNavigationProps = NativeStackNavigationProp<StockStackParamList, 'Login'>;
+type LoginNavigationProps = NativeStackNavigationProp<StockStackParamList>;
 
 const arabicTranslations = {
   welcomeBack: 'مرحباً بعودتك!',
@@ -33,6 +33,7 @@ const arabicTranslations = {
   password: 'كلمة المرور',
   login: 'تسجيل الدخول',
   or: 'أو',
+  loginWithPhone: 'تسجيل الدخول برقم الهاتف',
   dontHaveAccount: 'ليس لديك حساب؟',
   register: 'تسجيل',
   validationError: 'خطأ في التحقق',
@@ -198,8 +199,20 @@ const Login = () => {
     }
   };
 
+  const handlePhoneLoginPress = () => {
+    // Use object syntax for navigation to avoid type errors
+    navigation.navigate({
+      name: 'PhoneLogin',
+      params: undefined
+    });
+  };
+
   const handleRegisterPress = () => {
-    navigation.navigate('Register');
+    // Use object syntax for navigation to avoid type errors
+    navigation.navigate({
+      name: 'Register',
+      params: undefined
+    });
   };
 
   return (
@@ -290,6 +303,22 @@ const Login = () => {
           <Text style={[styles.dividerText, { color: theme.colors.neutral.textSecondary }]}>{arabicTranslations.or}</Text>
           <View style={[styles.divider, { backgroundColor: theme.colors.neutral.border }]} />
         </View>
+
+        {/* New Phone Login Button */}
+        <TouchableOpacity
+          style={[styles.phoneLoginButton, { borderColor: theme.colors.primary.base }]}
+          onPress={handlePhoneLoginPress}
+        >
+          <Ionicons 
+            name="phone-portrait-outline" 
+            size={20} 
+            color={theme.colors.primary.base} 
+            style={styles.phoneButtonIcon} 
+          />
+          <Text style={[styles.phoneLoginText, { color: theme.colors.primary.base }]}>
+            {arabicTranslations.loginWithPhone}
+          </Text>
+        </TouchableOpacity>
 
         <View style={styles.registerContainer}>
           <Text style={[styles.registerText, { color: theme.colors.neutral.textSecondary }]}>
@@ -436,6 +465,22 @@ const styles = StyleSheet.create({
     fontSize: theme.fontSizes.body,
     fontFamily: theme.fonts.regular,
     marginTop: theme.spacing.md,
+  },
+  phoneLoginButton: {
+    flexDirection: 'row',
+    borderRadius: theme.borderRadius.medium,
+    height: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: theme.spacing.md,
+    borderWidth: 1,
+  },
+  phoneButtonIcon: {
+    marginRight: theme.spacing.sm,
+  },
+  phoneLoginText: {
+    fontSize: theme.fontSizes.button,
+    fontFamily: theme.fonts.medium,
   },
 });
 
