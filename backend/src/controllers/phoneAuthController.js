@@ -1,4 +1,4 @@
-const { Users } = require('../database/assossiation');
+const { Users, Accounts } = require('../database/assossiation');
 const { Op } = require('sequelize');
 const smsService = require('../utils/smsService');
 const jwt = require('jsonwebtoken');
@@ -161,8 +161,31 @@ const phoneAuthController = {
         });
         
         console.log(`New user created with ID: ${user.id} and username: ${username}`);
+        
+        // Create default account for the new user
+        const defaultAccount = await Accounts.create({
+          userId: user.id,
+          Methods: 'Cash', // Default payment method
+          balance: 0,
+          currency: 'TND' // Default currency for Tunisia
+        });
+        
+        console.log(`Default account created for user ID: ${user.id}`);
       } else {
         console.log(`Existing user found with ID: ${user.id}`);
+        
+        // Check if user has an account, create one if not
+        const existingAccount = await Accounts.findOne({ where: { userId: user.id } });
+        if (!existingAccount) {
+          console.log(`No account found for existing user ID: ${user.id}, creating default account`);
+          await Accounts.create({
+            userId: user.id,
+            Methods: 'Cash',
+            balance: 0,
+            currency: 'TND'
+          });
+          console.log(`Default account created for existing user ID: ${user.id}`);
+        }
       }
       
       // Generate tokens with user data
@@ -196,8 +219,12 @@ const phoneAuthController = {
       
       console.log(`Authentication successful for user ID: ${user.id}`);
       
+      // Get user's account to include in the response
+      const account = await Accounts.findOne({ where: { userId: user.id } });
+      
       res.status(200).json({
         user: userResponse,
+        account, // Include the account in the response
         tokens: {
           access: {
             token: accessToken,

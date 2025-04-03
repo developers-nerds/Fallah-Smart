@@ -207,7 +207,7 @@ const PhoneLogin = () => {
       
       console.log("Verification response:", response.data);
       
-      const { user, tokens, isNewUser } = response.data;
+      const { user, tokens, isNewUser, account } = response.data;
       
       if (!user || !tokens) {
         throw new Error('Invalid response from server');
@@ -215,7 +215,7 @@ const PhoneLogin = () => {
       
       // Save tokens using the storage utility (same as in Login.tsx)
       await Promise.all([
-        storage.setUser(user),
+        storage.setUser({...user, account}),
         storage.setTokens(tokens.access.token, tokens.refresh.token)
       ]);
       

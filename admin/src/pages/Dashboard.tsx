@@ -1300,33 +1300,33 @@ function Dashboard() {
                 <div className="flex justify-between items-center mb-2">
                   <div className="bg-[#E8F5F3] rounded-lg px-3 py-2">
                     <p className="text-xs text-gray-600">Balance</p>
-                    <p className="text-lg font-bold text-[#1A2F2B]">
+                    <div className="text-lg font-bold text-[#1A2F2B]">
                       {totalBalance.toLocaleString(undefined, {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2
                       })}
                       <span className="text-xs font-normal ml-1">TND</span>
-                    </p>
+                    </div>
                   </div>
 
                   <div className="flex gap-2">
                     <div className="bg-green-50 rounded-lg px-2 py-1">
                       <p className="text-xs text-gray-600">Income</p>
-                      <p className="text-sm font-bold text-green-600">
+                      <div className="text-sm font-bold text-green-600">
                         +{totalIncome.toLocaleString(undefined, {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2
                         })}
-                      </p>
+                      </div>
                     </div>
                     <div className="bg-red-50 rounded-lg px-2 py-1">
                       <p className="text-xs text-gray-600">Expenses</p>
-                      <p className="text-sm font-bold text-red-500">
+                      <div className="text-sm font-bold text-red-500">
                         -{totalExpense.toLocaleString(undefined, {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2
                         })}
-                      </p>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1368,7 +1368,7 @@ function Dashboard() {
                 </svg>
               </span>
             </div>
-            <p className="mt-2 text-2xl font-bold text-[#093731]">
+            <div className="mt-2 text-2xl font-bold text-[#093731]">
               {loadingStock ? (
                 <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-t-2 border-[#4F7942]"></div>
               ) : stockData ? (
@@ -1376,7 +1376,7 @@ function Dashboard() {
               ) : (
                 "N/A"
               )}
-            </p>
+            </div>
             <p className="text-xs text-gray-500">Across all stock categories</p>
           </div>
           
@@ -1389,7 +1389,7 @@ function Dashboard() {
                 </svg>
               </span>
             </div>
-            <p className="mt-2 text-2xl font-bold text-[#093731]">
+            <div className="mt-2 text-2xl font-bold text-[#093731]">
               {loadingStock ? (
                 <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-t-2 border-[#4F7942]"></div>
               ) : stockData ? (
@@ -1397,7 +1397,7 @@ function Dashboard() {
               ) : (
                 "N/A"
               )}
-            </p>
+            </div>
             <p className="text-xs text-gray-500">Estimated inventory value</p>
           </div>
           
@@ -1410,7 +1410,7 @@ function Dashboard() {
                 </svg>
               </span>
             </div>
-            <p className="mt-2 text-2xl font-bold text-amber-600">
+            <div className="mt-2 text-2xl font-bold text-amber-600">
               {loadingStock ? (
                 <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-t-2 border-[#4F7942]"></div>
               ) : stockData ? (
@@ -1418,7 +1418,7 @@ function Dashboard() {
               ) : (
                 "N/A"
               )}
-            </p>
+            </div>
             <p className="text-xs text-gray-500">Items below minimum threshold</p>
           </div>
           
@@ -1431,7 +1431,7 @@ function Dashboard() {
                 </svg>
               </span>
             </div>
-            <p className="mt-2 text-2xl font-bold text-red-600">
+            <div className="mt-2 text-2xl font-bold text-red-600">
               {loadingStock ? (
                 <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-t-2 border-[#4F7942]"></div>
               ) : stockData ? (
@@ -1439,7 +1439,7 @@ function Dashboard() {
               ) : (
                 "N/A"
               )}
-            </p>
+            </div>
             <p className="text-xs text-gray-500">Items expiring within 30 days</p>
           </div>
         </div>
