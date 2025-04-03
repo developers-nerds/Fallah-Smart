@@ -241,7 +241,7 @@ const PhoneLogin = () => {
         navigation.replace('CompleteProfile', { userId: user.id });
       } else {
         // Navigate to home screen
-        navigation.replace('WelcomeOnboarding');
+        navigation.replace('StockTab');
       }
       
     } catch (error: any) {

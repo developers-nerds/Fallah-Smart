@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import StockScreen from '../screens/Stock/stock';
 import { StockDetail } from '../screens/Stock/StockDetail';
@@ -70,12 +70,33 @@ import NotificationSettingsScreen from '../screens/Settings/NotificationSettings
 import { SupplierRegistrationForm } from '../screens/form/form';
 import MarketplaceScreen from '../screens/Marketplace/marketplace';
 import AddProduct from '../screens/Marketplace/AddProduct';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const Stack = createStackNavigator<StockStackParamList>();
+
+const ONBOARDING_COMPLETE_KEY = 'onboarding_complete';
 
 export const StockNavigator = () => {
   const theme = useTheme();
   const { t } = useTranslation();
+  const [isLoading, setIsLoading] = useState(true);
+  const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
+
+  // Check if onboarding has been completed before
+  useEffect(() => {
+    const checkOnboardingStatus = async () => {
+      try {
+        const value = await AsyncStorage.getItem(ONBOARDING_COMPLETE_KEY);
+        setIsOnboardingComplete(value === 'true');
+      } catch (error) {
+        console.error('Error checking onboarding status:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkOnboardingStatus();
+  }, []);
 
   const screenOptions = {
     headerStyle: {
@@ -92,6 +113,23 @@ export const StockNavigator = () => {
     },
   };
 
+  // Mark onboarding as complete
+  const markOnboardingComplete = async () => {
+    try {
+      await AsyncStorage.setItem(ONBOARDING_COMPLETE_KEY, 'true');
+    } catch (error) {
+      console.error('Error saving onboarding status:', error);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={theme.colors.primary.base} />
+      </View>
+    );
+  }
+
   return (
     <AnimalProvider>
       <PesticideProvider>
@@ -102,6 +140,18 @@ export const StockNavigator = () => {
                 <HarvestProvider>
                   <FertilizerProvider>
                     <Stack.Navigator screenOptions={screenOptions}>
+                      {!isOnboardingComplete ? (
+                        <Stack.Screen
+                          name="WelcomeOnboarding"
+                          component={WelcomeOnboarding}
+                          options={{ headerShown: false }}
+                          listeners={{
+                            beforeRemove: () => {
+                              markOnboardingComplete();
+                            },
+                          }}
+                        />
+                      ) : null}
                       <Stack.Screen
                         name="Login"
                         component={Login}
@@ -121,11 +171,6 @@ export const StockNavigator = () => {
                         name="CompleteProfile"
                         component={CompleteProfile}
                         options={{ headerShown: true, title: 'إكمال الملف الشخصي' }}
-                      />
-                      <Stack.Screen
-                        name="WelcomeOnboarding"
-                        component={WelcomeOnboarding}
-                        options={{ headerShown: false }}
                       />
                       <Stack.Screen
                         name="StockTab"
