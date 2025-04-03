@@ -222,7 +222,7 @@ export const HomeContent = ({ navigation, route }: HomeContentProps) => {
           },
           timeout: 15000,
         };
-        
+        console.log('Weather API URL:', WEATHER_API_URL);
         console.log('Weather API request config:', JSON.stringify(requestConfig));
         
         const response = await axios.get(WEATHER_API_URL, requestConfig);
