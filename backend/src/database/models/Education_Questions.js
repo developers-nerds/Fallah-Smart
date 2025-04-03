@@ -19,7 +19,8 @@ module.exports = (sequelize, DataTypes) => {
       },
       explanation: {
         type: DataTypes.TEXT,
-        allowNull: false,
+        allowNull: true,
+        defaultValue: '',
       },
       quizId: {
         type: DataTypes.INTEGER,
@@ -29,6 +30,18 @@ module.exports = (sequelize, DataTypes) => {
         },
       },
     });
+  
+    Education_Question.resetSequence = async function() {
+      try {
+        await sequelize.query(`
+          SELECT setval(pg_get_serial_sequence('"Education_Questions"', 'id'), 
+          (SELECT MAX(id) FROM "Education_Questions")+1);
+        `);
+        console.log('Education_Questions sequence reset successfully');
+      } catch (error) {
+        console.error('Error resetting Education_Questions sequence:', error);
+      }
+    };
   
     return Education_Question;
   };
