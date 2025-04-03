@@ -80,12 +80,12 @@ export const AuctionHouse: React.FC<AuctionHouseProps> = ({ data }) => {
           style={styles.auctionImageGradient}>
           {item.isFinished && (
             <View style={styles.finishedBadge}>
-              <Text style={styles.finishedBadgeText}>COMPLETED</Text>
+              <Text style={styles.finishedBadgeText}>مكتمل</Text>
             </View>
           )}
           <View style={styles.auctionImageContent}>
             <Text style={styles.auctionTimeRemaining}>
-              {item.isFinished ? 'Auction Ended' : item.timeRemaining + ' left'}
+              {item.isFinished ? 'انتهى المزاد' : `متبقي ${item.timeRemaining}`}
             </Text>
             <Text style={styles.auctionItemNameOverlay}>{item.itemName}</Text>
           </View>
@@ -95,7 +95,7 @@ export const AuctionHouse: React.FC<AuctionHouseProps> = ({ data }) => {
       <View style={styles.auctionDetails}>
         <View style={styles.auctionPriceRow}>
           <View>
-            <Text style={styles.bidLabel}>Current Bid</Text>
+            <Text style={styles.bidLabel}>المزايدة الحالية</Text>
             <Text style={styles.currentBid}>{item.currentBid}</Text>
           </View>
           <View style={styles.bidInfoRight}>
@@ -130,7 +130,7 @@ export const AuctionHouse: React.FC<AuctionHouseProps> = ({ data }) => {
           disabled={item.isFinished}
           onPress={() => openAuctionDetail(item)}>
           <Text style={styles.bidButtonText}>
-            {item.isFinished ? 'Auction Ended' : 'View Details & Bid'}
+            {item.isFinished ? 'انتهى المزاد' : 'عرض التفاصيل والمزايدة'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -154,7 +154,7 @@ export const AuctionHouse: React.FC<AuctionHouseProps> = ({ data }) => {
               <TouchableOpacity onPress={closeAuctionDetail} style={styles.backButton}>
                 <Ionicons name="arrow-back" size={24} color="#fff" />
               </TouchableOpacity>
-              <Text style={styles.modalTitle}>Auction Details</Text>
+              <Text style={styles.modalTitle}>تفاصيل المزاد</Text>
               <View style={{ width: 24 }} />
             </View>
 
@@ -175,12 +175,12 @@ export const AuctionHouse: React.FC<AuctionHouseProps> = ({ data }) => {
 
               <View style={styles.bidStatusContainer}>
                 <View style={styles.bidStatusLeft}>
-                  <Text style={styles.detailBidLabel}>Current Bid</Text>
+                  <Text style={styles.detailBidLabel}>المزايدة الحالية</Text>
                   <Text style={styles.detailCurrentBid}>{selectedAuction.currentBid}</Text>
-                  <Text style={styles.startingBid}>Started at {selectedAuction.startingBid}</Text>
+                  <Text style={styles.startingBid}>بدأت في {selectedAuction.startingBid}</Text>
                 </View>
                 <View style={styles.bidStatusRight}>
-                  <Text style={styles.detailTimeLabel}>Time Remaining</Text>
+                  <Text style={styles.detailTimeLabel}>متبقي الوقت</Text>
                   <Text
                     style={[
                       styles.detailTimeRemaining,
@@ -193,7 +193,7 @@ export const AuctionHouse: React.FC<AuctionHouseProps> = ({ data }) => {
 
               <View style={styles.bidCountDetailContainer}>
                 <FontAwesome name="gavel" size={18} color={theme.colors.secondary.base} />
-                <Text style={styles.bidCountDetail}>{selectedAuction.bidCount} bids placed</Text>
+                <Text style={styles.bidCountDetail}>{selectedAuction.bidCount} مزايدات موجهة</Text>
               </View>
 
               <View style={styles.sellerDetailContainer}>
@@ -217,22 +217,22 @@ export const AuctionHouse: React.FC<AuctionHouseProps> = ({ data }) => {
                   </View>
                 </View>
                 <TouchableOpacity style={styles.contactSellerButton}>
-                  <Text style={styles.contactSellerText}>Contact</Text>
+                  <Text style={styles.contactSellerText}>اتصال</Text>
                 </TouchableOpacity>
               </View>
 
               <View style={styles.descriptionContainer}>
-                <Text style={styles.sectionTitle}>Description</Text>
+                <Text style={styles.sectionTitle}>الوصف</Text>
                 <Text style={styles.descriptionText}>{selectedAuction.description}</Text>
               </View>
 
               <View style={styles.specsContainer}>
-                <Text style={styles.sectionTitle}>Specifications</Text>
+                <Text style={styles.sectionTitle}>المواصفات</Text>
                 <Text style={styles.specsText}>{selectedAuction.detailedSpecs}</Text>
               </View>
 
               <View style={styles.bidsHistoryContainer}>
-                <Text style={styles.sectionTitle}>Bid History</Text>
+                <Text style={styles.sectionTitle}>تاريخ المزايدة</Text>
                 {selectedAuction.bids.map((bid, index) => (
                   <View
                     key={index}
@@ -245,7 +245,7 @@ export const AuctionHouse: React.FC<AuctionHouseProps> = ({ data }) => {
                       <Text style={[styles.bidAmount, bid.isHighest && styles.highestBidAmount]}>
                         {bid.amount}
                       </Text>
-                      {bid.isHighest && <Text style={styles.highestBidLabel}>Highest Bid</Text>}
+                      {bid.isHighest && <Text style={styles.highestBidLabel}>أعلى مزايدة</Text>}
                     </View>
                   </View>
                 ))}
@@ -256,17 +256,17 @@ export const AuctionHouse: React.FC<AuctionHouseProps> = ({ data }) => {
           {!selectedAuction.isFinished ? (
             <View style={styles.bidActionContainer}>
               <View style={styles.minimumBidContainer}>
-                <Text style={styles.minimumBidLabel}>Minimum Bid</Text>
+                <Text style={styles.minimumBidLabel}>الحد الأدنى للمزايدة</Text>
                 <Text style={styles.minimumBidAmount}>{currentBidAmount}</Text>
               </View>
               <TouchableOpacity style={styles.placeBidButton}>
-                <Text style={styles.placeBidButtonText}>Place Bid</Text>
+                <Text style={styles.placeBidButtonText}>تقديم عرض</Text>
               </TouchableOpacity>
             </View>
           ) : (
             <View style={styles.auctionEndedContainer}>
               <MaterialCommunityIcons name="gavel" size={24} color={theme.colors.error} />
-              <Text style={styles.auctionEndedMessage}>This auction has ended</Text>
+              <Text style={styles.auctionEndedMessage}>انتهى هذا المزاد</Text>
             </View>
           )}
         </View>

@@ -11,12 +11,12 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
       },
       quantity: {
-        type: DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(30, 2),
         allowNull: false,
       },
       price: {
         type: DataTypes.DECIMAL(15, 2),
-        allowNull: true, // Null for auctions
+        allowNull: true, 
       },
       currency: {
         type: DataTypes.STRING,
@@ -47,7 +47,11 @@ module.exports = (sequelize, DataTypes) => {
         ),
         allowNull: false,
       },
-
+      min_order_quantity: {
+        type: DataTypes.DECIMAL(30, 2),
+        allowNull: false,
+        defaultValue: 1,
+      },
       listing_type: {
         type: DataTypes.ENUM("fixed", "auction"),
         allowNull: false,

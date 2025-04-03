@@ -177,9 +177,8 @@ const OnboardingAnimation: React.FC<{ onFinish: () => void; onCreateProfile: () 
   const slides: OnboardingSlide[] = [
     {
       id: '1',
-      title: 'Create Your Company Profile',
-      description:
-        'Join our farming marketplace by setting up your company profile to showcase your agricultural products and services.',
+      title: 'مرحباً بك في ملف الشركة',
+      description: 'أنشئ ملف شركتك وابدأ في بيع منتجاتك',
       image: { uri: placeholderImages['company-profile'] },
       icon: (
         <MaterialCommunityIcons
@@ -191,9 +190,8 @@ const OnboardingAnimation: React.FC<{ onFinish: () => void; onCreateProfile: () 
     },
     {
       id: '2',
-      title: 'Sell in the Marketplace',
-      description:
-        'List your agricultural products and reach thousands of farmers and buyers across the country.',
+      title: 'البيع في السوق',
+      description: 'اعرض منتجاتك الزراعية وتواصل مع آلاف المزارعين والمشترين في جميع أنحاء البلاد.',
       image: placeholderImages.marketplace,
       icon: (
         <MaterialCommunityIcons
@@ -205,9 +203,8 @@ const OnboardingAnimation: React.FC<{ onFinish: () => void; onCreateProfile: () 
     },
     {
       id: '3',
-      title: 'Host Auctions',
-      description:
-        'Create auction events for your premium products and get the best market prices.',
+      title: 'إدارة المزادات',
+      description: 'أنشئ مزادات لمنتجاتك المميزة واحصل على أفضل الأسعار في السوق.',
       image: placeholderImages.auction,
       icon: (
         <FontAwesome5
@@ -219,9 +216,8 @@ const OnboardingAnimation: React.FC<{ onFinish: () => void; onCreateProfile: () 
     },
     {
       id: '4',
-      title: 'Track Orders & Analytics',
-      description:
-        'Manage all your orders and gain insights into your business performance with detailed analytics.',
+      title: 'تتبع الطلبات والتحليلات',
+      description: 'أدر جميع طلباتك واحصل على رؤى حول أداء عملك من خلال تحليلات مفصلة.',
       image: { uri: placeholderImages['orders'] },
       icon: (
         <MaterialCommunityIcons
@@ -356,7 +352,7 @@ const OnboardingAnimation: React.FC<{ onFinish: () => void; onCreateProfile: () 
           onPress={handleNext}
           activeOpacity={0.8}>
           <Text style={styles.nextButtonText}>
-            {currentIndex === slides.length - 1 ? 'Create Company Profile' : 'Next'}
+            {currentIndex === slides.length - 1 ? 'إنشاء ملف الشركة' : 'التالي'}
           </Text>
           {currentIndex < slides.length - 1 && (
             <MaterialCommunityIcons name="arrow-right" size={scaleSize(20)} color="white" />
@@ -365,7 +361,7 @@ const OnboardingAnimation: React.FC<{ onFinish: () => void; onCreateProfile: () 
 
         {currentIndex < slides.length - 1 && (
           <TouchableOpacity style={styles.skipButton} onPress={onFinish} activeOpacity={0.7}>
-            <Text style={styles.skipButtonText}>Skip</Text>
+            <Text style={styles.skipButtonText}>تخطي</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -377,13 +373,15 @@ export const CompanyProfile: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [supplierData, setSupplierData] = useState<ApiResponse | null>(null);
-  const [activeTab, setActiveTab] = useState<
-    'overview' | 'products' | 'auctions' | 'orders' | 'reviews'
-  >('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'orders' | 'reviews'>(
+    'overview'
+  );
   const [showOnboarding, setShowOnboarding] = useState(false);
   const navigation = useNavigation<NavigationProp>();
   const [baseUrl, setBaseUrl] = useState<string>('');
   const [isVerified, setIsVerified] = useState(false);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [productsLoading, setProductsLoading] = useState(false);
 
   useEffect(() => {
     fetchSupplierData();
@@ -399,18 +397,55 @@ export const CompanyProfile: React.FC = () => {
       console.log('CompanyProfile screen is focused, refreshing data...');
       fetchSupplierData();
 
+      // Load products if supplier data is available and active tab is products
+      if (supplierData?.supplier && activeTab === 'products') {
+        fetchSupplierProducts(supplierData.supplier.id);
+      }
+
       return () => {
         // Optional cleanup if needed
       };
-    }, [])
+    }, [activeTab])
   );
+
+  // Add function to fetch supplier products
+  const fetchSupplierProducts = async (supplierId: number) => {
+    try {
+      setProductsLoading(true);
+      const response = await fetch(`${BaseUrl}/crops/supplier/${supplierId}`);
+
+      if (!response.ok) {
+        throw new Error('فشل في تحميل منتجات المورد');
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        console.log('Loaded supplier products:', data.cropListings.length);
+        setProducts(data.cropListings);
+      } else {
+        throw new Error(data.message || 'فشل في تحميل منتجات المورد');
+      }
+    } catch (err) {
+      console.error('Error fetching supplier products:', err);
+      // Don't set error state to prevent disrupting the whole page
+    } finally {
+      setProductsLoading(false);
+    }
+  };
+
+  // Update useFocusEffect to also load products when tab changes
+  useEffect(() => {
+    if (supplierData?.supplier && activeTab === 'products') {
+      fetchSupplierProducts(supplierData.supplier.id);
+    }
+  }, [supplierData?.supplier?.id, activeTab]);
 
   const fetchSupplierData = async () => {
     try {
       const { access } = await storage.getTokens();
       if (!access) {
         console.log('No access token found');
-        setError('No access token found');
+        setError('فشل في تحميل بيانات المورد');
         setLoading(false);
         return;
       }
@@ -425,7 +460,7 @@ export const CompanyProfile: React.FC = () => {
 
       if (!response.ok) {
         console.log('Failed to fetch supplier data:', response.status, response.statusText);
-        throw new Error('Failed to fetch supplier data');
+        throw new Error('فشل في تحميل بيانات المورد');
       }
 
       const data: ApiResponse = await response.json();
@@ -445,7 +480,7 @@ export const CompanyProfile: React.FC = () => {
       }
     } catch (err) {
       console.error('Error fetching supplier data:', err);
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setError(err instanceof Error ? err.message : 'فشل في تحميل بيانات المورد');
     } finally {
       setLoading(false);
     }
@@ -467,6 +502,7 @@ export const CompanyProfile: React.FC = () => {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={theme.colors.primary.base} />
+        <Text style={styles.loadingText}>جاري تحميل معلومات المورد...</Text>
       </View>
     );
   }
@@ -474,7 +510,7 @@ export const CompanyProfile: React.FC = () => {
   if (error || !supplierData) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>{error || 'Failed to load supplier data'}</Text>
+        <Text style={styles.errorText}>{error || 'فشل في تحميل بيانات المورد'}</Text>
       </View>
     );
   }
@@ -495,12 +531,12 @@ export const CompanyProfile: React.FC = () => {
           source={{ uri: placeholderImages['company-profile'] }}
           style={styles.noProfileImage}
         />
-        <Text style={styles.noProfileText}>You haven't created a company profile yet</Text>
+        <Text style={styles.noProfileText}>لم تقم بإنشاء ملف شركة بعد</Text>
         <Text style={styles.noProfileSubtext}>
-          Create your company profile to start selling your products and services in the marketplace
+          أنشئ ملف شركتك لتبدأ في بيع منتجاتك وخدماتك في السوق
         </Text>
         <TouchableOpacity style={styles.createProfileButton} onPress={navigateToRegistrationForm}>
-          <Text style={styles.createProfileButtonText}>Create Company Profile</Text>
+          <Text style={styles.createProfileButtonText}>إنشاء ملف الشركة</Text>
         </TouchableOpacity>
       </View>
     );
@@ -518,32 +554,32 @@ export const CompanyProfile: React.FC = () => {
             color={theme.colors.primary.base}
           />
           <Text style={styles.statsNumber}>{supplierData.productsNumber}</Text>
-          <Text style={styles.statsLabel}>Products</Text>
+          <Text style={styles.statsLabel}>المنتجات</Text>
         </View>
         <View style={styles.statsCard}>
           <FontAwesome5 name="gavel" size={24} color={theme.colors.primary.base} />
           <Text style={styles.statsNumber}>{supplierData.auctionsNumber}</Text>
-          <Text style={styles.statsLabel}>Active Auctions</Text>
+          <Text style={styles.statsLabel}>المزادات النشطة</Text>
         </View>
         <View style={styles.statsCard}>
           <MaterialCommunityIcons name="shopping" size={24} color={theme.colors.primary.base} />
           <Text style={styles.statsNumber}>{supplierData.ordersNumber}</Text>
-          <Text style={styles.statsLabel}>Orders</Text>
+          <Text style={styles.statsLabel}>الطلبات</Text>
         </View>
         <View style={styles.statsCard}>
           <MaterialCommunityIcons name="star" size={24} color={theme.colors.primary.base} />
           <Text style={styles.statsNumber}>{staticData.stats.avgRating}</Text>
-          <Text style={styles.statsLabel}>Rating</Text>
+          <Text style={styles.statsLabel}>التقييم</Text>
         </View>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>About Us</Text>
+        <Text style={styles.sectionTitle}>من نحن</Text>
         <Text style={styles.description}>{supplier.about_us}</Text>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Specializations</Text>
+        <Text style={styles.sectionTitle}>التخصصات</Text>
         <View style={styles.tagsContainer}>
           {staticData.specializations.map((spec, index) => (
             <View key={index} style={styles.tag}>
@@ -554,7 +590,7 @@ export const CompanyProfile: React.FC = () => {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Contact Information</Text>
+        <Text style={styles.sectionTitle}>معلومات الاتصال</Text>
         <View style={styles.contactInfo}>
           <View style={styles.contactItem}>
             <MaterialCommunityIcons name="map-marker" size={20} color={theme.colors.primary.base} />
@@ -580,6 +616,83 @@ export const CompanyProfile: React.FC = () => {
           </View>
         </View>
       </View>
+    </View>
+  );
+
+  // Add a render function for products tab
+  const renderProductsTab = () => (
+    <View style={styles.tabContent}>
+      {productsLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary.base} />
+          <Text style={styles.loadingText}>جاري تحميل المنتجات...</Text>
+        </View>
+      ) : products.length === 0 ? (
+        <View style={styles.emptyStateContainer}>
+          <MaterialCommunityIcons
+            name="package-variant"
+            size={60}
+            color={theme.colors.neutral.textSecondary}
+          />
+          <Text style={styles.emptyStateText}>لا توجد منتجات حالياً</Text>
+          <TouchableOpacity
+            style={styles.addItemButton}
+            onPress={() => navigation.navigate('AddProduct')}>
+            <Text style={styles.addItemButtonText}>إضافة منتج جديد</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <FlatList
+          data={products}
+          keyExtractor={(item) => item.id.toString()}
+          numColumns={2}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.productCard}
+              onPress={() => navigation.navigate('ProductDetails', { productId: item.id })}>
+              <Image
+                source={{
+                  uri:
+                    item.media && item.media.length > 0
+                      ? item.media[0].url.startsWith('http')
+                        ? item.media[0].url
+                        : `${baseUrl}${item.media[0].url}`
+                      : 'https://via.placeholder.com/150',
+                }}
+                style={styles.productImage}
+              />
+              <View style={styles.productDetails}>
+                <Text style={styles.productName} numberOfLines={1}>
+                  {item.name}
+                </Text>
+                <Text style={styles.productPrice}>
+                  {item.price} ريال / {item.unit}
+                </Text>
+                <View style={styles.productMetaRow}>
+                  <View style={styles.productMeta}>
+                    <MaterialCommunityIcons
+                      name="food"
+                      size={14}
+                      color={theme.colors.primary.base}
+                    />
+                    <Text style={styles.productMetaText}>{item.category}</Text>
+                  </View>
+                  <View style={styles.productMeta}>
+                    <MaterialCommunityIcons
+                      name="weight"
+                      size={14}
+                      color={theme.colors.primary.base}
+                    />
+                    <Text style={styles.productMetaText}>
+                      {item.quantity} {item.unit}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </TouchableOpacity>
+          )}
+        />
+      )}
     </View>
   );
 
@@ -618,12 +731,18 @@ export const CompanyProfile: React.FC = () => {
             <View style={styles.ratingContainer}>
               <MaterialCommunityIcons name="star" size={16} color="#FFD700" />
               <Text style={styles.rating}>{staticData.stats.avgRating}</Text>
-              <Text style={styles.reviews}>({staticData.stats.totalReviews} reviews)</Text>
+              <Text style={styles.reviews}>({staticData.stats.totalReviews} تقييم)</Text>
             </View>
           </View>
-          <TouchableOpacity style={styles.editButton}>
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={() =>
+              navigation.navigate('EditCompanyProfile', {
+                supplier: supplierData.supplier,
+              })
+            }>
             <MaterialCommunityIcons name="pencil" size={20} color={theme.colors.primary.base} />
-            <Text style={styles.editButtonText}>Edit</Text>
+            <Text style={styles.editButtonText}>تعديل</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -634,35 +753,28 @@ export const CompanyProfile: React.FC = () => {
             style={[styles.tab, activeTab === 'overview' && styles.activeTab]}
             onPress={() => setActiveTab('overview')}>
             <Text style={[styles.tabText, activeTab === 'overview' && styles.activeTabText]}>
-              Overview
+              نظرة عامة
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.tab, activeTab === 'products' && styles.activeTab]}
             onPress={() => setActiveTab('products')}>
             <Text style={[styles.tabText, activeTab === 'products' && styles.activeTabText]}>
-              Products
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'auctions' && styles.activeTab]}
-            onPress={() => setActiveTab('auctions')}>
-            <Text style={[styles.tabText, activeTab === 'auctions' && styles.activeTabText]}>
-              Auctions
+              المنتجات
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.tab, activeTab === 'orders' && styles.activeTab]}
             onPress={() => setActiveTab('orders')}>
             <Text style={[styles.tabText, activeTab === 'orders' && styles.activeTabText]}>
-              Orders
+              الطلبات
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.tab, activeTab === 'reviews' && styles.activeTab]}
             onPress={() => setActiveTab('reviews')}>
             <Text style={[styles.tabText, activeTab === 'reviews' && styles.activeTabText]}>
-              Reviews
+              التقييمات
             </Text>
           </TouchableOpacity>
         </ScrollView>
@@ -670,6 +782,7 @@ export const CompanyProfile: React.FC = () => {
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {activeTab === 'overview' && renderOverviewTab()}
+        {activeTab === 'products' && renderProductsTab()}
         {/* Other tabs will be implemented similarly */}
       </ScrollView>
 
@@ -677,7 +790,7 @@ export const CompanyProfile: React.FC = () => {
       {!isVerified && (
         <View style={styles.verificationBar}>
           <Text style={styles.verificationText}>
-            Your account is not verified. Please verify your account to unlock all features.
+            حسابك غير موثق. يرجى توثيق حسابك لفتح جميع الميزات.
           </Text>
           <TouchableOpacity
             style={styles.verifyButton}
@@ -687,7 +800,7 @@ export const CompanyProfile: React.FC = () => {
                 supplierEmail: supplier.company_email,
               })
             }>
-            <Text style={styles.verifyButtonText}>Verify Now</Text>
+            <Text style={styles.verifyButtonText}>وثّق الآن</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -1164,5 +1277,77 @@ const styles = StyleSheet.create({
     fontSize: theme.fontSizes.caption,
     fontFamily: theme.fonts.bold,
     color: theme.colors.primary.base,
+  },
+  loadingText: {
+    marginTop: theme.spacing.sm,
+    fontSize: theme.fontSizes.body,
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.neutral.textPrimary,
+  },
+  productCard: {
+    backgroundColor: theme.colors.neutral.surface,
+    borderRadius: theme.borderRadius.medium,
+    margin: responsivePadding(theme.spacing.xs),
+    overflow: 'hidden',
+    width: '47%',
+    ...theme.shadows.small,
+  },
+  productImage: {
+    width: '100%',
+    height: responsiveHeight(12),
+    resizeMode: 'cover',
+  },
+  productDetails: {
+    padding: responsivePadding(theme.spacing.sm),
+  },
+  productName: {
+    fontSize: normalize(isSmallDevice ? 13 : 15),
+    fontFamily: theme.fonts.bold,
+    color: theme.colors.neutral.textPrimary,
+    marginBottom: theme.spacing.xs,
+  },
+  productPrice: {
+    fontSize: normalize(isSmallDevice ? 12 : 14),
+    fontFamily: theme.fonts.bold,
+    color: theme.colors.primary.base,
+    marginBottom: theme.spacing.xs,
+  },
+  productMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: theme.spacing.xs,
+  },
+  productMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  productMetaText: {
+    fontSize: normalize(isSmallDevice ? 10 : 12),
+    fontFamily: theme.fonts.regular,
+    color: theme.colors.neutral.textSecondary,
+    marginLeft: 4,
+  },
+  emptyStateContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: responsivePadding(theme.spacing.xl),
+  },
+  emptyStateText: {
+    fontSize: normalize(16),
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.neutral.textSecondary,
+    marginVertical: theme.spacing.md,
+  },
+  addItemButton: {
+    backgroundColor: theme.colors.primary.base,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.lg,
+    borderRadius: theme.borderRadius.medium,
+    marginTop: theme.spacing.md,
+  },
+  addItemButtonText: {
+    fontSize: normalize(14),
+    fontFamily: theme.fonts.bold,
+    color: theme.colors.neutral.surface,
   },
 });

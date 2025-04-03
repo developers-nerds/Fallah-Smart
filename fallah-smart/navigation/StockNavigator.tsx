@@ -68,6 +68,7 @@ import NotificationSettingsScreen from '../screens/Settings/NotificationSettings
 import { SupplierRegistrationForm } from '../screens/form/form';
 import MarketplaceScreen from '../screens/Marketplace/marketplace';
 import AddProduct from '../screens/Marketplace/AddProduct';
+import EditCompanyProfile from '../components/marketplace/EditCompanyProfile';
 
 const Stack = createStackNavigator<StockStackParamList>();
 
@@ -290,8 +291,8 @@ export const StockNavigator = () => {
                         component={StockStatisticsScreen}
                         options={{ title: 'إحصائيات المخزون', headerShown: true }}
                       />
-                      <Stack.Screen 
-                        name="NotificationSettings" 
+                      <Stack.Screen
+                        name="NotificationSettings"
                         component={NotificationSettingsScreen}
                         options={{ title: 'إعدادات الإشعارات', headerShown: true }}
                       />
@@ -304,6 +305,14 @@ export const StockNavigator = () => {
                         name="AddProduct"
                         component={AddProduct}
                         options={{ title: 'Add Product', headerShown: true }}
+                      />
+                      <Stack.Screen
+                        name="EditCompanyProfile"
+                        component={EditCompanyProfile}
+                        options={{
+                          headerShown: false,
+                          presentation: 'card',
+                        }}
                       />
                     </Stack.Navigator>
                   </FertilizerProvider>
