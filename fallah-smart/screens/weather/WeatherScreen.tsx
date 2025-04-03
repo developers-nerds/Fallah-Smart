@@ -123,6 +123,98 @@ export interface FarmingRecommendation {
   icon: string;
 }
 
+// Add Arabic translations for common locations
+const locationTranslations: Record<string, string> = {
+  'Tunisia': 'تونس',
+  'Tunis': 'تونس العاصمة',
+  'Sfax': 'صفاقس',
+  'Sousse': 'سوسة',
+  'Kairouan': 'القيروان',
+  'Bizerte': 'بنزرت',
+  'Gabes': 'قابس',
+  'Ariana': 'أريانة',
+  'Gafsa': 'قفصة',
+  'Monastir': 'المنستير',
+  'Medenine': 'مدنين',
+  'Nabeul': 'نابل',
+  'Tataouine': 'تطاوين',
+  'Ben Arous': 'بن عروس',
+  'Kasserine': 'القصرين',
+  'Mahdia': 'المهدية',
+  'Sidi Bouzid': 'سيدي بوزيد',
+  'Jendouba': 'جندوبة',
+  'Tozeur': 'توزر',
+  'Siliana': 'سليانة',
+  'Zaghouan': 'زغوان',
+  'Kebili': 'قبلي',
+  'Kef': 'الكاف',
+  'Beja': 'باجة',
+  'Manouba': 'منوبة',
+};
+
+// Add translations for weather conditions
+const weatherConditionTranslations: Record<string, string> = {
+  'Clear': 'صافي',
+  'Sunny': 'مشمس',
+  'Partly cloudy': 'غائم جزئياً',
+  'Cloudy': 'غائم',
+  'Overcast': 'ملبد بالغيوم',
+  'Mist': 'ضباب خفيف',
+  'Patchy rain possible': 'احتمال هطول أمطار متفرقة',
+  'Patchy snow possible': 'احتمال تساقط ثلوج متفرقة',
+  'Patchy sleet possible': 'احتمال تساقط صقيع متفرق',
+  'Patchy freezing drizzle possible': 'احتمال رذاذ متجمد متفرق',
+  'Thundery outbreaks possible': 'احتمال عواصف رعدية',
+  'Blowing snow': 'هبوب رياح ثلجية',
+  'Blizzard': 'عاصفة ثلجية',
+  'Fog': 'ضباب',
+  'Freezing fog': 'ضباب متجمد',
+  'Patchy light drizzle': 'رذاذ خفيف متفرق',
+  'Light drizzle': 'رذاذ خفيف',
+  'Freezing drizzle': 'رذاذ متجمد',
+  'Heavy freezing drizzle': 'رذاذ متجمد كثيف',
+  'Patchy light rain': 'أمطار خفيفة متفرقة',
+  'Light rain': 'أمطار خفيفة',
+  'Moderate rain at times': 'أمطار معتدلة من حين لآخر',
+  'Moderate rain': 'أمطار معتدلة',
+  'Heavy rain at times': 'أمطار غزيرة من حين لآخر',
+  'Heavy rain': 'أمطار غزيرة',
+  'Light freezing rain': 'أمطار متجمدة خفيفة',
+  'Moderate or heavy freezing rain': 'أمطار متجمدة معتدلة أو غزيرة',
+  'Light sleet': 'صقيع خفيف',
+  'Moderate or heavy sleet': 'صقيع معتدل أو كثيف',
+  'Patchy light snow': 'ثلوج خفيفة متفرقة',
+  'Light snow': 'ثلوج خفيفة',
+  'Patchy moderate snow': 'ثلوج معتدلة متفرقة',
+  'Moderate snow': 'ثلوج معتدلة',
+  'Patchy heavy snow': 'ثلوج كثيفة متفرقة',
+  'Heavy snow': 'ثلوج كثيفة',
+  'Ice pellets': 'حبيبات ثلجية',
+  'Light rain shower': 'زخات مطر خفيفة',
+  'Moderate or heavy rain shower': 'زخات مطر معتدلة أو غزيرة',
+  'Torrential rain shower': 'زخات مطر غزيرة جداً',
+  'Light sleet showers': 'زخات صقيع خفيفة',
+  'Moderate or heavy sleet showers': 'زخات صقيع معتدلة أو كثيفة',
+  'Light snow showers': 'زخات ثلجية خفيفة',
+  'Moderate or heavy snow showers': 'زخات ثلجية معتدلة أو كثيفة',
+  'Light showers of ice pellets': 'زخات خفيفة من حبيبات الثلج',
+  'Moderate or heavy showers of ice pellets': 'زخات معتدلة أو كثيفة من حبيبات الثلج',
+  'Patchy light rain with thunder': 'أمطار خفيفة متفرقة مع رعد',
+  'Moderate or heavy rain with thunder': 'أمطار معتدلة أو غزيرة مع رعد',
+  'Patchy light snow with thunder': 'ثلوج خفيفة متفرقة مع رعد',
+  'Moderate or heavy snow with thunder': 'ثلوج معتدلة أو كثيفة مع رعد'
+};
+
+// Function to translate location name to Arabic if available
+const translateLocationName = (name: string): string => {
+  return locationTranslations[name] || name;
+};
+
+// Function to translate weather condition to Arabic
+const translateWeatherCondition = (condition: string): string => {
+  return weatherConditionTranslations[condition] || condition;
+};
+
 // AI Insights generator
 const generateWeatherInsights = (data: WeatherData): WeatherInsight[] => {
   const insights: WeatherInsight[] = [];
@@ -370,7 +462,14 @@ const arabicTranslations = {
     warning: 'تحذير',
     info: 'معلومات',
     success: 'إيجابي'
-  }
+  },
+  dayTime: 'نهار',
+  nightTime: 'ليل',
+  loading: 'جاري تحميل بيانات الطقس...',
+  kph: 'كم/س',
+  tempUnit: '°م',
+  day: 'نهار',
+  night: 'ليل'
 };
 
 interface TimeIconType {
@@ -382,7 +481,7 @@ interface TimeIconType {
   backgroundImage: any;
 }
 
-// Update timeIcon function for day/night visuals
+// Update timeIcon function for day/night visuals with Arabic text
 const getTimeBasedWeatherIcon = (): TimeIconType => {
   const hour = new Date().getHours();
 
@@ -391,7 +490,7 @@ const getTimeBasedWeatherIcon = (): TimeIconType => {
       icon: 'weather-sunny',
       color: '#FDB813',
       backgroundColor: 'rgba(255, 255, 255, 0.15)',
-      text: 'Day',
+      text: arabicTranslations.day,
       textColor: '#FFFFFF',
       backgroundImage: require('../../assets/images/weather/moon.png'), // Using moon.png for both temporarily
     };
@@ -400,7 +499,7 @@ const getTimeBasedWeatherIcon = (): TimeIconType => {
       icon: 'weather-night',
       color: '#FFFFFF',
       backgroundColor: 'rgba(0, 0, 0, 0.2)',
-      text: 'Night',
+      text: arabicTranslations.night,
       textColor: '#FFFFFF',
       backgroundImage: require('../../assets/images/weather/moon.png'),
     };
@@ -594,83 +693,6 @@ const WeatherScreen = () => {
     }
   };
 
-  // Render weather information header
-  const renderWeatherHeader = () => {
-    if (!weather) return null;
-
-    const current = weather.current;
-    const location = weather.location;
-
-    return (
-      <ImageBackground
-        source={timeIcon.backgroundImage}
-        style={styles.weatherHeader}
-        imageStyle={styles.weatherBackgroundImage}
-      >
-        <View style={[styles.weatherOverlay, { backgroundColor: timeIcon.backgroundColor }]}>
-          <View style={styles.weatherTopRow}>
-            <View>
-              <Text style={styles.locationName}>
-                {location?.name || arabicTranslations.locationNotAvailable}
-                {location?.country && `, ${location.country}`}
-              </Text>
-              <Text style={styles.lastUpdated}>
-                {arabicTranslations.updateTime} {formatTime(lastUpdated)}
-              </Text>
-            </View>
-            
-            {locationPermissionDenied && (
-              <TouchableOpacity 
-                style={styles.locationButton}
-                onPress={promptLocationPermission}
-              >
-                <MaterialIcons name="my-location" size={20} color="#fff" />
-              </TouchableOpacity>
-            )}
-          </View>
-          
-          <View style={styles.weatherMainInfo}>
-            <View style={styles.weatherCondition}>
-              <MaterialCommunityIcons 
-                name={(timeIcon.icon as any) || 'weather-sunny'} 
-                size={40} 
-                color={timeIcon.color} 
-              />
-              <Text style={styles.tempText}>{Math.round(current.temp_c)}°C</Text>
-            </View>
-            
-            <Text style={styles.conditionText}>
-              {current.condition.text}
-            </Text>
-            
-            <View style={styles.weatherDetailsRow}>
-              <View style={styles.weatherDetail}>
-                <MaterialCommunityIcons name="thermometer" size={16} color="#fff" />
-                <Text style={styles.weatherDetailText}>
-                  {arabicTranslations.feelsLike}: {Math.round(current.feelslike_c)}°C
-                </Text>
-              </View>
-              
-              <View style={styles.weatherDetail}>
-                <MaterialCommunityIcons name="water-percent" size={16} color="#fff" />
-                <Text style={styles.weatherDetailText}>
-                  {arabicTranslations.humidity}: {current.humidity}%
-                </Text>
-              </View>
-              
-              <View style={styles.weatherDetail}>
-                <MaterialCommunityIcons name="weather-windy" size={16} color="#fff" />
-                <Text style={styles.weatherDetailText}>
-                  {arabicTranslations.wind}: {Math.round(current.wind_kph)} كم/س
-                </Text>
-              </View>
-            </View>
-          </View>
-        </View>
-      </ImageBackground>
-    );
-  };
-
   // Render loading state
   if (loading && !refreshing) {
     return (
@@ -678,7 +700,7 @@ const WeatherScreen = () => {
         <StatusBar barStyle="light-content" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.primary.base} />
-          <Text style={styles.loadingText}>جاري تحميل بيانات الطقس...</Text>
+          <Text style={styles.loadingText}>{arabicTranslations.loading}</Text>
         </View>
       </SafeAreaView>
     );
@@ -714,56 +736,142 @@ const WeatherScreen = () => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
       
-      <View style={styles.headerContainer}>
-        <Text style={styles.screenTitle}>{arabicTranslations.title}</Text>
-      </View>
-      
-      {renderWeatherHeader()}
-      
-      {/* AI Insights Section */}
-      {renderInsights()}
-      
-      <View style={styles.tabContainer}>
-        <Tab.Navigator
-          screenOptions={{
-            tabBarStyle: styles.tabBar,
-            tabBarLabelStyle: styles.tabLabel,
-            tabBarIndicatorStyle: { backgroundColor: theme.colors.primary.base },
-            tabBarActiveTintColor: theme.colors.primary.base,
-            tabBarInactiveTintColor: theme.colors.neutral.gray.base,
-          }}
+      <View style={styles.mainContainer}>
+        {/* Scrollable content area */}
+        <ScrollView
+          style={styles.scrollView}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          showsVerticalScrollIndicator={false}
         >
-          <Tab.Screen 
-            name="Alerts" 
-            component={AlertsTab} 
-            options={{ 
-              tabBarLabel: arabicTranslations.tabs.alerts,
-              tabBarIcon: ({ color }) => (
-                <MaterialCommunityIcons name="alert-circle" color={color} size={20} />
-              )
-            }} 
-          />
-          <Tab.Screen 
-            name="Recommendations" 
-            component={RecommendationsTab} 
-            options={{ 
-              tabBarLabel: arabicTranslations.tabs.recommendations,
-              tabBarIcon: ({ color }) => (
-                <MaterialCommunityIcons name="lightbulb-on" color={color} size={20} />
-              )
-            }} 
-          />
-          <Tab.Screen 
-            name="Calendar" 
-            component={CalendarTab} 
-            options={{ 
-              tabBarLabel: arabicTranslations.tabs.calendar,
-              tabBarIcon: ({ color }) => (
-                <MaterialCommunityIcons name="calendar-month" color={color} size={20} />
-              )
-            }} 
-          />
-        </Tab.Navigator>
+          {/* Header */}
+          <View style={styles.headerContainer}>
+            <Text style={styles.screenTitle}>{arabicTranslations.title}</Text>
+          </View>
+          
+          {/* Weather Information */}
+          {weather && (
+            <ImageBackground
+              source={timeIcon.backgroundImage}
+              style={styles.weatherHeader}
+              imageStyle={styles.weatherBackgroundImage}
+            >
+              <View style={[styles.weatherOverlay, { backgroundColor: timeIcon.backgroundColor }]}>
+                <View style={styles.weatherTopRow}>
+                  <View>
+                    <Text style={styles.locationName}>
+                      {weather.location?.name 
+                        ? translateLocationName(weather.location.name)
+                        : arabicTranslations.locationNotAvailable}
+                      {weather.location?.country && `, ${translateLocationName(weather.location.country)}`}
+                    </Text>
+                    <Text style={styles.lastUpdated}>
+                      {arabicTranslations.updateTime} {formatTime(lastUpdated)}
+                    </Text>
+                  </View>
+                  
+                  {locationPermissionDenied && (
+                    <TouchableOpacity 
+                      style={styles.locationButton}
+                      onPress={promptLocationPermission}
+                    >
+                      <MaterialIcons name="my-location" size={20} color="#fff" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+                
+                <View style={styles.weatherMainInfo}>
+                  <View style={styles.weatherCondition}>
+                    <MaterialCommunityIcons 
+                      name={(timeIcon.icon as any) || 'weather-sunny'} 
+                      size={40} 
+                      color={timeIcon.color} 
+                    />
+                    <Text style={styles.tempText}>{Math.round(weather.current.temp_c)}{arabicTranslations.tempUnit}</Text>
+                  </View>
+                  
+                  <Text style={styles.conditionText}>
+                    {translateWeatherCondition(weather.current.condition.text)}
+                  </Text>
+                  
+                  <View style={styles.weatherDetailsRow}>
+                    <View style={styles.weatherDetail}>
+                      <MaterialCommunityIcons name="thermometer" size={16} color="#fff" />
+                      <Text style={styles.weatherDetailText}>
+                        {arabicTranslations.feelsLike}: {Math.round(weather.current.feelslike_c)}{arabicTranslations.tempUnit}
+                      </Text>
+                    </View>
+                    
+                    <View style={styles.weatherDetail}>
+                      <MaterialCommunityIcons name="water-percent" size={16} color="#fff" />
+                      <Text style={styles.weatherDetailText}>
+                        {arabicTranslations.humidity}: {weather.current.humidity}%
+                      </Text>
+                    </View>
+                    
+                    <View style={styles.weatherDetail}>
+                      <MaterialCommunityIcons name="weather-windy" size={16} color="#fff" />
+                      <Text style={styles.weatherDetailText}>
+                        {arabicTranslations.wind}: {Math.round(weather.current.wind_kph)} {arabicTranslations.kph}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </ImageBackground>
+          )}
+          
+          {/* AI Insights Section */}
+          {renderInsights()}
+          
+          {/* Extra padding at the bottom to ensure all content can be scrolled above the tabs */}
+          <View style={styles.scrollPadding} />
+        </ScrollView>
+        
+        {/* Fixed tab container */}
+        <View style={styles.tabContainer}>
+          <Tab.Navigator
+            screenOptions={{
+              tabBarStyle: styles.tabBar,
+              tabBarLabelStyle: styles.tabLabel,
+              tabBarIndicatorStyle: { backgroundColor: theme.colors.primary.base },
+              tabBarActiveTintColor: theme.colors.primary.base,
+              tabBarInactiveTintColor: theme.colors.neutral.gray.base,
+            }}
+          >
+            <Tab.Screen 
+              name="Alerts" 
+              component={AlertsTab} 
+              options={{ 
+                tabBarLabel: arabicTranslations.tabs.alerts,
+                tabBarIcon: ({ color }) => (
+                  <MaterialCommunityIcons name="alert-circle" color={color} size={20} />
+                )
+              }} 
+            />
+            <Tab.Screen 
+              name="Recommendations" 
+              component={RecommendationsTab} 
+              options={{ 
+                tabBarLabel: arabicTranslations.tabs.recommendations,
+                tabBarIcon: ({ color }) => (
+                  <MaterialCommunityIcons name="lightbulb-on" color={color} size={20} />
+                )
+              }} 
+            />
+            <Tab.Screen 
+              name="Calendar" 
+              component={CalendarTab} 
+              options={{ 
+                tabBarLabel: arabicTranslations.tabs.calendar,
+                tabBarIcon: ({ color }) => (
+                  <MaterialCommunityIcons name="calendar-month" color={color} size={20} />
+                )
+              }} 
+            />
+          </Tab.Navigator>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -774,19 +882,30 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
+  mainContainer: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  scrollView: {
+    flex: 0.4,
+  },
+  scrollPadding: {
+    height: 10,
+  },
   headerContainer: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 8,
     backgroundColor: theme.colors.primary.dark,
   },
   screenTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#fff',
     textAlign: 'center',
   },
   weatherHeader: {
-    height: 200,
+    height: 160,
     width: '100%',
   },
   weatherBackgroundImage: {
@@ -794,7 +913,7 @@ const styles = StyleSheet.create({
   },
   weatherOverlay: {
     flex: 1,
-    padding: 16,
+    padding: 12,
   },
   weatherTopRow: {
     flexDirection: 'row',
@@ -802,18 +921,18 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   locationName: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#fff',
   },
   lastUpdated: {
-    fontSize: 12,
+    fontSize: 10,
     color: 'rgba(255, 255, 255, 0.8)',
-    marginTop: 4,
+    marginTop: 2,
   },
   locationButton: {
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    padding: 8,
+    padding: 6,
     borderRadius: 20,
   },
   weatherMainInfo: {
@@ -824,26 +943,26 @@ const styles = StyleSheet.create({
   weatherCondition: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   tempText: {
-    fontSize: 48,
+    fontSize: 42,
     fontWeight: 'bold',
     color: '#fff',
-    marginLeft: 10,
+    marginLeft: 8,
   },
   conditionText: {
-    fontSize: 18,
+    fontSize: 16,
     color: '#fff',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   weatherDetailsRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     width: '100%',
     backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    borderRadius: 12,
-    paddingVertical: 8,
+    borderRadius: 10,
+    paddingVertical: 6,
   },
   weatherDetail: {
     flexDirection: 'row',
@@ -852,25 +971,25 @@ const styles = StyleSheet.create({
   weatherDetailText: {
     marginLeft: 4,
     color: '#fff',
-    fontSize: 12,
+    fontSize: 11,
   },
   insightsContainer: {
-    padding: 16,
+    padding: 12,
     backgroundColor: '#fff',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   insightsTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: theme.colors.primary.dark,
-    marginBottom: 12,
+    marginBottom: 8,
     textAlign: 'right',
   },
   insightCard: {
     backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 10,
+    borderRadius: 6,
+    padding: 10,
+    marginBottom: 8,
     borderLeftWidth: 4,
     elevation: 2,
     shadowColor: '#000',
@@ -881,37 +1000,37 @@ const styles = StyleSheet.create({
   insightHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   insightTitleContainer: {
     flex: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginLeft: 8,
+    marginLeft: 6,
   },
   insightTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 'bold',
     color: theme.colors.neutral.gray.dark,
   },
   insightTypeTag: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 12,
+    borderRadius: 10,
   },
   insightTypeText: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: 'bold',
   },
   insightDescription: {
-    fontSize: 14,
+    fontSize: 12,
     color: theme.colors.neutral.gray.dark,
-    lineHeight: 20,
+    lineHeight: 18,
     textAlign: 'right',
   },
   tabContainer: {
-    flex: 1,
+    height: 400,
     backgroundColor: '#fff',
   },
   tabBar: {

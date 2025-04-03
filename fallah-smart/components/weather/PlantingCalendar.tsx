@@ -34,62 +34,306 @@ const SEASONS = [
   { id: 'fall', label: 'الخريف', months: [9, 10, 11], color: '#FFAB91' },
 ];
 
-// Crop data for Tunisia
+// Expanded crop data for Tunisia with more options organized by season
 const CROPS = [
+  // WINTER CROPS (الشتاء)
   {
-    id: 'tomatoes',
-    name: 'طماطم',
-    category: 'vegetables',
-    icon: '🍅',
-    plantMonths: [2, 3, 4, 8, 9],
-    harvestMonths: [6, 7, 8, 11, 12],
-    idealTemp: { min: 15, max: 35 },
-    notes: 'تحتاج إلى الكثير من الشمس والماء. تزرع في الربيع والخريف في تونس لتجنب حرارة الصيف القاسية.',
-  },
-  {
-    id: 'potatoes',
+    id: 'potatoes_winter',
     name: 'بطاطا',
     category: 'vegetables',
+    seasons: ['winter'],
     icon: '🥔',
-    plantMonths: [1, 2, 8, 9],
-    harvestMonths: [4, 5, 11, 12],
-    idealTemp: { min: 10, max: 30 },
-    notes: 'تنمو جيدًا في الشتاء والخريف في تونس. تحتاج إلى تربة رطبة وجيدة التصريف.',
+    plantMonths: [12, 1, 2],
+    harvestMonths: [4, 5],
+    idealTemp: { min: 10, max: 25 },
+    notes: 'من أفضل محاصيل الشتاء في تونس. تزرع في الشتاء للحصاد في الربيع.',
   },
   {
-    id: 'peppers',
+    id: 'onions',
+    name: 'بصل',
+    category: 'vegetables',
+    seasons: ['winter'],
+    icon: '🧅',
+    plantMonths: [12, 1, 2],
+    harvestMonths: [5, 6],
+    idealTemp: { min: 12, max: 28 },
+    notes: 'البصل الشتوي يعطي محصولاً جيداً ويمكن تخزينه لفترات طويلة.',
+  },
+  {
+    id: 'garlic',
+    name: 'ثوم',
+    category: 'vegetables',
+    seasons: ['winter'],
+    icon: '🧄',
+    plantMonths: [12, 1],
+    harvestMonths: [5, 6],
+    idealTemp: { min: 8, max: 26 },
+    notes: 'يفضّل زراعته في الأيام الباردة من الشتاء للحصول على فصوص كبيرة.',
+  },
+  {
+    id: 'broad_beans',
+    name: 'فول',
+    category: 'vegetables',
+    seasons: ['winter'],
+    icon: '🌱',
+    plantMonths: [12, 1, 2],
+    harvestMonths: [4, 5],
+    idealTemp: { min: 7, max: 24 },
+    notes: 'من البقوليات المهمة التي تزرع في الشتاء وتتحمل البرودة.',
+  },
+  {
+    id: 'peas',
+    name: 'بازلاء',
+    category: 'vegetables',
+    seasons: ['winter'],
+    icon: '🫛',
+    plantMonths: [12, 1, 2],
+    harvestMonths: [3, 4, 5],
+    idealTemp: { min: 10, max: 25 },
+    notes: 'تزرع في الشتاء وتحصد في أواخر الشتاء وبداية الربيع.',
+  },
+  {
+    id: 'spinach',
+    name: 'سبانخ',
+    category: 'vegetables',
+    seasons: ['winter'],
+    icon: '🥬',
+    plantMonths: [12, 1, 2],
+    harvestMonths: [2, 3, 4],
+    idealTemp: { min: 5, max: 20 },
+    notes: 'تفضل الطقس البارد وتعطي محصولاً جيداً في الشتاء التونسي.',
+  },
+  {
+    id: 'cauliflower',
+    name: 'قرنبيط',
+    category: 'vegetables',
+    seasons: ['winter'],
+    icon: '🥦',
+    plantMonths: [11, 12, 1],
+    harvestMonths: [2, 3, 4],
+    idealTemp: { min: 10, max: 24 },
+    notes: 'ينمو بشكل أفضل في الشتاء المعتدل ويحتاج إلى الكثير من الماء.',
+  },
+
+  // SPRING CROPS (الربيع)
+  {
+    id: 'tomatoes_spring',
+    name: 'طماطم',
+    category: 'vegetables',
+    seasons: ['spring'],
+    icon: '🍅',
+    plantMonths: [2, 3, 4],
+    harvestMonths: [6, 7, 8],
+    idealTemp: { min: 15, max: 35 },
+    notes: 'تزرع في أواخر الشتاء وبداية الربيع للحصاد في الصيف.',
+  },
+  {
+    id: 'cucumbers',
+    name: 'خيار',
+    category: 'vegetables',
+    seasons: ['spring'],
+    icon: '🥒',
+    plantMonths: [3, 4],
+    harvestMonths: [5, 6, 7],
+    idealTemp: { min: 18, max: 32 },
+    notes: 'محصول ربيعي-صيفي يحتاج إلى الكثير من الماء والشمس.',
+  },
+  {
+    id: 'zucchini',
+    name: 'كوسة',
+    category: 'vegetables',
+    seasons: ['spring'],
+    icon: '🥬',
+    plantMonths: [3, 4],
+    harvestMonths: [5, 6, 7],
+    idealTemp: { min: 18, max: 35 },
+    notes: 'تنمو بسرعة في الربيع وتعطي إنتاجاً غزيراً.',
+  },
+  {
+    id: 'peppers_spring',
     name: 'فلفل',
     category: 'vegetables',
+    seasons: ['spring'],
     icon: '🌶️',
     plantMonths: [2, 3, 4],
-    harvestMonths: [7, 8, 9, 10],
+    harvestMonths: [6, 7, 8, 9],
     idealTemp: { min: 18, max: 32 },
-    notes: 'محصول صيفي يحب الشمس. يزرع في أواخر الشتاء وأوائل الربيع للحصاد في الصيف والخريف.',
+    notes: 'يزرع في الربيع للحصاد في الصيف والخريف.',
   },
+  {
+    id: 'eggplant',
+    name: 'باذنجان',
+    category: 'vegetables',
+    seasons: ['spring'],
+    icon: '🍆',
+    plantMonths: [3, 4],
+    harvestMonths: [6, 7, 8, 9],
+    idealTemp: { min: 20, max: 32 },
+    notes: 'يحتاج إلى طقس دافئ ويزرع في الربيع للحصاد في الصيف.',
+  },
+  {
+    id: 'strawberries',
+    name: 'فراولة',
+    category: 'fruits',
+    seasons: ['spring'],
+    icon: '🍓',
+    plantMonths: [9, 10, 11, 2, 3],
+    harvestMonths: [3, 4, 5, 6],
+    idealTemp: { min: 15, max: 26 },
+    notes: 'تزرع في الخريف أو الربيع وتثمر في الربيع والصيف المبكر.',
+  },
+  {
+    id: 'sunflowers',
+    name: 'عباد الشمس',
+    category: 'grains',
+    seasons: ['spring'],
+    icon: '🌻',
+    plantMonths: [3, 4],
+    harvestMonths: [7, 8],
+    idealTemp: { min: 18, max: 35 },
+    notes: 'يزرع في الربيع للحصاد في الصيف، ويستخدم لاستخراج الزيت وللتزيين.',
+  },
+
+  // SUMMER CROPS (الصيف)
   {
     id: 'watermelons',
     name: 'بطيخ',
     category: 'fruits',
+    seasons: ['summer'],
     icon: '🍉',
     plantMonths: [3, 4],
-    harvestMonths: [7, 8, 9],
+    harvestMonths: [6, 7, 8],
     idealTemp: { min: 21, max: 35 },
-    notes: 'يزرع في الربيع للحصاد في الصيف. يحتاج إلى مساحة كبيرة والكثير من المياه والشمس.',
+    notes: 'يزرع في أواخر الربيع للحصاد في الصيف. يحتاج إلى الكثير من المياه والشمس.',
   },
   {
-    id: 'oranges',
-    name: 'برتقال',
+    id: 'melons',
+    name: 'شمام',
     category: 'fruits',
-    icon: '🍊',
-    plantMonths: [2, 3],
+    seasons: ['summer'],
+    icon: '🍈',
+    plantMonths: [3, 4],
+    harvestMonths: [6, 7, 8],
+    idealTemp: { min: 20, max: 32 },
+    notes: 'يشبه البطيخ في مواعيد زراعته، ويفضل الطقس الحار والجاف.',
+  },
+  {
+    id: 'okra',
+    name: 'بامية',
+    category: 'vegetables',
+    seasons: ['summer'],
+    icon: '🌿',
+    plantMonths: [4, 5],
+    harvestMonths: [6, 7, 8, 9],
+    idealTemp: { min: 22, max: 38 },
+    notes: 'محصول صيفي يتحمل الحرارة والجفاف ويعطي محصولاً مستمراً طوال الصيف.',
+  },
+  {
+    id: 'sweet_potatoes',
+    name: 'بطاطا حلوة',
+    category: 'vegetables',
+    seasons: ['summer'],
+    icon: '🍠',
+    plantMonths: [4, 5],
+    harvestMonths: [8, 9, 10],
+    idealTemp: { min: 20, max: 35 },
+    notes: 'تزرع في أواخر الربيع وتنمو جيداً في الطقس الحار وتحصد في الخريف.',
+  },
+  {
+    id: 'corn',
+    name: 'ذرة',
+    category: 'grains',
+    seasons: ['summer'],
+    icon: '🌽',
+    plantMonths: [4, 5, 6],
+    harvestMonths: [7, 8, 9],
+    idealTemp: { min: 18, max: 35 },
+    notes: 'محصول صيفي مهم، يحتاج إلى الكثير من المياه والمغذيات.',
+  },
+  {
+    id: 'basil',
+    name: 'ريحان',
+    category: 'herbs',
+    seasons: ['summer'],
+    icon: '🌿',
+    plantMonths: [4, 5, 6],
+    harvestMonths: [5, 6, 7, 8, 9],
+    idealTemp: { min: 18, max: 35 },
+    notes: 'عشب صيفي يحب الدفء والشمس ويمكن حصاده عدة مرات خلال الموسم.',
+  },
+
+  // FALL CROPS (الخريف)
+  {
+    id: 'tomatoes_fall',
+    name: 'طماطم خريفية',
+    category: 'vegetables',
+    seasons: ['fall'],
+    icon: '🍅',
+    plantMonths: [8, 9],
+    harvestMonths: [11, 12],
+    idealTemp: { min: 15, max: 35 },
+    notes: 'الزراعة الخريفية للطماطم تعطي محصولاً في الشتاء.',
+  },
+  {
+    id: 'potatoes_fall',
+    name: 'بطاطا خريفية',
+    category: 'vegetables',
+    seasons: ['fall'],
+    icon: '🥔',
+    plantMonths: [8, 9],
+    harvestMonths: [11, 12],
+    idealTemp: { min: 10, max: 30 },
+    notes: 'تنمو جيدًا في الخريف في تونس. تحتاج إلى تربة رطبة وجيدة التصريف.',
+  },
+  {
+    id: 'carrots',
+    name: 'جزر',
+    category: 'vegetables',
+    seasons: ['fall'],
+    icon: '🥕',
+    plantMonths: [8, 9, 10],
     harvestMonths: [11, 12, 1, 2],
-    idealTemp: { min: 13, max: 35 },
-    notes: 'من أهم المحاصيل في تونس. تزرع الأشجار في الربيع وتحصد الثمار في الشتاء.',
+    idealTemp: { min: 10, max: 28 },
+    notes: 'محصول خريفي-شتوي يمكن أن يتحمل البرودة المعتدلة.',
+  },
+  {
+    id: 'cabbage',
+    name: 'ملفوف',
+    category: 'vegetables',
+    seasons: ['fall'],
+    icon: '🥬',
+    plantMonths: [8, 9, 10],
+    harvestMonths: [11, 12, 1, 2],
+    idealTemp: { min: 10, max: 24 },
+    notes: 'يزرع في الخريف ويتحمل البرودة وينمو جيداً في الشتاء التونسي.',
+  },
+  {
+    id: 'turnips',
+    name: 'لفت',
+    category: 'vegetables',
+    seasons: ['fall'],
+    icon: '🌱',
+    plantMonths: [9, 10],
+    harvestMonths: [12, 1, 2],
+    idealTemp: { min: 10, max: 25 },
+    notes: 'خضار جذري يزرع في الخريف ويتحمل البرودة.',
+  },
+  {
+    id: 'lettuce',
+    name: 'خس',
+    category: 'vegetables',
+    seasons: ['fall'],
+    icon: '🥬',
+    plantMonths: [9, 10, 11],
+    harvestMonths: [11, 12, 1, 2],
+    idealTemp: { min: 10, max: 22 },
+    notes: 'يفضل الطقس المعتدل ويمكن زراعته في الخريف والشتاء.',
   },
   {
     id: 'olives',
     name: 'زيتون',
     category: 'fruits',
+    seasons: ['fall'],
     icon: '🫒',
     plantMonths: [2, 3, 11],
     harvestMonths: [9, 10, 11, 12],
@@ -100,41 +344,12 @@ const CROPS = [
     id: 'wheat',
     name: 'قمح',
     category: 'grains',
+    seasons: ['fall'],
     icon: '🌾',
     plantMonths: [10, 11, 12],
     harvestMonths: [5, 6, 7],
     idealTemp: { min: 4, max: 32 },
     notes: 'يزرع في الخريف والشتاء للحصاد في أواخر الربيع وأوائل الصيف. من المحاصيل الأساسية في تونس.',
-  },
-  {
-    id: 'barley',
-    name: 'شعير',
-    category: 'grains',
-    icon: '🌾',
-    plantMonths: [10, 11],
-    harvestMonths: [4, 5],
-    idealTemp: { min: 4, max: 30 },
-    notes: 'محصول شتوي، يزرع في الخريف ويحصد في الربيع. يتحمل الجفاف والملوحة بشكل أفضل من القمح.',
-  },
-  {
-    id: 'mint',
-    name: 'نعناع',
-    category: 'herbs',
-    icon: '🌿',
-    plantMonths: [3, 4, 5, 9, 10],
-    harvestMonths: [6, 7, 8, 9, 10, 11],
-    idealTemp: { min: 10, max: 30 },
-    notes: 'من الأعشاب الشائعة في المطبخ التونسي. يمكن زراعته في الربيع والخريف ويستمر لفترة طويلة.',
-  },
-  {
-    id: 'thyme',
-    name: 'زعتر',
-    category: 'herbs',
-    icon: '🌿',
-    plantMonths: [2, 3, 9, 10],
-    harvestMonths: [5, 6, 7, 8, 9, 10, 11],
-    idealTemp: { min: 7, max: 35 },
-    notes: 'عشب مقاوم للجفاف يمكن حصاده عدة مرات في السنة. يستخدم بكثرة في المطبخ التونسي التقليدي.',
   },
 ];
 
@@ -390,6 +605,85 @@ const getDaysInMonth = (month: number, year: number = new Date().getFullYear()) 
   return days;
 };
 
+// Add a new function to get crops by season
+const getCropsBySeason = (seasonId: string) => {
+  return CROPS.filter(crop => crop.seasons.includes(seasonId));
+};
+
+// Add a SeasonalCropsView component within the PlantingCalendar component
+const SeasonalCropsView = ({ seasonId }: { seasonId: string }) => {
+  const season = SEASONS.find(s => s.id === seasonId);
+  const crops = getCropsBySeason(seasonId);
+
+  return (
+    <View style={styles.seasonalCropsContainer}>
+      <LinearGradient
+        colors={[season?.color || '#E0E0E0', '#FFFFFF']}
+        style={styles.seasonGradient}
+      >
+        <Text style={styles.seasonCropsTitle}>
+          محاصيل موسم {season?.label}
+        </Text>
+        
+        <View style={styles.cropCategories}>
+          {CROP_CATEGORIES.slice(1).map(category => (
+            <TouchableOpacity
+              key={category.id}
+              style={styles.cropCategoryButton}
+              onPress={() => {
+                // Filter by this category within the season
+                // You can implement this functionality later
+              }}
+            >
+              <MaterialCommunityIcons
+                name={category.icon as any}
+                size={22}
+                color={theme.colors.primary.dark}
+              />
+              <Text style={styles.cropCategoryText}>{category.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        
+        <View style={styles.seasonalCropsGrid}>
+          {crops.map(crop => (
+            <TouchableOpacity
+              key={crop.id}
+              style={styles.cropCard}
+              onPress={() => setSelectedCrop(crop.id)}
+            >
+              <Text style={styles.cropIcon}>{crop.icon}</Text>
+              <Text style={styles.cropName}>{crop.name}</Text>
+              <View style={styles.cropPlantHarvestInfo}>
+                <View style={styles.cropTimelineInfo}>
+                  <MaterialCommunityIcons 
+                    name="seed" 
+                    size={16} 
+                    color={theme.colors.primary.base} 
+                  />
+                  <Text style={styles.cropTimelineText}>
+                    {crop.plantMonths.map(m => MONTHS.find(month => month.id === m)?.shortName).join('، ')}
+                  </Text>
+                </View>
+                <View style={styles.cropTimelineInfo}>
+                  <MaterialCommunityIcons 
+                    name="basket" 
+                    size={16} 
+                    color="#FF9800" 
+                  />
+                  <Text style={styles.cropTimelineText}>
+                    {crop.harvestMonths.map(m => MONTHS.find(month => month.id === m)?.shortName).join('، ')}
+                  </Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </LinearGradient>
+    </View>
+  );
+};
+
 const PlantingCalendar: React.FC<PlantingCalendarProps> = ({ weatherData }) => {
   const currentMonth = new Date().getMonth() + 1; // 1-12
   const currentYear = new Date().getFullYear();
@@ -398,6 +692,9 @@ const PlantingCalendar: React.FC<PlantingCalendarProps> = ({ weatherData }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedCrop, setSelectedCrop] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [selectedSeason, setSelectedSeason] = useState<string>(
+    SEASONS.find(season => season.months.includes(new Date().getMonth() + 1))?.id || 'spring'
+  );
   
   // Générer le calendrier du mois
   const calendarDays = getDaysInMonth(selectedMonth, selectedYear);
@@ -853,6 +1150,30 @@ const PlantingCalendar: React.FC<PlantingCalendarProps> = ({ weatherData }) => {
             </View>
           </View>
         </View>
+        
+        {/* Seasonal navigation */}
+        <View style={styles.seasonNavContainer}>
+          {SEASONS.map(season => (
+            <TouchableOpacity 
+              key={season.id}
+              style={[
+                styles.seasonNavButton,
+                selectedSeason === season.id && { backgroundColor: season.color }
+              ]}
+              onPress={() => setSelectedSeason(season.id)}
+            >
+              <Text style={[
+                styles.seasonNavText,
+                selectedSeason === season.id && styles.seasonNavTextSelected
+              ]}>
+                {season.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        
+        {/* Seasonal crops view */}
+        <SeasonalCropsView seasonId={selectedSeason} />
         
         {/* Espace supplémentaire en bas pour éviter que le contenu soit caché par le TabBar */}
         <View style={{ height: 20 }} />
@@ -1521,6 +1842,97 @@ const styles = StyleSheet.create({
         elevation: 4,
       },
     }),
+  },
+  seasonNavContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    marginVertical: 12,
+  },
+  seasonNavButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  seasonNavText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  seasonNavTextSelected: {
+    color: '#fff',
+  },
+  seasonalCropsContainer: {
+    marginBottom: 16,
+  },
+  seasonGradient: {
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+  },
+  seasonCropsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  cropCategories: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 16,
+  },
+  cropCategoryButton: {
+    alignItems: 'center',
+    padding: 8,
+  },
+  cropCategoryText: {
+    fontSize: 12,
+    marginTop: 4,
+    color: '#333',
+  },
+  seasonalCropsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  cropCard: {
+    width: '48%',
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  cropIcon: {
+    fontSize: 24,
+    marginBottom: 8,
+  },
+  cropName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    textAlign: 'right',
+  },
+  cropPlantHarvestInfo: {
+    marginTop: 8,
+  },
+  cropTimelineInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  cropTimelineText: {
+    fontSize: 12,
+    marginLeft: 6,
+    color: '#666',
   },
 });
 

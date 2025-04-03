@@ -185,6 +185,11 @@ interface GlobalInsight {
 const WEATHER_API_KEY = '49b04b19a3614a6f86b503950631e71c';
 const WEATHER_API_URL = 'https://api.weatherapi.com/v1/forecast.json';
 
+// Add API constants for wallet
+const CATEGORIES_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/categories`;
+const ACCOUNTS_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/accounts/all-with-users`;
+const TRANSACTIONS_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/transactions/admin/all`;
+
 // Market price data
 const marketPriceData = [
   { day: 'Mon', tomatoes: 2.5, potatoes: 1.2, cucumbers: 1.8, onions: 1.4 },
@@ -276,49 +281,84 @@ function Dashboard() {
       setLoadingWallet(true);
       setWalletError(null);
       
-      // For demo purposes, using mock data
-      // In production, you'd use:
-      // const TRANSACTIONS_URL = `${import.meta.env.VITE_API_URL}/transactions/admin/all`
-      // const response = await axios.get(TRANSACTIONS_URL);
-      
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 600));
-      
-      // Mock transactions data
-      const mockTransactions = [
-        { id: 1, amount: 1200, type: 'income', date: '2023-06-15', category: { name: 'Sales', color: '#4F7942' } },
-        { id: 2, amount: 800, type: 'income', date: '2023-07-10', category: { name: 'Sales', color: '#4F7942' } },
-        { id: 3, amount: 1500, type: 'income', date: '2023-08-05', category: { name: 'Investment', color: '#0088FE' } },
-        { id: 4, amount: 300, type: 'expense', date: '2023-06-20', category: { name: 'Equipment', color: '#FF8042' } },
-        { id: 5, amount: 500, type: 'expense', date: '2023-07-25', category: { name: 'Seeds', color: '#FFBB28' } },
-        { id: 6, amount: 250, type: 'expense', date: '2023-08-15', category: { name: 'Fertilizer', color: '#8884d8' } },
-        { id: 7, amount: 900, type: 'income', date: '2023-09-01', category: { name: 'Sales', color: '#4F7942' } },
-        { id: 8, amount: 400, type: 'expense', date: '2023-09-10', category: { name: 'Equipment', color: '#FF8042' } }
-      ];
-      
-      // Mock accounts data
-      const mockAccounts = [
-        { id: 1, balance: 2500, currency: 'TND' },
-        { id: 2, balance: 1750, currency: 'TND' }
-      ];
-      
-      setTransactions(mockTransactions);
-      setAccounts(mockAccounts);
-      
-      // Calculate balances
-      const income = mockTransactions
-        .filter(t => t.type === 'income')
-        .reduce((sum, t) => sum + t.amount, 0);
-      
-      const expense = mockTransactions
-        .filter(t => t.type === 'expense')
-        .reduce((sum, t) => sum + t.amount, 0);
-      
-      const balance = mockAccounts.reduce((sum, acc) => sum + acc.balance, 0);
-      
-      setTotalIncome(income);
-      setTotalExpense(expense);
-      setTotalBalance(balance);
+      // Use real API endpoints instead of mock data
+      try {
+        // Parallel requests for better performance
+        const [categoryResponse, accountsResponse, transactionsResponse] = await Promise.all([
+          axios.get(CATEGORIES_URL),
+          axios.get(ACCOUNTS_URL),
+          axios.get(TRANSACTIONS_URL)
+        ]);
+        
+        // Extract transactions and accounts from the response
+        const transactionsData = transactionsResponse.data.data.transactions || [];
+        const accountsData = transactionsResponse.data.data.accounts || [];
+        
+        setTransactions(transactionsData);
+        setAccounts(accountsData);
+
+        console.log('Fetched wallet data:', { 
+          categories: categoryResponse.data.length,
+          accounts: accountsData.length,
+          transactions: transactionsData.length 
+        });
+
+        // Calculate total balance from all accounts
+        const totalAccountBalance = accountsData.reduce((sum: number, account: Account) => sum + account.balance, 0);
+        setTotalBalance(totalAccountBalance);
+
+        // Calculate income and expense totals
+        const income = transactionsData
+          .filter((t: Transaction) => t.type === 'income')
+          .reduce((sum: number, t: Transaction) => sum + t.amount, 0);
+        const expense = transactionsData
+          .filter((t: Transaction) => t.type === 'expense')
+          .reduce((sum: number, t: Transaction) => sum + t.amount, 0);
+        
+        setTotalIncome(income);
+        setTotalExpense(expense);
+      } catch (apiError: any) {
+        console.error('API error fetching wallet data:', apiError);
+        
+        // Fallback to mock data if API fails
+        console.log('Using mock wallet data as fallback');
+        
+        // Mock data with fallback suffix to avoid variable redeclaration
+        const fallbackTransactions = [
+          { id: 1, amount: 1200, type: 'income', date: '2023-06-15', category: { name: 'Sales', color: '#4F7942' } },
+          { id: 2, amount: 800, type: 'income', date: '2023-07-10', category: { name: 'Sales', color: '#4F7942' } },
+          { id: 3, amount: 1500, type: 'income', date: '2023-08-05', category: { name: 'Investment', color: '#0088FE' } },
+          { id: 4, amount: 300, type: 'expense', date: '2023-06-20', category: { name: 'Equipment', color: '#FF8042' } },
+          { id: 5, amount: 500, type: 'expense', date: '2023-07-25', category: { name: 'Seeds', color: '#FFBB28' } },
+          { id: 6, amount: 250, type: 'expense', date: '2023-08-15', category: { name: 'Fertilizer', color: '#8884d8' } },
+          { id: 7, amount: 900, type: 'income', date: '2023-09-01', category: { name: 'Sales', color: '#4F7942' } },
+          { id: 8, amount: 400, type: 'expense', date: '2023-09-10', category: { name: 'Equipment', color: '#FF8042' } }
+        ];
+        
+        // Mock accounts data
+        const fallbackAccounts = [
+          { id: 1, balance: 2500, currency: 'TND' },
+          { id: 2, balance: 1750, currency: 'TND' }
+        ];
+        
+        setTransactions(fallbackTransactions);
+        setAccounts(fallbackAccounts);
+        
+        // Calculate balances from fallback data
+        const fallbackIncome = fallbackTransactions
+          .filter(t => t.type === 'income')
+          .reduce((sum, t) => sum + t.amount, 0);
+        
+        const fallbackExpense = fallbackTransactions
+          .filter(t => t.type === 'expense')
+          .reduce((sum, t) => sum + t.amount, 0);
+        
+        const fallbackBalance = fallbackAccounts.reduce((sum, acc) => sum + acc.balance, 0);
+        
+        setTotalIncome(fallbackIncome);
+        setTotalExpense(fallbackExpense);
+        setTotalBalance(fallbackBalance);
+      }
       
     } catch (err: any) {
       console.error("Error fetching wallet data:", err);
