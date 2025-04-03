@@ -206,7 +206,6 @@ export const HomeContent = ({ navigation, route }: HomeContentProps) => {
         console.log('Location permission not granted, using default location');
       }
 
-      console.log('Weather API URL:', WEATHER_API_URL);
       console.log('Weather API Key:', WEATHER_API_KEY.substring(0, 5) + '...');
       console.log('Location query:', locationQuery);
 
