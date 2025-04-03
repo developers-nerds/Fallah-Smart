@@ -33,6 +33,8 @@ import { HarvestProvider } from '../context/HarvestContext';
 import { FertilizerProvider } from '../context/FertilizerContext';
 import { AnimalProvider } from '../context/AnimalContext';
 import WelcomeOnboarding from '../screens/Onboarding/WelcomeOnboarding';
+import { useAuth } from '../context/AuthContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Import Tool screens
 import ToolListScreen from '../screens/Stock/Tools/ToolList';
@@ -70,33 +72,70 @@ import NotificationSettingsScreen from '../screens/Settings/NotificationSettings
 import { SupplierRegistrationForm } from '../screens/form/form';
 import MarketplaceScreen from '../screens/Marketplace/marketplace';
 import AddProduct from '../screens/Marketplace/AddProduct';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const Stack = createStackNavigator<StockStackParamList>();
 
 const ONBOARDING_COMPLETE_KEY = 'onboarding_complete';
 
 export const StockNavigator = () => {
-  const theme = useTheme();
-  const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const stock = useStock();
+  const theme = useTheme();
+  const [isNavigationReady, setIsNavigationReady] = useState(false);
+  const navigation = useNavigation();
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
+  const { isAuthenticated } = useAuth();
+  const { t } = useTranslation();
 
-  // Check if onboarding has been completed before
   useEffect(() => {
     const checkOnboardingStatus = async () => {
       try {
-        const value = await AsyncStorage.getItem(ONBOARDING_COMPLETE_KEY);
-        setIsOnboardingComplete(value === 'true');
+        const onboardingComplete = await AsyncStorage.getItem('@onboarding_complete');
+        setIsOnboardingComplete(onboardingComplete === 'true');
       } catch (error) {
         console.error('Error checking onboarding status:', error);
       } finally {
-        setIsLoading(false);
+        setIsNavigationReady(true);
       }
     };
 
     checkOnboardingStatus();
   }, []);
+
+  const markOnboardingComplete = async () => {
+    try {
+      await AsyncStorage.setItem('@onboarding_complete', 'true');
+      setIsOnboardingComplete(true);
+    } catch (error) {
+      console.error('Error saving onboarding status:', error);
+    }
+  };
+
+  // Modified useEffect to only fetch data after login
+  useEffect(() => {
+    // Only try to load initial data if user is authenticated
+    if (isAuthenticated) {
+      const loadInitialData = async () => {
+        try {
+          setIsLoading(true);
+          setError(null);
+          await stock.refreshStocks();
+          await stock.refreshAnimals();
+        } catch (err) {
+          console.error('Failed to load initial data:', err);
+          setError('Failed to load data. Please try again later.');
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      loadInitialData();
+    } else {
+      // If not authenticated, just mark as not loading
+      setIsLoading(false);
+    }
+  }, [isAuthenticated]); // Depend on authentication state instead of component mount
 
   const screenOptions = {
     headerStyle: {
@@ -111,15 +150,6 @@ export const StockNavigator = () => {
     cardStyle: {
       backgroundColor: theme.colors.neutral.background,
     },
-  };
-
-  // Mark onboarding as complete
-  const markOnboardingComplete = async () => {
-    try {
-      await AsyncStorage.setItem(ONBOARDING_COMPLETE_KEY, 'true');
-    } catch (error) {
-      console.error('Error saving onboarding status:', error);
-    }
   };
 
   if (isLoading) {

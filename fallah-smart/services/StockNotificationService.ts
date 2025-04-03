@@ -74,7 +74,7 @@ class StockNotificationService {
       // Load notification settings from storage
       await this.loadSettings();
 
-      // Start periodic stock checks
+      // Start periodic stock checks only if user is authenticated
       this.startStockChecks();
       
       this.isInitialized = true;
@@ -154,6 +154,13 @@ class StockNotificationService {
       // Skip if notifications aren't enabled
       if (!this.settings.automaticStockAlerts) {
         console.log('Automatic stock alerts are disabled. Skipping checks.');
+        return;
+      }
+      
+      // Make sure we're authenticated before proceeding
+      const tokens = await storage.getTokens();
+      if (!tokens?.access) {
+        console.warn('[StockNotificationService] No access token available, skipping stock check');
         return;
       }
       

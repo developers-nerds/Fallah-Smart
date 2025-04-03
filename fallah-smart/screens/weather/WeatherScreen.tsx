@@ -215,6 +215,31 @@ const translateWeatherCondition = (condition: string): string => {
   return weatherConditionTranslations[condition] || condition;
 };
 
+// Function to format dates in Arabic
+const formatDateInArabic = (dateString: string): string => {
+  const date = new Date(dateString);
+  const day = date.getDate();
+  
+  // Tunisian Arabic month names
+  const arabicMonths = [
+    'جانفي',
+    'فيفري',
+    'مارس',
+    'أفريل',
+    'ماي',
+    'جوان',
+    'جويلية',
+    'أوت',
+    'سبتمبر',
+    'أكتوبر',
+    'نوفمبر',
+    'ديسمبر',
+  ];
+  
+  const month = arabicMonths[date.getMonth()];
+  return `${day} ${month}`;
+};
+
 // AI Insights generator
 const generateWeatherInsights = (data: WeatherData): WeatherInsight[] => {
   const insights: WeatherInsight[] = [];
@@ -731,6 +756,9 @@ const WeatherScreen = () => {
     />
   ) : null;
   const CalendarTab = () => weather ? <PlantingCalendar weatherData={weather} /> : null;
+
+  // Instead of using a hook that causes problems, we'll just define the formatted last updated text here
+  const formattedLastUpdated = formatDateInArabic(lastUpdated.toISOString());
 
   return (
     <SafeAreaView style={styles.container}>

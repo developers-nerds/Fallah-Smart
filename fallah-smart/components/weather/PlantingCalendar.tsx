@@ -355,14 +355,14 @@ const CROPS = [
 
 // Calendar months in Arabic
 const MONTHS = [
-  { id: 1, name: 'يناير', shortName: 'ينا' },
-  { id: 2, name: 'فبراير', shortName: 'فبر' },
+  { id: 1, name: 'جانفي', shortName: 'جان' },
+  { id: 2, name: 'فيفري', shortName: 'فيف' },
   { id: 3, name: 'مارس', shortName: 'مار' },
-  { id: 4, name: 'أبريل', shortName: 'أبر' },
-  { id: 5, name: 'مايو', shortName: 'ماي' },
-  { id: 6, name: 'يونيو', shortName: 'يون' },
-  { id: 7, name: 'يوليو', shortName: 'يول' },
-  { id: 8, name: 'أغسطس', shortName: 'أغس' },
+  { id: 4, name: 'أفريل', shortName: 'أفر' },
+  { id: 5, name: 'ماي', shortName: 'ماي' },
+  { id: 6, name: 'جوان', shortName: 'جوا' },
+  { id: 7, name: 'جويلية', shortName: 'جوي' },
+  { id: 8, name: 'أوت', shortName: 'أوت' },
   { id: 9, name: 'سبتمبر', shortName: 'سبت' },
   { id: 10, name: 'أكتوبر', shortName: 'أكت' },
   { id: 11, name: 'نوفمبر', shortName: 'نوف' },
@@ -614,6 +614,7 @@ const getCropsBySeason = (seasonId: string) => {
 const SeasonalCropsView = ({ seasonId }: { seasonId: string }) => {
   const season = SEASONS.find(s => s.id === seasonId);
   const crops = getCropsBySeason(seasonId);
+  const [selectedCrop, setSelectedCrop] = useState<string | null>(null);
 
   return (
     <View style={styles.seasonalCropsContainer}>

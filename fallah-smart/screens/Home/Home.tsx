@@ -269,14 +269,14 @@ export const HomeContent = ({ navigation, route }: HomeContentProps) => {
   // Format date to display as "Today, 3 Mar"
   const formatDate = () => {
     const arabicMonths = [
-      'يناير',
-      'فبراير',
+      'جانفي',
+      'فيفري',
       'مارس',
-      'أبريل',
-      'مايو',
-      'يونيو',
-      'يوليو',
-      'أغسطس',
+      'أفريل',
+      'ماي',
+      'جوان',
+      'جويلية',
+      'أوت',
       'سبتمبر',
       'أكتوبر',
       'نوفمبر',
@@ -470,10 +470,7 @@ export const HomeContent = ({ navigation, route }: HomeContentProps) => {
           />
         }>
         {/* User greeting */}
-        <View style={styles.greetingSection}>
-          <Text style={styles.greetingText}>مرحباً بك</Text>
-          <Text style={styles.dateText}>{formatDate()}</Text>
-        </View>
+      
 
         {/* Enhanced Weather Card */}
         <View style={styles.weatherSection}>
