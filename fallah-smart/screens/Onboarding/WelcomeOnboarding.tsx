@@ -12,8 +12,24 @@ import {
   StatusBar,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5, AntDesign } from '@expo/vector-icons';
 import { theme } from '../../theme/theme';
+import { StockStackParamList } from '../../navigation/types';
+
+// Define the navigation type
+type WelcomeOnboardingNavigationProp = NativeStackNavigationProp<StockStackParamList>;
+
+// Define feature item type
+interface FeatureItem {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  iconType: string;
+  iconBackground: string;
+  image: any;
+}
 
 // Get screen dimensions
 const { width, height } = Dimensions.get('window');
@@ -89,11 +105,11 @@ const WelcomeOnboarding = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
-  const navigation = useNavigation();
+  const navigation = useNavigation<WelcomeOnboardingNavigationProp>();
 
   // Function to handle skip
   const handleSkip = () => {
-    navigation.navigate('StockTab'); // Navigate to the main app
+    navigation.navigate('Login'); // Navigate to login screen
   };
 
   // Function to handle next
@@ -103,12 +119,12 @@ const WelcomeOnboarding = () => {
       flatListRef.current?.scrollToIndex({ animated: true, index: nextIndex });
       setCurrentIndex(nextIndex);
     } else {
-      handleSkip(); // If it's the last slide, go to the main app
+      handleSkip(); // If it's the last slide, go to login
     }
   };
 
   // Function to render each slide
-  const renderSlide = ({ item, index }) => {
+  const renderSlide = ({ item, index }: { item: FeatureItem; index: number }) => {
     const inputRange = [
       (index - 1) * width,
       index * width,
@@ -201,7 +217,7 @@ const WelcomeOnboarding = () => {
       
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.welcomeText}>مرحباً بك في تطبيق فلاح الذكي</Text>
+        <Text style={styles.welcomeText}>مرحباً بك في تطبيق فلاح SMART</Text>
         <Text style={styles.subtitleText}>اكتشف كيف يمكن لتطبيقنا مساعدتك</Text>
       </View>
       

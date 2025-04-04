@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import StockScreen from '../screens/Stock/stock';
 import { StockDetail } from '../screens/Stock/StockDetail';
@@ -12,6 +12,8 @@ import { useTheme } from '../context/ThemeContext';
 import TabBar from './TabBar';
 import Login from '../screens/Auth/Login';
 import Register from '../screens/Auth/Register';
+import PhoneLogin from '../screens/Auth/PhoneLogin';
+import CompleteProfile from '../screens/Auth/CompleteProfile';
 import { StockItem, StockFormValues } from '../screens/Stock/types';
 import { View, ActivityIndicator, Text } from 'react-native';
 import { PesticideDetail } from '../screens/Stock/Pesticides/PesticideDetail';
@@ -31,6 +33,8 @@ import { HarvestProvider } from '../context/HarvestContext';
 import { FertilizerProvider } from '../context/FertilizerContext';
 import { AnimalProvider } from '../context/AnimalContext';
 import WelcomeOnboarding from '../screens/Onboarding/WelcomeOnboarding';
+import { useAuth } from '../context/AuthContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Import Tool screens
 import ToolListScreen from '../screens/Stock/Tools/ToolList';
@@ -71,9 +75,67 @@ import AddProduct from '../screens/Marketplace/AddProduct';
 
 const Stack = createStackNavigator<StockStackParamList>();
 
+const ONBOARDING_COMPLETE_KEY = 'onboarding_complete';
+
 export const StockNavigator = () => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const stock = useStock();
   const theme = useTheme();
+  const [isNavigationReady, setIsNavigationReady] = useState(false);
+  const navigation = useNavigation();
+  const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
+  const { isAuthenticated } = useAuth();
   const { t } = useTranslation();
+
+  useEffect(() => {
+    const checkOnboardingStatus = async () => {
+      try {
+        const onboardingComplete = await AsyncStorage.getItem('@onboarding_complete');
+        setIsOnboardingComplete(onboardingComplete === 'true');
+      } catch (error) {
+        console.error('Error checking onboarding status:', error);
+      } finally {
+        setIsNavigationReady(true);
+      }
+    };
+
+    checkOnboardingStatus();
+  }, []);
+
+  const markOnboardingComplete = async () => {
+    try {
+      await AsyncStorage.setItem('@onboarding_complete', 'true');
+      setIsOnboardingComplete(true);
+    } catch (error) {
+      console.error('Error saving onboarding status:', error);
+    }
+  };
+
+  // Modified useEffect to only fetch data after login
+  useEffect(() => {
+    // Only try to load initial data if user is authenticated
+    if (isAuthenticated) {
+      const loadInitialData = async () => {
+        try {
+          setIsLoading(true);
+          setError(null);
+          await stock.refreshStocks();
+          await stock.refreshAnimals();
+        } catch (err) {
+          console.error('Failed to load initial data:', err);
+          setError('Failed to load data. Please try again later.');
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      loadInitialData();
+    } else {
+      // If not authenticated, just mark as not loading
+      setIsLoading(false);
+    }
+  }, [isAuthenticated]); // Depend on authentication state instead of component mount
 
   const screenOptions = {
     headerStyle: {
@@ -90,6 +152,14 @@ export const StockNavigator = () => {
     },
   };
 
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={theme.colors.primary.base} />
+      </View>
+    );
+  }
+
   return (
     <AnimalProvider>
       <PesticideProvider>
@@ -100,6 +170,18 @@ export const StockNavigator = () => {
                 <HarvestProvider>
                   <FertilizerProvider>
                     <Stack.Navigator screenOptions={screenOptions}>
+                      {!isOnboardingComplete ? (
+                        <Stack.Screen
+                          name="WelcomeOnboarding"
+                          component={WelcomeOnboarding}
+                          options={{ headerShown: false }}
+                          listeners={{
+                            beforeRemove: () => {
+                              markOnboardingComplete();
+                            },
+                          }}
+                        />
+                      ) : null}
                       <Stack.Screen
                         name="Login"
                         component={Login}
@@ -111,9 +193,14 @@ export const StockNavigator = () => {
                         options={{ headerShown: true }}
                       />
                       <Stack.Screen
-                        name="WelcomeOnboarding"
-                        component={WelcomeOnboarding}
-                        options={{ headerShown: false }}
+                        name="PhoneLogin"
+                        component={PhoneLogin}
+                        options={{ headerShown: true, title: 'تسجيل الدخول برقم الهاتف' }}
+                      />
+                      <Stack.Screen
+                        name="CompleteProfile"
+                        component={CompleteProfile}
+                        options={{ headerShown: true, title: 'إكمال الملف الشخصي' }}
                       />
                       <Stack.Screen
                         name="StockTab"

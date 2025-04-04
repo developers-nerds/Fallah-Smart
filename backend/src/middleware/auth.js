@@ -4,8 +4,14 @@ const { Users } = require('../database/assossiation');
 
 const auth = async (req, res, next) => {
   try {
-    console.log("Auth middleware called");
+    console.log("Auth middleware called for path:", req.path);
+    
+    // Special case for complete-profile endpoint
+    const isCompleteProfileEndpoint = req.path.includes('/complete-profile');
+    console.log(`Is complete profile endpoint: ${isCompleteProfileEndpoint}`);
+    
     const authHeader = req.headers.authorization;
+    console.log(`Auth header exists: ${!!authHeader}`);
     
     if (!authHeader) {
       console.log("No auth header provided");
@@ -17,6 +23,9 @@ const auth = async (req, res, next) => {
       console.log("No token in auth header");
       return res.status(401).json({ message: 'No token provided' });
     }
+    
+    console.log(`Token length: ${token.length}`);
+    console.log(`Token prefix: ${token.substring(0, 20)}...`);
     
     // Verify token
     try {
@@ -38,6 +47,12 @@ const auth = async (req, res, next) => {
       
       console.log(`User role from database: ${user.role}`);
       
+      // For complete-profile endpoint, skip admin check
+      if (isCompleteProfileEndpoint) {
+        console.log('Skipping admin check for complete-profile endpoint');
+        return next();
+      }
+      
       // Check if the route requires admin privileges
       const adminRoutes = [
         '/api/users/users',
@@ -55,6 +70,19 @@ const auth = async (req, res, next) => {
       next();
     } catch (error) {
       console.log("Token verification failed:", error.message);
+      
+      // For complete-profile endpoint, provide more detailed error
+      if (isCompleteProfileEndpoint) {
+        return res.status(401).json({ 
+          message: 'Invalid token for profile completion',
+          details: error.message,
+          tokenInfo: token ? { 
+            length: token.length,
+            prefix: token.substring(0, 10) + '...'
+          } : 'No token'
+        });
+      }
+      
       return res.status(401).json({ message: 'Invalid token' });
     }
   } catch (error) {
