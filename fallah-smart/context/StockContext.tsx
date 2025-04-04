@@ -78,6 +78,14 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const refreshStocks = async () => {
     try {
+      // Check for authentication first
+      const tokens = await storage.getTokens();
+      if (!tokens?.access) {
+        console.error('[StockContext] Failed to refresh stocks: No access token available');
+        setError('Login required to access stock data');
+        return;
+      }
+      
       setLoading(true);
       setError(null);
       const data = await stockApi.getAllStocks();
@@ -256,6 +264,14 @@ export const StockProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const refreshAnimals = async () => {
     try {
+      // Check for authentication first
+      const tokens = await storage.getTokens();
+      if (!tokens?.access) {
+        console.error('[StockContext] Failed to refresh animals: No access token available');
+        setError('Login required to access animal data');
+        return;
+      }
+      
       setLoading(true);
       setError(null);
       const data = await animalApi.getAllAnimals();

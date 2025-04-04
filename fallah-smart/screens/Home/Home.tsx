@@ -83,6 +83,24 @@ const arabicTranslations = {
     Fri: 'الجمعة',
     Sat: 'السبت',
   },
+  allFeatures: {
+    title: 'جميع الخدمات',
+    profile: 'الملف الشخصي',
+    settings: 'الإعدادات',
+    notifications: 'الإشعارات',
+    education: 'التعليم',
+    blogs: 'المدونات',
+    advisorEducation: 'تعليم المستشار',
+    advisorApplication: 'طلب استشارة',
+    form: 'النماذج',
+    stockManagement: 'إدارة المخزون',
+    walletFinance: 'المحفظة والمالية',
+    weatherInfo: 'معلومات الطقس',
+    marketplace: 'السوق',
+    scanPlant: 'فحص النبات',
+    dictionaryResource: 'القاموس والموارد',
+    chatSupport: 'الدردشة والدعم',
+  },
 };
 
 // Update the timeIcon use to prevent undefined errors
@@ -92,7 +110,7 @@ const getTimeBasedWeatherIcon = () => {
 
   if (hour >= 6 && hour < 18) {
     return {
-      icon: 'weather-sunny',
+      icon: 'weather-sunny' as const,
       color: '#FDB813',
       backgroundColor: 'rgba(255, 255, 255, 0.15)', // More transparent
       text: 'Day',
@@ -101,7 +119,7 @@ const getTimeBasedWeatherIcon = () => {
     };
   } else {
     return {
-      icon: 'weather-night',
+      icon: 'weather-night' as const,
       color: '#FFFFFF', // White icon for night
       backgroundColor: 'rgba(0, 0, 0, 0.2)', // Darker, more transparent overlay
       text: 'Night',
@@ -134,7 +152,7 @@ interface HomeContentProps {
 }
 
 export const HomeContent = ({ navigation, route }: HomeContentProps) => {
-  const [weather, setWeather] = useState(null);
+  const [weather, setWeather] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [timeIcon, setTimeIcon] = useState(getTimeBasedWeatherIcon());
@@ -188,7 +206,6 @@ export const HomeContent = ({ navigation, route }: HomeContentProps) => {
         console.log('Location permission not granted, using default location');
       }
 
-      console.log('Weather API URL:', WEATHER_API_URL);
       console.log('Weather API Key:', WEATHER_API_KEY.substring(0, 5) + '...');
       console.log('Location query:', locationQuery);
 
@@ -204,7 +221,7 @@ export const HomeContent = ({ navigation, route }: HomeContentProps) => {
           },
           timeout: 15000,
         };
-        
+        console.log('Weather API URL:', WEATHER_API_URL);
         console.log('Weather API request config:', JSON.stringify(requestConfig));
         
         const response = await axios.get(WEATHER_API_URL, requestConfig);
@@ -251,14 +268,14 @@ export const HomeContent = ({ navigation, route }: HomeContentProps) => {
   // Format date to display as "Today, 3 Mar"
   const formatDate = () => {
     const arabicMonths = [
-      'يناير',
-      'فبراير',
+      'جانفي',
+      'فيفري',
       'مارس',
-      'أبريل',
-      'مايو',
-      'يونيو',
-      'يوليو',
-      'أغسطس',
+      'أفريل',
+      'ماي',
+      'جوان',
+      'جويلية',
+      'أوت',
       'سبتمبر',
       'أكتوبر',
       'نوفمبر',
@@ -327,11 +344,89 @@ export const HomeContent = ({ navigation, route }: HomeContentProps) => {
     );
   };
 
-  // Update the dynamic weather card style to be taller when expanded to fit 5 days
+  // Add categories for the features display
+  const featureCategories = [
+    {
+      title: 'الخدمات الرئيسية',
+      items: [
+        {
+          name: arabicTranslations.allFeatures.profile,
+          icon: <MaterialIcons name="person" size={24} color={theme.colors.primary.base} />,
+          onPress: () => navigation.navigate('Profile')
+        },
+        {
+          name: arabicTranslations.allFeatures.walletFinance,
+          icon: <MaterialIcons name="account-balance-wallet" size={24} color={theme.colors.primary.base} />,
+          onPress: () => navigation.navigate('Wallet')
+        },
+        {
+          name: arabicTranslations.allFeatures.stockManagement,
+          icon: <MaterialIcons name="inventory" size={24} color={theme.colors.primary.base} />,
+          onPress: () => navigation.navigate('Stock')
+        },
+        {
+          name: arabicTranslations.allFeatures.marketplace,
+          icon: <MaterialIcons name="storefront" size={24} color={theme.colors.primary.base} />,
+          onPress: () => navigation.navigate('Marketplace')
+        }
+      ]
+    },
+    {
+      title: 'المعلومات والتواصل',
+      items: [
+        {
+          name: arabicTranslations.allFeatures.education,
+          icon: <MaterialIcons name="school" size={24} color={theme.colors.primary.base} />,
+          onPress: () => navigation.navigate('Education')
+        },
+        {
+          name: arabicTranslations.allFeatures.blogs,
+          icon: <FontAwesome5 name="blog" size={24} color={theme.colors.primary.base} />,
+          onPress: () => navigation.navigate('Blogs')
+        },
+        {
+          name: arabicTranslations.allFeatures.chatSupport,
+          icon: <MaterialIcons name="chat" size={24} color={theme.colors.primary.base} />,
+          onPress: () => navigation.navigate('Chat')
+        },
+        {
+          name: arabicTranslations.allFeatures.dictionaryResource,
+          icon: <MaterialIcons name="menu-book" size={24} color={theme.colors.primary.base} />,
+          onPress: () => navigation.navigate('Dictionary')
+        }
+      ]
+    },
+    {
+      title: 'الأدوات والخدمات',
+      items: [
+        {
+          name: arabicTranslations.allFeatures.scanPlant,
+          icon: <MaterialIcons name="document-scanner" size={24} color={theme.colors.primary.base} />,
+          onPress: () => navigation.navigate('Scan')
+        },
+        {
+          name: arabicTranslations.allFeatures.weatherInfo,
+          icon: <MaterialCommunityIcons name="weather-partly-cloudy" size={24} color={theme.colors.primary.base} />,
+          onPress: () => navigation.navigate('Weather')
+        }
+      ]
+    }
+  ];
+
+  // Update the forecastContainerStyle
+  const forecastContainerStyle = useMemo(
+    () => ({
+      ...styles.forecastContainer,
+      width: '100%' as const, // Fixed type error by adding 'as const'
+    }),
+    []
+  );
+
+  // Update the weather card style for a more modern look
   const weatherCardStyle = useMemo(
     () => ({
       ...styles.weatherCard,
-      height: showForecast ? 350 : 160, // Increased from 320 to 350 to better fit 5 days
+      height: showForecast ? 350 : 180, // Increased height for better spacing
     }),
     [showForecast]
   );
@@ -357,15 +452,6 @@ export const HomeContent = ({ navigation, route }: HomeContentProps) => {
     }
   ];
 
-  // Add special handling for full width as the main issue
-  const forecastContainerStyle = useMemo(
-    () => ({
-      ...styles.forecastContainer,
-      width: '100%',
-    }),
-    []
-  );
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={theme.colors.neutral.surface} />
@@ -373,7 +459,7 @@ export const HomeContent = ({ navigation, route }: HomeContentProps) => {
       <ScrollView
         style={styles.container}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ direction: 'rtl' }}
+        contentContainerStyle={{ direction: 'rtl', paddingBottom: 24 }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -382,7 +468,10 @@ export const HomeContent = ({ navigation, route }: HomeContentProps) => {
             tintColor={theme.colors.primary.base}
           />
         }>
-        {/* Weather Card */}
+        {/* User greeting */}
+      
+
+        {/* Enhanced Weather Card */}
         <View style={styles.weatherSection}>
           <TouchableOpacity activeOpacity={0.9} onPress={toggleForecast}>
             <ImageBackground
@@ -437,12 +526,21 @@ export const HomeContent = ({ navigation, route }: HomeContentProps) => {
                       <View style={forecastContainerStyle}>
                         <Text style={styles.forecastTitle}>{arabicTranslations.weather.forecast}</Text>
                         <View style={styles.forecastDaysContainer}>
-                          {weather.forecast.forecastday.map((day, index) => (
+                          {weather.forecast.forecastday.map((day: any, index: number) => (
                             day ? renderForecastDay(day, index) : null
                           ))}
                         </View>
                       </View>
                     )}
+                    
+                    {/* Show expand/collapse indicator */}
+                    <View style={styles.expandIndicator}>
+                      <MaterialIcons 
+                        name={showForecast ? "expand-less" : "expand-more"} 
+                        size={24} 
+                        color="rgba(255,255,255,0.7)" 
+                      />
+                    </View>
                   </>
                 )}
               </View>
@@ -450,97 +548,35 @@ export const HomeContent = ({ navigation, route }: HomeContentProps) => {
           </TouchableOpacity>
         </View>
 
-        {/* Heal your crop section */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>{arabicTranslations.healCrop.title}</Text>
-          <View style={styles.healCropCard}>
-            <View style={styles.healCropSteps}>
-              {healCropSteps.map((step, index) => (
-                <React.Fragment key={index}>
-                  <View style={styles.stepItem}>
-                    <View style={styles.stepIconContainer}>
-                      {step.icon}
+        {/* Improved All Features Section */}
+        <View style={styles.allFeaturesContainer}>
+          <Text style={styles.sectionTitle}>{arabicTranslations.allFeatures.title}</Text>
+          
+          {featureCategories.map((category, categoryIndex) => (
+            <View key={categoryIndex} style={styles.categoryContainer}>
+              <Text style={styles.categoryTitle}>{category.title}</Text>
+              <View style={styles.featuresGrid}>
+                {category.items.map((item, itemIndex) => (
+                  <TouchableOpacity
+                    key={itemIndex}
+                    style={styles.enhancedFeatureCard}
+                    onPress={item.onPress}
+                  >
+                    <View style={styles.enhancedIconContainer}>
+                      {item.icon}
                     </View>
-                    <Text style={styles.stepText}>{step.text}</Text>
-                  </View>
-                  
-                  {index < healCropSteps.length - 1 && (
-                    <MaterialIcons
-                      name="chevron-left" // Change to left for RTL
-                      size={24}
-                      color={theme.colors.neutral.gray.base}
-                      style={styles.stepArrow}
-                    />
-                  )}
-                </React.Fragment>
-              ))}
+                    <Text style={styles.enhancedFeatureTitle}>{item.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
-
-            <TouchableOpacity style={styles.takePictureButton} onPress={goToPlantDoctor}>
-              <Text style={styles.takePictureButtonText}>{arabicTranslations.healCrop.button}</Text>
-            </TouchableOpacity>
-          </View>
+          ))}
         </View>
 
-        {/* Feature Cards */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.featuresGrid}>
-            <TouchableOpacity style={styles.featureCard} onPress={goToFertilizerCalculator}>
-              <View style={styles.featureIconContainer}>
-                <FontAwesome5 name="calculator" size={20} color={theme.colors.primary.base} />
-              </View>
-              <Text style={styles.featureTitle}>{arabicTranslations.features.fertilizerCalculator}</Text>
-              <MaterialIcons
-                name="chevron-left"
-                size={20}
-                color={theme.colors.neutral.gray.base}
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.featureCard} onPress={goToPestsAndDiseases}>
-              <View style={styles.featureIconContainer}>
-                <MaterialCommunityIcons
-                  name="bug-outline"
-                  size={20}
-                  color={theme.colors.primary.base}
-                />
-              </View>
-              <Text style={styles.featureTitle}>{arabicTranslations.features.pestsAndDiseases}</Text>
-              <MaterialIcons
-                name="chevron-left"
-                size={20}
-                color={theme.colors.neutral.gray.base}
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.featureCard} onPress={goToCultivationTips}>
-              <View style={styles.featureIconContainer}>
-                <MaterialCommunityIcons name="sprout" size={20} color={theme.colors.primary.base} />
-              </View>
-              <Text style={styles.featureTitle}>{arabicTranslations.features.cultivationTips}</Text>
-              <MaterialIcons
-                name="chevron-left"
-                size={20}
-                color={theme.colors.neutral.gray.base}
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.featureCard} onPress={goToPestAlert}>
-              <View style={styles.featureIconContainer}>
-                <MaterialIcons name="warning" size={20} color={theme.colors.primary.base} />
-              </View>
-              <Text style={styles.featureTitle}>{arabicTranslations.features.pestAlert}</Text>
-              <MaterialIcons
-                name="chevron-left"
-                size={20}
-                color={theme.colors.neutral.gray.base}
-              />
-            </TouchableOpacity>
-          </View>
+        {/* Scan History Section with improved styling */}
+        <View style={styles.scanHistoryContainer}>
+          <ScanHistory refreshTrigger={scanHistoryRefreshTrigger} />
         </View>
-
-        {/* Scan History Section */}
-        <ScanHistory refreshTrigger={scanHistoryRefreshTrigger} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -601,41 +637,59 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
   },
+  greetingSection: {
+    marginVertical: 8,
+    alignItems: 'center',
+  },
+  greetingText: {
+    fontSize: 22,
+    fontFamily: theme.fonts.bold,
+    color: theme.colors.primary.base,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  dateText: {
+    fontSize: 16,
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.neutral.textSecondary,
+    textAlign: 'center',
+  },
   weatherSection: {
     marginVertical: 12,
-    borderRadius: 16,
+    borderRadius: 20,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
   },
   weatherCard: {
-    height: 160,
-    borderRadius: 16,
+    height: 180,
+    borderRadius: 20,
     overflow: 'hidden',
   },
   weatherCardImage: {
     width: '100%',
     height: '100%',
     position: 'absolute',
-    opacity: 1, // Full opacity for the image
+    opacity: 1,
   },
   weatherCardOverlay: {
-    padding: 14,
+    padding: 16,
     flex: 1,
-    borderRadius: 16,
-    background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.4) 100%)',
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.25)', // Use backgroundColor instead of background
   },
   weatherHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 12,
   },
   weatherInfo: {
     flex: 1,
+    alignItems: 'center',
   },
   timeIconContainer: {
     flexDirection: 'row',
@@ -643,18 +697,18 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
     padding: 6,
-    borderRadius: 10,
-    alignSelf: 'flex-start',
+    borderRadius: 12,
+    alignSelf: 'center',
   },
   weatherTime: {
     marginLeft: 6,
     fontSize: 14,
-    fontFamily: theme.fonts.semiBold,
+    fontFamily: theme.fonts.bold,
     color: '#FFFFFF',
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 3,
-    textAlign: 'right',
+    textAlign: 'center',
   },
   weatherDate: {
     fontSize: 18,
@@ -664,7 +718,7 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 3,
-    textAlign: 'right',
+    textAlign: 'center',
   },
   weatherCondition: {
     fontSize: 14,
@@ -674,10 +728,10 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 3,
     opacity: 0.9,
-    textAlign: 'right',
+    textAlign: 'center',
   },
   weatherTemp: {
-    fontSize: 28,
+    fontSize: 36, // Increased for better visibility
     fontFamily: theme.fonts.bold,
     color: '#FFFFFF',
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
@@ -689,9 +743,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 12,
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    padding: 6,
-    borderRadius: 10,
-    alignSelf: 'flex-start',
+    padding: 8,
+    borderRadius: 12,
+    alignSelf: 'center',
   },
   locationText: {
     marginLeft: 4,
@@ -701,126 +755,18 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 3,
-    textAlign: 'right',
-  },
-  okButton: {
-    alignSelf: 'flex-end',
-    marginTop: 12,
-  },
-  okButtonText: {
-    fontSize: 16,
-    fontFamily: theme.fonts.bold,
-    color: theme.colors.primary.base,
-  },
-  errorText: {
-    fontSize: 16,
-    fontFamily: theme.fonts.regular,
-    color: theme.colors.error,
     textAlign: 'center',
-    padding: 16,
   },
-  sectionContainer: {
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontFamily: theme.fonts.bold,
-    color: theme.colors.neutral.textPrimary,
-    marginBottom: 12,
-    textAlign: 'right',
-  },
-  healCropCard: {
-    backgroundColor: theme.colors.neutral.surface,
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  healCropSteps: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  expandIndicator: {
+    position: 'absolute',
+    bottom: 5,
+    right: 0,
+    left: 0,
     alignItems: 'center',
-    marginBottom: 24,
-  },
-  stepItem: {
-    alignItems: 'center',
-    width: 80,
-  },
-  stepIconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    borderWidth: 1,
-    borderColor: theme.colors.primary.light,
-    backgroundColor: theme.colors.neutral.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  stepText: {
-    fontSize: 12,
-    fontFamily: theme.fonts.medium,
-    color: theme.colors.neutral.textSecondary,
-    textAlign: 'center',
-    writingDirection: 'rtl',
-  },
-  stepArrow: {
-    marginTop: -20,
-  },
-  takePictureButton: {
-    backgroundColor: theme.colors.primary.base,
-    borderRadius: 8,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  takePictureButtonText: {
-    color: theme.colors.neutral.surface,
-    fontSize: 16,
-    fontFamily: theme.fonts.bold,
-  },
-  featuresGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  featureCard: {
-    backgroundColor: theme.colors.neutral.surface,
-    borderRadius: 16,
-    width: '48%',
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-    flexDirection: 'row-reverse', // Change to row-reverse for RTL
-    alignItems: 'center',
-  },
-  featureIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: theme.colors.primary.lightest || '#E6F7FF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 12, // Change from marginRight to marginLeft
-    marginRight: 0,
-  },
-  featureTitle: {
-    fontSize: 14,
-    fontFamily: theme.fonts.medium,
-    color: theme.colors.neutral.textPrimary,
-    flex: 1,
-    textAlign: 'right',
-    writingDirection: 'rtl',
   },
   forecastContainer: {
-    marginTop: 10,
-    paddingTop: 10,
+    marginTop: 16,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.3)',
   },
@@ -828,11 +774,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: theme.fonts.medium,
     color: '#FFFFFF',
-    marginBottom: 8,
+    marginBottom: 12,
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
-    textAlign: 'right',
+    textAlign: 'center',
   },
   forecastDaysContainer: {
     flexDirection: 'row',
@@ -846,30 +792,30 @@ const styles = StyleSheet.create({
     marginHorizontal: 1,
   },
   forecastDayName: {
-    fontSize: 10,
+    fontSize: 12,
     fontFamily: theme.fonts.medium,
     color: '#FFFFFF',
-    marginBottom: 2,
+    marginBottom: 4,
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
   },
   forecastIcon: {
-    width: 30,
-    height: 30,
-    marginVertical: 2,
+    width: 36,
+    height: 36,
+    marginVertical: 4,
   },
   forecastTemp: {
-    fontSize: 10,
+    fontSize: 12,
     fontFamily: theme.fonts.medium,
     color: '#FFFFFF',
-    marginVertical: 1,
+    marginVertical: 2,
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
   },
   forecastCondition: {
-    fontSize: 8,
+    fontSize: 9,
     fontFamily: theme.fonts.regular,
     color: '#FFFFFF',
     textAlign: 'center',
@@ -877,6 +823,76 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
     height: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    fontFamily: theme.fonts.regular,
+    color: theme.colors.error,
+    textAlign: 'center',
+    padding: 16,
+  },
+  allFeaturesContainer: {
+    marginTop: 24,
+  },
+  sectionTitle: {
+    fontSize: 22,
+    fontFamily: theme.fonts.bold,
+    color: theme.colors.neutral.textPrimary,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  categoryContainer: {
+    marginBottom: 20,
+  },
+  categoryTitle: {
+    fontSize: 18,
+    fontFamily: theme.fonts.bold,
+    color: theme.colors.primary.base,
+    marginBottom: 12,
+    textAlign: 'center',
+    paddingHorizontal: 4,
+  },
+  featuresGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  enhancedFeatureCard: {
+    backgroundColor: theme.colors.neutral.surface,
+    borderRadius: 16,
+    width: '48%',
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
+    alignItems: 'center',
+  },
+  enhancedIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#E6F7FF', // Use direct color to avoid errors
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+    shadowColor: 'rgba(0,0,0,0.1)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  enhancedFeatureTitle: {
+    fontSize: 14,
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.neutral.textPrimary,
+    textAlign: 'center',
+    writingDirection: 'rtl',
+  },
+  scanHistoryContainer: {
+    marginTop: 10,
   },
 });
 
