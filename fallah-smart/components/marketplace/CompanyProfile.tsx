@@ -14,7 +14,12 @@ import {
   SafeAreaView,
   Platform,
   StatusBar,
+  Alert,
+  Modal,
+  TouchableWithoutFeedback,
+  KeyboardAvoidingView,
 } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { MaterialCommunityIcons, Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { theme } from '../../theme/theme';
 import { storage } from '../../utils/storage';
@@ -373,15 +378,38 @@ export const CompanyProfile: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [supplierData, setSupplierData] = useState<ApiResponse | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'orders' | 'reviews'>(
-    'overview'
-  );
+  const [activeTab, setActiveTab] = useState<'overview' | 'products'>('overview');
   const [showOnboarding, setShowOnboarding] = useState(false);
   const navigation = useNavigation<NavigationProp>();
   const [baseUrl, setBaseUrl] = useState<string>('');
   const [isVerified, setIsVerified] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<number | null>(null);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [showEditProductModal, setShowEditProductModal] = useState(false);
+  const [productToEdit, setProductToEdit] = useState<any | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    price: '',
+    unit: '',
+    category: '',
+    quantity: '',
+    description: '',
+    min_order_quantity: '',
+    status: 'active',
+    listing_type: 'fixed',
+    currency: 'SAR',
+  });
+  const [editLoading, setEditLoading] = useState(false);
+  const [productStats, setProductStats] = useState({
+    active: 0,
+    sold: 0,
+    expired: 0,
+  });
 
   useEffect(() => {
     fetchSupplierData();
@@ -421,13 +449,29 @@ export const CompanyProfile: React.FC = () => {
       const data = await response.json();
       if (data.success) {
         console.log('Loaded supplier products:', data.cropListings.length);
+
+        // Set products
         setProducts(data.cropListings);
+
+        // Calculate counts by status
+        const stats = {
+          active: 0,
+          sold: 0,
+          expired: 0,
+        };
+
+        data.cropListings.forEach((product: any) => {
+          if (product.status === 'active') stats.active++;
+          else if (product.status === 'sold') stats.sold++;
+          else if (product.status === 'expired') stats.expired++;
+        });
+
+        setProductStats(stats);
       } else {
         throw new Error(data.message || 'فشل في تحميل منتجات المورد');
       }
     } catch (err) {
       console.error('Error fetching supplier products:', err);
-      // Don't set error state to prevent disrupting the whole page
     } finally {
       setProductsLoading(false);
     }
@@ -498,6 +542,490 @@ export const CompanyProfile: React.FC = () => {
     }, 100);
   };
 
+  const handleOptionsPress = (productId: number) => {
+    setSelectedProductId(selectedProductId === productId ? null : productId);
+  };
+
+  const deleteProduct = async (productId: number) => {
+    try {
+      // Show custom confirmation dialog
+      setProductToDelete(productId);
+      setShowDeleteConfirm(true);
+    } catch (err) {
+      console.error('Error in delete confirmation:', err);
+      setSelectedProductId(null);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (productToDelete === null) return;
+
+    try {
+      const { access } = await storage.getTokens();
+      if (!access) {
+        console.log('No access token found');
+        Alert.alert('خطأ', 'يجب تسجيل الدخول لحذف المنتج');
+        return;
+      }
+
+      // First close the confirmation dialog
+      setShowDeleteConfirm(false);
+
+      // Show loading state if needed
+      setProductsLoading(true);
+
+      const response = await fetch(`${BaseUrl}/crops/listings/${productToDelete}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${access}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('فشل في حذف المنتج');
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        // Remove the product from the local state
+        setProducts(products.filter((product) => Number(product.id) !== productToDelete));
+        setSuccessMessage('تم حذف المنتج بنجاح');
+        setShowSuccessMessage(true);
+
+        // Auto-hide success message after 3 seconds
+        setTimeout(() => {
+          setShowSuccessMessage(false);
+        }, 3000);
+      } else {
+        throw new Error(data.message || 'فشل في حذف المنتج');
+      }
+    } catch (err) {
+      console.error('Error deleting product:', err);
+      Alert.alert('خطأ', err instanceof Error ? err.message : 'فشل في حذف المنتج');
+    } finally {
+      setSelectedProductId(null); // Close the popup menu
+      setProductToDelete(null);
+      setProductsLoading(false);
+    }
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setProductToDelete(null);
+    setSelectedProductId(null);
+  };
+
+  // Custom Delete Confirmation Modal
+  const renderDeleteConfirmation = () => {
+    return (
+      <Modal
+        transparent={true}
+        visible={showDeleteConfirm}
+        animationType="fade"
+        onRequestClose={cancelDelete}>
+        <TouchableWithoutFeedback onPress={cancelDelete}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.deleteConfirmContainer}>
+                <View style={styles.deleteIconContainer}>
+                  <MaterialCommunityIcons
+                    name="alert-circle"
+                    size={50}
+                    color={theme.colors.error}
+                  />
+                </View>
+                <Text style={styles.deleteConfirmTitle}>تأكيد الحذف</Text>
+                <Text style={styles.deleteConfirmText}>
+                  هل أنت متأكد من رغبتك في حذف هذا المنتج؟ لا يمكن التراجع عن هذا الإجراء.
+                </Text>
+                <View style={styles.deleteButtonsContainer}>
+                  <TouchableOpacity
+                    style={[styles.deleteButton, styles.cancelButton]}
+                    onPress={cancelDelete}>
+                    <Text style={styles.cancelButtonText}>إلغاء</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.deleteButton, styles.confirmButton]}
+                    onPress={confirmDelete}>
+                    <Text style={styles.confirmButtonText}>حذف</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+    );
+  };
+
+  // Success Message Toast
+  const renderSuccessMessage = () => {
+    return (
+      <Modal transparent={true} visible={showSuccessMessage} animationType="fade">
+        <View style={styles.successToastContainer}>
+          <View style={styles.successToast}>
+            <MaterialCommunityIcons name="check-circle" size={24} color="#fff" />
+            <Text style={styles.successToastText}>{successMessage}</Text>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  const handleEditPress = (item: any) => {
+    setProductToEdit(item);
+    // Fill the form with existing data - better parsing of existing values
+    setEditFormData({
+      name: item.name || item.crop_name || '',
+      price: item.price ? item.price.split(' ')[1] || item.price : '',
+      unit: item.unit || 'kg',
+      category: item.category || item.sub_category || '',
+      quantity: item.quantity ? item.quantity.toString().split(' ')[0] || item.quantity : '',
+      description: item.description || '',
+      min_order_quantity: item.min_order_quantity?.toString() || '1',
+      status: item.status || 'active',
+      listing_type: item.listing_type || 'fixed',
+      currency: item.currency || 'SAR',
+    });
+    console.log('Editing product:', item);
+    setShowEditProductModal(true);
+    setSelectedProductId(null); // Close the popup menu
+  };
+
+  const handleEditFormChange = (field: string, value: string) => {
+    setEditFormData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const closeEditModal = () => {
+    setShowEditProductModal(false);
+    setProductToEdit(null);
+  };
+
+  const handleUpdateProduct = async () => {
+    if (!productToEdit) return;
+
+    try {
+      setEditLoading(true);
+
+      const { access } = await storage.getTokens();
+      if (!access) {
+        Alert.alert('خطأ', 'يجب تسجيل الدخول لتعديل المنتج');
+        return;
+      }
+
+      // Prepare the data for API
+      const updateData = {
+        crop_name: editFormData.name,
+        price: editFormData.price,
+        unit: editFormData.unit,
+        quantity: editFormData.quantity,
+        description: editFormData.description,
+        sub_category: editFormData.category,
+        min_order_quantity: editFormData.min_order_quantity,
+        status: editFormData.status,
+        listing_type: editFormData.listing_type,
+        currency: editFormData.currency,
+      };
+
+      const response = await fetch(`${BaseUrl}/crops/listings/${productToEdit.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${access}`,
+        },
+        body: JSON.stringify(updateData),
+      });
+
+      if (!response.ok) {
+        throw new Error('فشل في تحديث المنتج');
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Update the product in local state
+        const updatedProducts = products.map((p) => {
+          if (Number(p.id) === Number(productToEdit.id)) {
+            return {
+              ...p,
+              name: editFormData.name,
+              price: `${editFormData.currency} ${editFormData.price}`,
+              unit: editFormData.unit,
+              category: editFormData.category,
+              quantity: editFormData.quantity,
+              description: editFormData.description,
+              min_order_quantity: editFormData.min_order_quantity,
+              status: editFormData.status,
+              listing_type: editFormData.listing_type,
+              currency: editFormData.currency,
+            };
+          }
+          return p;
+        });
+
+        setProducts(updatedProducts);
+
+        // Show success message
+        setSuccessMessage('تم تحديث المنتج بنجاح');
+        setShowSuccessMessage(true);
+
+        // Auto-hide success message after 3 seconds
+        setTimeout(() => {
+          setShowSuccessMessage(false);
+        }, 3000);
+
+        // Close the modal
+        closeEditModal();
+      } else {
+        throw new Error(data.message || 'فشل في تحديث المنتج');
+      }
+    } catch (err) {
+      console.error('Error updating product:', err);
+      Alert.alert('خطأ', err instanceof Error ? err.message : 'فشل في تحديث المنتج');
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  // Edit Product Modal
+  const renderEditProductModal = () => {
+    return (
+      <Modal
+        transparent={true}
+        visible={showEditProductModal}
+        animationType="slide"
+        onRequestClose={closeEditModal}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}>
+          {/* IMPORTANT: Remove the TouchableWithoutFeedback that was closing the modal on outside press */}
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+              <View style={styles.editModalContainer}>
+                <View style={styles.editModalHeader}>
+                  <TouchableOpacity onPress={closeEditModal} style={styles.closeButton}>
+                    <MaterialCommunityIcons name="close" size={24} color="#fff" />
+                  </TouchableOpacity>
+                  <Text style={styles.editModalTitle}>تعديل المنتج | {editFormData.name}</Text>
+                </View>
+
+                <ScrollView
+                  style={styles.editFormScrollView}
+                  contentContainerStyle={styles.editFormContentContainer}>
+                  <View style={styles.editFormField}>
+                    <Text style={styles.editFormLabel}>اسم المحصول*</Text>
+                    <TextInput
+                      style={styles.editFormInput}
+                      value={editFormData.name}
+                      onChangeText={(value) => handleEditFormChange('name', value)}
+                      placeholder="اسم المحصول"
+                      placeholderTextColor={theme.colors.neutral.textSecondary}
+                    />
+                  </View>
+
+                  <View style={styles.editFormRow}>
+                    <View
+                      style={[styles.editFormField, { flex: 1, marginRight: theme.spacing.sm }]}>
+                      <Text style={styles.editFormLabel}>السعر*</Text>
+                      <TextInput
+                        style={styles.editFormInput}
+                        value={editFormData.price}
+                        onChangeText={(value) => handleEditFormChange('price', value)}
+                        placeholder="السعر"
+                        placeholderTextColor={theme.colors.neutral.textSecondary}
+                        keyboardType="numeric"
+                      />
+                    </View>
+
+                    <View style={[styles.editFormField, { flex: 1 }]}>
+                      <Text style={styles.editFormLabel}>العملة</Text>
+                      <View style={styles.editFormSelectContainer}>
+                        <Picker
+                          selectedValue={editFormData.currency}
+                          onValueChange={(value: string) => handleEditFormChange('currency', value)}
+                          style={styles.editFormSelect}
+                          dropdownIconColor={theme.colors.primary.base}>
+                          <Picker.Item label="SAR - ريال سعودي" value="SAR" />
+                          <Picker.Item label="USD - دولار أمريكي" value="USD" />
+                          <Picker.Item label="EUR - يورو" value="EUR" />
+                          <Picker.Item label="AED - درهم إماراتي" value="AED" />
+                          <Picker.Item label="TND - دينار تونسي" value="TND" />
+                        </Picker>
+                      </View>
+                    </View>
+                  </View>
+
+                  <View style={styles.editFormRow}>
+                    <View
+                      style={[styles.editFormField, { flex: 1, marginRight: theme.spacing.sm }]}>
+                      <Text style={styles.editFormLabel}>الوحدة*</Text>
+                      <View style={styles.editFormSelectContainer}>
+                        <Picker
+                          selectedValue={editFormData.unit}
+                          onValueChange={(value: string) => handleEditFormChange('unit', value)}
+                          style={styles.editFormSelect}
+                          dropdownIconColor={theme.colors.primary.base}>
+                          <Picker.Item label="كيلوغرام - kg" value="kg" />
+                          <Picker.Item label="غرام - g" value="g" />
+                          <Picker.Item label="لتر - l" value="l" />
+                          <Picker.Item label="مليلتر - ml" value="ml" />
+                          <Picker.Item label="قطعة - pcs" value="pcs" />
+                          <Picker.Item label="كيس - bag" value="bag" />
+                          <Picker.Item label="صندوق - box" value="box" />
+                          <Picker.Item label="علبة - can" value="can" />
+                          <Picker.Item label="زجاجة - bottle" value="bottle" />
+                          <Picker.Item label="برطمان - jar" value="jar" />
+                          <Picker.Item label="عبوة - packet" value="packet" />
+                          <Picker.Item label="قطعة - piece" value="piece" />
+                          <Picker.Item label="لفة - roll" value="roll" />
+                          <Picker.Item label="ورقة - sheet" value="sheet" />
+                          <Picker.Item label="أنبوب - tube" value="tube" />
+                          <Picker.Item label="وحدة - unit" value="unit" />
+                        </Picker>
+                      </View>
+                    </View>
+
+                    <View style={[styles.editFormField, { flex: 1 }]}>
+                      <Text style={styles.editFormLabel}>الحالة</Text>
+                      <View style={styles.editFormSelectContainer}>
+                        <Picker
+                          selectedValue={editFormData.status}
+                          onValueChange={(value: string) => handleEditFormChange('status', value)}
+                          style={styles.editFormSelect}
+                          dropdownIconColor={theme.colors.primary.base}>
+                          <Picker.Item label="نشط - active" value="active" />
+                          <Picker.Item label="تم البيع - sold" value="sold" />
+                          <Picker.Item label="منتهي - expired" value="expired" />
+                        </Picker>
+                      </View>
+                    </View>
+                  </View>
+
+                  <View style={styles.editFormField}>
+                    <Text style={styles.editFormLabel}>التصنيف الفرعي*</Text>
+                    <View style={styles.editFormSelectContainer}>
+                      <Picker
+                        selectedValue={editFormData.category}
+                        onValueChange={(value: string) => handleEditFormChange('category', value)}
+                        style={styles.editFormSelect}
+                        dropdownIconColor={theme.colors.primary.base}>
+                        <Picker.Item label="خضروات" value="خضروات" />
+                        <Picker.Item label="فواكه" value="فواكه" />
+                        <Picker.Item label="حبوب" value="حبوب" />
+                        <Picker.Item label="أعشاب" value="أعشاب" />
+                        <Picker.Item label="مكسرات" value="مكسرات" />
+                        <Picker.Item label="زهور" value="زهور" />
+                        <Picker.Item label="بذور" value="بذور" />
+                        <Picker.Item label="شتلات" value="شتلات" />
+                        <Picker.Item label="أخرى" value="أخرى" />
+                      </Picker>
+                    </View>
+                  </View>
+
+                  <View style={styles.editFormRow}>
+                    <View
+                      style={[styles.editFormField, { flex: 1, marginRight: theme.spacing.sm }]}>
+                      <Text style={styles.editFormLabel}>الكمية المتاحة*</Text>
+                      <TextInput
+                        style={styles.editFormInput}
+                        value={editFormData.quantity}
+                        onChangeText={(value) => handleEditFormChange('quantity', value)}
+                        placeholder="الكمية"
+                        placeholderTextColor={theme.colors.neutral.textSecondary}
+                        keyboardType="numeric"
+                      />
+                    </View>
+
+                    <View style={[styles.editFormField, { flex: 1 }]}>
+                      <Text style={styles.editFormLabel}>الحد الأدنى للطلب*</Text>
+                      <TextInput
+                        style={styles.editFormInput}
+                        value={editFormData.min_order_quantity}
+                        onChangeText={(value) => handleEditFormChange('min_order_quantity', value)}
+                        placeholder="الحد الأدنى"
+                        placeholderTextColor={theme.colors.neutral.textSecondary}
+                        keyboardType="numeric"
+                      />
+                    </View>
+                  </View>
+
+                  <View style={styles.editFormField}>
+                    <Text style={styles.editFormLabel}>نوع القائمة</Text>
+                    <View style={styles.editFormSelectContainer}>
+                      <Picker
+                        selectedValue={editFormData.listing_type}
+                        onValueChange={(value: string) =>
+                          handleEditFormChange('listing_type', value)
+                        }
+                        style={styles.editFormSelect}
+                        dropdownIconColor={theme.colors.primary.base}>
+                        <Picker.Item label="سعر ثابت - fixed" value="fixed" />
+                        <Picker.Item label="مزاد - auction" value="auction" />
+                      </Picker>
+                    </View>
+                  </View>
+
+                  <View style={styles.editFormField}>
+                    <Text style={styles.editFormLabel}>الوصف*</Text>
+                    <TextInput
+                      style={[styles.editFormInput, styles.editFormTextArea]}
+                      value={editFormData.description}
+                      onChangeText={(value) => handleEditFormChange('description', value)}
+                      placeholder="وصف المنتج"
+                      placeholderTextColor={theme.colors.neutral.textSecondary}
+                      multiline
+                      numberOfLines={4}
+                      textAlignVertical="top"
+                    />
+                  </View>
+
+                  <View style={styles.editFormActions}>
+                    <TouchableOpacity
+                      style={[styles.editFormButton, styles.editFormCancelButton]}
+                      onPress={closeEditModal}
+                      disabled={editLoading}>
+                      <Text style={styles.editFormCancelButtonText}>إلغاء</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.editFormButton, styles.editFormSubmitButton]}
+                      onPress={handleUpdateProduct}
+                      disabled={editLoading}>
+                      {editLoading ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <>
+                          <MaterialCommunityIcons
+                            name="content-save"
+                            size={18}
+                            color="#fff"
+                            style={{ marginLeft: 6 }}
+                          />
+                          <Text style={styles.editFormSubmitButtonText}>حفظ التغييرات</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </ScrollView>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+    );
+  };
+
+  // Add this handler function near handleOptionsPress
+  const handleOutsidePress = () => {
+    // Only close options popup if edit modal is not open
+    if (selectedProductId !== null && !showEditProductModal) {
+      setSelectedProductId(null);
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -549,27 +1077,35 @@ export const CompanyProfile: React.FC = () => {
       <View style={styles.statsGrid}>
         <View style={styles.statsCard}>
           <MaterialCommunityIcons
-            name="package-variant"
+            name="package-variant-closed"
             size={24}
             color={theme.colors.primary.base}
           />
-          <Text style={styles.statsNumber}>{supplierData.productsNumber}</Text>
-          <Text style={styles.statsLabel}>المنتجات</Text>
+          <Text style={styles.statsNumber}>{supplierData.productsNumber || 0}</Text>
+          <Text style={styles.statsLabel}>إجمالي المنتجات</Text>
         </View>
         <View style={styles.statsCard}>
-          <FontAwesome5 name="gavel" size={24} color={theme.colors.primary.base} />
-          <Text style={styles.statsNumber}>{supplierData.auctionsNumber}</Text>
-          <Text style={styles.statsLabel}>المزادات النشطة</Text>
+          <MaterialCommunityIcons name="check-circle" size={24} color={theme.colors.success} />
+          <Text style={styles.statsNumber}>{productStats.active}</Text>
+          <Text style={styles.statsLabel}>المنتجات النشطة</Text>
         </View>
         <View style={styles.statsCard}>
-          <MaterialCommunityIcons name="shopping" size={24} color={theme.colors.primary.base} />
-          <Text style={styles.statsNumber}>{supplierData.ordersNumber}</Text>
-          <Text style={styles.statsLabel}>الطلبات</Text>
+          <MaterialCommunityIcons
+            name="shopping"
+            size={24}
+            color={theme.colors.accent.base || theme.colors.secondary.base}
+          />
+          <Text style={styles.statsNumber}>{productStats.sold}</Text>
+          <Text style={styles.statsLabel}>تم بيعها</Text>
         </View>
         <View style={styles.statsCard}>
-          <MaterialCommunityIcons name="star" size={24} color={theme.colors.primary.base} />
-          <Text style={styles.statsNumber}>{staticData.stats.avgRating}</Text>
-          <Text style={styles.statsLabel}>التقييم</Text>
+          <MaterialCommunityIcons
+            name="timer-sand-empty"
+            size={24}
+            color={theme.colors.warning.dark || '#EF6C00'}
+          />
+          <Text style={styles.statsNumber}>{productStats.expired}</Text>
+          <Text style={styles.statsLabel}>منتهية</Text>
         </View>
       </View>
 
@@ -596,10 +1132,12 @@ export const CompanyProfile: React.FC = () => {
             <MaterialCommunityIcons name="map-marker" size={20} color={theme.colors.primary.base} />
             <Text style={styles.contactText}>{supplier.company_address}</Text>
           </View>
-          <View style={styles.contactItem}>
-            <MaterialCommunityIcons name="web" size={20} color={theme.colors.primary.base} />
-            <Text style={styles.contactText}>{supplier.company_website}</Text>
-          </View>
+          {supplier.company_website && supplier.company_website.trim() !== '' && (
+            <View style={styles.contactItem}>
+              <MaterialCommunityIcons name="web" size={20} color={theme.colors.primary.base} />
+              <Text style={styles.contactText}>{supplier.company_website}</Text>
+            </View>
+          )}
           <View style={styles.contactItem}>
             <MaterialCommunityIcons name="email" size={20} color={theme.colors.primary.base} />
             <Text style={styles.contactText}>{supplier.company_email}</Text>
@@ -623,7 +1161,7 @@ export const CompanyProfile: React.FC = () => {
   const renderProductsTab = () => (
     <View style={styles.tabContent}>
       {productsLoading ? (
-        <View style={styles.loadingContainer}>
+        <View style={styles.loaderContainer}>
           <ActivityIndicator size="large" color={theme.colors.primary.base} />
           <Text style={styles.loadingText}>جاري تحميل المنتجات...</Text>
         </View>
@@ -642,62 +1180,163 @@ export const CompanyProfile: React.FC = () => {
           </TouchableOpacity>
         </View>
       ) : (
-        <FlatList
-          data={products}
-          keyExtractor={(item) => item.id.toString()}
-          numColumns={2}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.productCard}
-              onPress={() => navigation.navigate('ProductDetails', { productId: item.id })}>
-              <Image
-                source={{
-                  uri:
-                    item.media && item.media.length > 0
-                      ? item.media[0].url.startsWith('http')
-                        ? item.media[0].url
-                        : `${baseUrl}${item.media[0].url}`
-                      : 'https://via.placeholder.com/150',
-                }}
-                style={styles.productImage}
-              />
-              <View style={styles.productDetails}>
-                <Text style={styles.productName} numberOfLines={1}>
-                  {item.name}
-                </Text>
-                <Text style={styles.productPrice}>
-                  {item.price} ريال / {item.unit}
-                </Text>
-                <View style={styles.productMetaRow}>
-                  <View style={styles.productMeta}>
-                    <MaterialCommunityIcons
-                      name="food"
-                      size={14}
-                      color={theme.colors.primary.base}
+        <TouchableWithoutFeedback onPress={!showEditProductModal ? handleOutsidePress : undefined}>
+          <View style={{ flex: 1 }}>
+            <FlatList
+              data={products}
+              keyExtractor={(item) => item.id.toString()}
+              numColumns={2}
+              contentContainerStyle={styles.productGrid}
+              renderItem={({ item }) => (
+                <View style={styles.productCard}>
+                  <View style={styles.productImageContainer}>
+                    <Image
+                      source={{
+                        uri:
+                          item.media && item.media.length > 0
+                            ? item.media[0].url.startsWith('http')
+                              ? item.media[0].url
+                              : `${baseUrl}${item.media[0].url}`
+                            : 'https://via.placeholder.com/150',
+                      }}
+                      style={styles.productImage}
                     />
-                    <Text style={styles.productMetaText}>{item.category}</Text>
+
+                    {/* Add a status badge */}
+                    <View
+                      style={[
+                        styles.statusBadge,
+                        item.status === 'sold'
+                          ? styles.statusSold
+                          : item.status === 'expired'
+                            ? styles.statusExpired
+                            : styles.statusActive,
+                      ]}>
+                      <Text style={styles.statusText}>
+                        {item.status === 'sold'
+                          ? 'تم البيع'
+                          : item.status === 'expired'
+                            ? 'منتهي'
+                            : 'نشط'}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={styles.productMeta}>
+
+                  {/* Product Options Menu */}
+                  <TouchableOpacity
+                    style={[
+                      styles.optionsButton,
+                      selectedProductId === Number(item.id) && styles.optionsButtonActive,
+                    ]}
+                    onPress={(e) => {
+                      e.stopPropagation(); // Prevent event from bubbling to parent
+                      handleOptionsPress(Number(item.id));
+                    }}
+                    activeOpacity={0.8}>
                     <MaterialCommunityIcons
-                      name="weight"
-                      size={14}
-                      color={theme.colors.primary.base}
+                      name="dots-vertical"
+                      size={20}
+                      color={theme.colors.neutral.textPrimary}
                     />
-                    <Text style={styles.productMetaText}>
-                      {item.quantity} {item.unit}
+
+                    {/* Options Popup - Only show when selected */}
+                    {selectedProductId === Number(item.id) && (
+                      <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+                        <View style={styles.optionsPopup}>
+                          <TouchableOpacity
+                            style={styles.optionItem}
+                            onPress={() => {
+                              // Update to handle edit action
+                              handleEditPress(item);
+                            }}
+                            activeOpacity={0.7}>
+                            <MaterialCommunityIcons
+                              name="pencil-outline"
+                              size={18}
+                              color={theme.colors.primary.base}
+                            />
+                            <Text style={styles.optionText}>تعديل</Text>
+                          </TouchableOpacity>
+
+                          <View style={styles.optionsDivider} />
+
+                          <TouchableOpacity
+                            style={styles.optionItem}
+                            onPress={() => {
+                              // Handle delete action
+                              deleteProduct(Number(item.id));
+                            }}
+                            activeOpacity={0.7}>
+                            <MaterialCommunityIcons
+                              name="delete-outline"
+                              size={18}
+                              color={theme.colors.error}
+                            />
+                            <Text style={[styles.optionText, styles.deleteText]}>حذف</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </TouchableWithoutFeedback>
+                    )}
+                  </TouchableOpacity>
+
+                  <View style={styles.productDetails}>
+                    <Text style={styles.productName} numberOfLines={1}>
+                      {item.name || item.crop_name || 'منتج'}
                     </Text>
+                    <Text style={styles.productPrice}>
+                      {item.price} {item.unit && `/ ${item.unit}`}
+                    </Text>
+
+                    <View style={styles.productMetaRow}>
+                      <View style={styles.productMeta}>
+                        <MaterialCommunityIcons
+                          name="tag-outline"
+                          size={14}
+                          color={theme.colors.primary.base}
+                        />
+                        <Text style={styles.productMetaText}>
+                          {item.category || item.sub_category || 'عام'}
+                        </Text>
+                      </View>
+                      <View style={styles.productMeta}>
+                        <MaterialCommunityIcons
+                          name="weight"
+                          size={14}
+                          color={theme.colors.primary.base}
+                        />
+                        <Text style={styles.productMetaText}>
+                          {item.quantity} {item.unit}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Add listing date */}
+                    <View style={styles.dateContainer}>
+                      <MaterialCommunityIcons
+                        name="calendar-outline"
+                        size={12}
+                        color={theme.colors.neutral.textSecondary}
+                      />
+                      <Text style={styles.dateText}>
+                        {new Date(item.createdAt || Date.now()).toLocaleDateString('ar-SA')}
+                      </Text>
+                    </View>
                   </View>
                 </View>
-              </View>
-            </TouchableOpacity>
-          )}
-        />
+              )}
+            />
+          </View>
+        </TouchableWithoutFeedback>
       )}
     </View>
   );
 
   return (
     <SafeAreaView style={styles.container}>
+      {renderDeleteConfirmation()}
+      {renderSuccessMessage()}
+      {renderEditProductModal()}
+
       <View style={styles.header}>
         <Image
           source={{
@@ -728,11 +1367,6 @@ export const CompanyProfile: React.FC = () => {
             <Text style={styles.companyName} numberOfLines={1} ellipsizeMode="tail">
               {supplier.company_name}
             </Text>
-            <View style={styles.ratingContainer}>
-              <MaterialCommunityIcons name="star" size={16} color="#FFD700" />
-              <Text style={styles.rating}>{staticData.stats.avgRating}</Text>
-              <Text style={styles.reviews}>({staticData.stats.totalReviews} تقييم)</Text>
-            </View>
           </View>
           <TouchableOpacity
             style={styles.editButton}
@@ -761,20 +1395,6 @@ export const CompanyProfile: React.FC = () => {
             onPress={() => setActiveTab('products')}>
             <Text style={[styles.tabText, activeTab === 'products' && styles.activeTabText]}>
               المنتجات
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'orders' && styles.activeTab]}
-            onPress={() => setActiveTab('orders')}>
-            <Text style={[styles.tabText, activeTab === 'orders' && styles.activeTabText]}>
-              الطلبات
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'reviews' && styles.activeTab]}
-            onPress={() => setActiveTab('reviews')}>
-            <Text style={[styles.tabText, activeTab === 'reviews' && styles.activeTabText]}>
-              التقييمات
             </Text>
           </TouchableOpacity>
         </ScrollView>
@@ -852,22 +1472,6 @@ const styles = StyleSheet.create({
     color: theme.colors.neutral.textPrimary,
     marginBottom: 2,
     lineHeight: normalize(isSmallDevice ? 20 : 24),
-  },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  rating: {
-    marginLeft: 4,
-    fontSize: theme.fontSizes.body,
-    fontFamily: theme.fonts.medium,
-    color: theme.colors.neutral.textPrimary,
-  },
-  reviews: {
-    marginLeft: 4,
-    fontSize: theme.fontSizes.caption,
-    fontFamily: theme.fonts.regular,
-    color: theme.colors.neutral.textSecondary,
   },
   editButton: {
     flexDirection: 'row',
@@ -980,69 +1584,6 @@ const styles = StyleSheet.create({
     fontSize: theme.fontSizes.caption,
     fontFamily: theme.fonts.medium,
     color: theme.colors.primary.base,
-  },
-  orderCard: {
-    backgroundColor: theme.colors.neutral.background,
-    borderRadius: theme.borderRadius.medium,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
-  },
-  orderHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: theme.spacing.xs,
-  },
-  orderProduct: {
-    fontSize: theme.fontSizes.body,
-    fontFamily: theme.fonts.bold,
-    color: theme.colors.neutral.textPrimary,
-    flex: 1,
-  },
-  orderAmount: {
-    fontSize: theme.fontSizes.body,
-    fontFamily: theme.fonts.bold,
-    color: theme.colors.primary.base,
-  },
-  orderDetails: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: theme.spacing.xs,
-  },
-  orderBuyer: {
-    fontSize: theme.fontSizes.caption,
-    fontFamily: theme.fonts.regular,
-    color: theme.colors.neutral.textSecondary,
-  },
-  orderStatus: {
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 4,
-    borderRadius: theme.borderRadius.small,
-  },
-  statuspending: {
-    backgroundColor: 'rgba(255, 193, 7, 0.1)',
-  },
-  statusprocessing: {
-    backgroundColor: 'rgba(0, 123, 255, 0.1)',
-  },
-  statusshipped: {
-    backgroundColor: 'rgba(40, 167, 69, 0.1)',
-  },
-  statusdelivered: {
-    backgroundColor: 'rgba(40, 167, 69, 0.1)',
-  },
-  statuscancelled: {
-    backgroundColor: 'rgba(220, 53, 69, 0.1)',
-  },
-  orderStatusText: {
-    fontSize: theme.fontSizes.caption,
-    fontFamily: theme.fonts.medium,
-  },
-  orderDate: {
-    fontSize: theme.fontSizes.caption,
-    fontFamily: theme.fonts.regular,
-    color: theme.colors.neutral.textSecondary,
   },
   contactInfo: {
     gap: theme.spacing.sm,
@@ -1284,53 +1825,167 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.medium,
     color: theme.colors.neutral.textPrimary,
   },
+  productGrid: {
+    padding: theme.spacing.sm,
+  },
   productCard: {
+    flex: 1,
+    margin: responsivePadding(theme.spacing.xs),
     backgroundColor: theme.colors.neutral.surface,
     borderRadius: theme.borderRadius.medium,
-    margin: responsivePadding(theme.spacing.xs),
-    overflow: 'hidden',
-    width: '47%',
-    ...theme.shadows.small,
+    position: 'relative', // Add this to allow absolute positioning within
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    maxWidth: '47%',
+    borderWidth: 1,
+    borderColor: theme.colors.neutral.border,
+  },
+  productImageContainer: {
+    position: 'relative',
   },
   productImage: {
     width: '100%',
-    height: responsiveHeight(12),
+    height: scaleSize(130),
     resizeMode: 'cover',
+  },
+  statusBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1,
+  },
+  statusActive: {
+    backgroundColor: theme.colors.success,
+  },
+  statusSold: {
+    backgroundColor: theme.colors.error,
+  },
+  statusExpired: {
+    backgroundColor: theme.colors.warning.dark || '#EF6C00',
+  },
+  statusText: {
+    color: 'white',
+    fontSize: normalize(10),
+    fontFamily: theme.fonts.medium,
   },
   productDetails: {
     padding: responsivePadding(theme.spacing.sm),
   },
   productName: {
-    fontSize: normalize(isSmallDevice ? 13 : 15),
-    fontFamily: theme.fonts.bold,
-    color: theme.colors.neutral.textPrimary,
-    marginBottom: theme.spacing.xs,
-  },
-  productPrice: {
     fontSize: normalize(isSmallDevice ? 12 : 14),
     fontFamily: theme.fonts.bold,
-    color: theme.colors.primary.base,
-    marginBottom: theme.spacing.xs,
+    color: theme.colors.neutral.textPrimary,
+    marginBottom: 4,
+  },
+  productPrice: {
+    fontSize: normalize(isSmallDevice ? 11 : 13),
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.accent.base || theme.colors.primary.base,
+    marginBottom: 4,
   },
   productMetaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: theme.spacing.xs,
+    marginTop: 2,
   },
   productMeta: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   productMetaText: {
-    fontSize: normalize(isSmallDevice ? 10 : 12),
+    fontSize: normalize(isSmallDevice ? 9 : 10),
     fontFamily: theme.fonts.regular,
     color: theme.colors.neutral.textSecondary,
     marginLeft: 4,
   },
+  dateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  dateText: {
+    fontSize: normalize(isSmallDevice ? 8 : 9),
+    fontFamily: theme.fonts.regular,
+    color: theme.colors.neutral.textSecondary,
+    marginLeft: 4,
+  },
+  optionsButton: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+
+  // Edit modal title with product name
+  editModalTitle: {
+    fontFamily: theme.fonts.bold,
+    fontSize: normalize(16),
+    color: 'white',
+    textAlign: 'center',
+    flex: 1,
+  },
+  optionsPopup: {
+    position: 'absolute',
+    top: 32, // Position below the options button
+    left: -5,
+    width: responsiveWidth(35),
+    backgroundColor: theme.colors.neutral.surface,
+    borderRadius: theme.borderRadius.medium,
+    padding: theme.spacing.xs,
+    zIndex: 999, // Use a higher z-index
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  optionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.small,
+  },
+  optionText: {
+    marginLeft: theme.spacing.sm,
+    fontSize: normalize(13),
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.neutral.textPrimary,
+  },
+  deleteText: {
+    color: theme.colors.error,
+  },
+  optionsDivider: {
+    height: 1,
+    backgroundColor: theme.colors.neutral.border,
+    marginVertical: theme.spacing.xs,
+  },
   emptyStateContainer: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: responsivePadding(theme.spacing.xl),
+    paddingVertical: theme.spacing.xl,
   },
   emptyStateText: {
     fontSize: normalize(16),
@@ -1349,5 +2004,232 @@ const styles = StyleSheet.create({
     fontSize: normalize(14),
     fontFamily: theme.fonts.bold,
     color: theme.colors.neutral.surface,
+  },
+  loaderContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: theme.spacing.xl,
+  },
+  // Delete confirmation modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  deleteConfirmContainer: {
+    width: '85%',
+    backgroundColor: 'white',
+    borderRadius: theme.borderRadius.large,
+    padding: theme.spacing.lg,
+    alignItems: 'center',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  deleteIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 59, 48, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  deleteConfirmTitle: {
+    fontFamily: theme.fonts.bold,
+    fontSize: normalize(18),
+    color: theme.colors.neutral.textPrimary,
+    marginBottom: theme.spacing.sm,
+    textAlign: 'center',
+  },
+  deleteConfirmText: {
+    fontFamily: theme.fonts.regular,
+    fontSize: normalize(14),
+    color: theme.colors.neutral.textSecondary,
+    marginBottom: theme.spacing.lg,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  deleteButtonsContainer: {
+    flexDirection: 'row',
+    width: '100%',
+    justifyContent: 'space-between',
+  },
+  deleteButton: {
+    flex: 1,
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.borderRadius.medium,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: theme.spacing.xs,
+  },
+  cancelButton: {
+    backgroundColor: theme.colors.neutral.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.neutral.border,
+  },
+  confirmButton: {
+    backgroundColor: theme.colors.error,
+  },
+  cancelButtonText: {
+    fontFamily: theme.fonts.medium,
+    fontSize: normalize(14),
+    color: theme.colors.neutral.textPrimary,
+  },
+  confirmButtonText: {
+    fontFamily: theme.fonts.medium,
+    fontSize: normalize(14),
+    color: 'white',
+  },
+
+  // Success toast styles
+  successToastContainer: {
+    position: 'absolute',
+    bottom: 80,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 9999,
+  },
+  successToast: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.success,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.lg,
+    borderRadius: 50,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  successToastText: {
+    fontFamily: theme.fonts.medium,
+    fontSize: normalize(14),
+    color: 'white',
+    marginLeft: theme.spacing.sm,
+  },
+  // Edit product modal styles
+  editModalContainer: {
+    width: '90%',
+    maxHeight: '90%',
+    backgroundColor: theme.colors.neutral.surface,
+    borderRadius: theme.borderRadius.large,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    // Remove overflow: 'hidden' which can cause scrolling issues
+  },
+  editModalHeader: {
+    flexDirection: 'row-reverse', // Changed to match Arabic RTL
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: theme.colors.primary.base,
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+  },
+  closeButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  editFormScrollView: {
+    flexGrow: 1,
+    // Remove maxHeight constraint which limits scrollability
+  },
+  editFormField: {
+    marginBottom: theme.spacing.md,
+  },
+  editFormRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: theme.spacing.md,
+  },
+  editFormLabel: {
+    fontFamily: theme.fonts.medium,
+    fontSize: normalize(14),
+    color: theme.colors.neutral.textPrimary,
+    marginBottom: theme.spacing.xs,
+    textAlign: 'right',
+  },
+  editFormInput: {
+    backgroundColor: theme.colors.neutral.background,
+    borderWidth: 1,
+    borderColor: theme.colors.neutral.border,
+    borderRadius: theme.borderRadius.medium,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    fontFamily: theme.fonts.regular,
+    fontSize: normalize(14),
+    color: theme.colors.neutral.textPrimary,
+    textAlign: 'right',
+    height: isSmallDevice ? 40 : 50,
+  },
+  editFormSelectContainer: {
+    backgroundColor: theme.colors.neutral.background,
+    borderWidth: 1,
+    borderColor: theme.colors.neutral.border,
+    borderRadius: theme.borderRadius.medium,
+    height: isSmallDevice ? 40 : 50,
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  editFormSelect: {
+    height: isSmallDevice ? 40 : 50,
+    width: '100%',
+    color: theme.colors.neutral.textPrimary,
+  },
+  editFormTextArea: {
+    minHeight: 100,
+    textAlignVertical: 'top',
+    height: 'auto',
+  },
+  editFormActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
+  },
+  editFormButton: {
+    flex: 1,
+    flexDirection: 'row',
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.borderRadius.medium,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: theme.spacing.xs,
+    height: isSmallDevice ? 44 : 50,
+  },
+  editFormCancelButton: {
+    backgroundColor: theme.colors.neutral.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.neutral.border,
+  },
+  editFormSubmitButton: {
+    backgroundColor: theme.colors.primary.base,
+  },
+  editFormCancelButtonText: {
+    fontFamily: theme.fonts.medium,
+    fontSize: normalize(14),
+    color: theme.colors.neutral.textPrimary,
+  },
+  editFormSubmitButtonText: {
+    fontFamily: theme.fonts.medium,
+    fontSize: normalize(14),
+    color: 'white',
+  },
+  optionsButtonActive: {
+    backgroundColor: theme.colors.primary.surface,
+  },
+  editFormContentContainer: {
+    padding: theme.spacing.lg,
+    paddingBottom: theme.spacing.xl, // Add extra padding at bottom for better scroll experience
   },
 });
