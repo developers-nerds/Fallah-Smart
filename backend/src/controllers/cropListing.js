@@ -265,7 +265,6 @@ exports.getSupplierProducts = async (req, res) => {
     const cropListings = await CropListings.findAll({
       where: {
         supplierId,
-        status: "active",
       },
       order: [["createdAt", "DESC"]],
       include: [

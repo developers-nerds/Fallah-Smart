@@ -33,6 +33,8 @@ export type StockStackParamList = {
   FertilizerDetail: { fertilizerId: string };
   Login: undefined;
   Register: undefined;
+  PhoneLogin: undefined;
+  CompleteProfile: { userId: string };
   StockTab: undefined;
   StockList: undefined;
   Blogs: undefined;

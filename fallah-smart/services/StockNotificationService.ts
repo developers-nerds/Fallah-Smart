@@ -74,7 +74,7 @@ class StockNotificationService {
       // Load notification settings from storage
       await this.loadSettings();
 
-      // Start periodic stock checks
+      // Start periodic stock checks only if user is authenticated
       this.startStockChecks();
       
       this.isInitialized = true;
@@ -154,6 +154,13 @@ class StockNotificationService {
       // Skip if notifications aren't enabled
       if (!this.settings.automaticStockAlerts) {
         console.log('Automatic stock alerts are disabled. Skipping checks.');
+        return;
+      }
+      
+      // Make sure we're authenticated before proceeding
+      const tokens = await storage.getTokens();
+      if (!tokens?.access) {
+        console.warn('[StockNotificationService] No access token available, skipping stock check');
         return;
       }
       
@@ -1063,7 +1070,21 @@ class StockNotificationService {
     try {
       console.log('[StockNotificationService] Starting MANUAL stock check...');
       
-      // Stock types with better organization
+      // Get token for API calls
+      const tokens = await storage.getTokens();
+      if (!tokens?.access) {
+        console.warn('[StockNotificationService] No access token available for API checks');
+        return;
+      }
+      
+      // Set authorization header
+      axios.defaults.headers.common['Authorization'] = `Bearer ${tokens.access}`;
+      
+      // Check each category for actual items
+      const categoryItemCounts = await this.getCategoryItemCounts();
+      console.log('[StockNotificationService] Category counts:', categoryItemCounts);
+      
+      // Only include categories that have at least one item
       const stockTypes = [
         { id: 1, type: 'pesticide', name: 'المبيدات', icon: '🧪', nameAr: 'المبيدات', priority: 'high' },
         { id: 2, type: 'feed', name: 'الأعلاف', icon: '🌾', nameAr: 'الأعلاف', priority: 'high' },
@@ -1071,20 +1092,22 @@ class StockNotificationService {
         { id: 4, type: 'seed', name: 'البذور', icon: '🌱', nameAr: 'البذور', priority: 'medium' },
         { id: 5, type: 'tool', name: 'الأدوات', icon: '🔨', nameAr: 'الأدوات', priority: 'low' },
         { id: 6, type: 'equipment', name: 'المعدات', icon: '🚜', nameAr: 'المعدات', priority: 'low' }
-      ];
+      ].filter(item => categoryItemCounts[item.type] > 0);
+      
+      if (stockTypes.length === 0) {
+        console.log('[StockNotificationService] No stock categories have items, skipping notifications');
+        return;
+      }
+      
+      console.log(`[StockNotificationService] Sending notifications for ${stockTypes.length} categories with items`);
       
       // Use the improved notification spreading
       await this.spreadNotifications(stockTypes);
       
-      // Only run the API checks if we have a valid token
+      // Run the API checks
       try {
-        const tokens = await storage.getTokens();
-        if (tokens?.access) {
-          console.log('[StockNotificationService] Access token verified, proceeding with API checks');
-          await this.verifyEndpointsAndCheckItems(true);
-        } else {
-          console.warn('[StockNotificationService] No access token available for API checks');
-        }
+        console.log('[StockNotificationService] Proceeding with API checks');
+        await this.verifyEndpointsAndCheckItems(true);
       } catch (checkError) {
         console.error('[StockNotificationService] Error in manual API checks:', checkError);
       }
@@ -1092,6 +1115,99 @@ class StockNotificationService {
       console.log('[StockNotificationService] Manual stock check completed');
     } catch (error) {
       console.error('[StockNotificationService] Error in manual stock check:', error);
+    }
+  }
+  
+  // Helper method to check how many items are in each category
+  private async getCategoryItemCounts(): Promise<Record<string, number>> {
+    const counts: Record<string, number> = {
+      'pesticide': 0,
+      'feed': 0,
+      'fertilizer': 0,
+      'seed': 0,
+      'tool': 0,
+      'equipment': 0,
+      'animal': 0,
+      'harvest': 0
+    };
+    
+    try {
+      // Check pesticides
+      try {
+        const pesticides = await this.safeApiCall(
+          () => stockPesticideApi.getPesticides(),
+          [],
+          'pesticides count'
+        );
+        counts['pesticide'] = Array.isArray(pesticides) ? pesticides.length : 0;
+      } catch (e) {
+        console.log('Error checking pesticide count:', e);
+      }
+      
+      // Check feeds
+      try {
+        const feeds = await this.safeApiCall(
+          () => stockFeedApi.getFeeds(),
+          [],
+          'feeds count'
+        );
+        counts['feed'] = Array.isArray(feeds) ? feeds.length : 0;
+      } catch (e) {
+        console.log('Error checking feed count:', e);
+      }
+      
+      // Check fertilizers
+      try {
+        const fertilizers = await this.safeApiCall(
+          () => stockFertilizerApi.getFertilizers(),
+          [],
+          'fertilizers count'
+        );
+        counts['fertilizer'] = Array.isArray(fertilizers) ? fertilizers.length : 0;
+      } catch (e) {
+        console.log('Error checking fertilizer count:', e);
+      }
+      
+      // Check seeds
+      try {
+        const seeds = await this.safeApiCall(
+          () => stockSeedApi.getSeeds(),
+          [],
+          'seeds count'
+        );
+        counts['seed'] = Array.isArray(seeds) ? seeds.length : 0;
+      } catch (e) {
+        console.log('Error checking seed count:', e);
+      }
+      
+      // Check tools
+      try {
+        const tools = await this.safeApiCall(
+          () => stockToolApi.getTools(),
+          [],
+          'tools count'
+        );
+        counts['tool'] = Array.isArray(tools) ? tools.length : 0;
+      } catch (e) {
+        console.log('Error checking tool count:', e);
+      }
+      
+      // Check equipment
+      try {
+        const equipment = await this.safeApiCall(
+          () => stockEquipmentApi.getAllEquipment(),
+          [],
+          'equipment count'
+        );
+        counts['equipment'] = Array.isArray(equipment) ? equipment.length : 0;
+      } catch (e) {
+        console.log('Error checking equipment count:', e);
+      }
+      
+      return counts;
+    } catch (error) {
+      console.error('Error getting category counts:', error);
+      return counts; // Return default zero counts on error
     }
   }
 
@@ -1102,51 +1218,28 @@ class StockNotificationService {
 
   // When sending multiple notifications, spread them out with better timing
   private async spreadNotifications(stockTypes: any[]) {
-    console.log('[StockNotificationService] Sending notifications with improved timing...');
+    console.log('[StockNotificationService] Sending notifications with 10-second spacing...');
     
-    // Group notifications by type for better organization
-    const groupedTypes = {
-      highPriority: stockTypes.filter(item => 
-        item.type === 'pesticide' || item.type === 'feed'
-      ),
-      mediumPriority: stockTypes.filter(item => 
-        item.type === 'fertilizer' || item.type === 'seed'
-      ),
-      lowPriority: stockTypes.filter(item => 
-        item.type === 'tool' || item.type === 'equipment'
-      )
-    };
-    
-    // Send high priority first with short delays
-    for (const item of groupedTypes.highPriority) {
-      await this.sendStockNotification(item, 300);
+    // Send all notifications with a 10-second delay between each one
+    for (let i = 0; i < stockTypes.length; i++) {
+      const item = stockTypes[i];
+      
+      // Send the notification
+      await this.sendStockNotification(item, 0);
+      
+      // If there are more notifications to send, wait 10 seconds
+      if (i < stockTypes.length - 1) {
+        console.log(`[StockNotificationService] Waiting 10 seconds before sending next notification...`);
+        await this.delay(10000); // 10 seconds
+      }
     }
     
-    // Add a longer pause between groups
-    await this.delay(1000);
-    
-    // Send medium priority next
-    for (const item of groupedTypes.mediumPriority) {
-      await this.sendStockNotification(item, 500);
-    }
-    
-    // Add a longer pause between groups
-    await this.delay(1000);
-    
-    // Send low priority last
-    for (const item of groupedTypes.lowPriority) {
-      await this.sendStockNotification(item, 700);
-    }
-    
-    console.log('[StockNotificationService] All grouped notifications sent');
+    console.log('[StockNotificationService] All notifications sent with 10-second spacing');
   }
 
   // Helper to send a single notification with consistent styling
   private async sendStockNotification(item: any, delayMs: number) {
     try {
-      // Add delay between notifications for better UX
-      await new Promise(resolve => setTimeout(resolve, delayMs));
-      
       // Create fake stock item for notification
       const fakeItem = {
         id: typeof item.id === 'number' ? item.id : Math.floor(Math.random() * 1000),
@@ -1171,7 +1264,7 @@ class StockNotificationService {
         options
       );
       
-      console.log(`[StockNotificationService] Sent ${item.type} notification with ${delayMs}ms delay`);
+      console.log(`[StockNotificationService] Sent notification for ${item.type}: ${item.name}`);
     } catch (error) {
       console.error(`[StockNotificationService] Error sending notification:`, error);
     }

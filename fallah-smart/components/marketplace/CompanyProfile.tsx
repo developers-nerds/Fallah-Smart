@@ -384,6 +384,10 @@ export const CompanyProfile: React.FC = () => {
   const [baseUrl, setBaseUrl] = useState<string>('');
   const [isVerified, setIsVerified] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'sold' | 'expired'>('all');
+  const [showFilters, setShowFilters] = useState(false);
   const [productsLoading, setProductsLoading] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -401,7 +405,6 @@ export const CompanyProfile: React.FC = () => {
     description: '',
     min_order_quantity: '',
     status: 'active',
-    listing_type: 'fixed',
     currency: 'SAR',
   });
   const [editLoading, setEditLoading] = useState(false);
@@ -425,15 +428,15 @@ export const CompanyProfile: React.FC = () => {
       console.log('CompanyProfile screen is focused, refreshing data...');
       fetchSupplierData();
 
-      // Load products if supplier data is available and active tab is products
-      if (supplierData?.supplier && activeTab === 'products') {
+      // Load products if supplier data is available
+      if (supplierData?.supplier) {
         fetchSupplierProducts(supplierData.supplier.id);
       }
 
       return () => {
         // Optional cleanup if needed
       };
-    }, [activeTab])
+    }, [supplierData?.supplier?.id])
   );
 
   // Add function to fetch supplier products
@@ -477,12 +480,12 @@ export const CompanyProfile: React.FC = () => {
     }
   };
 
-  // Update useFocusEffect to also load products when tab changes
+  // Update useEffect to also load products when supplier data is available
   useEffect(() => {
-    if (supplierData?.supplier && activeTab === 'products') {
+    if (supplierData?.supplier) {
       fetchSupplierProducts(supplierData.supplier.id);
     }
-  }, [supplierData?.supplier?.id, activeTab]);
+  }, [supplierData?.supplier?.id]);
 
   const fetchSupplierData = async () => {
     try {
@@ -584,7 +587,6 @@ export const CompanyProfile: React.FC = () => {
       if (!response.ok) {
         throw new Error('فشل في حذف المنتج');
       }
-
       const data = await response.json();
       if (data.success) {
         // Remove the product from the local state
@@ -684,7 +686,6 @@ export const CompanyProfile: React.FC = () => {
       description: item.description || '',
       min_order_quantity: item.min_order_quantity?.toString() || '1',
       status: item.status || 'active',
-      listing_type: item.listing_type || 'fixed',
       currency: item.currency || 'SAR',
     });
     console.log('Editing product:', item);
@@ -721,12 +722,11 @@ export const CompanyProfile: React.FC = () => {
         crop_name: editFormData.name,
         price: editFormData.price,
         unit: editFormData.unit,
-        quantity: editFormData.quantity,
+        quantity: Number(editFormData.quantity),
         description: editFormData.description,
         sub_category: editFormData.category,
-        min_order_quantity: editFormData.min_order_quantity,
-        status: editFormData.status,
-        listing_type: editFormData.listing_type,
+        min_order_quantity: Number(editFormData.min_order_quantity),
+        status: editFormData.status as 'active' | 'sold' | 'expired',
         currency: editFormData.currency,
       };
 
@@ -755,11 +755,10 @@ export const CompanyProfile: React.FC = () => {
               price: `${editFormData.currency} ${editFormData.price}`,
               unit: editFormData.unit,
               category: editFormData.category,
-              quantity: editFormData.quantity,
+              quantity: Number(editFormData.quantity),
               description: editFormData.description,
-              min_order_quantity: editFormData.min_order_quantity,
-              status: editFormData.status,
-              listing_type: editFormData.listing_type,
+              min_order_quantity: Number(editFormData.min_order_quantity),
+              status: editFormData.status as 'active' | 'sold' | 'expired',
               currency: editFormData.currency,
             };
           }
@@ -801,7 +800,6 @@ export const CompanyProfile: React.FC = () => {
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}>
-          {/* IMPORTANT: Remove the TouchableWithoutFeedback that was closing the modal on outside press */}
           <View style={styles.modalOverlay}>
             <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
               <View style={styles.editModalContainer}>
@@ -953,22 +951,6 @@ export const CompanyProfile: React.FC = () => {
                   </View>
 
                   <View style={styles.editFormField}>
-                    <Text style={styles.editFormLabel}>نوع القائمة</Text>
-                    <View style={styles.editFormSelectContainer}>
-                      <Picker
-                        selectedValue={editFormData.listing_type}
-                        onValueChange={(value: string) =>
-                          handleEditFormChange('listing_type', value)
-                        }
-                        style={styles.editFormSelect}
-                        dropdownIconColor={theme.colors.primary.base}>
-                        <Picker.Item label="سعر ثابت - fixed" value="fixed" />
-                        <Picker.Item label="مزاد - auction" value="auction" />
-                      </Picker>
-                    </View>
-                  </View>
-
-                  <View style={styles.editFormField}>
                     <Text style={styles.editFormLabel}>الوصف*</Text>
                     <TextInput
                       style={[styles.editFormInput, styles.editFormTextArea]}
@@ -998,12 +980,7 @@ export const CompanyProfile: React.FC = () => {
                         <ActivityIndicator size="small" color="#fff" />
                       ) : (
                         <>
-                          <MaterialCommunityIcons
-                            name="content-save"
-                            size={18}
-                            color="#fff"
-                            style={{ marginLeft: 6 }}
-                          />
+                          <MaterialCommunityIcons name="content-save" size={20} color="#fff" />
                           <Text style={styles.editFormSubmitButtonText}>حفظ التغييرات</Text>
                         </>
                       )}
@@ -1024,6 +1001,36 @@ export const CompanyProfile: React.FC = () => {
     if (selectedProductId !== null && !showEditProductModal) {
       setSelectedProductId(null);
     }
+  };
+
+  // Add this function to handle filtering
+  const filterProducts = () => {
+    let filtered = [...products];
+
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter((product) => product.status === statusFilter);
+    }
+
+    // Apply search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter((product) =>
+        (product.name || product.crop_name || '').toLowerCase().includes(query)
+      );
+    }
+
+    setFilteredProducts(filtered);
+  };
+
+  // Update useEffect to include filtering
+  useEffect(() => {
+    filterProducts();
+  }, [products, statusFilter, searchQuery]);
+
+  // Add this function to handle status filter change
+  const handleStatusFilterChange = (status: 'all' | 'active' | 'sold' | 'expired') => {
+    setStatusFilter(status);
   };
 
   if (loading) {
@@ -1081,7 +1088,9 @@ export const CompanyProfile: React.FC = () => {
             size={24}
             color={theme.colors.primary.base}
           />
-          <Text style={styles.statsNumber}>{supplierData.productsNumber || 0}</Text>
+          <Text style={styles.statsNumber}>
+            {productStats.active + productStats.sold + productStats.expired}
+          </Text>
           <Text style={styles.statsLabel}>إجمالي المنتجات</Text>
         </View>
         <View style={styles.statsCard}>
@@ -1102,7 +1111,7 @@ export const CompanyProfile: React.FC = () => {
           <MaterialCommunityIcons
             name="timer-sand-empty"
             size={24}
-            color={theme.colors.warning.dark || '#EF6C00'}
+            color={theme.colors.warning || '#EF6C00'}
           />
           <Text style={styles.statsNumber}>{productStats.expired}</Text>
           <Text style={styles.statsLabel}>منتهية</Text>
@@ -1165,25 +1174,118 @@ export const CompanyProfile: React.FC = () => {
           <ActivityIndicator size="large" color={theme.colors.primary.base} />
           <Text style={styles.loadingText}>جاري تحميل المنتجات...</Text>
         </View>
-      ) : products.length === 0 ? (
-        <View style={styles.emptyStateContainer}>
-          <MaterialCommunityIcons
-            name="package-variant"
-            size={60}
-            color={theme.colors.neutral.textSecondary}
-          />
-          <Text style={styles.emptyStateText}>لا توجد منتجات حالياً</Text>
-          <TouchableOpacity
-            style={styles.addItemButton}
-            onPress={() => navigation.navigate('AddProduct')}>
-            <Text style={styles.addItemButtonText}>إضافة منتج جديد</Text>
-          </TouchableOpacity>
-        </View>
       ) : (
-        <TouchableWithoutFeedback onPress={!showEditProductModal ? handleOutsidePress : undefined}>
-          <View style={{ flex: 1 }}>
+        <>
+          <View style={styles.filterContainer}>
+            <View style={styles.searchContainer}>
+              <MaterialCommunityIcons
+                name="magnify"
+                size={20}
+                color={theme.colors.neutral.textSecondary}
+              />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="ابحث عن منتج..."
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholderTextColor={theme.colors.neutral.textSecondary}
+              />
+            </View>
+
+            <TouchableOpacity
+              style={styles.filterButton}
+              onPress={() => setShowFilters(!showFilters)}>
+              <MaterialCommunityIcons
+                name={showFilters ? 'filter-remove' : 'filter'}
+                size={20}
+                color={theme.colors.primary.base}
+              />
+              <Text style={styles.filterButtonText}>تصفية</Text>
+            </TouchableOpacity>
+          </View>
+
+          {showFilters && (
+            <View style={styles.statusFilterContainer}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <TouchableOpacity
+                  style={[
+                    styles.statusFilterButton,
+                    statusFilter === 'all' && styles.statusFilterButtonActive,
+                  ]}
+                  onPress={() => handleStatusFilterChange('all')}>
+                  <Text
+                    style={[
+                      styles.statusFilterText,
+                      statusFilter === 'all' && styles.statusFilterTextActive,
+                    ]}>
+                    الكل
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.statusFilterButton,
+                    statusFilter === 'active' && styles.statusFilterButtonActive,
+                  ]}
+                  onPress={() => handleStatusFilterChange('active')}>
+                  <Text
+                    style={[
+                      styles.statusFilterText,
+                      statusFilter === 'active' && styles.statusFilterTextActive,
+                    ]}>
+                    نشط
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.statusFilterButton,
+                    statusFilter === 'sold' && styles.statusFilterButtonActive,
+                  ]}
+                  onPress={() => handleStatusFilterChange('sold')}>
+                  <Text
+                    style={[
+                      styles.statusFilterText,
+                      statusFilter === 'sold' && styles.statusFilterTextActive,
+                    ]}>
+                    تم البيع
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.statusFilterButton,
+                    statusFilter === 'expired' && styles.statusFilterButtonActive,
+                  ]}
+                  onPress={() => handleStatusFilterChange('expired')}>
+                  <Text
+                    style={[
+                      styles.statusFilterText,
+                      statusFilter === 'expired' && styles.statusFilterTextActive,
+                    ]}>
+                    منتهي
+                  </Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          )}
+
+          {filteredProducts.length === 0 ? (
+            <View style={styles.emptyStateContainer}>
+              <MaterialCommunityIcons
+                name="package-variant"
+                size={60}
+                color={theme.colors.neutral.textSecondary}
+              />
+              <Text style={styles.emptyStateText}>
+                {searchQuery ? 'لا توجد نتائج للبحث' : 'لا توجد منتجات حالياً'}
+              </Text>
+              <TouchableOpacity
+                style={styles.addItemButton}
+                onPress={() => navigation.navigate('AddProduct')}>
+                <Text style={styles.addItemButtonText}>إضافة منتج جديد</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
             <FlatList
-              data={products}
+              data={filteredProducts}
               keyExtractor={(item) => item.id.toString()}
               numColumns={2}
               contentContainerStyle={styles.productGrid}
@@ -1325,8 +1427,8 @@ export const CompanyProfile: React.FC = () => {
                 </View>
               )}
             />
-          </View>
-        </TouchableWithoutFeedback>
+          )}
+        </>
       )}
     </View>
   );
@@ -1427,7 +1529,6 @@ export const CompanyProfile: React.FC = () => {
     </SafeAreaView>
   );
 };
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -2196,6 +2297,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: theme.spacing.lg,
     marginBottom: theme.spacing.md,
+    gap: theme.spacing.sm,
   },
   editFormButton: {
     flex: 1,
@@ -2204,8 +2306,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.medium,
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: theme.spacing.xs,
-    height: isSmallDevice ? 44 : 50,
+    minHeight: isSmallDevice ? 44 : 50,
   },
   editFormCancelButton: {
     backgroundColor: theme.colors.neutral.surface,
@@ -2214,6 +2315,10 @@ const styles = StyleSheet.create({
   },
   editFormSubmitButton: {
     backgroundColor: theme.colors.primary.base,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.xs,
   },
   editFormCancelButtonText: {
     fontFamily: theme.fonts.medium,
@@ -2231,5 +2336,70 @@ const styles = StyleSheet.create({
   editFormContentContainer: {
     padding: theme.spacing.lg,
     paddingBottom: theme.spacing.xl, // Add extra padding at bottom for better scroll experience
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+    paddingHorizontal: theme.spacing.sm,
+  },
+  searchContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.neutral.background,
+    borderRadius: theme.borderRadius.medium,
+    paddingHorizontal: theme.spacing.sm,
+    marginRight: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.neutral.border,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.sm,
+    fontSize: normalize(14),
+    fontFamily: theme.fonts.regular,
+    color: theme.colors.neutral.textPrimary,
+    textAlign: 'right',
+  },
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.primary.surface,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.medium,
+  },
+  filterButtonText: {
+    marginRight: theme.spacing.xs,
+    fontSize: normalize(14),
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.primary.base,
+  },
+  statusFilterContainer: {
+    marginBottom: theme.spacing.md,
+    paddingHorizontal: theme.spacing.sm,
+  },
+  statusFilterButton: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.medium,
+    backgroundColor: theme.colors.neutral.background,
+    marginHorizontal: theme.spacing.xs,
+    borderWidth: 1,
+    borderColor: theme.colors.neutral.border,
+  },
+  statusFilterButtonActive: {
+    backgroundColor: theme.colors.primary.base,
+    borderColor: theme.colors.primary.base,
+  },
+  statusFilterText: {
+    fontSize: normalize(14),
+    fontFamily: theme.fonts.medium,
+    color: theme.colors.neutral.textPrimary,
+  },
+  statusFilterTextActive: {
+    color: theme.colors.neutral.surface,
   },
 });

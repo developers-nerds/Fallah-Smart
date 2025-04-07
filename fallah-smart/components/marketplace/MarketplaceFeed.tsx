@@ -274,10 +274,6 @@ export const MarketplaceFeed: React.FC<MarketplaceFeedProps> = ({ data }) => {
                   </View>
                 ))}
               </View>
-
-              <TouchableOpacity style={styles.requestQuoteButton}>
-                <Text style={styles.requestQuoteButtonText}>طلب عرض سعر</Text>
-              </TouchableOpacity>
             </View>
           </ScrollView>
         </View>
@@ -297,10 +293,12 @@ export const MarketplaceFeed: React.FC<MarketplaceFeedProps> = ({ data }) => {
             activeOpacity={0.9}>
             {renderProductImages(item)}
             <View style={styles.productCardContent}>
-              <View style={styles.companyRow}>
+              <TouchableOpacity
+                style={styles.companyRow}
+                onPress={() => handleCompanyLogoPress(item.supplierId)}>
                 <Image source={{ uri: item.avatar }} style={styles.companyLogo} />
                 <Text style={styles.companyName}>{item.companyName}</Text>
-              </View>
+              </TouchableOpacity>
 
               <Text numberOfLines={2} style={styles.productDescription}>
                 {item.description}
@@ -321,7 +319,9 @@ export const MarketplaceFeed: React.FC<MarketplaceFeedProps> = ({ data }) => {
                 </View>
               </View>
 
-              <TouchableOpacity style={styles.viewDetailsButton}>
+              <TouchableOpacity
+                style={styles.viewDetailsButton}
+                onPress={() => openProductDetail(item)}>
                 <Text style={styles.viewDetailsButtonText}>عرض التفاصيل</Text>
               </TouchableOpacity>
             </View>
@@ -366,6 +366,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: theme.spacing.sm,
+    backgroundColor: 'rgba(0,0,0,0.02)',
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.medium,
   },
   companyLogo: {
     width: 30,
@@ -377,6 +380,7 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.medium,
     fontSize: theme.fontSizes.body,
     color: theme.colors.neutral.textPrimary,
+    flex: 1,
   },
   productDescription: {
     fontFamily: theme.fonts.regular,
@@ -390,6 +394,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: theme.spacing.sm,
+    backgroundColor: 'rgba(0,0,0,0.02)',
+    padding: theme.spacing.sm,
+    borderRadius: theme.borderRadius.medium,
   },
   productPrice: {
     fontFamily: theme.fonts.bold,
@@ -421,6 +428,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.medium,
     alignItems: 'center',
     marginTop: theme.spacing.sm,
+    ...theme.shadows.small,
   },
   viewDetailsButtonText: {
     fontFamily: theme.fonts.bold,
@@ -594,19 +602,6 @@ const styles = StyleSheet.create({
     color: theme.colors.neutral.textPrimary,
     flex: 2,
     textAlign: 'right',
-  },
-  requestQuoteButton: {
-    backgroundColor: theme.colors.primary.base,
-    paddingVertical: theme.spacing.md,
-    borderRadius: theme.borderRadius.medium,
-    alignItems: 'center',
-    ...theme.shadows.medium,
-    marginBottom: theme.spacing.xl,
-  },
-  requestQuoteButtonText: {
-    fontFamily: theme.fonts.bold,
-    fontSize: theme.fontSizes.button,
-    color: '#FFFFFF',
   },
   imageGrid: {
     flexDirection: 'row',

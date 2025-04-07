@@ -1,4 +1,4 @@
-import { BarChart3, BookOpen, Home, MessageSquare, ShoppingCart, Wallet, Users, BarChart } from "lucide-react"
+import { BarChart3, BookOpen, Home, MessageSquare, Wallet, Users, BarChart } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 import { useLocation, Link } from "react-router-dom"
 import { useAppSelector } from "../redux/store"
@@ -13,12 +13,6 @@ const sidebarItems = [
     title: "Stock",
     icon: BarChart3,
     url: "/stock",
-  },
-
-  {
-    title: "Marketplace",
-    icon: ShoppingCart,
-    url: "/marketplace",
   },
 
   {
