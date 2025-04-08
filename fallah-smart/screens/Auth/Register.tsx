@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,10 +15,12 @@ import { storage } from '../../utils/storage';
 import EmailStep from './RegisterSteps/EmailStep';
 import PersonalInfoStep from './RegisterSteps/PersonalInfoStep';
 import PasswordStep from './RegisterSteps/PasswordStep';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Types
 export type RootStackParamList = {
   Login: undefined;
+  StockTab: undefined;
   // Add other routes here if needed
 };
 
@@ -85,6 +87,20 @@ const Register = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  // Mark onboarding as complete when component mounts
+  useEffect(() => {
+    const markOnboardingComplete = async () => {
+      try {
+        await AsyncStorage.setItem('@onboarding_complete', 'true');
+        console.log('Onboarding marked as complete on Register mount');
+      } catch (error) {
+        console.error('Error marking onboarding as complete:', error);
+      }
+    };
+    
+    markOnboardingComplete();
+  }, []);
   
   // Form data is shared across all steps
   const [formData, setFormData] = useState<FormData>({
@@ -186,7 +202,13 @@ const Register = () => {
       Alert.alert('Success', 'Registration successful!', [
         { 
           text: 'OK', 
-          onPress: () => navigation.navigate('Login')
+          onPress: () => {
+            // Navigate directly to home screen, bypassing onboarding
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'StockTab' }],
+            });
+          }
         }
       ]);
 
@@ -241,17 +263,17 @@ const Register = () => {
       {renderStep()}
       
       {/* Login link shown on all steps */}
-      <View style={styles.loginContainer}>
-        <Text style={[styles.loginText, { color: theme.colors.neutral.textSecondary }]}>
-          {arabicTranslations.alreadyHaveAccount}{' '}
-        </Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+          <View style={styles.loginContainer}>
+            <Text style={[styles.loginText, { color: theme.colors.neutral.textSecondary }]}>
+              {arabicTranslations.alreadyHaveAccount}{' '}
+            </Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Login')}>
           <Text style={[styles.loginLink, { color: theme.colors.primary.base }]}>
             {arabicTranslations.login}
           </Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+            </TouchableOpacity>
+          </View>
+        </View>
   );
 };
 
