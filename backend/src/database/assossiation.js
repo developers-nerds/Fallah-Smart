@@ -798,6 +798,39 @@ const Education_Like = require("./models/Education_Likes")(
 Users.hasMany(Education_Like, { foreignKey: "userId" });
 Education_Like.belongsTo(Users, { foreignKey: "userId" });
 
+// Add Supplier and Auctions one-to-many relationship
+
+Auctions.belongsTo(Suppliers, {
+  foreignKey: "supplierId",
+  as: "supplier",
+});
+
+// Add Supplier and Media associations
+Suppliers.hasMany(Media, {
+  foreignKey: "supplierId",
+  as: "media",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+
+Media.belongsTo(Suppliers, {
+  foreignKey: "supplierId",
+  as: "supplier",
+});
+
+// Add CropListings and Media one-to-many relationship
+CropListings.hasMany(Media, {
+  foreignKey: "cropListingId",
+  as: "media",
+  onDelete: "CASCADE",
+  onUpdate: "CASCADE",
+});
+
+Media.belongsTo(CropListings, {
+  foreignKey: "cropListingId",
+  as: "cropListing",
+});
+
 ////////////////////////////////////////Hedhy Associations Mte3i Rodo belkom chabeb ///////////////
 
 // // //Sync all models with the database
@@ -805,29 +838,17 @@ Education_Like.belongsTo(Users, { foreignKey: "userId" });
 //   const transaction = await sequelize.transaction();
 
 //   try {
-//     console.log("Starting database synchronization...");
-
-//     // First sync with force: true to recreate all tables with correct structure
-//     console.log("Step 1: Dropping and recreating all tables...");
 //     await sequelize.sync({ force: true, transaction });
-//     console.log("Tables dropped and recreated successfully");
-
-//     // Then sync with alter: true to ensure any missing changes are applied
-//     console.log("Step 2: Applying any remaining alterations...");
 //     await sequelize.sync({ alter: true, transaction });
 
-//     // Commit the transaction if everything succeeded
 //     await transaction.commit();
 //     console.log("Database models synchronized successfully");
 //   } catch (error) {
-//     // Roll back the transaction if anything fails
 //     await transaction.rollback();
 //     console.error("Error synchronizing database models:", error);
 //     throw error; // Rethrow to ensure the error is visible
 //   }
 // }
-
-// // Execute the function
 // syncModels().catch((err) => {
 //   console.error("Failed to sync models:", err);
 //   process.exit(1);
@@ -887,16 +908,3 @@ module.exports = {
   Education_Animal,
   Education_Like,
 };
-
-// Add Supplier and Auctions one-to-many relationship
-Suppliers.hasMany(Auctions, {
-  foreignKey: "supplierId",
-  as: "auctions",
-  onDelete: "CASCADE",
-  onUpdate: "CASCADE",
-});
-
-Auctions.belongsTo(Suppliers, {
-  foreignKey: "supplierId",
-  as: "supplier",
-});

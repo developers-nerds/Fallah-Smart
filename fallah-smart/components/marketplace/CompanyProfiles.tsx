@@ -13,7 +13,6 @@ import {
 import { theme } from '../../theme/theme';
 import { normalize, scaleSize, isSmallDevice, responsivePadding } from '../../utils/responsive';
 
-
 // Types
 export interface Company {
   id: string;
@@ -92,7 +91,7 @@ export const CompanyProfiles: React.FC<CompanyProfilesProps> = ({ data }) => {
                 </Text>
                 <View style={styles.ratingContainer}>
                   <Text style={styles.rating}>★ {item.rating}</Text>
-                  <Text style={styles.reviews}>({item.reviews} reviews)</Text>
+                  <Text style={styles.reviews}>({item.reviews} تقييم)</Text>
                 </View>
               </View>
             </View>
@@ -106,17 +105,17 @@ export const CompanyProfiles: React.FC<CompanyProfilesProps> = ({ data }) => {
 
             <View style={styles.companyDetails}>
               <View style={styles.detailItem}>
-                <Text style={styles.detailLabel}>Founded:</Text>
+                <Text style={styles.detailLabel}>تأسست:</Text>
                 <Text style={styles.detailValue}>{item.founded}</Text>
               </View>
               <View style={styles.detailItem}>
-                <Text style={styles.detailLabel}>Location:</Text>
+                <Text style={styles.detailLabel}>الموقع:</Text>
                 <Text style={styles.detailValue} numberOfLines={1} ellipsizeMode="tail">
                   {item.location}
                 </Text>
               </View>
               <View style={styles.detailItem}>
-                <Text style={styles.detailLabel}>Specialization:</Text>
+                <Text style={styles.detailLabel}>التخصص:</Text>
                 <Text style={styles.detailValue} numberOfLines={1} ellipsizeMode="tail">
                   {item.specialization}
                 </Text>
@@ -129,7 +128,7 @@ export const CompanyProfiles: React.FC<CompanyProfilesProps> = ({ data }) => {
                 SCREEN_WIDTH < 350 ? styles.smallDeviceButton : {},
               ]}>
               <Text style={styles.viewProfileButtonText}>
-                {SCREEN_WIDTH < 350 ? 'View Profile' : 'View Full Profile'}
+                {SCREEN_WIDTH < 350 ? 'عرض الملف' : 'عرض الملف الكامل'}
               </Text>
             </TouchableOpacity>
           </View>

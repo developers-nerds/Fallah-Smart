@@ -78,11 +78,11 @@ type NavigationProp = NativeStackNavigationProp<any>;
 
 // Steps for the form
 const STEPS = [
-  { id: 'basic', title: 'Basic Info', icon: 'store-outline' },
-  { id: 'contact', title: 'Contact Info', icon: 'phone' },
-  { id: 'media', title: 'Media', icon: 'image' },
-  { id: 'hours', title: 'Business Hours', icon: 'clock-outline' },
-  { id: 'review', title: 'Review', icon: 'check-circle' },
+  { id: 'basic', title: 'المعلومات الأساسية', icon: 'store-outline' },
+  { id: 'contact', title: 'معلومات الاتصال', icon: 'phone' },
+  { id: 'media', title: 'الوسائط', icon: 'image' },
+  { id: 'hours', title: 'ساعات العمل', icon: 'clock-outline' },
+  { id: 'review', title: 'مراجعة', icon: 'check-circle' },
 ];
 
 // Add this new component for displaying errors with animation
@@ -337,27 +337,27 @@ export const SupplierRegistrationForm: React.FC = () => {
       const newErrors = [];
 
       if (!formData.company_name) {
-        newErrors.push({ field: 'company_name', message: 'Company name is required' });
+        newErrors.push({ field: 'company_name', message: 'اسم الشركة مطلوب' });
       }
 
       if (!formData.company_address) {
-        newErrors.push({ field: 'company_address', message: 'Company address is required' });
+        newErrors.push({ field: 'company_address', message: 'عنوان الشركة مطلوب' });
       }
 
       if (!formData.company_phone) {
-        newErrors.push({ field: 'company_phone', message: 'Phone number is required' });
+        newErrors.push({ field: 'company_phone', message: 'رقم الهاتف مطلوب' });
       } else if (!/^\+\d{8,15}$/.test(formData.company_phone)) {
-        newErrors.push({ field: 'company_phone', message: 'Please enter a valid phone number' });
+        newErrors.push({ field: 'company_phone', message: 'يرجى إدخال رقم هاتف صحيح' });
       }
 
       if (!formData.company_email) {
-        newErrors.push({ field: 'company_email', message: 'Email address is required' });
+        newErrors.push({ field: 'company_email', message: 'البريد الإلكتروني مطلوب' });
       } else if (!/\S+@\S+\.\S+/.test(formData.company_email)) {
-        newErrors.push({ field: 'company_email', message: 'Please enter a valid email address' });
+        newErrors.push({ field: 'company_email', message: 'يرجى إدخال بريد إلكتروني صحيح' });
       }
 
       if (formData.company_website && !/^https?:\/\/\S+\.\S+/.test(formData.company_website)) {
-        newErrors.push({ field: 'company_website', message: 'Please enter a valid website URL' });
+        newErrors.push({ field: 'company_website', message: 'يرجى إدخال عنوان موقع صحيح' });
       }
 
       if (newErrors.length > 0) {
@@ -522,18 +522,16 @@ export const SupplierRegistrationForm: React.FC = () => {
 
   // Define tooltips for each field
   const tooltips = {
-    company_name: 'Enter your legal business name as it appears on official documents.',
-    about_us: 'Describe what your company does, your mission, and what makes you unique.',
-    company_address:
-      'Enter your complete business address including street, city, and postal code.',
-    company_phone: 'Enter a business phone number where customers can reach you.',
-    company_email: 'Enter a business email that you check regularly for customer inquiries.',
-    company_website: 'Enter your company website URL starting with http:// or https://.',
-    company_logo: 'Add a URL to your company logo image (recommended size: 200x200px).',
-    company_banner:
-      'Add a URL to a banner image for your profile header (recommended size: 1200x300px).',
-    open_time: 'Enter the time your business opens, using 24-hour format (e.g., 09:00).',
-    close_time: 'Enter the time your business closes, using 24-hour format (e.g., 17:00).',
+    company_name: 'أدخل اسم شركتك القانوني كما يظهر في المستندات الرسمية.',
+    about_us: 'صف ما تقوم به شركتك، مهمتك، وما يميزك.',
+    company_address: 'أدخل عنوان عملك الكامل متضمناً الشارع والمدينة والرمز البريدي.',
+    company_phone: 'أدخل رقم هاتف العمل حيث يمكن للعملاء الوصول إليك.',
+    company_email: 'أدخل البريد الإلكتروني للعمل الذي تراجعه بانتظام للاستفسارات.',
+    company_website: 'أدخل عنوان URL لموقع شركتك يبدأ بـ http:// أو https://.',
+    company_logo: 'أضف رابط URL لشعار شركتك (الحجم الموصى به: 200×200 بكسل).',
+    company_banner: 'أضف رابط URL لصورة البانر لرأس ملفك الشخصي (الحجم الموصى به: 1200×300 بكسل).',
+    open_time: 'أدخل وقت فتح عملك، باستخدام تنسيق 24 ساعة (مثال: 09:00).',
+    close_time: 'أدخل وقت إغلاق عملك، باستخدام تنسيق 24 ساعة (مثال: 17:00).',
   };
 
   // Update renderInput to show field-specific errors
@@ -615,15 +613,15 @@ export const SupplierRegistrationForm: React.FC = () => {
 
       <View style={styles.formGroupHeader}>
         <MaterialCommunityIcons name="store-outline" size={24} color={theme.colors.primary.base} />
-        <Text style={styles.groupTitle}>Let's start with your company basics</Text>
+        <Text style={styles.groupTitle}>لنبدأ بأساسيات شركتك</Text>
       </View>
 
-      {renderInput('Company Name', 'company_name', 'Enter your company name', {
+      {renderInput('Company Name', 'company_name', 'أدخل اسم الشركة', {
         required: true,
         icon: 'office-building',
       })}
 
-      {renderInput('About Us (optional)', 'about_us', 'Tell us about your company ', {
+      {renderInput('About Us (optional)', 'about_us', 'أخبرنا عن شركتك', {
         multiline: true,
         required: false,
         icon: 'information-outline',
@@ -644,12 +642,12 @@ export const SupplierRegistrationForm: React.FC = () => {
 
       <View style={styles.formGroupHeader}>
         <MaterialCommunityIcons name="phone" size={24} color={theme.colors.primary.base} />
-        <Text style={styles.groupTitle}>How can customers reach you?</Text>
+        <Text style={styles.groupTitle}>كيف يمكن للعملاء الوصول إليك؟</Text>
       </View>
 
       <View style={styles.inputContainer}>
         <Text style={styles.inputLabel}>
-          Company Address <Text style={styles.required}>*</Text>
+          عنوان الشركة <Text style={styles.required}>*</Text>
         </Text>
         <View style={styles.inputWrapper}>
           <TouchableOpacity
@@ -669,7 +667,7 @@ export const SupplierRegistrationForm: React.FC = () => {
               setAddressQuery(text);
               setFormData({ ...formData, company_address: text });
             }}
-            placeholder="Enter your company address"
+            placeholder="أدخل عنوان شركتك"
             placeholderTextColor={theme.colors.neutral.gray.base}
           />
           {addressQuery.length > 0 && (
@@ -737,7 +735,7 @@ export const SupplierRegistrationForm: React.FC = () => {
 
       <View style={styles.inputContainer}>
         <Text style={styles.inputLabel}>
-          Phone Number <Text style={styles.required}>*</Text>
+          رقم الهاتف <Text style={styles.required}>*</Text>
         </Text>
         <View style={styles.phoneInputContainer}>
           <TouchableOpacity
@@ -774,7 +772,7 @@ export const SupplierRegistrationForm: React.FC = () => {
                 const numbersOnly = text.replace(/[^0-9]/g, '');
                 setFormData({ ...formData, company_phone: selectedCountryCode + numbersOnly });
               }}
-              placeholder="Enter your phone number"
+              placeholder="أدخل رقم هاتفك"
               keyboardType="phone-pad"
               placeholderTextColor={theme.colors.neutral.gray.base}
             />
@@ -868,13 +866,13 @@ export const SupplierRegistrationForm: React.FC = () => {
         </Modal>
       </View>
 
-      {renderInput('Email', 'company_email', 'Enter your email address', {
+      {renderInput('Email', 'company_email', 'أدخل عنوان بريدك الإلكتروني', {
         keyboardType: 'email-address',
         required: true,
         icon: 'email',
       })}
 
-      {renderInput('Website (optional)', 'company_website', 'Enter your website URL', {
+      {renderInput('Website (optional)', 'company_website', 'أدخل عنوان موقعك الإلكتروني', {
         icon: 'web',
       })}
     </View>
@@ -915,11 +913,11 @@ export const SupplierRegistrationForm: React.FC = () => {
       <View style={styles.formGroup}>
         <View style={styles.formGroupHeader}>
           <MaterialCommunityIcons name="image" size={24} color={theme.colors.primary.base} />
-          <Text style={styles.groupTitle}>Make your profile visually appealing</Text>
+          <Text style={styles.groupTitle}>اجعل ملفك الشخصي جذاباً بصرياً</Text>
         </View>
 
         <View style={styles.imagePreviewSection}>
-          <Text style={styles.inputLabel}>Company Logo</Text>
+          <Text style={styles.inputLabel}>شعار الشركة</Text>
           <TouchableOpacity
             style={styles.imagePickerButton}
             onPress={() => pickImage('logo')}
@@ -933,15 +931,15 @@ export const SupplierRegistrationForm: React.FC = () => {
                   size={40}
                   color={theme.colors.neutral.gray.base}
                 />
-                <Text style={styles.placeholderText}>Add Logo</Text>
-                <Text style={styles.placeholderSubText}>Tap to choose</Text>
+                <Text style={styles.placeholderText}>إضافة شعار</Text>
+                <Text style={styles.placeholderSubText}>انقر للاختيار</Text>
               </View>
             )}
           </TouchableOpacity>
         </View>
 
         <View style={styles.imagePreviewSection}>
-          <Text style={styles.inputLabel}>Company Banner</Text>
+          <Text style={styles.inputLabel}>بانر الشركة</Text>
           <TouchableOpacity
             style={styles.imagePickerButton}
             onPress={() => pickImage('banner')}
@@ -955,8 +953,8 @@ export const SupplierRegistrationForm: React.FC = () => {
                   size={40}
                   color={theme.colors.neutral.gray.base}
                 />
-                <Text style={styles.placeholderText}>Add Banner</Text>
-                <Text style={styles.placeholderSubText}>Tap to choose</Text>
+                <Text style={styles.placeholderText}>إضافة بانر</Text>
+                <Text style={styles.placeholderSubText}>انقر للاختيار</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -978,13 +976,13 @@ export const SupplierRegistrationForm: React.FC = () => {
 
       <View style={styles.formGroupHeader}>
         <MaterialCommunityIcons name="clock-outline" size={24} color={theme.colors.primary.base} />
-        <Text style={styles.groupTitle}>When are you open for business?</Text>
+        <Text style={styles.groupTitle}>متى تكون مفتوحاً للعمل؟</Text>
       </View>
 
       <View style={styles.timeContainer}>
         <View style={styles.timeInput}>
           <Text style={styles.inputLabel}>
-            Opening Time <Text style={styles.required}>*</Text>
+            وقت الفتح <Text style={styles.required}>*</Text>
           </Text>
           <TouchableOpacity
             style={[styles.input, { flexDirection: 'row', alignItems: 'center' }]}
@@ -1016,7 +1014,7 @@ export const SupplierRegistrationForm: React.FC = () => {
         </View>
         <View style={styles.timeInput}>
           <Text style={styles.inputLabel}>
-            Closing Time <Text style={styles.required}>*</Text>
+            وقت الإغلاق <Text style={styles.required}>*</Text>
           </Text>
           <TouchableOpacity
             style={[styles.input, { flexDirection: 'row', alignItems: 'center' }]}
@@ -1055,49 +1053,49 @@ export const SupplierRegistrationForm: React.FC = () => {
     <View style={styles.formGroup}>
       <View style={styles.formGroupHeader}>
         <MaterialCommunityIcons name="check-circle" size={24} color={theme.colors.primary.base} />
-        <Text style={styles.groupTitle}>Review your company profile</Text>
+        <Text style={styles.groupTitle}>راجع ملف شركتك</Text>
       </View>
 
       <View style={styles.reviewContainer}>
         {/* Company Info */}
         <View style={styles.reviewSection}>
-          <Text style={styles.reviewSectionTitle}>Company Info</Text>
+          <Text style={styles.reviewSectionTitle}>معلومات الشركة</Text>
           <View style={styles.reviewItem}>
-            <Text style={styles.reviewLabel}>Name:</Text>
+            <Text style={styles.reviewLabel}>الاسم:</Text>
             <Text style={styles.reviewValue}>{formData.company_name || 'Not provided'}</Text>
           </View>
           <View style={styles.reviewItem}>
-            <Text style={styles.reviewLabel}>About:</Text>
+            <Text style={styles.reviewLabel}>نبذة:</Text>
             <Text style={styles.reviewValue}>{formData.about_us || 'Not provided'}</Text>
           </View>
         </View>
 
         {/* Contact Info */}
         <View style={styles.reviewSection}>
-          <Text style={styles.reviewSectionTitle}>Contact Info</Text>
+          <Text style={styles.reviewSectionTitle}>معلومات الاتصال</Text>
           <View style={styles.reviewItem}>
-            <Text style={styles.reviewLabel}>Address:</Text>
+            <Text style={styles.reviewLabel}>العنوان:</Text>
             <Text style={styles.reviewValue}>{formData.company_address || 'Not provided'}</Text>
           </View>
           <View style={styles.reviewItem}>
-            <Text style={styles.reviewLabel}>Phone:</Text>
+            <Text style={styles.reviewLabel}>الهاتف:</Text>
             <Text style={styles.reviewValue}>{formData.company_phone || 'Not provided'}</Text>
           </View>
           <View style={styles.reviewItem}>
-            <Text style={styles.reviewLabel}>Email:</Text>
+            <Text style={styles.reviewLabel}>البريد الإلكتروني:</Text>
             <Text style={styles.reviewValue}>{formData.company_email || 'Not provided'}</Text>
           </View>
           <View style={styles.reviewItem}>
-            <Text style={styles.reviewLabel}>Website:</Text>
+            <Text style={styles.reviewLabel}>الموقع الإلكتروني:</Text>
             <Text style={styles.reviewValue}>{formData.company_website || 'Not provided'}</Text>
           </View>
         </View>
 
         {/* Hours */}
         <View style={styles.reviewSection}>
-          <Text style={styles.reviewSectionTitle}>Business Hours</Text>
+          <Text style={styles.reviewSectionTitle}>ساعات العمل</Text>
           <View style={styles.reviewItem}>
-            <Text style={styles.reviewLabel}>Hours:</Text>
+            <Text style={styles.reviewLabel}>الساعات:</Text>
             <Text style={styles.reviewValue}>
               {formData.open_time} - {formData.close_time}
             </Text>
@@ -1120,7 +1118,7 @@ export const SupplierRegistrationForm: React.FC = () => {
         />
 
         <Text style={styles.verificationTitle}>
-          {verificationSuccess ? 'Verification Complete!' : 'Almost there!'}
+          {verificationSuccess ? 'اكتمل التحقق!' : 'تقريباً هناك!'}
         </Text>
 
         {verificationSuccess ? (
@@ -1135,21 +1133,25 @@ export const SupplierRegistrationForm: React.FC = () => {
             </View>
 
             <Text style={styles.verificationDescription}>
-              Your email has been successfully verified!
+              {verificationSuccess
+                ? 'تم التحقق من بريدك الإلكتروني بنجاح!'
+                : 'لقد أرسلنا رمز التحقق إلى:'}
             </Text>
 
             <Text style={styles.verificationInstructions}>
-              You can now access all supplier features on the platform.
+              يمكنك الآن الوصول إلى جميع ميزات المورد على المنصة.
             </Text>
 
             <TouchableOpacity style={styles.continueButton} onPress={() => navigation.goBack()}>
-              <Text style={styles.continueButtonText}>Continue to Profile</Text>
+              <Text style={styles.continueButtonText}>متابعة إلى الملف الشخصي</Text>
               <MaterialCommunityIcons name="arrow-right" size={20} color="white" />
             </TouchableOpacity>
           </>
         ) : (
           <>
-            <Text style={styles.verificationDescription}>We've sent a verification code to:</Text>
+            <Text style={styles.verificationDescription}>
+              {verificationSuccess ? 'لقد أرسلنا رمز التحقق إلى:' : 'لقد أرسلنا رمز التحقق إلى:'}
+            </Text>
 
             <View style={styles.emailContainer}>
               <MaterialCommunityIcons name="email" size={20} color={theme.colors.primary.base} />
@@ -1157,7 +1159,7 @@ export const SupplierRegistrationForm: React.FC = () => {
             </View>
 
             <Text style={styles.verificationInstructions}>
-              Please enter the 6-digit code sent to your email to verify your account.
+              يرجى إدخال الرمز الست خانات الذي أرسلناه إليك عبر البريد الإلكتروني للتحقق من حسابك.
             </Text>
 
             {/* Verification code input */}
@@ -1210,8 +1212,8 @@ export const SupplierRegistrationForm: React.FC = () => {
                     resendDisabled && styles.resendButtonTextDisabled,
                   ]}>
                   {resendDisabled
-                    ? `Resend Code (${resendCountdown}s)`
-                    : 'Resend Verification Code'}
+                    ? `إعادة إرسال الرمز (${resendCountdown}ث)`
+                    : 'إعادة إرسال رمز التحقق'}
                 </Text>
               </TouchableOpacity>
 
@@ -1227,7 +1229,7 @@ export const SupplierRegistrationForm: React.FC = () => {
                   <ActivityIndicator color="white" size="small" />
                 ) : (
                   <>
-                    <Text style={styles.verifyButtonText}>Verify Email</Text>
+                    <Text style={styles.verifyButtonText}>تحقق من البريد الإلكتروني</Text>
                     <MaterialCommunityIcons
                       name="shield-check"
                       size={20}
@@ -1253,7 +1255,7 @@ export const SupplierRegistrationForm: React.FC = () => {
       <View style={styles.captchaModalOverlay}>
         <View style={styles.captchaModalContainer}>
           <View style={styles.captchaHeader}>
-            <Text style={styles.captchaTitle}>Security Verification</Text>
+            <Text style={styles.captchaTitle}>التحقق الأمني</Text>
             <TouchableOpacity onPress={() => setShowCaptcha(false)}>
               <MaterialCommunityIcons
                 name="close"
@@ -1266,7 +1268,7 @@ export const SupplierRegistrationForm: React.FC = () => {
           {isLoadingCaptcha && (
             <View style={styles.captchaLoadingContainer}>
               <ActivityIndicator size="large" color={theme.colors.primary.base} />
-              <Text style={styles.captchaLoadingText}>Loading security check...</Text>
+              <Text style={styles.captchaLoadingText}>جارٍ تحميل التحقق الأمني...</Text>
             </View>
           )}
 
@@ -1415,7 +1417,7 @@ export const SupplierRegistrationForm: React.FC = () => {
           <View style={styles.captchaFooter}>
             <TouchableOpacity style={styles.captchaRefreshButton} onPress={resetCaptcha}>
               <MaterialCommunityIcons name="refresh" size={18} color={theme.colors.primary.base} />
-              <Text style={styles.captchaRefreshText}>Refresh</Text>
+              <Text style={styles.captchaRefreshText}>تحديث</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -1427,7 +1429,7 @@ export const SupplierRegistrationForm: React.FC = () => {
                   handleCaptchaComplete('dev_mode_fallback_token');
                 }
               }}>
-              <Text style={styles.captchaCancelText}>Cancel</Text>
+              <Text style={styles.captchaCancelText}>إلغاء</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1837,12 +1839,12 @@ export const SupplierRegistrationForm: React.FC = () => {
                     size={24}
                     color={theme.colors.primary.base}
                   />
-                  <Text style={styles.backButtonText}>Back</Text>
+                  <Text style={styles.backButtonText}>رجوع</Text>
                 </TouchableOpacity>
 
                 {currentStep < STEPS.length - 1 ? (
                   <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
-                    <Text style={styles.nextButtonText}>Next</Text>
+                    <Text style={styles.nextButtonText}>التالي</Text>
                     <MaterialCommunityIcons name="arrow-right" size={24} color="white" />
                   </TouchableOpacity>
                 ) : (
@@ -1854,7 +1856,7 @@ export const SupplierRegistrationForm: React.FC = () => {
                       <ActivityIndicator color={theme.colors.neutral.surface} />
                     ) : (
                       <>
-                        <Text style={styles.submitButtonText}>Create Profile</Text>
+                        <Text style={styles.submitButtonText}>إنشاء الملف</Text>
                         <MaterialCommunityIcons name="check-circle" size={24} color="white" />
                       </>
                     )}
