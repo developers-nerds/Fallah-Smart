@@ -8,8 +8,13 @@ import {
   Image,
   Alert,
   ActivityIndicator,
+  ScrollView,
+  Modal,
+  StatusBar,
+  Dimensions,
+  Linking,
 } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { StockStackParamList } from '../../navigation/types';
@@ -17,8 +22,8 @@ import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { MarketplaceFeed, Product } from '../../components/marketplace/MarketplaceFeed';
-import { AuctionHouse } from '../../components/marketplace/AuctionHouse';
 import { CompanyProfile } from '../../components/marketplace/CompanyProfile';
+import { SupplierProfile } from '../../components/marketplace/SupplierProfile';
 import { theme } from '../../theme/theme';
 import { normalize, scaleSize, isSmallDevice, responsivePadding } from '../../utils/responsive';
 import { storage } from '../../utils/storage';
@@ -29,164 +34,16 @@ type MarketplaceScreenNavigationProp = NativeStackNavigationProp<
   'Marketplace'
 >;
 
-// Mock data for auctions (keeping this until you implement real auction fetching)
-const auctionData = [
-  {
-    id: '1',
-    itemName: 'John Deere 8R Tractor',
-    image: 'https://via.placeholder.com/400x300',
-    images: [
-      'https://via.placeholder.com/800x600',
-      'https://via.placeholder.com/800x600',
-      'https://via.placeholder.com/800x600',
-    ],
-    description:
-      'Well-maintained premium tractor with 2000 hours. Comes with full set of attachments including plough, harrow, and precision farming equipment. Recently serviced with all new fluids and filters.',
-    detailedSpecs:
-      'Engine: 410 HP\nTransmission: AutoPowr/IVT\nYear: 2020\nCondition: Excellent\nWarranty: 6 months remaining on drive train',
-    currentBid: 'SAR 350,000',
-    startingBid: 'SAR 300,000',
-    timeRemaining: '2 days, 5 hours',
-    bidCount: 12,
-    isFinished: false,
-    seller: {
-      name: 'Al-Riyadh Farm Equipment',
-      rating: 4.9,
-      verified: true,
-      image: 'https://via.placeholder.com/100',
-    },
-    bids: [
-      { user: 'Abdullah M.', amount: 'SAR 350,000', time: '4 hours ago', isHighest: true },
-      {
-        user: 'Farming Solutions LLC',
-        amount: 'SAR 345,000',
-        time: '6 hours ago',
-        isHighest: false,
-      },
-      { user: 'Mohammed A.', amount: 'SAR 340,000', time: '8 hours ago', isHighest: false },
-      { user: 'AgriBusiness Co.', amount: 'SAR 335,000', time: '10 hours ago', isHighest: false },
-      { user: 'Desert Farms Inc.', amount: 'SAR 330,000', time: '12 hours ago', isHighest: false },
-    ],
-  },
-  {
-    id: '2',
-    itemName: 'Large Irrigation System',
-    image: 'https://via.placeholder.com/400x300',
-    images: [
-      'https://via.placeholder.com/800x600',
-      'https://via.placeholder.com/800x600',
-      'https://via.placeholder.com/800x600',
-    ],
-    description:
-      'Complete center pivot irrigation system covering 50 hectares. 3 years old. Includes smart control system with mobile app integration and weather sensors.',
-    detailedSpecs:
-      'Coverage: 50 hectares\nWater Efficiency: 95%\nYear: 2021\nSmart Control: Yes\nPower Source: Solar/Electric hybrid',
-    currentBid: 'SAR 120,000',
-    startingBid: 'SAR 90,000',
-    timeRemaining: '8 hours',
-    bidCount: 8,
-    isFinished: false,
-    seller: {
-      name: 'Modern Irrigation Co.',
-      rating: 4.7,
-      verified: true,
-      image: 'https://via.placeholder.com/100',
-    },
-    bids: [
-      {
-        user: 'Sustainable Farms Ltd.',
-        amount: 'SAR 120,000',
-        time: '2 hours ago',
-        isHighest: true,
-      },
-      {
-        user: 'Green Desert Collective',
-        amount: 'SAR 115,000',
-        time: '5 hours ago',
-        isHighest: false,
-      },
-      { user: 'Faisal Agri-Tech', amount: 'SAR 110,000', time: '6 hours ago', isHighest: false },
-      { user: 'Oasis Technologies', amount: 'SAR 100,000', time: '12 hours ago', isHighest: false },
-    ],
-  },
-  {
-    id: '3',
-    itemName: 'Grain Storage Silos',
-    image: 'https://via.placeholder.com/400x300',
-    images: [
-      'https://via.placeholder.com/800x600',
-      'https://via.placeholder.com/800x600',
-      'https://via.placeholder.com/800x600',
-    ],
-    description:
-      'Set of 5 steel grain silos. 200 ton capacity each. Good condition with temperature monitoring system and aeration fans. Includes transport and installation.',
-    detailedSpecs:
-      'Capacity: 5 x 200 tons\nMaterial: Galvanized steel\nAge: 5 years\nMonitoring: Digital\nIncludes: Installation',
-    currentBid: 'SAR 85,000',
-    startingBid: 'SAR 70,000',
-    timeRemaining: '4 days, 12 hours',
-    bidCount: 5,
-    isFinished: false,
-    seller: {
-      name: 'Saudi Storage Solutions',
-      rating: 4.8,
-      verified: true,
-      image: 'https://via.placeholder.com/100',
-    },
-    bids: [
-      { user: 'Grain Processing Co.', amount: 'SAR 85,000', time: '1 day ago', isHighest: true },
-      { user: 'Al-Madinah Farms', amount: 'SAR 80,000', time: '2 days ago', isHighest: false },
-      {
-        user: 'Royal Agricultural Ventures',
-        amount: 'SAR 75,000',
-        time: '3 days ago',
-        isHighest: false,
-      },
-    ],
-  },
-  {
-    id: '4',
-    itemName: 'Premium Harvester',
-    image: 'https://via.placeholder.com/400x300',
-    images: [
-      'https://via.placeholder.com/800x600',
-      'https://via.placeholder.com/800x600',
-      'https://via.placeholder.com/800x600',
-    ],
-    description:
-      'Top-of-the-line harvester with precision cutting technology and advanced cabin features. Only 500 operating hours.',
-    detailedSpecs:
-      'Model: CLAAS LEXION 8900\nHours: 500\nYear: 2022\nCutting width: 12m\nGrain tank: 13,500 L',
-    currentBid: 'SAR 650,000',
-    startingBid: 'SAR 600,000',
-    timeRemaining: 'Auction Ended',
-    bidCount: 15,
-    isFinished: true,
-    seller: {
-      name: 'Premium Farm Equipment',
-      rating: 4.9,
-      verified: true,
-      image: 'https://via.placeholder.com/100',
-    },
-    bids: [
-      { user: 'Elite Farming Corp', amount: 'SAR 650,000', time: '4 days ago', isHighest: true },
-      { user: 'AgriKing LLC', amount: 'SAR 645,000', time: '4 days ago', isHighest: false },
-      {
-        user: 'Royal Wheat Producers',
-        amount: 'SAR 640,000',
-        time: '5 days ago',
-        isHighest: false,
-      },
-    ],
-  },
-];
-
 const Marketplace = () => {
   const [activeTab, setActiveTab] = useState('feed');
   const [isSupplier, setIsSupplier] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
   const navigation = useNavigation<MarketplaceScreenNavigationProp>();
   const baseUrl = process.env.EXPO_PUBLIC_API_URL;
 
@@ -209,6 +66,42 @@ const Marketplace = () => {
       };
     }, [])
   );
+
+  // Add this to make the refresh function globally available
+  useEffect(() => {
+    // Create a global function that can be called from the MarketplaceFeed component
+    if (window) {
+      window.refreshMarketplaceProducts = fetchProducts;
+      window.viewSupplierProfile = viewSupplierProfile;
+    }
+
+    return () => {
+      // Clean up when component unmounts
+      if (window) {
+        delete window.refreshMarketplaceProducts;
+        delete window.viewSupplierProfile;
+      }
+    };
+  }, []);
+
+  // Add this to make the showProductDetail function globally available
+  useEffect(() => {
+    // Create global functions that can be called from other components
+    if (window) {
+      window.refreshMarketplaceProducts = fetchProducts;
+      window.viewSupplierProfile = viewSupplierProfile;
+      window.showProductDetail = handleProductSelect;
+    }
+
+    return () => {
+      // Clean up when component unmounts
+      if (window) {
+        delete window.refreshMarketplaceProducts;
+        delete window.viewSupplierProfile;
+        delete window.showProductDetail;
+      }
+    };
+  }, []);
 
   const fetchProducts = async () => {
     try {
@@ -249,36 +142,61 @@ const Marketplace = () => {
 
       // Transform API data to match the Product interface
       const formattedProducts: Product[] = data.cropListings.map((listing: any) => {
-        // Debug each supplier
-        if (!listing.supplier) {
-          console.log('Missing supplier for listing:', listing.id, listing);
-        } else {
-          console.log('Supplier found for listing:', listing.id, listing.supplier.company_name);
+        // Debug supplier data for each listing
+        console.log(`Supplier for listing ${listing.id}:`, listing.supplier);
+        console.log(`Phone number from supplier:`, listing.supplier?.company_phone);
+
+        // Extract media/images from the listing
+        const mediaItems = listing.media || [];
+
+        // Format image URLs correctly - remove '/api' if present
+        const imageUrls = mediaItems.map((media: any) => {
+          let imageUrl = media.url || '';
+          // Make sure URLs don't have /api prefix
+          if (imageUrl.startsWith('/api/')) {
+            imageUrl = imageUrl.replace('/api/', '/');
+          }
+          // Ensure URL starts with baseUrl (without the /api part)
+          return `${baseUrl.replace('/api', '')}${imageUrl}`;
+        });
+
+        // Format company logo URL correctly
+        let companyLogo = listing.supplier?.company_logo || '';
+        if (companyLogo.startsWith('/api/')) {
+          companyLogo = companyLogo.replace('/api/', '/');
         }
+        companyLogo = companyLogo
+          ? `${baseUrl.replace('/api', '')}${companyLogo}`
+          : 'https://developers.elementor.com/docs/assets/img/elementor-placeholder-image.png';
+
+        // Default image if no images are available
+        const defaultImage =
+          'https://developers.elementor.com/docs/assets/img/elementor-placeholder-image.png';
 
         return {
           id: listing.id.toString(),
+          supplierId: listing.supplierId.toString(),
           companyName: listing.supplier?.company_name || 'Unknown Supplier',
-          avatar:
-            listing.supplier?.company_logo ||
-            'https://developers.elementor.com/docs/assets/img/elementor-placeholder-image.png',
-          image: 'https://developers.elementor.com/docs/assets/img/elementor-placeholder-image.png', // Default image for now
-          description: listing.description || listing.crop_name, // Use crop_name if description is missing
+          avatar: companyLogo,
+          phoneNumber: listing.supplier?.company_phone || '',
+          image: imageUrls.length > 0 ? imageUrls[0] : defaultImage,
+          images: imageUrls.length > 0 ? imageUrls : [defaultImage],
+          description: listing.description || listing.crop_name,
           price: `${listing.currency} ${listing.price} / ${listing.unit}`,
           quantity: `${listing.quantity} ${listing.unit} available`,
           timePosted: new Date(listing.createdAt).toLocaleDateString(),
-          minimumOrder: '1 unit', // Default
-          deliveryTime: '2-5 days', // Default value
-          certification: 'Standard Quality', // Default value
+          minimumOrder: `${listing.min_order_quantity || 1} ${listing.unit}`,
+          deliveryTime: '2-5 days',
+          certification: 'Standard Quality',
           specifications: {
             Category: listing.sub_category || 'General',
             'Listing Type': listing.listing_type || 'Fixed Price',
             Status: listing.status || 'Active',
+            'Minimum Order': `${listing.min_order_quantity || 1} ${listing.unit}`,
           },
         };
       });
 
-      console.log(`Processed ${formattedProducts.length} products for display`);
       setProducts(formattedProducts);
     } catch (error) {
       console.error('Error fetching products:', error);
@@ -286,9 +204,11 @@ const Marketplace = () => {
         // Get more detailed error info
         console.error('Response status:', error.response?.status);
         console.error('Response data:', error.response?.data);
-        setError(`Failed to load products: ${error.response?.data?.message || error.message}`);
+        setError(
+          `فشل في تحميل المنتجات. يرجى التحقق من اتصالك والمحاولة مرة أخرى. ${error.response?.data?.message || error.message}`
+        );
       } else {
-        setError('Failed to load products. Please check your connection and try again.');
+        setError('فشل في تحميل المنتجات. يرجى التحقق من اتصالك والمحاولة مرة أخرى.');
       }
       setProducts([]); // Set empty array so UI can render properly
     } finally {
@@ -348,7 +268,7 @@ const Marketplace = () => {
 
       // Check if we're a supplier first
       if (!isSupplier) {
-        Alert.alert('Permission Error', 'You must be registered as a supplier to add products');
+        Alert.alert('خطأ في الصلاحيات', 'يجب أن تكون مسجلاً كمورد لإضافة المنتجات');
         return;
       }
 
@@ -357,7 +277,7 @@ const Marketplace = () => {
       console.log('Navigation to AddProduct requested');
     } catch (error) {
       console.error('Navigation error:', error);
-      Alert.alert('Navigation Error', 'Could not navigate to Add Product screen');
+      Alert.alert('خطأ في التنقل', 'لا يمكن الانتقال إلى صفحة إضافة المنتج');
     }
   };
 
@@ -367,6 +287,29 @@ const Marketplace = () => {
     checkIfSupplier().then(() => {
       console.log('Supplier status refresh complete, current status:', isSupplier);
     });
+  };
+
+  const viewSupplierProfile = (supplierId: string) => {
+    setSelectedSupplierId(supplierId);
+    setActiveTab('supplier');
+  };
+
+  const handleBackToFeed = () => {
+    setSelectedSupplierId(null);
+    setActiveTab('feed');
+  };
+
+  // Add this function to handle product selection and show details
+  const handleProductSelect = (product: Product) => {
+    console.log('Product selected for details:', product.id);
+    setSelectedProduct(product);
+    setDetailModalVisible(true);
+  };
+
+  // Add this function to close product details
+  const closeProductDetail = () => {
+    setDetailModalVisible(false);
+    setSelectedProduct(null);
   };
 
   const renderTabContent = () => {
@@ -389,48 +332,201 @@ const Marketplace = () => {
         }
 
         return <MarketplaceFeed data={products} />;
-      case 'auction':
-        return <AuctionHouse data={auctionData} />;
       case 'company':
         return (
           <View style={{ flex: 1 }}>
             <CompanyProfile />
           </View>
         );
+      case 'supplier':
+        return (
+          <SupplierProfile
+            supplierId={selectedSupplierId}
+            onProductSelect={handleProductSelect}
+            onBackToAllSuppliers={handleBackToFeed}
+          />
+        );
       default:
         return <MarketplaceFeed data={products} />;
     }
   };
 
+  // Add a function to render product detail modal
+  const renderProductDetailModal = () => {
+    if (!selectedProduct) return null;
+
+    const windowWidth = Dimensions.get('window').width;
+
+    return (
+      <Modal
+        animationType="slide"
+        transparent={false}
+        visible={detailModalVisible}
+        onRequestClose={closeProductDetail}>
+        <StatusBar barStyle="light-content" />
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={closeProductDetail} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color="#fff" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>تفاصيل المنتج</Text>
+            <View style={{ width: 24 }} />
+          </View>
+
+          <ScrollView style={styles.modalScrollView}>
+            {/* Image Carousel */}
+            <ScrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onScroll={(event) => {
+                const contentOffset = event.nativeEvent.contentOffset;
+                const viewSize = event.nativeEvent.layoutMeasurement;
+                const index = Math.floor(contentOffset.x / viewSize.width);
+                setActiveImageIndex(index);
+              }}
+              scrollEventThrottle={16}>
+              {selectedProduct.images.map((img, index) => (
+                <Image
+                  key={index}
+                  source={{ uri: img }}
+                  style={[styles.carouselImage, { width: windowWidth }]}
+                />
+              ))}
+            </ScrollView>
+
+            {selectedProduct.images.length > 1 && (
+              <View style={styles.paginationContainer}>
+                {selectedProduct.images.map((_, index) => (
+                  <View
+                    key={index}
+                    style={[
+                      styles.paginationDot,
+                      index === activeImageIndex && styles.paginationDotActive,
+                    ]}
+                  />
+                ))}
+              </View>
+            )}
+
+            <View style={styles.detailSection}>
+              <View style={styles.companyInfoContainer}>
+                <TouchableOpacity onPress={() => viewSupplierProfile(selectedProduct.supplierId)}>
+                  <Image
+                    source={{ uri: selectedProduct.avatar }}
+                    style={styles.companyDetailLogo}
+                  />
+                </TouchableOpacity>
+                <View>
+                  <Text style={styles.companyDetailName}>{selectedProduct.companyName}</Text>
+                  <Text style={styles.timePostedDetail}>{selectedProduct.timePosted}</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.contactButton}
+                  onPress={() => {
+                    if (selectedProduct.phoneNumber) {
+                      Linking.openURL(`tel:${selectedProduct.phoneNumber}`);
+                    } else {
+                      Alert.alert('خطأ', 'رقم الهاتف غير متوفر');
+                    }
+                  }}>
+                  <Text style={styles.contactButtonText}>تواصل مع المورد</Text>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.productDetailTitle}>{selectedProduct.description}</Text>
+
+              <View style={styles.pricingContainer}>
+                <View style={styles.pricingItem}>
+                  <Text style={styles.pricingLabel}>السعر</Text>
+                  <Text style={styles.pricingValue}>{selectedProduct.price}</Text>
+                </View>
+                <View style={styles.pricingItem}>
+                  <Text style={styles.pricingLabel}>متوفر</Text>
+                  <Text style={styles.pricingValue}>{selectedProduct.quantity}</Text>
+                </View>
+              </View>
+
+              <View style={styles.orderInfoContainer}>
+                <View style={styles.orderInfoItem}>
+                  <MaterialCommunityIcons
+                    name="package-variant"
+                    size={20}
+                    color={theme.colors.primary.base}
+                  />
+                  <Text style={styles.orderInfoText}>
+                    الحد الأدنى للطلب: {selectedProduct.minimumOrder}
+                  </Text>
+                </View>
+                <View style={styles.orderInfoItem}>
+                  <MaterialCommunityIcons
+                    name="truck-delivery"
+                    size={20}
+                    color={theme.colors.primary.base}
+                  />
+                  <Text style={styles.orderInfoText}>التوصيل: {selectedProduct.deliveryTime}</Text>
+                </View>
+              </View>
+
+              <View style={styles.certificationContainer}>
+                <Text style={styles.sectionTitle}>الشهادات</Text>
+                <View style={styles.certificationBadge}>
+                  <MaterialCommunityIcons
+                    name="certificate"
+                    size={18}
+                    color={theme.colors.secondary.base}
+                  />
+                  <Text style={styles.certificationText}>{selectedProduct.certification}</Text>
+                </View>
+              </View>
+
+              <View style={styles.specificationsContainer}>
+                <Text style={styles.sectionTitle}>المواصفات</Text>
+                {Object.entries(selectedProduct.specifications).map(([key, value], index) => (
+                  <View key={index} style={styles.specificationRow}>
+                    <Text style={styles.specificationKey}>
+                      {key.charAt(0).toUpperCase() + key.slice(1)}
+                    </Text>
+                    <Text style={styles.specificationValue}>{value}</Text>
+                  </View>
+                ))}
+              </View>
+
+              <TouchableOpacity style={styles.requestQuoteButton}>
+                <Text style={styles.requestQuoteButtonText}>طلب عرض سعر</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
+    );
+  };
+
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Farming Marketplace</Text>
+      <Text style={styles.header}>سوق المزارع</Text>
 
       <View style={styles.tabContainer}>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'feed' && styles.activeTab]}
           onPress={() => setActiveTab('feed')}>
           <Text style={[styles.tabText, activeTab === 'feed' && styles.activeTabText]}>
-            Products
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'auction' && styles.activeTab]}
-          onPress={() => setActiveTab('auction')}>
-          <Text style={[styles.tabText, activeTab === 'auction' && styles.activeTabText]}>
-            Auctions
+            المنتجات
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'company' && styles.activeTab]}
           onPress={() => setActiveTab('company')}>
           <Text style={[styles.tabText, activeTab === 'company' && styles.activeTabText]}>
-            My Company
+            شركتي
           </Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.contentContainer}>{renderTabContent()}</View>
+
+      {/* Add the product detail modal */}
+      {renderProductDetailModal()}
 
       {isSupplier && activeTab === 'feed' && (
         <TouchableOpacity
@@ -443,6 +539,9 @@ const Marketplace = () => {
     </View>
   );
 };
+
+// Add these styles for the product detail modal
+const windowWidth = Dimensions.get('window').width;
 
 const styles = StyleSheet.create({
   container: {
@@ -521,6 +620,215 @@ const styles = StyleSheet.create({
     fontFamily: theme.fonts.medium,
     textAlign: 'center',
   },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: theme.colors.neutral.background,
+  },
+  modalScrollView: {
+    flex: 1,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: theme.colors.primary.base,
+    paddingTop: theme.spacing.xl,
+    paddingBottom: theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
+    ...theme.shadows.small,
+  },
+  backButton: {
+    padding: 4,
+  },
+  modalTitle: {
+    fontFamily: theme.fonts.bold,
+    fontSize: theme.fontSizes.h2,
+    color: '#FFFFFF',
+  },
+  carouselImage: {
+    height: 250,
+    resizeMode: 'cover',
+  },
+  paginationContainer: {
+    flexDirection: 'row',
+    position: 'absolute',
+    bottom: 10,
+    alignSelf: 'center',
+    justifyContent: 'center',
+  },
+  paginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255,255,255,0.5)',
+    marginHorizontal: 4,
+  },
+  paginationDotActive: {
+    backgroundColor: '#FFFFFF',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  detailSection: {
+    padding: theme.spacing.md,
+  },
+  companyInfoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+    padding: theme.spacing.sm,
+    backgroundColor: theme.colors.neutral.surface,
+    borderRadius: theme.borderRadius.medium,
+    ...theme.shadows.small,
+  },
+  companyDetailLogo: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: theme.spacing.sm,
+  },
+  companyDetailName: {
+    fontFamily: theme.fonts.bold,
+    fontSize: theme.fontSizes.body,
+    color: theme.colors.neutral.textPrimary,
+  },
+  timePostedDetail: {
+    fontFamily: theme.fonts.regular,
+    fontSize: theme.fontSizes.caption,
+    color: theme.colors.neutral.textSecondary,
+  },
+  contactButton: {
+    marginLeft: 'auto',
+    backgroundColor: theme.colors.primary.base,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: theme.borderRadius.medium,
+  },
+  contactButtonText: {
+    fontFamily: theme.fonts.medium,
+    fontSize: theme.fontSizes.caption,
+    color: '#FFFFFF',
+  },
+  productDetailTitle: {
+    fontFamily: theme.fonts.bold,
+    fontSize: theme.fontSizes.h2,
+    color: theme.colors.neutral.textPrimary,
+    marginBottom: theme.spacing.md,
+    lineHeight: 28,
+  },
+  pricingContainer: {
+    flexDirection: 'row',
+    backgroundColor: theme.colors.neutral.surface,
+    borderRadius: theme.borderRadius.medium,
+    ...theme.shadows.small,
+    marginBottom: theme.spacing.md,
+  },
+  pricingItem: {
+    flex: 1,
+    padding: theme.spacing.md,
+    alignItems: 'center',
+  },
+  pricingLabel: {
+    fontFamily: theme.fonts.regular,
+    fontSize: theme.fontSizes.caption,
+    color: theme.colors.neutral.textSecondary,
+    marginBottom: 4,
+  },
+  pricingValue: {
+    fontFamily: theme.fonts.bold,
+    fontSize: theme.fontSizes.h2,
+    color: theme.colors.accent.base,
+  },
+  orderInfoContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(0,0,0,0.02)',
+    borderRadius: theme.borderRadius.medium,
+    padding: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
+  },
+  orderInfoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  orderInfoText: {
+    fontFamily: theme.fonts.medium,
+    fontSize: theme.fontSizes.body,
+    color: theme.colors.neutral.textPrimary,
+    marginLeft: 6,
+  },
+  certificationContainer: {
+    marginBottom: theme.spacing.md,
+  },
+  certificationBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(101, 196, 102, 0.1)',
+    borderRadius: theme.borderRadius.medium,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    alignSelf: 'flex-start',
+  },
+  certificationText: {
+    fontFamily: theme.fonts.medium,
+    fontSize: theme.fontSizes.body,
+    color: theme.colors.secondary.base,
+    marginLeft: 6,
+  },
+  sectionTitle: {
+    fontFamily: theme.fonts.bold,
+    fontSize: theme.fontSizes.h2,
+    color: theme.colors.neutral.textPrimary,
+    marginBottom: theme.spacing.sm,
+  },
+  specificationsContainer: {
+    backgroundColor: theme.colors.neutral.surface,
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.medium,
+    marginBottom: theme.spacing.lg,
+  },
+  specificationRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: theme.spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+  },
+  specificationKey: {
+    fontFamily: theme.fonts.medium,
+    fontSize: theme.fontSizes.body,
+    color: theme.colors.neutral.textSecondary,
+    flex: 1,
+  },
+  specificationValue: {
+    fontFamily: theme.fonts.regular,
+    fontSize: theme.fontSizes.body,
+    color: theme.colors.neutral.textPrimary,
+    flex: 2,
+    textAlign: 'right',
+  },
+  requestQuoteButton: {
+    backgroundColor: theme.colors.primary.base,
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.borderRadius.medium,
+    alignItems: 'center',
+    ...theme.shadows.medium,
+    marginBottom: theme.spacing.xl,
+  },
+  requestQuoteButtonText: {
+    fontFamily: theme.fonts.bold,
+    fontSize: theme.fontSizes.button,
+    color: '#FFFFFF',
+  },
 });
+
+// Add TypeScript declaration to avoid type errors
+declare global {
+  interface Window {
+    refreshMarketplaceProducts?: () => Promise<void>;
+    viewSupplierProfile?: (supplierId: string) => void;
+    showProductDetail?: (product: Product) => void;
+  }
+}
 
 export default Marketplace;

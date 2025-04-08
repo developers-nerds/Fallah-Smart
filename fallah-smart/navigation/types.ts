@@ -46,6 +46,25 @@ export type StockStackParamList = {
   NotificationSettings: undefined;
   SupplierRegistrationForm: undefined;
   WelcomeOnboarding: undefined;
+  EditCompanyProfile: {
+    supplier: {
+      id: number;
+      company_name: string;
+      about_us: string;
+      company_address: string;
+      company_phone: string;
+      company_email: string;
+      company_website: string;
+      company_logo: string;
+      company_banner: string;
+      is_verified: boolean;
+      open_time: string;
+      close_time: string;
+      createdAt: string;
+      updatedAt: string;
+      userId: number;
+    };
+  };
 };
 
 export type DrawerParamList = {
