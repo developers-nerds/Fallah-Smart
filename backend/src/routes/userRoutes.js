@@ -126,7 +126,10 @@ router.get('/dashboard/users', auth, userController.getDashboardUsers);
 router.post(
   '/apply-advisor',
   auth,
-  upload.array('documents', 5), // Allow up to 5 documents
+  upload.fields([
+    { name: 'documents', maxCount: 5 },
+    { name: 'certificationPhotos', maxCount: 5 }
+  ]), // Allow multiple types of files with their field names
   userController.applyForAdvisor
 );
 

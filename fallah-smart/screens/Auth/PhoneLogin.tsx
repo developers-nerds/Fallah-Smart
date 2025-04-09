@@ -13,7 +13,7 @@ import {
   ScrollView,
   ToastAndroid,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, CommonActions } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { StockStackParamList } from '../../navigation/types';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,6 +22,7 @@ import { storage } from '../../utils/storage';
 import { theme } from '../../theme/theme';
 import { API_URL as configApiUrl } from '../../config/api';
 import { useAuth } from '../../context/AuthContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type PhoneLoginNavigationProp = NativeStackNavigationProp<StockStackParamList>;
 
@@ -56,6 +57,20 @@ const PhoneLogin = () => {
   // Countdown for resend button
   const [countdown, setCountdown] = useState(0);
   const [canResend, setCanResend] = useState(true);
+  
+  // Mark onboarding as complete when component mounts
+  useEffect(() => {
+    const markOnboardingComplete = async () => {
+      try {
+        await AsyncStorage.setItem('@onboarding_complete', 'true');
+        console.log('Onboarding marked as complete on PhoneLogin mount');
+      } catch (error) {
+        console.error('Error marking onboarding as complete:', error);
+      }
+    };
+    
+    markOnboardingComplete();
+  }, []);
   
   // Timer for countdown
   useEffect(() => {
@@ -213,6 +228,14 @@ const PhoneLogin = () => {
         throw new Error('Invalid response from server');
       }
       
+      // Mark onboarding as complete to bypass the WelcomeOnboarding screen
+      try {
+        await AsyncStorage.setItem('@onboarding_complete', 'true');
+        console.log('Onboarding marked as complete');
+      } catch (error) {
+        console.error('Error marking onboarding as complete:', error);
+      }
+      
       // Save tokens using the storage utility (same as in Login.tsx)
       await Promise.all([
         storage.setUser({...user, account}),
@@ -240,8 +263,13 @@ const PhoneLogin = () => {
         // Navigate to complete profile
         navigation.replace('CompleteProfile', { userId: user.id });
       } else {
-        // Navigate to home screen
-        navigation.replace('StockTab');
+        // Navigate directly to home screen, completely resetting navigation state
+        navigation.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{ name: 'StockTab' }],
+          })
+        );
       }
       
     } catch (error: any) {

@@ -45,17 +45,16 @@ exports.createCropListing = async (req, res) => {
       const uploadPromises = req.files.map(async (file) => {
         // Generate unique filename
         const filename = `${uuidv4()}${path.extname(file.originalname)}`;
-        const uploadPath = path.join(
-          __dirname,
-          "../../uploads/crops",
-          filename
-        );
+        const uploadDir = path.join(__dirname, "../../uploads/crops");
+        const uploadPath = path.join(uploadDir, filename);
 
         // Ensure directory exists
-        await fs.promises.mkdir(path.dirname(uploadPath), { recursive: true });
+        if (!fs.existsSync(uploadDir)) {
+          fs.mkdirSync(uploadDir, { recursive: true });
+        }
 
-        // Write file to disk
-        await fs.promises.writeFile(uploadPath, file.buffer);
+        // Move the file from temp directory to final location
+        fs.renameSync(file.path, uploadPath);
 
         // Create media record
         return Media.create({

@@ -562,6 +562,17 @@ const userController = {
         applicationNotes 
       } = req.body;
 
+      console.log("Received advisor application:", {
+        userId,
+        specialization,
+        experience,
+        education,
+        certifications,
+        applicationNotes
+      });
+      
+      console.log("Uploaded files:", req.files);
+
       // Check if user exists
       const user = await Users.findByPk(userId);
       if (!user) {
@@ -573,6 +584,22 @@ const userController = {
         return res.status(400).json({ message: 'You are already an advisor' });
       }
 
+      // Process uploaded files
+      let documentPaths = [];
+      let certificationPhotoPaths = [];
+      
+      if (req.files) {
+        // Handle document files
+        if (req.files.documents) {
+          documentPaths = req.files.documents.map(file => file.path);
+        }
+        
+        // Handle certification photos
+        if (req.files.certificationPhotos) {
+          certificationPhotoPaths = req.files.certificationPhotos.map(file => file.path);
+        }
+      }
+
       // Create advisor application record with APPROVED status
       const application = await AdvisorApplications.create({
         userId,
@@ -582,7 +609,8 @@ const userController = {
         certifications,
         applicationNotes,
         status: 'APPROVED', // Changed from 'PENDING' to 'APPROVED'
-        documents: req.files ? req.files.map(file => file.path) : [],
+        documents: documentPaths,
+        certificationPhotos: certificationPhotoPaths,
         submittedAt: new Date()
       });
 

@@ -10,7 +10,9 @@ import {
   Alert,
   Platform,
   KeyboardAvoidingView,
-  Image
+  Image,
+  ViewStyle,
+  TextStyle
 } from 'react-native';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
@@ -20,24 +22,65 @@ import { theme } from '../../theme/theme';
 import { storage } from '../../utils/storage';
 import { LinearGradient } from 'expo-linear-gradient';
 
-const AdvisorApplicationScreen = ({ navigation }) => {
+// Add type definitions at the top of the file
+interface NavigationProps {
+  navigation: {
+    navigate: (screen: string) => void;
+    goBack: () => void;
+  };
+}
+
+interface FormData {
+  specialization: string;
+  experience: string;
+  education: string;
+  certifications: string;
+  applicationNotes: string;
+}
+
+interface DocumentFile {
+  uri: string;
+  name: string;
+  type: string | undefined;
+}
+
+interface CertificationPhoto {
+  uri: string;
+  name: string;
+  type: string | undefined;
+}
+
+const AdvisorApplicationScreen = ({ navigation }: NavigationProps) => {
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 3;
   
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     specialization: '',
     experience: '',
     education: '',
     certifications: '',
-    applicationNote: '',
+    applicationNotes: '',
   });
   
-  const [documents, setDocuments] = useState([]);
-  const [certificationPhotos, setCertificationPhotos] = useState([]);
+  const [documents, setDocuments] = useState<DocumentFile[]>([]);
+  const [certificationPhotos, setCertificationPhotos] = useState<CertificationPhoto[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [applicationStatus, setApplicationStatus] = useState(null);
+  const [error, setError] = useState<string | null>(null);
+  const [applicationStatus, setApplicationStatus] = useState<string | null>(null);
   const API_URL = process.env.EXPO_PUBLIC_API;
+
+  // Define styles as typed objects
+  const centerContentStyle: ViewStyle = {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  };
+
+  const loadingTextStyle: TextStyle = {
+    marginTop: 16,
+    fontSize: 16,
+    color: theme.colors.neutral.textSecondary,
+  };
 
   useEffect(() => {
     checkApplicationStatus();
@@ -79,7 +122,8 @@ const AdvisorApplicationScreen = ({ navigation }) => {
     }
   };
 
-  const handleInputChange = (field, value) => {
+  // Fix handleInputChange to use proper types
+  const handleInputChange = (field: keyof FormData, value: string) => {
     setFormData({
       ...formData,
       [field]: value
@@ -110,7 +154,7 @@ const AdvisorApplicationScreen = ({ navigation }) => {
     }
   };
   
-  const removeDocument = (index) => {
+  const removeDocument = (index: number) => {
     const newDocs = [...documents];
     newDocs.splice(index, 1);
     setDocuments(newDocs);
@@ -133,7 +177,7 @@ const AdvisorApplicationScreen = ({ navigation }) => {
         const certPhoto = {
           uri: selectedPhoto.uri,
           name: `certification_${Date.now()}.jpg`,
-          type: 'image/jpeg',
+          type: selectedPhoto.mimeType,
         };
         
         // Add to certification photos list
@@ -168,7 +212,7 @@ const AdvisorApplicationScreen = ({ navigation }) => {
         const certPhoto = {
           uri: photo.uri,
           name: `certification_${Date.now()}.jpg`,
-          type: 'image/jpeg',
+          type: photo.mimeType,
         };
         
         // Add to certification photos list
@@ -180,7 +224,7 @@ const AdvisorApplicationScreen = ({ navigation }) => {
     }
   };
 
-  const removeCertificationPhoto = (index) => {
+  const removeCertificationPhoto = (index: number) => {
     const newPhotos = [...certificationPhotos];
     newPhotos.splice(index, 1);
     setCertificationPhotos(newPhotos);
@@ -247,15 +291,15 @@ const AdvisorApplicationScreen = ({ navigation }) => {
       form.append('experience', formData.experience);
       form.append('education', formData.education);
       form.append('certifications', formData.certifications);
-      form.append('applicationNote', formData.applicationNote);
+      form.append('applicationNotes', formData.applicationNotes);
 
       // Add certification photos to form data
       certificationPhotos.forEach((photo, index) => {
         form.append('certificationPhotos', {
           uri: Platform.OS === 'android' ? photo.uri : photo.uri.replace('file://', ''),
-          type: photo.type,
-          name: photo.name
-        });
+          type: photo.type || 'image/jpeg',
+          name: photo.name || `certification_${index}.jpg`
+        } as any);
       });
 
       // Add supporting documents
@@ -270,6 +314,13 @@ const AdvisorApplicationScreen = ({ navigation }) => {
           name: fileName
         } as any);
       });
+
+      console.log('Submitting form data:', form);
+      
+      // Log the form entries to help debug
+      for (let [key, value] of (form as any)._parts) {
+        console.log(`Form field: ${key}`, value);
+      }
 
       const response = await axios.post(
         `${API_URL}/api/users/apply-advisor`,
@@ -295,7 +346,7 @@ const AdvisorApplicationScreen = ({ navigation }) => {
       
       setApplicationStatus('APPROVED');
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting application:', error);
       
       if (error.response) {
@@ -306,10 +357,7 @@ const AdvisorApplicationScreen = ({ navigation }) => {
           
           Alert.alert(
             'Service Unavailable', 
-            'The advisor application service is temporarily unavailable. Please try again later.', 
-            [
-              { text: 'OK' }
-            ]
+            'The advisor application service is currently unavailable. Please try again later or contact support.'
           );
         } else {
           Alert.alert(
@@ -325,7 +373,7 @@ const AdvisorApplicationScreen = ({ navigation }) => {
         );
       } else {
         Alert.alert(
-          'Application Error',
+          'Submission Error',
           'An unexpected error occurred. Please try again.'
         );
       }
@@ -336,41 +384,39 @@ const AdvisorApplicationScreen = ({ navigation }) => {
 
   if (loading && !applicationStatus) {
     return (
-      <View style={[styles.container, styles.centerContent]}>
+      <View style={[styles.container, centerContentStyle]}>
         <ActivityIndicator size="large" color={theme.colors.primary.base} />
-        <Text style={styles.loadingText}>Checking application status...</Text>
+        <Text style={loadingTextStyle}>Checking application status...</Text>
       </View>
     );
   }
 
   if (applicationStatus) {
     return (
-      <View style={[styles.container, styles.centerContent]}>
+      <View style={[styles.container, centerContentStyle]}>
         <View style={styles.statusCard}>
           <MaterialIcons 
             name={applicationStatus === 'APPROVED' ? 'verified' : 'pending'} 
-            size={60} 
+            size={48} 
             color={applicationStatus === 'APPROVED' ? theme.colors.success : theme.colors.warning} 
           />
-          
           <Text style={styles.statusTitle}>
-            {applicationStatus === 'APPROVED' ? 'You are now an Advisor!' : 
-             applicationStatus === 'REJECTED' ? 'Application Rejected' :
-             'Application Pending'}
+            {applicationStatus === 'APPROVED' ? 'You are an Advisor!' : 'Application Status: ' + applicationStatus}
           </Text>
-          
-          <Text style={styles.statusDescription}>
-            {applicationStatus === 'APPROVED' ? 
-              'Congratulations! You are now a verified advisor. You can help other farmers with your expertise and knowledge.' : 
-             applicationStatus === 'REJECTED' ? 
-              'Unfortunately, your application was not approved. You may reapply after 30 days.' :
-              'Your application is currently under review. We will notify you once a decision has been made.'}
+          <Text style={styles.statusText}>
+            {applicationStatus === 'APPROVED' 
+              ? 'Your application has been approved. You now have advisor privileges.' 
+              : applicationStatus === 'PENDING'
+                ? 'Your application is currently under review. We will notify you once a decision has been made.'
+                : applicationStatus === 'REJECTED'
+                  ? 'Unfortunately, your application was not approved at this time.'
+                  : 'We need additional information to process your application.'}
           </Text>
-          
           <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}>
-            <Text style={styles.backButtonText}>Return to Blogs</Text>
+            style={styles.primaryButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.buttonText}>Return to Profile</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -379,7 +425,7 @@ const AdvisorApplicationScreen = ({ navigation }) => {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : null}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={{ flex: 1 }}
     >
       <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
@@ -558,13 +604,13 @@ const AdvisorApplicationScreen = ({ navigation }) => {
                 {certificationPhotos.length > 0 && (
                   <View style={styles.photosGrid}>
                     {certificationPhotos.map((photo, index) => (
-                      <View key={index} style={styles.photoContainer}>
+                      <View key={`photo-${index}`} style={styles.photoContainer}>
                         <Image source={{ uri: photo.uri }} style={styles.photoThumbnail} />
                         <TouchableOpacity
                           style={styles.removePhotoButton}
                           onPress={() => removeCertificationPhoto(index)}
                         >
-                          <MaterialIcons name="cancel" size={20} color="white" />
+                          <MaterialIcons name="close" size={20} color="white" />
                         </TouchableOpacity>
                       </View>
                     ))}
@@ -576,8 +622,8 @@ const AdvisorApplicationScreen = ({ navigation }) => {
                 <Text style={styles.inputLabel}>ملاحظة التطبيق</Text>
                 <TextInput
                   style={[styles.input, styles.multilineInput]}
-                  value={formData.applicationNote}
-                  onChangeText={(text) => handleInputChange('applicationNote', text)}
+                  value={formData.applicationNotes}
+                  onChangeText={(text) => handleInputChange('applicationNotes', text)}
                   placeholder="أي معلومات إضافية ترغب في مشاركتها"
                   placeholderTextColor={theme.colors.neutral.textSecondary}
                   multiline
@@ -600,15 +646,13 @@ const AdvisorApplicationScreen = ({ navigation }) => {
                 {documents.length > 0 && (
                   <View style={styles.documentsList}>
                     {documents.map((doc, index) => (
-                      <View key={index} style={styles.documentItem}>
-                        <View style={styles.documentInfo}>
-                          <Ionicons name="document-text" size={24} color={theme.colors.primary.base} />
-                          <Text style={styles.documentName} numberOfLines={1} ellipsizeMode="middle">
-                            {doc.name || `مستند ${index + 1}`}
-                          </Text>
+                      <View key={`doc-${index}`} style={styles.fileItem}>
+                        <View style={styles.fileItemInfo}>
+                          <MaterialIcons name="description" size={24} color={theme.colors.primary.base} />
+                          <Text style={styles.fileName} numberOfLines={1}>{doc.name}</Text>
                         </View>
                         <TouchableOpacity onPress={() => removeDocument(index)}>
-                          <MaterialIcons name="close" size={24} color={theme.colors.error.base} />
+                          <MaterialIcons name="close" size={24} color="red" />
                         </TouchableOpacity>
                       </View>
                     ))}
@@ -663,7 +707,7 @@ const AdvisorApplicationScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.neutral.surface,
+    backgroundColor: theme.colors.neutral.background,
   },
   contentContainer: {
     padding: 16,
@@ -847,21 +891,22 @@ const styles = StyleSheet.create({
   documentsList: {
     marginTop: 16,
   },
-  documentItem: {
+  fileItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: theme.colors.neutral.gray.lighter,
+    backgroundColor: theme.colors.neutral.gray.light,
     padding: 12,
     borderRadius: 8,
     marginBottom: 8,
   },
-  documentInfo: {
+  fileItemInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
   },
-  documentName: {
+  fileName: {
+    marginLeft: 8,
     fontSize: 14,
     fontFamily: theme.fonts.medium,
     color: theme.colors.neutral.textPrimary,
@@ -936,21 +981,21 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     textAlign: 'center',
   },
-  statusDescription: {
+  statusText: {
     fontSize: 16,
     color: theme.colors.neutral.textSecondary,
     lineHeight: 22,
     textAlign: 'center',
     marginBottom: 24,
   },
-  backButton: {
+  primaryButton: {
     backgroundColor: theme.colors.primary.base,
     borderRadius: 8,
     padding: 12,
     alignItems: 'center',
     width: '100%',
   },
-  backButtonText: {
+  buttonText: {
     fontSize: 16,
     fontWeight: 'bold',
     color: theme.colors.neutral.surface,

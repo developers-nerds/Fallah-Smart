@@ -75,9 +75,7 @@ const Login = () => {
   }, [isLoading, fadeAnim]);
 
   // Get API URL with fallback options
-  const API_URL = process.env.EXPO_PUBLIC_API_URL || 
-                  configApiUrl || 
-                  'http://192.168.1.3:5000/api';
+  const API_URL = process.env.EXPO_PUBLIC_API_URL 
 
   // Helper for showing toast messages
   const showToast = (message: string) => {

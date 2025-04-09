@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Pressable, Text, TouchableOpacity, Alert } from 'react-native';
+import { View, StyleSheet, Pressable, Text, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import {
   DrawerContentScrollView,
   DrawerItem,
@@ -17,7 +17,7 @@ import Animated, {
   useSharedValue,
   Easing,
 } from 'react-native-reanimated';
-import { useNavigation, CommonActions } from '@react-navigation/native';
+import { useNavigation, CommonActions, useFocusEffect } from '@react-navigation/native';
 import { storage } from '../utils/storage';
 import { theme } from '../theme/theme';
 import { getCurrentUser } from '../screens/Education/utils/userProgress';
@@ -111,15 +111,34 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
   const currentRoute = props.state.routeNames[props.state.index];
   const [isAdvisor, setIsAdvisor] = useState(false);
 
+  // Check user role on mount and whenever drawer is opened
   useEffect(() => {
+    // Initial check
     checkUserRole();
+    
+    // Check every 3 seconds for role changes
+    const intervalId = setInterval(checkUserRole, 3000);
+    
+    return () => {
+      clearInterval(intervalId);
+    };
   }, []);
+
+  // Check role when drawer content is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      checkUserRole();
+      return () => {};
+    }, [])
+  );
 
   const checkUserRole = async () => {
     try {
       const user = await getCurrentUser();
       if (user && user.role === 'ADVISOR') {
         setIsAdvisor(true);
+      } else {
+        setIsAdvisor(false);
       }
     } catch (error) {
       console.error('Error checking user role:', error);
@@ -162,113 +181,119 @@ const SideBar: React.FC<DrawerContentComponentProps> = (props) => {
         <MaterialCommunityIcons name="menu" size={24} color="#ffffff" />
       </View>
 
-      <MenuItem
-        icon="home-variant"
-        label="بيت"
-        active={currentRoute === 'HomeContent'}
-        onPress={() => {
-          props.navigation.navigate('HomeContent', { refreshScanHistory: true });
-          props.navigation.closeDrawer();
-        }}
-        navigation={props.navigation}
-      />
-      <MenuItem
-        icon="warehouse"
-        label="المخزون "
-        active={currentRoute === 'Stock'}
-        onPress={() => {
-          props.navigation.navigate('Stock');
-          props.navigation.closeDrawer();
-        }}
-        navigation={props.navigation}
-      />
-      <MenuItem
-        icon="store"
-        label="السوق"
-        active={currentRoute === 'Marketplace'}
-        onPress={() => {
-          props.navigation.navigate('Marketplace');
-          props.navigation.closeDrawer();
-        }}
-        navigation={props.navigation}
-      />
-  
-      <MenuItem
-        icon="chat"
-        label="محادثة"
-        active={currentRoute === 'Chat'}
-        onPress={() => {
-          props.navigation.navigate('Chat');
-          props.navigation.closeDrawer();
-        }}
-        navigation={props.navigation}
-      />
-      <MenuItem
-        icon="barcode-scan"
-        label="مسح ضوئي"
-        active={currentRoute === 'Scan'}
-        onPress={() => {
-          props.navigation.navigate('Scan');
-          props.navigation.closeDrawer();
-        }}
-        navigation={props.navigation}
-      />
-
-      <MenuItem
-        icon="wallet"
-        label="محفظتي"
-        active={currentRoute === 'محفظتي'}
-        onPress={() => {
-          props.navigation.navigate('Wallet');
-          props.navigation.closeDrawer();
-        }}
-        navigation={props.navigation}
-      />
-
-      <MenuItem
-        icon="weather-partly-cloudy"
-        label="الطقس والزراعة"
-        active={currentRoute === 'Weather'}
-        onPress={() => {
-          props.navigation.navigate('Weather');
-          props.navigation.closeDrawer();
-        }}
-        navigation={props.navigation}
-      />
-
-      <MenuItem
-        icon="book-open-variant"
-        label="قاموس"
-        active={currentRoute === 'Dictionary'}
-        onPress={() => {
-          props.navigation.navigate('Dictionary');
-          props.navigation.closeDrawer();
-        }}
-        navigation={props.navigation}
-      />
-      <MenuItem
-        icon="school"
-        label="تعليم"
-        active={currentRoute === 'تعليم'}
-        onPress={() => {
-          props.navigation.navigate('Education')
-          props.navigation.closeDrawer();
-        }}
-        navigation={props.navigation}
-      />
-
-      {isAdvisor && (
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
         <MenuItem
-          icon="account-tie"
-          label="مستشار"
-          active={currentRoute === 'Advisor'}
+          icon="home-variant"
+          label="بيت"
+          active={currentRoute === 'HomeContent'}
           onPress={() => {
-            props.navigation.navigate('Advisor');
+            props.navigation.navigate('HomeContent', { refreshScanHistory: true });
             props.navigation.closeDrawer();
           }}
           navigation={props.navigation}
         />
-      )}
+        <MenuItem
+          icon="warehouse"
+          label="المخزون "
+          active={currentRoute === 'Stock'}
+          onPress={() => {
+            props.navigation.navigate('Stock');
+            props.navigation.closeDrawer();
+          }}
+          navigation={props.navigation}
+        />
+        <MenuItem
+          icon="store"
+          label="السوق"
+          active={currentRoute === 'Marketplace'}
+          onPress={() => {
+            props.navigation.navigate('Marketplace');
+            props.navigation.closeDrawer();
+          }}
+          navigation={props.navigation}
+        />
+    
+        <MenuItem
+          icon="chat"
+          label="محادثة"
+          active={currentRoute === 'Chat'}
+          onPress={() => {
+            props.navigation.navigate('Chat');
+            props.navigation.closeDrawer();
+          }}
+          navigation={props.navigation}
+        />
+        <MenuItem
+          icon="barcode-scan"
+          label="مسح ضوئي"
+          active={currentRoute === 'Scan'}
+          onPress={() => {
+            props.navigation.navigate('Scan');
+            props.navigation.closeDrawer();
+          }}
+          navigation={props.navigation}
+        />
+
+        <MenuItem
+          icon="wallet"
+          label="محفظتي"
+          active={currentRoute === 'محفظتي'}
+          onPress={() => {
+            props.navigation.navigate('Wallet');
+            props.navigation.closeDrawer();
+          }}
+          navigation={props.navigation}
+        />
+
+        <MenuItem
+          icon="weather-partly-cloudy"
+          label="الطقس والزراعة"
+          active={currentRoute === 'Weather'}
+          onPress={() => {
+            props.navigation.navigate('Weather');
+            props.navigation.closeDrawer();
+          }}
+          navigation={props.navigation}
+        />
+
+        <MenuItem
+          icon="book-open-variant"
+          label="قاموس"
+          active={currentRoute === 'Dictionary'}
+          onPress={() => {
+            props.navigation.navigate('Dictionary');
+            props.navigation.closeDrawer();
+          }}
+          navigation={props.navigation}
+        />
+        <MenuItem
+          icon="school"
+          label="تعليم"
+          active={currentRoute === 'تعليم'}
+          onPress={() => {
+            props.navigation.navigate('Education')
+            props.navigation.closeDrawer();
+          }}
+          navigation={props.navigation}
+        />
+
+        {isAdvisor && (
+          <MenuItem
+            icon="account-tie"
+            label="مستشار"
+            active={currentRoute === 'Advisor'}
+            onPress={() => {
+              props.navigation.navigate('Advisor');
+              props.navigation.closeDrawer();
+            }}
+            navigation={props.navigation}
+          />
+        )}
+      </ScrollView>
 
       <View style={styles.logoutContainer}>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
@@ -291,6 +316,12 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 20,
   },
   menuItem: {
     marginVertical: 3,
