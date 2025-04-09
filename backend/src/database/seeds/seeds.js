@@ -1,20 +1,23 @@
-const { faker } = require('@faker-js/faker');
+const { faker } = require("@faker-js/faker");
 
 // Remove duplicate import if it exists
-const seedCategories = require('./categoriesSeeds');
-const seedUsers = require('./userSeeds');
+const seedCategories = require("./categoriesSeeds");
+const seedUsers = require("./userSeeds");
+const seedSuppliers = require("./SuppliersSeed");
+const seedCropListings = require("./cropListingSeeds");
+const seedMarketplaceMedia = require("./marketplaceMediaseeds");
 
-const seedCrops = require('./cropSeeds');  // Keep only one import
-const seedCropDetails = require('./cropDetailsSeeds');
-const seedAnimalDocs = require('./animalDocSeeds');
+const seedCrops = require("./cropSeeds"); // Keep only one import
+const seedCropDetails = require("./cropDetailsSeeds");
+const seedAnimalDocs = require("./animalDocSeeds");
 // const seedUserAnimals = require('./userAnimalSeeds');
-const seedUserAnimalDetails = require('./animalDetailsSeeds');  
+const seedUserAnimalDetails = require("./animalDetailsSeeds");
 // const seedPesticides = require('./pesticideSeeds');
 // const seedStocks = require('./stockSeeds');
 // const seedStockHistory = require('./stockHistorySeeds');
-const seedPosts = require('./postSeeds');
-const seedComments = require('./commentSeeds');
-const seedLikes = require('./likeSeeds');
+const seedPosts = require("./postSeeds");
+const seedComments = require("./commentSeeds");
+const seedLikes = require("./likeSeeds");
 // const seedConversations = require('./conversationSeeds');
 // const seedMessages = require('./messageSeeds');
 // const seedBackupSync = require('./backupSyncSeeds');
@@ -22,32 +25,36 @@ const seedLikes = require('./likeSeeds');
 // const seedMedia = require('./mediaSeeds');
 // const seedRecurringTransactions = require('./recurringTransactionSeeds');
 // const seedTransactions = require('./transactionSeeds');
-// const seedScans = require('./scanSeeds');
-
-
+const seedScans = require("./scanSeeds");
 
 //////////////////////SEEDS FOR EDUCATION//////////////////////
-const seedEducationQuizzes = require('./Education_QuizzesSeeds');
-const seedEducationQuestions = require('./Education_QuestionsSeeds');
-const seedEducationVideos = require('./Education_VideosSeeds');
-const seedEducationAdditionalVideos = require('./Education_AdditionalVideosSeeds');
-const seedEducationCrops = require('./Education_CropsSeeds');
-const seedEducationAnimals = require('./EducationAnimalsSeeds');
+const seedEducationQuizzes = require("./Education_QuizzesSeeds");
+const seedEducationQuestions = require("./Education_QuestionsSeeds");
+const seedEducationVideos = require("./Education_VideosSeeds");
+const seedEducationAdditionalVideos = require("./Education_AdditionalVideosSeeds");
+const seedEducationCrops = require("./Education_CropsSeeds");
+const seedEducationAnimals = require("./EducationAnimalsSeeds");
 
-const initializeDatabase = require('../dbInit');
+const initializeDatabase = require("../dbInit");
 
 async function seedAll() {
   try {
-    console.log('🌱 Starting database seeding...');
-    
+    console.log("🌱 Starting database seeding...");
+
     // Initialize database first (create tables)
     await initializeDatabase();
-    
+
     // Then proceed with seeding
     await seedUsers();
     console.log("🌱 Seeding users...");
     await seedCategories();
     console.log("🌱 Seeding categories...");
+    await seedSuppliers();
+    console.log("🌱 Seeding suppliers...");
+    await seedCropListings();
+    console.log("🌱 Seeding crop listings...");
+    await seedMarketplaceMedia();
+    console.log("🌱 Seeding marketplace media...");
     // await seedNotifications();
     console.log("🌱 Seeding notifications...");
     // await seedStockHistory();
@@ -56,7 +63,7 @@ async function seedAll() {
     await seedAnimalDocs();
     console.log("🌱 Seeding animal docs...");
     await seedUserAnimalDetails();
-    await seedCrops(); 
+    await seedCrops();
     console.log("🌱 Seeding crops...");
     await seedCropDetails();
     // await seedPesticides();
@@ -66,10 +73,11 @@ async function seedAll() {
     console.log("🌱 Seeding comments...");
     await seedLikes();
     console.log("🌱 Seeding likes...");
-    // await seedScans();
+    await seedScans();
+    console.log("🌱 Seeding scans...");
     // await seedMedia();
     console.log("🌱 Seeding media...");
-    // await seedConversations(); 
+    // await seedConversations();
     // await seedAccounts();
     // await seedTransactions();
     // await seedRecurringTransactions();
@@ -83,11 +91,11 @@ async function seedAll() {
     await seedEducationAdditionalVideos();
     await seedEducationCrops();
     await seedEducationAnimals();
-    
-    console.log('✅ All data seeded successfully!');
+
+    console.log("✅ All data seeded successfully!");
     return true;
   } catch (error) {
-    console.error('❌ Error during database seeding:', error);
+    console.error("❌ Error during database seeding:", error);
     throw error;
   }
 }
@@ -96,11 +104,11 @@ async function seedAll() {
 if (require.main === module) {
   seedAll()
     .then(() => {
-      console.log('Database seeding completed');
+      console.log("Database seeding completed");
       process.exit(0);
     })
     .catch((error) => {
-      console.error('Database seeding failed:', error);
+      console.error("Database seeding failed:", error);
       process.exit(1);
     });
 }
