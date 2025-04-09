@@ -30,6 +30,10 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.ARRAY(DataTypes.STRING),
         defaultValue: [],
       },
+      certificationPhotos: {
+        type: DataTypes.ARRAY(DataTypes.STRING),
+        defaultValue: [],
+      },
       status: {
         type: DataTypes.ENUM('PENDING', 'APPROVED', 'REJECTED', 'PENDING_MORE_INFO'),
         defaultValue: 'PENDING',

@@ -62,11 +62,11 @@ const host = process.env.HOST || 'localhost';
 const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests from these origins
-    const allowedOrigins = [
-      'http://localhost:5174',  
-      'http://localhost:5173',    // Vite dev server
+    const allowedOrigins = [  
+      'http://localhost:5174',
+       'http://localhost:5173',
       'http://localhost:3000',     // React dev server
-      'http://localhost:8081',     // Possible alternative port
+      'http://localhost:8081',     // Possible alternative port 
       'http://localhost:5000'      // Same origin
     ];
 
@@ -108,16 +108,39 @@ app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 // Add error handling for multer
 app.use((err, req, res, next) => {
   if (err instanceof multer.MulterError) {
-    if (err.code === "LIMIT_FILE_SIZE") {
+    console.error('Multer error:', err);
+    
+    // Handle specific Multer errors
+    if (err.code === 'LIMIT_FILE_SIZE') {
       return res.status(400).json({
-        message: "File is too large. Maximum size is 5MB",
+        message: 'File is too large. Maximum size is 5MB',
+        error: err.message,
+        code: err.code
+      });
+    } else if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+      return res.status(400).json({
+        message: 'Unexpected field in form submission. Please check your form field names.',
+        error: err.message,
+        code: err.code,
+        field: err.field
+      });
+    } else if (err.code === 'LIMIT_FILE_COUNT') {
+      return res.status(400).json({
+        message: 'Too many files uploaded',
+        error: err.message,
+        code: err.code
       });
     }
+    
+    // Generic multer error handler
     return res.status(400).json({
-      message: "File upload error",
+      message: 'File upload error',
       error: err.message,
+      code: err.code
     });
   }
+  
+  // For other errors, continue to the next error handler
   next(err);
 });
 

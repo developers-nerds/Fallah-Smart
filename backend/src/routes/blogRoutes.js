@@ -7,6 +7,7 @@ const upload = require('../utils/multerConfig');
 // Post routes
 router.get('/posts', blogController.getAllPosts);
 router.get('/posts/search', blogController.searchPosts);
+router.get('/search/suggestions', blogController.getSearchSuggestions);
 router.get('/posts/:postId', blogController.getPostById);
 router.post('/posts', auth, upload.array('images', 5), blogController.createPost);
 router.put('/posts/:postId', auth, upload.array('images', 5), blogController.updatePost);

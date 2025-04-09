@@ -131,8 +131,8 @@ const createSupplier = async (req, res) => {
         const logoFileName = `logo_${userId}_${Date.now()}${logoExt}`;
         const logoPath = path.join(uploadDir, logoFileName);
 
-        // Save the file
-        fs.writeFileSync(logoPath, logoFile.buffer);
+        // Move the file from temp directory to final location
+        fs.renameSync(logoFile.path, logoPath);
         company_logo = `/uploads/company/${logoFileName}`;
         console.log("Logo saved successfully:", company_logo);
       }
@@ -150,8 +150,8 @@ const createSupplier = async (req, res) => {
         const bannerFileName = `banner_${userId}_${Date.now()}${bannerExt}`;
         const bannerPath = path.join(uploadDir, bannerFileName);
 
-        // Save the file
-        fs.writeFileSync(bannerPath, bannerFile.buffer);
+        // Move the file from temp directory to final location
+        fs.renameSync(bannerFile.path, bannerPath);
         company_banner = `/uploads/company/${bannerFileName}`;
         console.log("Banner saved successfully:", company_banner);
       }

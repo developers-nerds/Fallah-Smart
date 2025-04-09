@@ -19,6 +19,8 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { StockStackParamList } from '../../navigation/types';
 import { API_URL as configApiUrl } from '../../config/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { CommonActions } from '@react-navigation/native';
 
 type CompleteProfileRouteProp = RouteProp<StockStackParamList, 'CompleteProfile'>;
 type CompleteProfileNavigationProp = NativeStackNavigationProp<StockStackParamList>;
@@ -138,6 +140,14 @@ const CompleteProfile = () => {
       setIsLoading(true);
       setError('');
       
+      // Mark onboarding as complete to bypass the WelcomeOnboarding screen
+      try {
+        await AsyncStorage.setItem('@onboarding_complete', 'true');
+        console.log('Onboarding marked as complete');
+      } catch (error) {
+        console.error('Error marking onboarding as complete:', error);
+      }
+      
       // Make API request to update profile
       const response = await axios.put(`${API_URL}/phone-auth/complete-profile`, formData, {
         headers: {
@@ -149,10 +159,12 @@ const CompleteProfile = () => {
       Alert.alert(arabicTranslations.success, arabicTranslations.profileUpdated, [
         { 
           text: 'OK', 
-          onPress: () => navigation.navigate({
-            name: 'WelcomeOnboarding',
-            params: undefined
-          })
+          onPress: () => navigation.dispatch(
+            CommonActions.reset({
+              index: 0,
+              routes: [{ name: 'StockTab' }],
+            })
+          )
         }
       ]);
       

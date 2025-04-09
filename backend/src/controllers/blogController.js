@@ -107,6 +107,15 @@ const blogController = {
       
       // Transform post data
       const postData = post.toJSON();
+      
+      // Map 'content' to 'text' for all comments
+      if (postData.comments && postData.comments.length > 0) {
+        postData.comments = postData.comments.map(comment => ({
+          ...comment,
+          text: comment.content
+        }));
+      }
+      
       const formattedPost = {
         ...postData,
         author: postData.author,
@@ -165,7 +174,7 @@ const blogController = {
           }
           const fileName = path.basename(file.path);
           // Make URL consistent with how your frontend serves static files
-          const filePath = `${BASE_URL}/uploads/${fileName}`;
+          const filePath = `/uploads/${fileName}`;
           
           // Determine media type based on mimetype
           let type = 'other';
@@ -173,7 +182,7 @@ const blogController = {
           if (file.mimetype.startsWith('video/')) type = 'video';
 
           return Media.create({
-            url: filePath, // Save the full URL
+            url: filePath, // Save the path without BASE_URL
             type,
             file_path: file.path,
             file_type: file.mimetype,
@@ -265,8 +274,8 @@ const blogController = {
         const mediaPromises = files.map(file => {
           // Get file path relative to server - FIX URL FORMAT HERE
           const fileName = path.basename(file.path);
-          // Use full URL path that will be accessible from the frontend
-          const filePath = `${BASE_URL}/uploads/${fileName}`;
+          // Use relative URL path that will be accessible from the frontend
+          const filePath = `/uploads/${fileName}`;
           
           // Determine media type based on mimetype
           let type = 'other';
@@ -274,7 +283,7 @@ const blogController = {
           if (file.mimetype.startsWith('video/')) type = 'video';
 
           return Media.create({
-            url: filePath, // Use the full URL
+            url: filePath, // Use the relative URL
             type,
             file_path: file.path,
             file_type: file.mimetype,
@@ -395,7 +404,16 @@ const blogController = {
         order: [['createdAt', 'DESC']]
       });
 
-      res.status(200).json(comments);
+      // Transform comments to include text field for frontend compatibility
+      const formattedComments = comments.map(comment => {
+        const commentJson = comment.toJSON();
+        return {
+          ...commentJson,
+          text: commentJson.content
+        };
+      });
+
+      res.status(200).json(formattedComments);
     } catch (error) {
       res.status(500).json({ message: 'Error fetching comments', error: error.message });
     }
@@ -417,11 +435,12 @@ const blogController = {
       
       // Handle image upload if present
       if (req.file) {
-        const filePath = `/uploads/${req.file.filename}`;
+        const fileName = path.basename(req.file.path);
+        const filePath = `/uploads/${fileName}`;
         
         // Create the media entry
         const media = await Media.create({
-          url: filePath,
+          url: filePath, // Use relative path without BASE_URL
           type: 'image',
           commentId: comment.id
         });
@@ -449,6 +468,9 @@ const blogController = {
       if (responseData.media && responseData.media.length > 0) {
         responseData.imageUrl = responseData.media[0].url;
       }
+      
+      // Map the content field to text for frontend compatibility
+      responseData.text = responseData.content;
       
       res.status(201).json(responseData);
     } catch (error) {
@@ -513,10 +535,11 @@ const blogController = {
       // Add new media if file is uploaded
       if (file) {
         // Get file path relative to server
-        const filePath = `/uploads/${path.basename(file.path)}`;
+        const fileName = path.basename(file.path);
+        const filePath = `/uploads/${fileName}`;
         
         await Media.create({
-          url: filePath,
+          url: filePath, // Use relative path without BASE_URL
           type: 'image',
           commentId,
           originalName: file.originalname,
@@ -541,7 +564,11 @@ const blogController = {
         ]
       });
 
-      res.status(200).json(updatedComment);
+      // Transform comment to include text field for frontend compatibility
+      const responseData = updatedComment.toJSON();
+      responseData.text = responseData.content;
+
+      res.status(200).json(responseData);
     } catch (error) {
       res.status(500).json({ message: 'Error updating comment', error: error.message });
     }
@@ -838,6 +865,63 @@ const blogController = {
       res.status(200).json({ message: 'Report submitted successfully' });
     } catch (error) {
       res.status(500).json({ message: 'Failed to submit report', error: error.message });
+    }
+  },
+
+  // New function for search suggestions
+  getSearchSuggestions: async (req, res) => {
+    try {
+      const { query } = req.query;
+      
+      if (!query || query.trim() === '') {
+        return res.status(200).json([]);
+      }
+      
+      // Find posts with titles or descriptions matching the query
+      const posts = await Posts.findAll({
+        where: {
+          [Op.or]: [
+            { title: { [Op.iLike]: `%${query}%` } },
+            { description: { [Op.iLike]: `%${query}%` } }
+          ]
+        },
+        attributes: ['title', 'description'],
+        limit: 10,
+        order: [['createdAt', 'DESC']]
+      });
+      
+      // Extract hashtags from descriptions for suggestions
+      const hashtags = [];
+      const titleSuggestions = [];
+      
+      posts.forEach(post => {
+        // Add title-based suggestions
+        if (post.title && post.title.toLowerCase().includes(query.toLowerCase())) {
+          titleSuggestions.push(post.title);
+        }
+        
+        // Extract hashtags from description
+        if (post.description) {
+          const hashtagRegex = /#[a-zA-Z0-9_]+\b/g;
+          const matches = post.description.match(hashtagRegex) || [];
+          
+          matches.forEach(hashtag => {
+            if (hashtag.toLowerCase().includes(query.toLowerCase()) && !hashtags.includes(hashtag)) {
+              hashtags.push(hashtag);
+            }
+          });
+        }
+      });
+      
+      // Combine suggestions, remove duplicates, and limit to 10
+      const suggestions = [
+        ...new Set([...titleSuggestions, ...hashtags])
+      ].slice(0, 10);
+      
+      res.status(200).json(suggestions);
+    } catch (error) {
+      console.error('Error getting search suggestions:', error);
+      res.status(500).json({ message: 'Error retrieving search suggestions', error: error.message });
     }
   }
 };
