@@ -834,25 +834,24 @@ Media.belongsTo(CropListings, {
 ////////////////////////////////////////Hedhy Associations Mte3i Rodo belkom chabeb ///////////////
 
 // // //Sync all models with the database
-async function syncModels() {
-  const transaction = await sequelize.transaction();
+//   const transaction = await sequelize.transaction();
 
-  try {
-    await sequelize.sync({ force: true, transaction });
-    await sequelize.sync({ alter: true, transaction });
+//   try {
+//     await sequelize.sync({ force: true, transaction });
+//     await sequelize.sync({ alter: true, transaction });
 
-    await transaction.commit();
-    console.log("Database models synchronized successfully");
-  } catch (error) {
-    await transaction.rollback();
-    console.error("Error synchronizing database models:", error);
-    throw error; // Rethrow to ensure the error is visible
-  }
-}
-syncModels().catch((err) => {
-  console.error("Failed to sync models:", err);
-  process.exit(1);
-});
+//     await transaction.commit();
+//     console.log("Database models synchronized successfully");
+//   } catch (error) {
+//     await transaction.rollback();
+//     console.error("Error synchronizing database models:", error);
+//     throw error; // Rethrow to ensure the error is visible
+//   }
+// }
+// syncModels().catch((err) => {
+//   console.error("Failed to sync models:", err);
+//   process.exit(1);
+// });
 
 // Export models AFTER defining associations
 module.exports = {

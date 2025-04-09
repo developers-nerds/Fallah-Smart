@@ -19,7 +19,7 @@ import { MaterialCommunityIcons, FontAwesome5, Ionicons } from '@expo/vector-ico
 import { theme } from '../../theme/theme';
 import { storage } from '../../utils/storage';
 import { BackButton } from '../../components/BackButton';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -75,6 +75,12 @@ interface FormData {
 
 // Add navigation type
 type NavigationProp = NativeStackNavigationProp<any>;
+
+// Add type definition for route params
+interface RouteParams {
+  showVerificationOnly?: boolean;
+  supplierEmail?: string;
+}
 
 // Steps for the form
 const STEPS = [
@@ -156,7 +162,7 @@ const generateRandomKey = () => {
 
 export const SupplierRegistrationForm: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
-  const route = useRoute();
+  const route = useRoute<RouteProp<Record<string, RouteParams>, string>>();
 
   // Check if we're coming from verification request
   const showVerificationOnly = route.params?.showVerificationOnly || false;
@@ -2331,7 +2337,7 @@ const styles = StyleSheet.create({
   verificationCard: {
     backgroundColor: theme.colors.neutral.surface,
     borderRadius: theme.borderRadius.large,
-    padding: theme.spacing.xl,
+    padding: responsivePadding(isSmallDevice ? theme.spacing.md : theme.spacing.xl),
     width: '100%',
     maxWidth: 500,
     alignItems: 'center',
@@ -2358,29 +2364,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.neutral.background,
-    padding: theme.spacing.md,
+    padding: responsivePadding(theme.spacing.md),
     borderRadius: theme.borderRadius.medium,
     marginBottom: theme.spacing.lg,
     width: '100%',
     justifyContent: 'center',
+    flexWrap: 'wrap',
   },
   emailText: {
-    fontSize: normalize(18),
+    fontSize: normalize(isSmallDevice ? 16 : 18),
     fontFamily: theme.fonts.medium,
     color: theme.colors.primary.dark,
     marginLeft: theme.spacing.sm,
+    textAlign: 'center',
   },
   verificationInstructions: {
-    fontSize: normalize(14),
+    fontSize: normalize(isSmallDevice ? 12 : 14),
     fontFamily: theme.fonts.regular,
     color: theme.colors.neutral.textSecondary,
     textAlign: 'center',
-    marginBottom: theme.spacing.xl,
-    lineHeight: 22,
+    marginBottom: responsivePadding(theme.spacing.md),
+    lineHeight: isSmallDevice ? 18 : 22,
+    paddingHorizontal: responsivePadding(theme.spacing.xs),
   },
   resendButton: {
-    padding: theme.spacing.sm,
-    marginBottom: theme.spacing.lg,
+    padding: responsivePadding(theme.spacing.xs),
+    marginBottom: responsivePadding(theme.spacing.md),
+    alignItems: 'center',
   },
   resendButtonText: {
     fontSize: normalize(14),
@@ -2463,19 +2473,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     width: '100%',
     marginVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.sm,
   },
   codeInput: {
-    width: 45,
-    height: 55,
+    width: responsiveWidth(isSmallDevice ? 10 : 12),
+    height: responsiveWidth(isSmallDevice ? 12 : 14),
     borderWidth: 1.5,
     borderColor: theme.colors.neutral.border,
     borderRadius: theme.borderRadius.small,
     textAlign: 'center',
-    fontSize: normalize(20),
+    fontSize: normalize(isSmallDevice ? 16 : 20),
     fontFamily: theme.fonts.medium,
     backgroundColor: theme.colors.neutral.background,
     color: theme.colors.neutral.textPrimary,
+    padding: 0, // Remove padding to help with sizing
   },
   codeInputFilled: {
     borderColor: theme.colors.primary.base,
@@ -2487,7 +2497,7 @@ const styles = StyleSheet.create({
   },
   verificationActions: {
     width: '100%',
-    marginTop: theme.spacing.md,
+    marginTop: responsivePadding(theme.spacing.sm),
   },
   resendButtonDisabled: {
     opacity: 0.6,
@@ -2500,8 +2510,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: theme.colors.primary.base,
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.xl,
+    paddingVertical: responsivePadding(isSmallDevice ? theme.spacing.sm : theme.spacing.md),
+    paddingHorizontal: responsivePadding(isSmallDevice ? theme.spacing.lg : theme.spacing.xl),
     borderRadius: theme.borderRadius.medium,
     width: '100%',
     marginTop: theme.spacing.md,
@@ -2512,7 +2522,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   verifyButtonText: {
-    fontSize: normalize(16),
+    fontSize: normalize(isSmallDevice ? 14 : 16),
     fontFamily: theme.fonts.medium,
     color: theme.colors.neutral.surface,
   },

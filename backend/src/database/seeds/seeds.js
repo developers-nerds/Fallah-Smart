@@ -25,7 +25,7 @@ const seedLikes = require("./likeSeeds");
 // const seedMedia = require('./mediaSeeds');
 // const seedRecurringTransactions = require('./recurringTransactionSeeds');
 // const seedTransactions = require('./transactionSeeds');
-const seedScans = require("./scanSeeds");
+// const seedScans = require("./scanSeeds");
 
 //////////////////////SEEDS FOR EDUCATION//////////////////////
 const seedEducationQuizzes = require("./Education_QuizzesSeeds");
@@ -73,7 +73,7 @@ async function seedAll() {
     console.log("🌱 Seeding comments...");
     await seedLikes();
     console.log("🌱 Seeding likes...");
-    await seedScans();
+    // await seedScans();
     console.log("🌱 Seeding scans...");
     // await seedMedia();
     console.log("🌱 Seeding media...");
